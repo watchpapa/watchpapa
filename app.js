@@ -7,9 +7,6 @@ const app = express();
 
 app.use(express.json());
 
-// Temporary WorkInProgress page (until frontend is built)
-app.use(express.static(path.join(__dirname, "public")));
-
 // Health check
 app.get("/health", (_req, res) => {
   res.json({ status: "ok" });

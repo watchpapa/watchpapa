@@ -1,7 +1,7 @@
 {
-  "name": "streamradar",
+  "name": "watchpapa",
   "version": "1.0.0",
-  "description": "StreamRadar",
+  "description": "watchpapa",
   "type": "module",
   "main": "index.js",
   "scripts": {
