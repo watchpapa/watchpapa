@@ -13,7 +13,6 @@ Detailed MVP implementation backlog based on current `README.md`, approved archi
 
 - [ ] Create `BrowsePage` route and `LayoutShell`.
 - [ ] Implement `TopNav` with sections: `Popular`, `Movies`, `Shows`, `People`.
-- [ ] Implement `ReleaseCalendarCTA`.
 - [ ] Implement reusable `ContentSection`.
 - [ ] Implement reusable `MediaCard`.
 - [ ] Implement reusable `PosterImage` with fallback.

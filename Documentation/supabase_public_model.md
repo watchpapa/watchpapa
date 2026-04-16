@@ -171,6 +171,46 @@ These tables are the personalization layer between authenticated users and media
 
 ---
 
+## Current RLS Policies
+
+From the current Supabase policies configuration (screenshots), the `public` schema is using:
+
+### Read policies (applied to `anon`, `authenticated`)
+
+- `department`: `public_read_department_select` (`SELECT`)
+- `episode`: `public_read_episode_select` (`SELECT`)
+- `episode_credits`: `public_read_episode_credits_select` (`SELECT`)
+- `job`: `public_read_job_select` (`SELECT`)
+- `movie`: `public_read_movie_select` (`SELECT`)
+- `movie_credits`: `public_read_movie_credits_select` (`SELECT`)
+- `movie_genre`: `public_read_movie_genre_select` (`SELECT`)
+- `person`: `public_read_person_select` (`SELECT`)
+- `person_aka`: `public_read_person_aka_select` (`SELECT`)
+- `possible_movie_genres`: `public_read_possible_movie_genres_select` (`SELECT`)
+- `possible_show_genres`: `public_read_possible_show_genres_select` (`SELECT`)
+- `season`: `public_read_season_select` (`SELECT`)
+- `show`: `public_read_show_select` (`SELECT`)
+- `show_credits`: `public_read_show_credits_select` (`SELECT`)
+- `show_genre`: `public_read_show_genre_select` (`SELECT`)
+
+### Follow-table ownership policies (`authenticated` only)
+
+For `user_followed_movies`:
+
+- `user_followed_movies_select_own` (`SELECT`)
+- `user_followed_movies_insert_own` (`INSERT`)
+- `user_followed_movies_update_own` (`UPDATE`)
+- `user_followed_movies_delete_own` (`DELETE`)
+
+For `user_followed_shows`:
+
+- `user_followed_shows_select_own` (`SELECT`)
+- `user_followed_shows_insert_own` (`INSERT`)
+- `user_followed_shows_update_own` (`UPDATE`)
+- `user_followed_shows_delete_own` (`DELETE`)
+
+---
+
 ## Notes and Observations
 
 - Timestamp defaults are mostly normalized to UTC.
