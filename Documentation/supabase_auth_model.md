@@ -36,6 +36,8 @@ Primary account table for authenticated identities, with email/phone credentials
 - State flags: `is_super_admin`, `is_sso_user`, `is_anonymous`
 - Lifecycle fields include `confirmed_at`, `banned_until`, `deleted_at`
 
+Watchpapa links each optional app profile in `public.profile` to the same UUID: `public.profile.id` is a foreign key to `auth.users(id)`. User-specific follow lists in `public` reference `profile.id`, not `auth.users` directly. See [Supabase Public Model](./supabase_public_model.md).
+
 ### `identities`
 
 Stores linked provider identities (for example email, OAuth, social providers) for a user.
@@ -228,6 +230,7 @@ Migration version tracking for auth schema changes.
 
 ## Cardinality Summary
 
+- `users` 1 -> 0..1 `public.profile` (at most one profile row per user; `profile.id` references `users.id`)
 - `users` 1 -> many `identities`
 - `users` 1 -> many `sessions`
 - `users` 1 -> many `one_time_tokens`
@@ -251,6 +254,7 @@ Migration version tracking for auth schema changes.
 ## Notes and Observations
 
 - The schema separates user identity (`users`) from provider identities (`identities`) and from runtime session/token state.
+- Application-owned fields (username, date of birth, content ratings, roles) live in `public.profile`, which anchors foreign keys for user follow tables while keeping `auth` focused on authentication.
 - OAuth support is comprehensive: client registration, authorization transactions, persisted consents, and custom provider definitions.
 - Enterprise auth is modeled with a layered SSO/SAML design (`sso_providers` + `sso_domains` + `saml_*`).
 - MFA is represented as factors, challenges, and AMR claims tied back to sessions.
