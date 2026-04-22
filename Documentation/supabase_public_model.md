@@ -146,7 +146,8 @@ CREATE TABLE public.person (
   deleted_at timestamp with time zone,
   known_for_department bigint,
   profile_path text,
-  CONSTRAINT person_pkey PRIMARY KEY (id)
+  CONSTRAINT person_pkey PRIMARY KEY (id),
+  CONSTRAINT person_known_for_department_fkey FOREIGN KEY (known_for_department) REFERENCES public.department(id)
 );
 CREATE TABLE public.person_aka (
   id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
@@ -245,21 +246,21 @@ CREATE TABLE public.show_genre (
 );
 CREATE TABLE public.user_followed_movies (
   id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
-  user_id uuid NOT NULL,
+  profile_id uuid NOT NULL,
   movie_id bigint NOT NULL,
   created_at timestamp with time zone NOT NULL DEFAULT (now() AT TIME ZONE 'utc'::text),
   CONSTRAINT user_followed_movies_pkey PRIMARY KEY (id),
   CONSTRAINT user_followed_movies_movie_id_fkey FOREIGN KEY (movie_id) REFERENCES public.movie(id),
-  CONSTRAINT user_followed_movies_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profile(id)
+  CONSTRAINT user_followed_movies_profile_id_fkey FOREIGN KEY (profile_id) REFERENCES public.profile(id)
 );
 CREATE TABLE public.user_followed_shows (
   id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
-  user_id uuid NOT NULL,
+  profile_id uuid NOT NULL,
   show_id bigint NOT NULL,
   created_at timestamp with time zone NOT NULL DEFAULT (now() AT TIME ZONE 'utc'::text),
   CONSTRAINT user_followed_shows_pkey PRIMARY KEY (id),
   CONSTRAINT user_followed_shows_show_id_fkey FOREIGN KEY (show_id) REFERENCES public.show(id),
-  CONSTRAINT user_followed_shows_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profile(id)
+  CONSTRAINT user_followed_shows_profile_id_fkey FOREIGN KEY (profile_id) REFERENCES public.profile(id)
 );
 ```
 
@@ -287,7 +288,8 @@ Stores TMDB TV show metadata: `adult`, `episode_run_time`, `first_air_date`, `in
 Stores cast/crew person records from TMDB: `name`, `adult`, optional `biography` and `birthday`, optional `place_of_birth` and `deathday`, `gender`, `popularity`, optional `known_for_department` and `profile_path`.
 
 - Primary key: `id` (`bigint`, identity)
-- External source key: `tmdb_id` (required, `NOT NULL`)
+- External source key: `tmdb_id` (required, `NOT NULL`, unique)
+- Foreign key: `known_for_department -> department.id` (nullable)
 
 ### `person_aka`
 
@@ -401,7 +403,7 @@ Follow tables reference `profile.id`, not `auth.users` directly.
 Tracks movies a user follows.
 
 - Primary key: `id` (`bigint`, identity)
-- Foreign key: `user_id -> profile.id`
+- Foreign key: `profile_id -> profile.id`
 - Foreign key: `movie_id -> movie.id`
 - `created_at` default: UTC expression `(now() AT TIME ZONE 'utc')`
 
@@ -410,7 +412,7 @@ Tracks movies a user follows.
 Tracks shows a user follows.
 
 - Primary key: `id` (`bigint`, identity)
-- Foreign key: `user_id -> profile.id`
+- Foreign key: `profile_id -> profile.id`
 - Foreign key: `show_id -> show.id`
 - `created_at` default: same UTC expression as `user_followed_movies`
 
@@ -436,6 +438,7 @@ RLS for `script_logs` is not listed in the inventory below; confirm in the Supab
 ## Cardinality Summary
 
 - `department` 1 -> many `job`
+- `department` 1 -> many `person` via optional `person.known_for_department`
 - `show` 1 -> many `season`
 - `season` 1 -> many `episode`
 - `person` 1 -> many `person_aka`
@@ -493,17 +496,17 @@ No `UPDATE` or `DELETE` policy is listed for `script_logs` in the provided expor
 
 For `user_followed_movies`:
 
-- `user_followed_movies_select_own` (`SELECT`) - `USING (user_id = auth.uid())`
-- `user_followed_movies_insert_own` (`INSERT`) - `WITH CHECK (user_id = auth.uid())`
-- `user_followed_movies_update_own` (`UPDATE`) - `USING (user_id = auth.uid())` and `WITH CHECK (user_id = auth.uid())`
-- `user_followed_movies_delete_own` (`DELETE`) - `USING (user_id = auth.uid())`
+- `user_followed_movies_select_own` (`SELECT`) - `USING (profile_id = auth.uid())`
+- `user_followed_movies_insert_own` (`INSERT`) - `WITH CHECK (profile_id = auth.uid())`
+- `user_followed_movies_update_own` (`UPDATE`) - `USING (profile_id = auth.uid())` and `WITH CHECK (profile_id = auth.uid())`
+- `user_followed_movies_delete_own` (`DELETE`) - `USING (profile_id = auth.uid())`
 
 For `user_followed_shows`:
 
-- `user_followed_shows_select_own` (`SELECT`) - `USING (user_id = auth.uid())`
-- `user_followed_shows_insert_own` (`INSERT`) - `WITH CHECK (user_id = auth.uid())`
-- `user_followed_shows_update_own` (`UPDATE`) - `USING (user_id = auth.uid())` and `WITH CHECK (user_id = auth.uid())`
-- `user_followed_shows_delete_own` (`DELETE`) - `USING (user_id = auth.uid())`
+- `user_followed_shows_select_own` (`SELECT`) - `USING (profile_id = auth.uid())`
+- `user_followed_shows_insert_own` (`INSERT`) - `WITH CHECK (profile_id = auth.uid())`
+- `user_followed_shows_update_own` (`UPDATE`) - `USING (profile_id = auth.uid())` and `WITH CHECK (profile_id = auth.uid())`
+- `user_followed_shows_delete_own` (`DELETE`) - `USING (profile_id = auth.uid())`
 
 ---
 
