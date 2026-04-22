@@ -4,6 +4,39 @@ import sequelize from "../db/database.js";
 dotenv.config();
 
 const TMDB_JOBS_URL = "https://api.themoviedb.org/3/configuration/jobs";
+const SCRIPT_NAME = "inject_jobs_and_departments";
+
+async function writeScriptLog({
+  status,
+  batchSize,
+  errorCode,
+  errorDetail,
+  startedAt,
+}) {
+  try {
+    await sequelize.query(
+      `
+        INSERT INTO public.script_logs
+          (script_name, status, batch_size, error_code, error_detail, started_at, finished_at)
+        VALUES
+          (:scriptName, :status, :batchSize, :errorCode, :errorDetail, :startedAt, :finishedAt);
+      `,
+      {
+        replacements: {
+          scriptName: SCRIPT_NAME,
+          status,
+          batchSize: batchSize ?? null,
+          errorCode: errorCode ?? null,
+          errorDetail: errorDetail ?? null,
+          startedAt: startedAt ?? null,
+          finishedAt: new Date(),
+        },
+      }
+    );
+  } catch (logError) {
+    console.error("Failed to write script_logs row:", logError.message);
+  }
+}
 
 function getApiKey() {
   const apiKey = process.env.TMDB_API_KEY_SECRET;
@@ -190,31 +223,52 @@ async function saveJobs(jobsByDepartment, transaction) {
   }
 
   process.stdout.write("\n");
-  return { insertedDepartments, insertedJobs };
+  return { insertedDepartments, insertedJobs, totalDepartments, totalJobs };
 }
 
 async function seedTmdbJobs() {
   const apiKey = getApiKey();
+  const startedAt = new Date();
 
   try {
-    await sequelize.authenticate();
-    await ensureTable();
-
-    const jobsByDepartment = await fetchTmdbJobs(apiKey);
-    const transaction = await sequelize.transaction();
-
     try {
-      const { insertedDepartments, insertedJobs } = await saveJobs(
-        jobsByDepartment,
-        transaction
-      );
-      await transaction.commit();
+      await sequelize.authenticate();
+      await ensureTable();
+
+      const jobsByDepartment = await fetchTmdbJobs(apiKey);
+      const transaction = await sequelize.transaction();
+
+      let saveResult;
+      try {
+        saveResult = await saveJobs(jobsByDepartment, transaction);
+        await transaction.commit();
+      } catch (error) {
+        await transaction.rollback();
+        throw error;
+      }
+
+      const { insertedDepartments, insertedJobs, totalDepartments, totalJobs } =
+        saveResult;
 
       console.log(
         `TMDB jobs sync complete. New departments: ${insertedDepartments}, new jobs: ${insertedJobs}`
       );
+
+      await writeScriptLog({
+        status: "success",
+        batchSize: totalDepartments + totalJobs,
+        errorCode: null,
+        errorDetail: null,
+        startedAt,
+      });
     } catch (error) {
-      await transaction.rollback();
+      await writeScriptLog({
+        status: "failure",
+        batchSize: null,
+        errorCode: error?.name ?? "Error",
+        errorDetail: error?.message ?? String(error),
+        startedAt,
+      });
       throw error;
     }
   } finally {

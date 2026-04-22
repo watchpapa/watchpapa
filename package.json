@@ -7,7 +7,9 @@
   "scripts": {
     "start": "node index.js",
     "dev": "node --watch index.js",
-    "seed:tmdb:jobs": "node Backend/src/scripts/seedTmdbJobs.js"
+    "seed:tmdb:jobs": "node Backend/src/scripts/inject_jobs_and_departments.js",
+    "seed:tmdb:genres": "node Backend/src/scripts/inject_genres.js",
+    "test:py": "pytest"
   },
   "dependencies": {
     "dotenv": "^16.4.5",
