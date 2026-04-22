@@ -43,7 +43,7 @@ CREATE TABLE public.department (
 );
 CREATE TABLE public.episode (
   id bigint NOT NULL,
-  tmdb_id bigint NOT NULL,
+  tmdb_id bigint NOT NULL UNIQUE,
   season_id bigint NOT NULL,
   name text NOT NULL,
   episode_number bigint NOT NULL,
@@ -132,7 +132,7 @@ CREATE TABLE public.movie_genre (
 );
 CREATE TABLE public.person (
   id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
-  tmdb_id bigint NOT NULL,
+  tmdb_id bigint NOT NULL UNIQUE,
   name text NOT NULL,
   adult boolean NOT NULL,
   biography text,
@@ -179,13 +179,13 @@ CREATE TABLE public.script_logs (
   error_code text,
   error_detail text,
   started_at timestamp with time zone,
-  finished_at timestamp with time zone DEFAULT now(),
+  finished_at timestamp with time zone DEFAULT (now() AT TIME ZONE 'utc'::text),
   created_at timestamp with time zone NOT NULL DEFAULT (now() AT TIME ZONE 'utc'::text),
   CONSTRAINT script_logs_pkey PRIMARY KEY (id)
 );
 CREATE TABLE public.season (
   id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
-  tmdb_id bigint NOT NULL,
+  tmdb_id bigint NOT NULL UNIQUE,
   show_id bigint NOT NULL,
   name text NOT NULL,
   season_number bigint NOT NULL,
@@ -307,15 +307,17 @@ Represents a season of a show.
 
 - Primary key: `id` (`bigint`, identity)
 - Foreign key: `show_id -> show.id`
-- Includes `tmdb_id`, `season_number`, `name`, `overview`, `air_date`, and lifecycle timestamps
+- Unique external source key: `tmdb_id` (unique constraint)
+- Includes `season_number`, `name`, `overview`, `air_date`, and lifecycle timestamps
 
 ### `episode`
 
 Represents an episode in a season.
 
 - Primary key: `id` (`bigint`, not generated in this schema; supplied by the application sync layer together with `tmdb_id`)
+- Unique external source key: `tmdb_id` (unique constraint)
 - Foreign key: `season_id -> season.id`
-- Required fields include `tmdb_id`, `name`, `episode_number`, `overview`, `runtime`, `air_date`
+- Required fields include `name`, `episode_number`, `overview`, `runtime`, `air_date`
 
 Relationship chain:
 

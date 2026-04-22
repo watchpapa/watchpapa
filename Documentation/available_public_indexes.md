@@ -20,7 +20,7 @@ For each index: short note on **what it’s for** in query plans and constraints
 |------------|--------|---------|-------------|----------------------|
 | `episode_pkey` | yes | yes | — | btree `(id)` — PK. |
 | `episode_season_id_episode_number_idx` | no | no | — | btree `(season_id, episode_number)` — list/order episodes in a season. |
-| `idx_episode_tmdb_id` | no | no | — | btree `(tmdb_id)` — sync/lookup by TMDB id. |
+| `episode_tmdb_id_key` | yes | no | — | btree `(tmdb_id)` — one row per TMDB episode; upsert/sync by `tmdb_id`. |
 
 ---
 
@@ -85,7 +85,7 @@ For each index: short note on **what it’s for** in query plans and constraints
 | index_name | unique | primary | predicate | definition (summary) |
 |------------|--------|---------|-------------|----------------------|
 | `person_pkey` | yes | yes | — | btree `(id)` — PK. |
-| `idx_person_tmdb_id` | no | no | — | btree `(tmdb_id)` — sync/lookup by TMDB id. |
+| `person_tmdb_id_key` | yes | no | — | btree `(tmdb_id)` — one row per TMDB person; upsert/sync by `tmdb_id`. |
 
 ---
 
@@ -110,8 +110,8 @@ For each index: short note on **what it’s for** in query plans and constraints
 
 | index_name | unique | primary | predicate | definition (summary) |
 |------------|--------|---------|-------------|----------------------|
-| `idx_season_tmdb_id` | no | no | — | btree `(tmdb_id)` — TMDB sync. |
 | `season_pkey` | yes | yes | — | btree `(id)` — PK. |
+| `season_tmdb_id_key` | yes | no | — | btree `(tmdb_id)` — one row per TMDB season; upsert/sync by `tmdb_id`. |
 | `season_show_id_season_number_idx` | no | no | — | btree `(show_id, season_number)` — find season N of a show. |
 
 ---
