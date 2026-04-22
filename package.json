@@ -9,6 +9,7 @@
     "dev": "node --watch index.js",
     "seed:tmdb:jobs": "node Backend/src/scripts/inject_jobs_and_departments.js",
     "seed:tmdb:genres": "node Backend/src/scripts/inject_genres.js",
+    "seed:tmdb:person": "node Backend/src/scripts/inject_person.js",
     "test:py": "pytest"
   },
   "dependencies": {

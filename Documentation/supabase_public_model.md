@@ -144,10 +144,9 @@ CREATE TABLE public.person (
   created_at timestamp with time zone NOT NULL DEFAULT (now() AT TIME ZONE 'utc'::text),
   updated_at timestamp with time zone,
   deleted_at timestamp with time zone,
-  known_for_department bigint,
+  known_for_department text,
   profile_path text,
-  CONSTRAINT person_pkey PRIMARY KEY (id),
-  CONSTRAINT person_known_for_department_fkey FOREIGN KEY (known_for_department) REFERENCES public.department(id)
+  CONSTRAINT person_pkey PRIMARY KEY (id)
 );
 CREATE TABLE public.person_aka (
   id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
@@ -289,7 +288,7 @@ Stores cast/crew person records from TMDB: `name`, `adult`, optional `biography`
 
 - Primary key: `id` (`bigint`, identity)
 - External source key: `tmdb_id` (required, `NOT NULL`, unique)
-- Foreign key: `known_for_department -> department.id` (nullable)
+- Optional text field: `known_for_department` (raw TMDB label, nullable)
 
 ### `person_aka`
 
@@ -438,7 +437,6 @@ RLS for `script_logs` is not listed in the inventory below; confirm in the Supab
 ## Cardinality Summary
 
 - `department` 1 -> many `job`
-- `department` 1 -> many `person` via optional `person.known_for_department`
 - `show` 1 -> many `season`
 - `season` 1 -> many `episode`
 - `person` 1 -> many `person_aka`
