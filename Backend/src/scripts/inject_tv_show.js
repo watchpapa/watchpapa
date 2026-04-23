@@ -1038,7 +1038,7 @@ async function processEpisodeCreditsPhase({
   return { linked, skipped, personsIngested };
 }
 
-async function runDetailsTransaction({ normalized }) {
+async function runDetailsTransaction({ normalized, baseScriptName }) {
   const startedAt = new Date();
   const tx = await sequelize.transaction();
   try {
@@ -1048,7 +1048,7 @@ async function runDetailsTransaction({ normalized }) {
     await tx.commit();
 
     await writeScriptLog({
-      scriptName: `${SCRIPT_NAME}:details`,
+      scriptName: `${baseScriptName}:details`,
       status: "success",
       batchSize: 1,
       startedAt,
@@ -1062,7 +1062,7 @@ async function runDetailsTransaction({ normalized }) {
       // swallow rollback error so the original error surfaces
     }
     await writeScriptLog({
-      scriptName: `${SCRIPT_NAME}:details`,
+      scriptName: `${baseScriptName}:details`,
       status: "failure",
       errorCode: error?.name ?? "Error",
       errorDetail: error?.message ?? String(error),
@@ -1073,13 +1073,14 @@ async function runDetailsTransaction({ normalized }) {
 }
 
 async function runCreditsTransaction({
+  baseScriptName,
   showId,
   tasks,
   personPayloads,
   jobCache,
 }) {
   const startedAt = new Date();
-  const scriptName = `${SCRIPT_NAME}:credits`;
+  const scriptName = `${baseScriptName}:credits`;
   const tx = await sequelize.transaction();
   try {
     await sequelize.query(
@@ -1129,13 +1130,14 @@ async function runCreditsTransaction({
 }
 
 async function runSeasonsTransaction({
+  baseScriptName,
   showId,
   tmdbTvId,
   seasonNumbers,
   apiKey,
 }) {
   const startedAt = new Date();
-  const scriptName = `${SCRIPT_NAME}:seasons`;
+  const scriptName = `${baseScriptName}:seasons`;
   const tx = await sequelize.transaction();
   try {
     let seasonsProcessed = 0;
@@ -1192,6 +1194,7 @@ async function runSeasonsTransaction({
 }
 
 async function runEpisodesTransaction({
+  baseScriptName,
   tmdbTvId,
   seasonByNumber,
   apiKey,
@@ -1199,7 +1202,7 @@ async function runEpisodesTransaction({
   onEpisodeProgress,
 }) {
   const startedAt = new Date();
-  const scriptName = `${SCRIPT_NAME}:episodes`;
+  const scriptName = `${baseScriptName}:episodes`;
   let episodesProcessed = 0;
   let episodesInserted = 0;
   let episodesUpdated = 0;
@@ -1354,6 +1357,7 @@ export async function ingestTvShow({
   }
 
   const resolvedKey = apiKey ?? getApiKey();
+  const baseScriptName = `${SCRIPT_NAME}:${tmdbTvId}`;
 
   const [showPayload, credits] = await Promise.all([
     fetchTmdbTvShow(resolvedKey, tmdbTvId),
@@ -1377,10 +1381,14 @@ export async function ingestTvShow({
 
   const jobCache = new Map();
 
-  const detailsResult = await runDetailsTransaction({ normalized });
+  const detailsResult = await runDetailsTransaction({
+    normalized,
+    baseScriptName,
+  });
   const { showId, action, genresLinked, genresSkipped } = detailsResult;
 
   const creditsResult = await runCreditsTransaction({
+    baseScriptName,
     showId,
     tasks: creditTasks,
     personPayloads: prefetch.payloads,
@@ -1391,12 +1399,14 @@ export async function ingestTvShow({
   const personsIngested = creditsResult.personsIngested;
 
   const seasonsResult = await runSeasonsTransaction({
+    baseScriptName,
     showId,
     tmdbTvId,
     seasonNumbers,
     apiKey: resolvedKey,
   });
   const episodesResult = await runEpisodesTransaction({
+    baseScriptName,
     tmdbTvId,
     seasonByNumber: seasonsResult.seasonByNumber,
     apiKey: resolvedKey,
@@ -1466,6 +1476,7 @@ function renderProgressBar(current, total, width = 30) {
 async function main() {
   const startedAt = new Date();
   const { tmdbTvId } = parseArgs(process.argv.slice(2));
+  const scopedScriptName = `${SCRIPT_NAME}:${tmdbTvId}`;
 
   try {
     try {
@@ -1541,6 +1552,7 @@ async function main() {
       );
 
       await writeScriptLog({
+        scriptName: scopedScriptName,
         status: "success",
         batchSize: result.creditsLinked,
         errorCode: null,
@@ -1549,6 +1561,7 @@ async function main() {
       });
     } catch (error) {
       await writeScriptLog({
+        scriptName: scopedScriptName,
         status: "failure",
         batchSize: null,
         errorCode: error?.name ?? "Error",

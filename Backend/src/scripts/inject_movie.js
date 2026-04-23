@@ -532,7 +532,7 @@ async function processCreditsPhase({
   return { linked, skipped, personsIngested };
 }
 
-async function runDetailsTransaction({ normalized }) {
+async function runDetailsTransaction({ normalized, baseScriptName }) {
   const startedAt = new Date();
   const tx = await sequelize.transaction();
   try {
@@ -542,7 +542,7 @@ async function runDetailsTransaction({ normalized }) {
     await tx.commit();
 
     await writeScriptLog({
-      scriptName: `${SCRIPT_NAME}:details`,
+      scriptName: `${baseScriptName}:details`,
       status: "success",
       batchSize: 1,
       startedAt,
@@ -556,7 +556,7 @@ async function runDetailsTransaction({ normalized }) {
       // swallow rollback error so the original error surfaces
     }
     await writeScriptLog({
-      scriptName: `${SCRIPT_NAME}:details`,
+      scriptName: `${baseScriptName}:details`,
       status: "failure",
       errorCode: error?.name ?? "Error",
       errorDetail: error?.message ?? String(error),
@@ -567,6 +567,7 @@ async function runDetailsTransaction({ normalized }) {
 }
 
 async function runCreditsPhaseTransaction({
+  baseScriptName,
   phaseName,
   movieId,
   tasks,
@@ -575,7 +576,7 @@ async function runCreditsPhaseTransaction({
   deleteExisting,
 }) {
   const startedAt = new Date();
-  const scriptName = `${SCRIPT_NAME}:${phaseName}`;
+  const scriptName = `${baseScriptName}:${phaseName}`;
   const tx = await sequelize.transaction();
   try {
     if (deleteExisting) {
@@ -636,6 +637,7 @@ export async function ingestMovie({
   }
 
   const resolvedKey = apiKey ?? getApiKey();
+  const baseScriptName = `${SCRIPT_NAME}:${tmdbId}`;
 
   const [moviePayload, credits] = await Promise.all([
     fetchTmdbMovie(resolvedKey, tmdbId),
@@ -668,10 +670,14 @@ export async function ingestMovie({
 
   const jobCache = new Map();
 
-  const detailsResult = await runDetailsTransaction({ normalized });
+  const detailsResult = await runDetailsTransaction({
+    normalized,
+    baseScriptName,
+  });
   const { movieId, action, genresLinked, genresSkipped } = detailsResult;
 
   const castResult = await runCreditsPhaseTransaction({
+    baseScriptName,
     phaseName: "cast",
     movieId,
     tasks: castTasks,
@@ -684,6 +690,7 @@ export async function ingestMovie({
   const castPersonsIngested = castResult.personsIngested;
 
   const crewResult = await runCreditsPhaseTransaction({
+    baseScriptName,
     phaseName: "crew",
     movieId,
     tasks: crewTasks,
@@ -747,6 +754,7 @@ function renderProgressBar(current, total, width = 30) {
 async function main() {
   const startedAt = new Date();
   const { tmdbId } = parseArgs(process.argv.slice(2));
+  const scopedScriptName = `${SCRIPT_NAME}:${tmdbId}`;
 
   try {
     try {
@@ -789,6 +797,7 @@ async function main() {
       );
 
       await writeScriptLog({
+        scriptName: scopedScriptName,
         status: "success",
         batchSize: totalCreditsLinked,
         errorCode: null,
@@ -797,6 +806,7 @@ async function main() {
       });
     } catch (error) {
       await writeScriptLog({
+        scriptName: scopedScriptName,
         status: "failure",
         batchSize: null,
         errorCode: error?.name ?? "Error",

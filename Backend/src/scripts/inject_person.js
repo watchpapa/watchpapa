@@ -11,6 +11,7 @@ const SCRIPT_NAME = "inject_person";
 let cachedApiKey = null;
 
 async function writeScriptLog({
+  scriptName = SCRIPT_NAME,
   status,
   batchSize,
   errorCode,
@@ -35,7 +36,7 @@ async function writeScriptLog({
       `,
       {
         replacements: {
-          scriptName: SCRIPT_NAME,
+          scriptName,
           status,
           batchSize: batchSize ?? null,
           errorCode: errorCode ?? null,
@@ -445,6 +446,7 @@ function renderProgressBar(current, total, width = 30) {
 async function main() {
   const startedAt = new Date();
   const { tmdbId } = parseArgs(process.argv.slice(2));
+  const scopedScriptName = `${SCRIPT_NAME}:${tmdbId}`;
 
   try {
     try {
@@ -466,6 +468,7 @@ async function main() {
       );
 
       await writeScriptLog({
+        scriptName: scopedScriptName,
         status: "success",
         batchSize: 1,
         errorCode: null,
@@ -474,6 +477,7 @@ async function main() {
       });
     } catch (error) {
       await writeScriptLog({
+        scriptName: scopedScriptName,
         status: "failure",
         batchSize: null,
         errorCode: error?.name ?? "Error",
