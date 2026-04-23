@@ -1,6 +1,7 @@
 import dotenv from "dotenv";
 import { pathToFileURL } from "url";
 import sequelize from "../db/database.js";
+import { tmdbRateLimitedFetch } from "./tmdb_rate_limited_fetch.js";
 
 dotenv.config();
 
@@ -16,13 +17,21 @@ async function writeScriptLog({
   errorDetail,
   startedAt,
 }) {
+  const finishedAt = new Date();
+  const runtime =
+    startedAt != null
+      ? Math.max(
+          0,
+          (finishedAt.getTime() - new Date(startedAt).getTime()) / 1000
+        )
+      : null;
   try {
     await sequelize.query(
       `
         INSERT INTO public.script_logs
-          (script_name, status, batch_size, error_code, error_detail, started_at, finished_at)
+          (script_name, status, batch_size, error_code, error_detail, started_at, finished_at, runtime)
         VALUES
-          (:scriptName, :status, :batchSize, :errorCode, :errorDetail, :startedAt, :finishedAt);
+          (:scriptName, :status, :batchSize, :errorCode, :errorDetail, :startedAt, :finishedAt, :runtime);
       `,
       {
         replacements: {
@@ -32,7 +41,8 @@ async function writeScriptLog({
           errorCode: errorCode ?? null,
           errorDetail: errorDetail ?? null,
           startedAt: startedAt ?? null,
-          finishedAt: new Date(),
+          finishedAt,
+          runtime,
         },
       }
     );
@@ -62,28 +72,37 @@ async function ensureTables() {
   const [personAkaTable] = await sequelize.query(`
     SELECT to_regclass('public.person_aka') AS table_name;
   `);
-  if (!personTable?.[0]?.table_name || !personAkaTable?.[0]?.table_name) {
+  const [departmentTable] = await sequelize.query(`
+    SELECT to_regclass('public.department') AS table_name;
+  `);
+  if (
+    !personTable?.[0]?.table_name ||
+    !personAkaTable?.[0]?.table_name ||
+    !departmentTable?.[0]?.table_name
+  ) {
     throw new Error(
-      "Required tables missing: expected public.person and public.person_aka."
+      "Required tables missing: expected public.person, public.person_aka, and public.department."
     );
   }
 }
 
-async function fetchTmdbPerson(apiKey, tmdbId) {
+export async function fetchTmdbPerson(apiKey, tmdbId) {
   const url = new URL(`${TMDB_PERSON_URL}/${tmdbId}`);
   url.searchParams.set("api_key", apiKey);
   url.searchParams.set("language", "en-US");
 
-  const response = await fetch(url, {
+  const response = await tmdbRateLimitedFetch(url, {
     method: "GET",
     headers: { accept: "application/json" },
   });
 
   if (!response.ok) {
     const errorText = await response.text();
-    throw new Error(
+    const err = new Error(
       `TMDB request failed: ${response.status} ${response.statusText} - ${errorText}`
     );
+    err.status = response.status;
+    throw err;
   }
 
   const payload = await response.json();
@@ -124,8 +143,9 @@ function normalizePersonPayload(payload) {
   const biography =
     typeof payload.biography === "string" ? payload.biography : null;
 
-  const knownForDepartment =
-    typeof payload.known_for_department === "string"
+  const knownForDepartmentName =
+    typeof payload.known_for_department === "string" &&
+    payload.known_for_department.trim() !== ""
       ? payload.known_for_department
       : null;
 
@@ -145,21 +165,48 @@ function normalizePersonPayload(payload) {
     deathday: payload.deathday || null,
     gender: Number.isFinite(payload.gender) ? payload.gender : 0,
     popularity: Number.isFinite(payload.popularity) ? payload.popularity : 0,
-    knownForDepartment,
+    knownForDepartmentName,
     profilePath,
     alsoKnownAs: normalizeNicknames(payload.also_known_as),
   };
 }
 
+const departmentCache = new Map();
+
+function normalizeDepartmentName(name) {
+  if (name === "Actors") return "Acting";
+  return name;
+}
+
+async function resolveDepartmentId(deptName, transaction) {
+  const normalizedName = normalizeDepartmentName(deptName);
+  if (!normalizedName) return null;
+  if (departmentCache.has(normalizedName)) {
+    return departmentCache.get(normalizedName);
+  }
+
+  const [rows] = await sequelize.query(
+    `SELECT id FROM department WHERE name = :deptName LIMIT 1;`,
+    { replacements: { deptName: normalizedName }, transaction }
+  );
+  const id = rows?.[0]?.id ?? null;
+  departmentCache.set(normalizedName, id);
+  return id;
+}
+
 async function upsertPerson(normalized, transaction) {
+  const knownForDepartmentId = await resolveDepartmentId(
+    normalized.knownForDepartmentName,
+    transaction
+  );
   const [rows] = await sequelize.query(
     `
       INSERT INTO person (
         tmdb_id, name, adult, biography, birthday, place_of_birth, deathday,
-        gender, popularity, known_for_department, profile_path
+        gender, popularity, known_for_department_id, profile_path
       ) VALUES (
         :tmdbId, :name, :adult, :biography, :birthday, :placeOfBirth, :deathday,
-        :gender, :popularity, :knownForDepartment, :profilePath
+        :gender, :popularity, :knownForDepartmentId, :profilePath
       )
       ON CONFLICT (tmdb_id) DO UPDATE SET
         name = EXCLUDED.name,
@@ -170,17 +217,17 @@ async function upsertPerson(normalized, transaction) {
         deathday = EXCLUDED.deathday,
         gender = EXCLUDED.gender,
         popularity = EXCLUDED.popularity,
-        known_for_department = EXCLUDED.known_for_department,
+        known_for_department_id = EXCLUDED.known_for_department_id,
         profile_path = EXCLUDED.profile_path,
         updated_at = now()
       WHERE (
         person.name, person.adult, person.biography, person.birthday,
         person.place_of_birth, person.deathday, person.gender, person.popularity,
-        person.known_for_department, person.profile_path
+        person.known_for_department_id, person.profile_path
       ) IS DISTINCT FROM (
         EXCLUDED.name, EXCLUDED.adult, EXCLUDED.biography, EXCLUDED.birthday,
         EXCLUDED.place_of_birth, EXCLUDED.deathday, EXCLUDED.gender, EXCLUDED.popularity,
-        EXCLUDED.known_for_department, EXCLUDED.profile_path
+        EXCLUDED.known_for_department_id, EXCLUDED.profile_path
       )
       RETURNING id, (xmax = 0) AS was_inserted;
     `,
@@ -195,7 +242,7 @@ async function upsertPerson(normalized, transaction) {
         deathday: normalized.deathday,
         gender: normalized.gender,
         popularity: normalized.popularity,
-        knownForDepartment: normalized.knownForDepartment,
+        knownForDepartmentId,
         profilePath: normalized.profilePath,
       },
       transaction,
@@ -319,13 +366,19 @@ export async function ingestPerson({
   tmdbId,
   transaction,
   apiKey,
+  preloadedPayload,
 } = {}) {
   if (typeof tmdbId !== "number" || !Number.isFinite(tmdbId)) {
     throw new Error("ingestPerson requires a numeric `tmdbId`.");
   }
 
-  const resolvedKey = apiKey ?? getApiKey();
-  const payload = await fetchTmdbPerson(resolvedKey, tmdbId);
+  let payload;
+  if (preloadedPayload) {
+    payload = preloadedPayload;
+  } else {
+    const resolvedKey = apiKey ?? getApiKey();
+    payload = await fetchTmdbPerson(resolvedKey, tmdbId);
+  }
   const normalized = normalizePersonPayload(payload);
 
   const ownsTransaction = !transaction;
