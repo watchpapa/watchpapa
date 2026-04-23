@@ -85,16 +85,20 @@ async function ensureTables() {
   const [departmentTable] = await sequelize.query(`
     SELECT to_regclass('public.department') AS table_name;
   `);
+  const [seasonTable] = await sequelize.query(`
+    SELECT to_regclass('public.season') AS table_name;
+  `);
 
   if (
     !showTable?.[0]?.table_name ||
     !showCreditsTable?.[0]?.table_name ||
     !personTable?.[0]?.table_name ||
     !jobTable?.[0]?.table_name ||
-    !departmentTable?.[0]?.table_name
+    !departmentTable?.[0]?.table_name ||
+    !seasonTable?.[0]?.table_name
   ) {
     throw new Error(
-      "Required tables missing: expected public.show, public.show_credits, public.person, public.job, and public.department."
+      "Required tables missing: expected public.show, public.show_credits, public.person, public.job, public.department, and public.season."
     );
   }
 }
@@ -153,6 +157,34 @@ async function fetchTmdbTvShowCredits(apiKey, tmdbTvId) {
   };
 }
 
+async function fetchTmdbSeason(apiKey, tmdbTvId, seasonNumber) {
+  const url = new URL(`${TMDB_TV_URL}/${tmdbTvId}/season/${seasonNumber}`);
+  url.searchParams.set("api_key", apiKey);
+  url.searchParams.set("language", "en-US");
+
+  const response = await tmdbRateLimitedFetch(url, {
+    method: "GET",
+    headers: { accept: "application/json" },
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    const err = new Error(
+      `TMDB season request failed: ${response.status} ${response.statusText} - ${errorText}`
+    );
+    err.status = response.status;
+    throw err;
+  }
+
+  const payload = await response.json();
+  if (!payload || typeof payload.id !== "number") {
+    throw new Error(
+      `Unexpected TMDB season response for tv=${tmdbTvId} season=${seasonNumber}: missing numeric \`id\`.`
+    );
+  }
+  return payload;
+}
+
 function pickEpisodeRunTime(raw) {
   if (!Array.isArray(raw)) return null;
   const firstFinite = raw.find((v) => Number.isFinite(v) && v > 0);
@@ -199,6 +231,63 @@ function normalizeShowPayload(payload) {
     type: typeof payload.type === "string" ? payload.type : "",
     tmdbVoteAvg: Number.isFinite(payload.vote_average) ? payload.vote_average : 0,
     tmdbVoteCount: Number.isFinite(payload.vote_count) ? payload.vote_count : 0,
+  };
+}
+
+function deriveRegularSeasonNumbers(seasons) {
+  if (!Array.isArray(seasons)) {
+    return { seasonNumbers: [], seasonsSkippedSpecial: 0 };
+  }
+
+  const seen = new Set();
+  const regular = [];
+  let seasonsSkippedSpecial = 0;
+
+  for (const entry of seasons) {
+    const seasonNumber = entry?.season_number;
+    if (!Number.isFinite(seasonNumber)) continue;
+    if (seasonNumber <= 0) {
+      seasonsSkippedSpecial += 1;
+      continue;
+    }
+    if (seen.has(seasonNumber)) continue;
+    seen.add(seasonNumber);
+    regular.push(seasonNumber);
+  }
+
+  regular.sort((a, b) => a - b);
+  return { seasonNumbers: regular, seasonsSkippedSpecial };
+}
+
+function normalizeSeasonPayload(payload, showId) {
+  const tmdbId = payload.id;
+  if (typeof tmdbId !== "number") {
+    throw new Error("TMDB season payload is missing numeric `id`.");
+  }
+
+  const seasonNumber = payload.season_number;
+  if (!Number.isFinite(seasonNumber) || seasonNumber <= 0) {
+    throw new Error(
+      `TMDB season ${tmdbId} has invalid season_number=${seasonNumber}.`
+    );
+  }
+
+  const name = typeof payload.name === "string" ? payload.name.trim() : "";
+  if (!name) {
+    throw new Error(`TMDB season ${tmdbId} is missing required \`name\`.`);
+  }
+
+  if (!payload.air_date) {
+    throw new Error(`TMDB season ${tmdbId} is missing required \`air_date\`.`);
+  }
+
+  return {
+    tmdbId,
+    showId,
+    name,
+    seasonNumber,
+    overview: typeof payload.overview === "string" ? payload.overview : "",
+    airDate: payload.air_date,
   };
 }
 
@@ -300,6 +389,72 @@ async function upsertShow(normalized, transaction) {
   }
 
   return { showId, action: "unchanged" };
+}
+
+async function upsertSeason(normalized, transaction) {
+  const [rows] = await sequelize.query(
+    `
+      INSERT INTO season (
+        tmdb_id, show_id, name, season_number, overview, air_date
+      ) VALUES (
+        :tmdbId, :showId, :name, :seasonNumber, :overview, :airDate
+      )
+      ON CONFLICT (tmdb_id) DO UPDATE SET
+        show_id = EXCLUDED.show_id,
+        name = EXCLUDED.name,
+        season_number = EXCLUDED.season_number,
+        overview = EXCLUDED.overview,
+        air_date = EXCLUDED.air_date,
+        updated_at = now()
+      WHERE (
+        season.show_id, season.name, season.season_number, season.overview, season.air_date
+      ) IS DISTINCT FROM (
+        EXCLUDED.show_id, EXCLUDED.name, EXCLUDED.season_number, EXCLUDED.overview, EXCLUDED.air_date
+      )
+      RETURNING id, (xmax = 0) AS was_inserted;
+    `,
+    {
+      replacements: {
+        tmdbId: normalized.tmdbId,
+        showId: normalized.showId,
+        name: normalized.name,
+        seasonNumber: normalized.seasonNumber,
+        overview: normalized.overview,
+        airDate: normalized.airDate,
+      },
+      transaction,
+    }
+  );
+
+  const returned = rows?.[0];
+  if (returned) {
+    return {
+      seasonId: returned.id,
+      action: returned.was_inserted ? "inserted" : "updated",
+    };
+  }
+
+  const [existing] = await sequelize.query(
+    `
+      SELECT id
+      FROM season
+      WHERE tmdb_id = :tmdbId
+      LIMIT 1;
+    `,
+    {
+      replacements: { tmdbId: normalized.tmdbId },
+      transaction,
+    }
+  );
+
+  const seasonId = existing?.[0]?.id;
+  if (!seasonId) {
+    throw new Error(
+      `Failed to resolve season id for tmdb_id=${normalized.tmdbId} after upsert.`
+    );
+  }
+
+  return { seasonId, action: "unchanged" };
 }
 
 async function resolveJobId(jobName, departmentName, jobCache, transaction) {
@@ -576,6 +731,63 @@ async function runCreditsTransaction({
   }
 }
 
+async function runSeasonsTransaction({
+  showId,
+  tmdbTvId,
+  seasonNumbers,
+  apiKey,
+}) {
+  const startedAt = new Date();
+  const scriptName = `${SCRIPT_NAME}:seasons`;
+  const tx = await sequelize.transaction();
+  try {
+    let seasonsProcessed = 0;
+    let seasonsInserted = 0;
+    let seasonsUpdated = 0;
+    let seasonsUnchanged = 0;
+
+    for (const seasonNumber of seasonNumbers) {
+      const seasonPayload = await fetchTmdbSeason(apiKey, tmdbTvId, seasonNumber);
+      const normalized = normalizeSeasonPayload(seasonPayload, showId);
+      const result = await upsertSeason(normalized, tx);
+      seasonsProcessed += 1;
+      if (result.action === "inserted") seasonsInserted += 1;
+      else if (result.action === "updated") seasonsUpdated += 1;
+      else seasonsUnchanged += 1;
+    }
+
+    await tx.commit();
+
+    await writeScriptLog({
+      scriptName,
+      status: "success",
+      batchSize: seasonsProcessed,
+      startedAt,
+    });
+
+    return {
+      seasonsProcessed,
+      seasonsInserted,
+      seasonsUpdated,
+      seasonsUnchanged,
+    };
+  } catch (error) {
+    try {
+      await tx.rollback();
+    } catch (_rollbackError) {
+      // swallow rollback error so the original error surfaces
+    }
+    await writeScriptLog({
+      scriptName,
+      status: "failure",
+      errorCode: error?.name ?? "Error",
+      errorDetail: error?.message ?? String(error),
+      startedAt,
+    });
+    throw error;
+  }
+}
+
 export async function ingestTvShow({
   tmdbTvId,
   apiKey,
@@ -592,6 +804,9 @@ export async function ingestTvShow({
     fetchTmdbTvShowCredits(resolvedKey, tmdbTvId),
   ]);
   const normalized = normalizeShowPayload(showPayload);
+  const { seasonNumbers, seasonsSkippedSpecial } = deriveRegularSeasonNumbers(
+    showPayload.seasons
+  );
 
   const creditTasks = collectCreditTasks(credits.cast, credits.crew);
   const creditIds = creditTasks.map((t) => t.personTmdbId);
@@ -619,6 +834,13 @@ export async function ingestTvShow({
   const creditsSkipped = creditsResult.skipped + prefetch.failures.length;
   const personsIngested = creditsResult.personsIngested;
 
+  const seasonsResult = await runSeasonsTransaction({
+    showId,
+    tmdbTvId,
+    seasonNumbers,
+    apiKey: resolvedKey,
+  });
+
   for (const f of prefetch.failures) {
     console.warn(
       `  Warning: failed to prefetch person tmdb_id=${f.tmdbId}: ${f.message}. Its credits were skipped.`
@@ -631,6 +853,11 @@ export async function ingestTvShow({
     creditsLinked,
     creditsSkipped,
     personsIngested,
+    seasonsProcessed: seasonsResult.seasonsProcessed,
+    seasonsInserted: seasonsResult.seasonsInserted,
+    seasonsUpdated: seasonsResult.seasonsUpdated,
+    seasonsUnchanged: seasonsResult.seasonsUnchanged,
+    seasonsSkippedSpecial,
   };
 }
 
@@ -686,17 +913,24 @@ async function main() {
       const result = await ingestTvShow({ tmdbTvId, onPrefetchProgress });
 
       const totalCredits = result.creditsLinked + result.creditsSkipped;
+      const totalRegularSeasons =
+        result.seasonsProcessed + result.seasonsSkippedSpecial;
 
       process.stdout.write(
         `\rIngest ${renderProgressBar(1, 1)} | TV Show ${tmdbTvId} | ${result.action} | ` +
           `Credits ${result.creditsLinked}/${totalCredits} | ` +
-          `Persons +${result.personsIngested}\n`
+          `Persons +${result.personsIngested} | ` +
+          `Seasons ${result.seasonsProcessed}/${totalRegularSeasons} | ` +
+          `Specials skipped ${result.seasonsSkippedSpecial}\n`
       );
 
       console.log(
         `TMDB tv show sync complete. TV ${tmdbTvId} -> id=${result.showId} (${result.action}). ` +
           `Credits: linked ${result.creditsLinked}, skipped ${result.creditsSkipped}. ` +
-          `Persons ingested: ${result.personsIngested}.`
+          `Persons ingested: ${result.personsIngested}. ` +
+          `Seasons: processed ${result.seasonsProcessed}, inserted ${result.seasonsInserted}, ` +
+          `updated ${result.seasonsUpdated}, unchanged ${result.seasonsUnchanged}, ` +
+          `specials skipped ${result.seasonsSkippedSpecial}.`
       );
 
       await writeScriptLog({

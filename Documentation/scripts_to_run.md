@@ -62,7 +62,12 @@ Prerequisites:
 
 Scope:
 
-Current implementation ingests TV **show details** and **show-level credits** only. Seasons, episodes, `season`, `episode`, `episode_credits`, and `show_genre` are intentionally deferred and are not written by this script yet.
+Current implementation ingests:
+
+- **Phase 1:** TV show details + show-level credits.
+- **Phase 2:** season rows in `public.season` for regular seasons only (`season_number > 0`).
+
+Special seasons (`season_number <= 0`, usually season 0) are intentionally skipped. Episodes (`episode`, `episode_credits`) and `show_genre` are still deferred.
 
 Description:
 
@@ -77,16 +82,24 @@ Fetches credits from `GET /tv/{id}/credits` and fully replaces `public.show_cred
 - Duplicate TMDB entries (same person + role) are deduped before insert.
 - Any credit whose `(job, department)` is not found in the local `job` table is skipped with a warning; run `seed:tmdb:jobs` first to populate it.
 
+After Phase 1 commits, the script runs Phase 2 season sync:
+
+- Reads `seasons[]` from the TV detail payload and keeps only regular seasons (`season_number > 0`).
+- Dedupes by `season_number`, sorts ascending, then fetches each season detail from `GET /tv/{id}/season/{season_number}`.
+- Upserts each season into `public.season` (`ON CONFLICT (tmdb_id)`), tracking `inserted`, `updated`, and `unchanged`.
+- Special seasons (`season_number <= 0`) are counted and skipped.
+
 Transactions:
 
 - One transaction for the **show details** upsert.
 - One transaction for the **credits** replace (delete-then-bulk-insert, with person upserts).
+- One transaction for the **seasons** phase (upsert regular seasons only).
 
-Failures in the credits phase leave the show details commit in place. Rerunning the same `--id` is idempotent.
+Failures in later phases can leave earlier committed phases in place (details -> credits -> seasons). Rerunning the same `--id` is idempotent.
 
-While the script runs, a **terminal progress bar** shows person prefetch progress and then the final show + credits summary.
+While the script runs, a **terminal progress bar** shows person prefetch progress and then the final show + credits + seasons summary.
 
-The script exports `ingestTvShow({ tmdbTvId, apiKey, onPrefetchProgress })` for reuse; the CLI entrypoint writes `script_logs` on success or failure (with per-phase rows for `inject_tv_show:details` and `inject_tv_show:credits`).
+The script exports `ingestTvShow({ tmdbTvId, apiKey, onPrefetchProgress })` for reuse; the CLI entrypoint writes `script_logs` on success or failure (with per-phase rows for `inject_tv_show:details`, `inject_tv_show:credits`, and `inject_tv_show:seasons`).
 
 ## TMDB single movie ingestion
 
