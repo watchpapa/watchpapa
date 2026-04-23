@@ -5,7 +5,7 @@
 - `npm run seed:tmdb:jobs`
 - `npm run seed:tmdb:genres`
 - `npm run seed:tmdb:person -- --id=<tmdb_person_id>`
-- `npm run seed:tmdb:tv-show -- --id=<tmdb_tv_id> [--txn-scope=season|episode] [--include-specials]`
+- `npm run seed:tmdb:tv-show -- --id=<tmdb_tv_id>`
 - `npm run seed:tmdb:movie -- --id=<tmdb_movie_id>`
 
 ## TMDB jobs and departments ingestion
@@ -54,32 +54,39 @@ The script also exports a reusable function `ingestPerson({ tmdbId, transaction,
 
 Command:
 
-`npm run seed:tmdb:tv-show -- --id=<tmdb_tv_id> [--txn-scope=season|episode] [--include-specials]`
+`npm run seed:tmdb:tv-show -- --id=<tmdb_tv_id>`
 
 Prerequisites:
 
-- `npm run seed:tmdb:jobs` (department/job rows for crew resolution).
-- `npm run seed:tmdb:genres` (required so `show_genre` can resolve `genres.id` from TMDB genre ids on the TV detail payload).
+- `npm run seed:tmdb:jobs` (department/job rows — required so credits can resolve `job.id` for `"Actor"` and crew jobs).
+
+Scope:
+
+Current implementation ingests TV **show details** and **show-level credits** only. Seasons, episodes, `season`, `episode`, `episode_credits`, and `show_genre` are intentionally deferred and are not written by this script yet.
 
 Description:
 
-Fetches one TV series from TMDB and upserts `show` (`ON CONFLICT (tmdb_id)`), replaces `show_genre`, replaces `show_credits` from **`GET /tv/{id}/credits`** using **`cast` and `crew` only** (not `guest_stars`; episode-level guests stay in `episode_credits` only), with `ingestPerson` per credited person. Then for each **regular** season from the TV detail `seasons` list (by default **skips `season_number <= 0`**, e.g. TMDB “Specials”), it loads season JSON and upserts `season` and every `episode` (`id` / `tmdb_id` = TMDB episode id, `ON CONFLICT (tmdb_id)`). For each episode it merges cast/crew/guest data from the episode detail endpoint and `.../episode/{n}/credits`, runs `ingestPerson` for each distinct person, and replaces `episode_credits` for that episode.
+Fetches one TV series from TMDB (`GET /tv/{id}`) and upserts the row into `public.show` via `INSERT ... ON CONFLICT (tmdb_id) DO UPDATE` with an `IS DISTINCT FROM` change-guard, so `updated_at` only moves when a tracked field actually changes. The result is classified as `inserted`, `updated`, or `unchanged`.
 
-Use **`--include-specials`** to ingest TMDB specials / non-positive `season_number` seasons as well.
+Fetches credits from `GET /tv/{id}/credits` and fully replaces `public.show_credits` for the show:
+
+- Existing rows for the show are deleted, then every `cast` and `crew` entry is re-inserted (`guest_stars` are ignored — those belong at the episode level, which is not in scope yet).
+- For each distinct credited person, `ingestPerson` (from `inject_person.js`) is invoked on the same transaction, so new people are upserted into `public.person` (with AKAs synced) before their credit row is written.
+- Cast entries are linked to the job `"Actor"` in department `"Acting"`, with `title` set to the `character` string.
+- Crew entries are linked to the job matching `crew.job` in department `crew.department`, with `title = null` (the role is encoded in `job_id`).
+- Duplicate TMDB entries (same person + role) are deduped before insert.
+- Any credit whose `(job, department)` is not found in the local `job` table is skipped with a warning; run `seed:tmdb:jobs` first to populate it.
 
 Transactions:
 
-- One transaction for the **show slice** (`show` + `show_genre` + `show_credits`).
-- **`--txn-scope=season`** (default): one transaction per season (all episodes in that season in the same commit).
-- **`--txn-scope=episode`**: one transaction per episode (season row is upserted inside each episode transaction).
+- One transaction for the **show details** upsert.
+- One transaction for the **credits** replace (delete-then-bulk-insert, with person upserts).
 
-Failures partway through leave earlier commits in place; rerunning the same `--id` is idempotent.
+Failures in the credits phase leave the show details commit in place. Rerunning the same `--id` is idempotent.
 
-While the script runs, a **terminal progress bar** shows completion of the show slice (show + genres + aggregate credits) plus one step per **regular season** ingested (`show + seasons` counter).
+While the script runs, a **terminal progress bar** shows person prefetch progress and then the final show + credits summary.
 
-Optional composite uniqueness ideas for `season` / `episode` (beyond TMDB `tmdb_id` uniques) are noted in [Documentation/TODO.md](./TODO.md).
-
-The script exports `ingestTvShow({ tmdbTvId, apiKey, txnScope, includeSpecials })` for reuse; the CLI entrypoint writes `script_logs` on success or failure.
+The script exports `ingestTvShow({ tmdbTvId, apiKey, onPrefetchProgress })` for reuse; the CLI entrypoint writes `script_logs` on success or failure (with per-phase rows for `inject_tv_show:details` and `inject_tv_show:credits`).
 
 ## TMDB single movie ingestion
 
