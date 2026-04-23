@@ -1,5 +1,6 @@
 import dotenv from "dotenv";
 import sequelize from "../db/database.js";
+import { tmdbRateLimitedFetch } from "./tmdb_rate_limited_fetch.js";
 
 dotenv.config();
 
@@ -13,13 +14,21 @@ async function writeScriptLog({
   errorDetail,
   startedAt,
 }) {
+  const finishedAt = new Date();
+  const runtime =
+    startedAt != null
+      ? Math.max(
+          0,
+          (finishedAt.getTime() - new Date(startedAt).getTime()) / 1000
+        )
+      : null;
   try {
     await sequelize.query(
       `
         INSERT INTO public.script_logs
-          (script_name, status, batch_size, error_code, error_detail, started_at, finished_at)
+          (script_name, status, batch_size, error_code, error_detail, started_at, finished_at, runtime)
         VALUES
-          (:scriptName, :status, :batchSize, :errorCode, :errorDetail, :startedAt, :finishedAt);
+          (:scriptName, :status, :batchSize, :errorCode, :errorDetail, :startedAt, :finishedAt, :runtime);
       `,
       {
         replacements: {
@@ -29,7 +38,8 @@ async function writeScriptLog({
           errorCode: errorCode ?? null,
           errorDetail: errorDetail ?? null,
           startedAt: startedAt ?? null,
-          finishedAt: new Date(),
+          finishedAt,
+          runtime,
         },
       }
     );
@@ -70,7 +80,7 @@ async function fetchTmdbJobs(apiKey) {
   const url = new URL(TMDB_JOBS_URL);
   url.searchParams.set("api_key", apiKey);
 
-  const response = await fetch(url, {
+  const response = await tmdbRateLimitedFetch(url, {
     method: "GET",
     headers: {
       accept: "application/json",
@@ -117,6 +127,11 @@ function logProgress(processedDepartments, totalDepartments, processedJobs, tota
   process.stdout.write(`\r${line}`);
 }
 
+function normalizeDepartmentName(name) {
+  if (name === "Actors") return "Acting";
+  return name;
+}
+
 async function saveJobs(jobsByDepartment, transaction) {
   let insertedDepartments = 0;
   let insertedJobs = 0;
@@ -131,7 +146,7 @@ async function saveJobs(jobsByDepartment, transaction) {
   logProgress(processedDepartments, totalDepartments, processedJobs, totalJobs);
 
   for (const item of jobsByDepartment) {
-    const department = item?.department;
+    const department = normalizeDepartmentName(item?.department);
     const jobs = item?.jobs;
 
     if (!department || !Array.isArray(jobs)) {
