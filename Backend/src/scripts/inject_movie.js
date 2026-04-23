@@ -12,6 +12,7 @@ const CAST_JOB_NAME = "Actor";
 const CAST_DEPARTMENT_NAME = "Acting";
 
 let cachedApiKey = null;
+const existingMovieIdCache = new Map();
 
 async function writeScriptLog({
   scriptName = SCRIPT_NAME,
@@ -157,6 +158,30 @@ async function fetchTmdbMovieCredits(apiKey, tmdbId) {
   };
 }
 
+async function findExistingMovieId(tmdbId, transaction) {
+  if (existingMovieIdCache.has(tmdbId)) {
+    return existingMovieIdCache.get(tmdbId);
+  }
+
+  const [existing] = await sequelize.query(
+    `
+      SELECT id
+      FROM movie
+      WHERE tmdb_id = :tmdbId
+      LIMIT 1;
+    `,
+    {
+      replacements: { tmdbId },
+      transaction,
+    }
+  );
+  const movieId = existing?.[0]?.id ?? null;
+  if (movieId) {
+    existingMovieIdCache.set(tmdbId, movieId);
+  }
+  return movieId;
+}
+
 function normalizeMoviePayload(payload) {
   const tmdbId = payload.id;
   if (typeof tmdbId !== "number") {
@@ -207,34 +232,8 @@ async function upsertMovie(normalized, transaction) {
         :tmdbPopularity, :releaseDate, :revenue, :runtime, :status, :tagline,
         :title, :tmdbVoteAvg, :tmdbVoteCount
       )
-      ON CONFLICT (tmdb_id) DO UPDATE SET
-        adult = EXCLUDED.adult,
-        budget = EXCLUDED.budget,
-        original_language = EXCLUDED.original_language,
-        original_title = EXCLUDED.original_title,
-        overview = EXCLUDED.overview,
-        tmdb_popularity = EXCLUDED.tmdb_popularity,
-        release_date = EXCLUDED.release_date,
-        revenue = EXCLUDED.revenue,
-        runtime = EXCLUDED.runtime,
-        status = EXCLUDED.status,
-        tagline = EXCLUDED.tagline,
-        title = EXCLUDED.title,
-        tmdb_vote_avg = EXCLUDED.tmdb_vote_avg,
-        tmdb_vote_count = EXCLUDED.tmdb_vote_count,
-        updated_at = now()
-      WHERE (
-        movie.adult, movie.budget, movie.original_language, movie.original_title,
-        movie.overview, movie.tmdb_popularity, movie.release_date, movie.revenue,
-        movie.runtime, movie.status, movie.tagline, movie.title,
-        movie.tmdb_vote_avg, movie.tmdb_vote_count
-      ) IS DISTINCT FROM (
-        EXCLUDED.adult, EXCLUDED.budget, EXCLUDED.original_language, EXCLUDED.original_title,
-        EXCLUDED.overview, EXCLUDED.tmdb_popularity, EXCLUDED.release_date, EXCLUDED.revenue,
-        EXCLUDED.runtime, EXCLUDED.status, EXCLUDED.tagline, EXCLUDED.title,
-        EXCLUDED.tmdb_vote_avg, EXCLUDED.tmdb_vote_count
-      )
-      RETURNING id, (xmax = 0) AS was_inserted;
+      ON CONFLICT (tmdb_id) DO NOTHING
+      RETURNING id;
     `,
     {
       replacements: {
@@ -260,33 +259,22 @@ async function upsertMovie(normalized, transaction) {
 
   const returned = rows?.[0];
   if (returned) {
+    existingMovieIdCache.set(normalized.tmdbId, returned.id);
     return {
       movieId: returned.id,
-      action: returned.was_inserted ? "inserted" : "updated",
+      action: "inserted",
     };
   }
 
-  const [existing] = await sequelize.query(
-    `
-      SELECT id
-      FROM movie
-      WHERE tmdb_id = :tmdbId
-      LIMIT 1;
-    `,
-    {
-      replacements: { tmdbId: normalized.tmdbId },
-      transaction,
-    }
-  );
-
-  const movieId = existing?.[0]?.id;
+  const movieId = await findExistingMovieId(normalized.tmdbId, transaction);
   if (!movieId) {
     throw new Error(
-      `Failed to resolve movie id for tmdb_id=${normalized.tmdbId} after upsert.`
+      `Failed to resolve movie id for tmdb_id=${normalized.tmdbId} after insert.`
     );
   }
 
-  return { movieId, action: "unchanged" };
+  existingMovieIdCache.set(normalized.tmdbId, movieId);
+  return { movieId, action: "skipped_existing" };
 }
 
 async function replaceMovieGenres(movieId, tmdbGenres, transaction) {
@@ -537,8 +525,24 @@ async function runDetailsTransaction({ normalized, baseScriptName }) {
   const tx = await sequelize.transaction();
   try {
     const { movieId, action } = await upsertMovie(normalized, tx);
-    const { linked: genresLinked, skipped: genresSkipped } =
-      await replaceMovieGenres(movieId, normalized.genres, tx);
+    if (action === "skipped_existing") {
+      await tx.commit();
+
+      await writeScriptLog({
+        scriptName: `${baseScriptName}:details`,
+        status: "success",
+        batchSize: 0,
+        startedAt,
+      });
+
+      return { movieId, action, genresLinked: 0, genresSkipped: 0 };
+    }
+
+    const { linked: genresLinked, skipped: genresSkipped } = await replaceMovieGenres(
+      movieId,
+      normalized.genres,
+      tx
+    );
     await tx.commit();
 
     await writeScriptLog({
@@ -636,9 +640,24 @@ export async function ingestMovie({
     throw new Error("ingestMovie requires a numeric `tmdbId`.");
   }
 
+  const existingMovieId = await findExistingMovieId(tmdbId);
+  if (existingMovieId) {
+    return {
+      movieId: existingMovieId,
+      action: "skipped_existing",
+      genresLinked: 0,
+      genresSkipped: 0,
+      castLinked: 0,
+      castSkipped: 0,
+      castPersonsIngested: 0,
+      crewLinked: 0,
+      crewSkipped: 0,
+      crewPersonsIngested: 0,
+    };
+  }
+
   const resolvedKey = apiKey ?? getApiKey();
   const baseScriptName = `${SCRIPT_NAME}:${tmdbId}`;
-
   const [moviePayload, credits] = await Promise.all([
     fetchTmdbMovie(resolvedKey, tmdbId),
     fetchTmdbMovieCredits(resolvedKey, tmdbId),
@@ -675,6 +694,20 @@ export async function ingestMovie({
     baseScriptName,
   });
   const { movieId, action, genresLinked, genresSkipped } = detailsResult;
+  if (action === "skipped_existing") {
+    return {
+      movieId,
+      action,
+      genresLinked: 0,
+      genresSkipped: 0,
+      castLinked: 0,
+      castSkipped: 0,
+      castPersonsIngested: 0,
+      crewLinked: 0,
+      crewSkipped: 0,
+      crewPersonsIngested: 0,
+    };
+  }
 
   const castResult = await runCreditsPhaseTransaction({
     baseScriptName,

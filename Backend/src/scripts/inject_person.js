@@ -173,6 +173,7 @@ function normalizePersonPayload(payload) {
 }
 
 const departmentCache = new Map();
+const existingPersonIdCache = new Map();
 
 function normalizeDepartmentName(name) {
   if (name === "Actors") return "Acting";
@@ -195,7 +196,31 @@ async function resolveDepartmentId(deptName, transaction) {
   return id;
 }
 
-async function upsertPerson(normalized, transaction) {
+async function findExistingPersonId(tmdbId, transaction) {
+  if (existingPersonIdCache.has(tmdbId)) {
+    return existingPersonIdCache.get(tmdbId);
+  }
+
+  const [existing] = await sequelize.query(
+    `
+      SELECT id
+      FROM person
+      WHERE tmdb_id = :tmdbId
+      LIMIT 1;
+    `,
+    {
+      replacements: { tmdbId },
+      transaction,
+    }
+  );
+  const personId = existing?.[0]?.id ?? null;
+  if (personId) {
+    existingPersonIdCache.set(tmdbId, personId);
+  }
+  return personId;
+}
+
+async function insertPerson(normalized, transaction) {
   const knownForDepartmentId = await resolveDepartmentId(
     normalized.knownForDepartmentName,
     transaction
@@ -209,28 +234,8 @@ async function upsertPerson(normalized, transaction) {
         :tmdbId, :name, :adult, :biography, :birthday, :placeOfBirth, :deathday,
         :gender, :popularity, :knownForDepartmentId, :profilePath
       )
-      ON CONFLICT (tmdb_id) DO UPDATE SET
-        name = EXCLUDED.name,
-        adult = EXCLUDED.adult,
-        biography = EXCLUDED.biography,
-        birthday = EXCLUDED.birthday,
-        place_of_birth = EXCLUDED.place_of_birth,
-        deathday = EXCLUDED.deathday,
-        gender = EXCLUDED.gender,
-        popularity = EXCLUDED.popularity,
-        known_for_department_id = EXCLUDED.known_for_department_id,
-        profile_path = EXCLUDED.profile_path,
-        updated_at = now()
-      WHERE (
-        person.name, person.adult, person.biography, person.birthday,
-        person.place_of_birth, person.deathday, person.gender, person.popularity,
-        person.known_for_department_id, person.profile_path
-      ) IS DISTINCT FROM (
-        EXCLUDED.name, EXCLUDED.adult, EXCLUDED.biography, EXCLUDED.birthday,
-        EXCLUDED.place_of_birth, EXCLUDED.deathday, EXCLUDED.gender, EXCLUDED.popularity,
-        EXCLUDED.known_for_department_id, EXCLUDED.profile_path
-      )
-      RETURNING id, (xmax = 0) AS was_inserted;
+      ON CONFLICT (tmdb_id) DO NOTHING
+      RETURNING id;
     `,
     {
       replacements: {
@@ -252,33 +257,22 @@ async function upsertPerson(normalized, transaction) {
 
   const returned = rows?.[0];
   if (returned) {
+    existingPersonIdCache.set(normalized.tmdbId, returned.id);
     return {
       personId: returned.id,
-      action: returned.was_inserted ? "inserted" : "updated",
+      inserted: true,
     };
   }
 
-  const [existing] = await sequelize.query(
-    `
-      SELECT id
-      FROM person
-      WHERE tmdb_id = :tmdbId
-      LIMIT 1;
-    `,
-    {
-      replacements: { tmdbId: normalized.tmdbId },
-      transaction,
-    }
-  );
-
-  const personId = existing?.[0]?.id;
+  const personId = await findExistingPersonId(normalized.tmdbId, transaction);
   if (!personId) {
     throw new Error(
-      `Failed to resolve person id for tmdb_id=${normalized.tmdbId} after upsert.`
+      `Failed to resolve person id for tmdb_id=${normalized.tmdbId} after insert.`
     );
   }
 
-  return { personId, action: "unchanged" };
+  existingPersonIdCache.set(normalized.tmdbId, personId);
+  return { personId, inserted: false };
 }
 
 async function syncPersonAka(personId, nicknames, transaction) {
@@ -373,22 +367,45 @@ export async function ingestPerson({
     throw new Error("ingestPerson requires a numeric `tmdbId`.");
   }
 
-  let payload;
-  if (preloadedPayload) {
-    payload = preloadedPayload;
-  } else {
-    const resolvedKey = apiKey ?? getApiKey();
-    payload = await fetchTmdbPerson(resolvedKey, tmdbId);
-  }
-  const normalized = normalizePersonPayload(payload);
-
   const ownsTransaction = !transaction;
   const tx = transaction ?? (await sequelize.transaction());
 
   try {
-    const { personId, action } = await upsertPerson(normalized, tx);
+    const existingPersonId = await findExistingPersonId(tmdbId, tx);
+    if (existingPersonId) {
+      if (ownsTransaction) await tx.commit();
+      return {
+        personId: existingPersonId,
+        action: "skipped_existing",
+        akaInserted: 0,
+        akaRestored: 0,
+        akaDeleted: 0,
+      };
+    }
+
+    let payload;
+    if (preloadedPayload) {
+      payload = preloadedPayload;
+    } else {
+      const resolvedKey = apiKey ?? getApiKey();
+      payload = await fetchTmdbPerson(resolvedKey, tmdbId);
+    }
+    const normalized = normalizePersonPayload(payload);
+
+    const insertResult = await insertPerson(normalized, tx);
+    if (!insertResult.inserted) {
+      if (ownsTransaction) await tx.commit();
+      return {
+        personId: insertResult.personId,
+        action: "skipped_existing",
+        akaInserted: 0,
+        akaRestored: 0,
+        akaDeleted: 0,
+      };
+    }
+
     const { akaInserted, akaRestored, akaDeleted } = await syncPersonAka(
-      personId,
+      insertResult.personId,
       normalized.alsoKnownAs,
       tx
     );
@@ -396,8 +413,8 @@ export async function ingestPerson({
     if (ownsTransaction) await tx.commit();
 
     return {
-      personId,
-      action,
+      personId: insertResult.personId,
+      action: "inserted",
       akaInserted,
       akaRestored,
       akaDeleted,

@@ -12,6 +12,13 @@
     "seed:tmdb:person": "node Backend/src/scripts/inject_person.js",
     "seed:tmdb:tv-show": "node Backend/src/scripts/inject_tv_show.js",
     "seed:tmdb:movie": "node Backend/src/scripts/inject_movie.js",
+    "seed:tmdb:popular-movies-today": "node Backend/src/scripts/inject_popular_movies_today.js",
+    "seed:tmdb:popular-people-today": "node Backend/src/scripts/inject_popular_people_today.js",
+    "seed:tmdb:popular-shows-today": "node Backend/src/scripts/inject_popular_shows_today.js",
+    "seed:tmdb:top-rated-movies": "node Backend/src/scripts/inject_top_rated_movies.js",
+    "seed:tmdb:top-rated-shows": "node Backend/src/scripts/inject_top_rated_shows.js",
+    "test:injections": "node --test \"tests/injections_tests/**/*.test.js\"",
+    "test:injections:watch": "node --test --watch \"tests/injections_tests/**/*.test.js\"",
     "test:py": "pytest"
   },
   "dependencies": {

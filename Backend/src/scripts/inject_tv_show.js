@@ -12,6 +12,7 @@ const CAST_JOB_NAME = "Actor";
 const CAST_DEPARTMENT_NAME = "Acting";
 
 let cachedApiKey = null;
+const existingShowIdCache = new Map();
 
 async function writeScriptLog({
   scriptName = SCRIPT_NAME,
@@ -419,6 +420,30 @@ function normalizeEpisodePayload(payload, seasonId) {
   };
 }
 
+async function findExistingShowId(tmdbId, transaction) {
+  if (existingShowIdCache.has(tmdbId)) {
+    return existingShowIdCache.get(tmdbId);
+  }
+
+  const [existing] = await sequelize.query(
+    `
+      SELECT id
+      FROM show
+      WHERE tmdb_id = :tmdbId
+      LIMIT 1;
+    `,
+    {
+      replacements: { tmdbId },
+      transaction,
+    }
+  );
+  const showId = existing?.[0]?.id ?? null;
+  if (showId) {
+    existingShowIdCache.set(tmdbId, showId);
+  }
+  return showId;
+}
+
 async function upsertShow(normalized, transaction) {
   const [rows] = await sequelize.query(
     `
@@ -431,37 +456,8 @@ async function upsertShow(normalized, transaction) {
         :name, :numberOfEpisodes, :numberOfSeasons, :originalLanguage, :originalName,
         :overview, :tmdbPopularity, :status, :tagline, :type, :tmdbVoteAvg, :tmdbVoteCount
       )
-      ON CONFLICT (tmdb_id) DO UPDATE SET
-        adult = EXCLUDED.adult,
-        episode_run_time = EXCLUDED.episode_run_time,
-        first_air_date = EXCLUDED.first_air_date,
-        in_production = EXCLUDED.in_production,
-        last_air_date = EXCLUDED.last_air_date,
-        name = EXCLUDED.name,
-        number_of_episodes = EXCLUDED.number_of_episodes,
-        number_of_seasons = EXCLUDED.number_of_seasons,
-        original_language = EXCLUDED.original_language,
-        original_name = EXCLUDED.original_name,
-        overview = EXCLUDED.overview,
-        tmdb_popularity = EXCLUDED.tmdb_popularity,
-        status = EXCLUDED.status,
-        tagline = EXCLUDED.tagline,
-        type = EXCLUDED.type,
-        tmdb_vote_avg = EXCLUDED.tmdb_vote_avg,
-        tmdb_vote_count = EXCLUDED.tmdb_vote_count,
-        updated_at = now()
-      WHERE (
-        show.adult, show.episode_run_time, show.first_air_date, show.in_production,
-        show.last_air_date, show.name, show.number_of_episodes, show.number_of_seasons,
-        show.original_language, show.original_name, show.overview, show.tmdb_popularity,
-        show.status, show.tagline, show.type, show.tmdb_vote_avg, show.tmdb_vote_count
-      ) IS DISTINCT FROM (
-        EXCLUDED.adult, EXCLUDED.episode_run_time, EXCLUDED.first_air_date, EXCLUDED.in_production,
-        EXCLUDED.last_air_date, EXCLUDED.name, EXCLUDED.number_of_episodes, EXCLUDED.number_of_seasons,
-        EXCLUDED.original_language, EXCLUDED.original_name, EXCLUDED.overview, EXCLUDED.tmdb_popularity,
-        EXCLUDED.status, EXCLUDED.tagline, EXCLUDED.type, EXCLUDED.tmdb_vote_avg, EXCLUDED.tmdb_vote_count
-      )
-      RETURNING id, (xmax = 0) AS was_inserted;
+      ON CONFLICT (tmdb_id) DO NOTHING
+      RETURNING id;
     `,
     {
       replacements: {
@@ -490,33 +486,22 @@ async function upsertShow(normalized, transaction) {
 
   const returned = rows?.[0];
   if (returned) {
+    existingShowIdCache.set(normalized.tmdbId, returned.id);
     return {
       showId: returned.id,
-      action: returned.was_inserted ? "inserted" : "updated",
+      action: "inserted",
     };
   }
 
-  const [existing] = await sequelize.query(
-    `
-      SELECT id
-      FROM show
-      WHERE tmdb_id = :tmdbId
-      LIMIT 1;
-    `,
-    {
-      replacements: { tmdbId: normalized.tmdbId },
-      transaction,
-    }
-  );
-
-  const showId = existing?.[0]?.id;
+  const showId = await findExistingShowId(normalized.tmdbId, transaction);
   if (!showId) {
     throw new Error(
-      `Failed to resolve show id for tmdb_id=${normalized.tmdbId} after upsert.`
+      `Failed to resolve show id for tmdb_id=${normalized.tmdbId} after insert.`
     );
   }
 
-  return { showId, action: "unchanged" };
+  existingShowIdCache.set(normalized.tmdbId, showId);
+  return { showId, action: "skipped_existing" };
 }
 
 async function upsertSeason(normalized, transaction) {
@@ -1043,6 +1028,19 @@ async function runDetailsTransaction({ normalized, baseScriptName }) {
   const tx = await sequelize.transaction();
   try {
     const { showId, action } = await upsertShow(normalized, tx);
+    if (action === "skipped_existing") {
+      await tx.commit();
+
+      await writeScriptLog({
+        scriptName: `${baseScriptName}:details`,
+        status: "success",
+        batchSize: 0,
+        startedAt,
+      });
+
+      return { showId, action, genresLinked: 0, genresSkipped: 0 };
+    }
+
     const { linked: genresLinked, skipped: genresSkipped } =
       await replaceShowGenres(showId, normalized.genres, tx);
     await tx.commit();
@@ -1356,6 +1354,32 @@ export async function ingestTvShow({
     throw new Error("ingestTvShow requires a numeric `tmdbTvId`.");
   }
 
+  const existingShowId = await findExistingShowId(tmdbTvId);
+  if (existingShowId) {
+    return {
+      showId: existingShowId,
+      action: "skipped_existing",
+      genresLinked: 0,
+      genresSkipped: 0,
+      creditsLinked: 0,
+      creditsSkipped: 0,
+      personsIngested: 0,
+      seasonsProcessed: 0,
+      seasonsInserted: 0,
+      seasonsUpdated: 0,
+      seasonsUnchanged: 0,
+      seasonsSkippedSpecial: 0,
+      episodesProcessed: 0,
+      episodesInserted: 0,
+      episodesUpdated: 0,
+      episodesUnchanged: 0,
+      episodesFailed: 0,
+      episodeCreditsLinked: 0,
+      episodeCreditsSkipped: 0,
+      episodePersonsIngested: 0,
+    };
+  }
+
   const resolvedKey = apiKey ?? getApiKey();
   const baseScriptName = `${SCRIPT_NAME}:${tmdbTvId}`;
 
@@ -1386,6 +1410,30 @@ export async function ingestTvShow({
     baseScriptName,
   });
   const { showId, action, genresLinked, genresSkipped } = detailsResult;
+  if (action === "skipped_existing") {
+    return {
+      showId,
+      action,
+      genresLinked: 0,
+      genresSkipped: 0,
+      creditsLinked: 0,
+      creditsSkipped: 0,
+      personsIngested: 0,
+      seasonsProcessed: 0,
+      seasonsInserted: 0,
+      seasonsUpdated: 0,
+      seasonsUnchanged: 0,
+      seasonsSkippedSpecial: 0,
+      episodesProcessed: 0,
+      episodesInserted: 0,
+      episodesUpdated: 0,
+      episodesUnchanged: 0,
+      episodesFailed: 0,
+      episodeCreditsLinked: 0,
+      episodeCreditsSkipped: 0,
+      episodePersonsIngested: 0,
+    };
+  }
 
   const creditsResult = await runCreditsTransaction({
     baseScriptName,

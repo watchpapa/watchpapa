@@ -7,6 +7,26 @@
 - `npm run seed:tmdb:person -- --id=<tmdb_person_id>`
 - `npm run seed:tmdb:tv-show -- --id=<tmdb_tv_id>`
 - `npm run seed:tmdb:movie -- --id=<tmdb_movie_id>`
+- `npm run seed:tmdb:popular-movies-today -- --limit=<count>`
+- `npm run seed:tmdb:popular-people-today -- --limit=<count>`
+- `npm run seed:tmdb:popular-shows-today -- --limit=<count>`
+- `npm run seed:tmdb:top-rated-movies -- --limit=<count>`
+- `npm run seed:tmdb:top-rated-shows -- --limit=<count>`
+
+## Injection script tests
+
+Command:
+
+`npm run test:injections`
+
+Description:
+
+Runs Node-based tests under `tests/injections_tests` for all `inject_*.js` scripts. Coverage focuses on:
+
+- CLI guardrails (`--id` and `--limit` validation).
+- Environment guards (missing `TMDB_API_KEY_SECRET`).
+- Exported ingestion function guards (invalid ids, required api key checks).
+- Fast-path skip behavior when records already exist (mocked `sequelize.query`).
 
 ## TMDB jobs and departments ingestion
 
@@ -36,13 +56,9 @@ Command:
 
 Description:
 
-Fetches a single TMDB person and upserts the row into `public.person` via `INSERT ... ON CONFLICT (tmdb_id) DO UPDATE` with an `IS DISTINCT FROM` change-guard, so `updated_at` only moves when a tracked field actually changes. The result is classified as `inserted`, `updated`, or `unchanged`.
+Checks `public.person` by `tmdb_id` first. If the person already exists, the script skips without updating person fields or AKAs. If missing, it fetches TMDB person details and inserts a new row into `public.person`.
 
-Also diff-syncs `also_known_as` into `public.person_aka`:
-
-- new nicknames are inserted,
-- previously soft-deleted matches are restored (`deleted_at = NULL`),
-- live rows that TMDB no longer returns are soft-deleted (`deleted_at = now()`).
+For newly inserted people only, it inserts `also_known_as` values into `public.person_aka`.
 
 `known_for_department_id` is resolved by looking up the TMDB `known_for_department` text value (e.g. `"Acting"`) against `department.name` and storing the resulting `department.id` (nullable `bigint`). Resolutions are memoized for the lifetime of the process. Requires `seed:tmdb:jobs` to have been run first so the `department` rows exist.
 
@@ -74,14 +90,13 @@ Special seasons (`season_number <= 0`, usually season 0) are intentionally skipp
 
 Description:
 
-Fetches one TV series from TMDB (`GET /tv/{id}`) and upserts the row into `public.show` via `INSERT ... ON CONFLICT (tmdb_id) DO UPDATE` with an `IS DISTINCT FROM` change-guard, so `updated_at` only moves when a tracked field actually changes. The result is classified as `inserted`, `updated`, or `unchanged`.
+Checks `public.show` by `tmdb_id` first. If the show already exists, the script skips immediately (no details refresh, no genres refresh, no credits/seasons/episodes work). If missing, it fetches TMDB data and inserts a new show.
 
-Also replaces genre associations in `public.show_genre`: existing rows for the show are deleted and re-inserted from the TV detail `genres[]` array. Each TMDB genre id is resolved through `genres.tmdb_id`; missing mappings are skipped with a warning.
+For newly inserted shows, genre associations are inserted into `public.show_genre` from the TV detail `genres[]` array. Each TMDB genre id is resolved through `genres.tmdb_id`; missing mappings are skipped with a warning.
 
-Fetches credits from `GET /tv/{id}/credits` and fully replaces `public.show_credits` for the show:
+For newly inserted shows, it fetches credits from `GET /tv/{id}/credits` and inserts `public.show_credits` rows:
 
-- Existing rows for the show are deleted, then every `cast` and `crew` entry is re-inserted (`guest_stars` are ignored — those belong at the episode level, which is not in scope yet).
-- For each distinct credited person, `ingestPerson` (from `inject_person.js`) is invoked on the same transaction, so new people are upserted into `public.person` (with AKAs synced) before their credit row is written.
+- For each distinct credited person, `ingestPerson` (from `inject_person.js`) is invoked on the same transaction; existing people are skipped, missing people are inserted before their credit row is written.
 - Cast entries are linked to the job `"Actor"` in department `"Acting"`, with `title` set to the `character` string.
 - Crew entries are linked to the job matching `crew.job` in department `crew.department`, with `title = null` (the role is encoded in `job_id`).
 - Duplicate TMDB entries (same person + role) are deduped before insert.
@@ -105,10 +120,10 @@ After Phase 2 commits, the script runs Phase 3 episode sync:
 
 Transactions:
 
-- One transaction for the **show details** upsert.
-- One transaction for the **credits** replace (delete-then-bulk-insert, with person upserts).
-- One transaction for the **seasons** phase (upsert regular seasons only).
-- One transaction per **episode** in the episodes phase (episode upsert + episode_credits replace for that single episode).
+- One transaction for the **show details** insert.
+- One transaction for the **credits** insert phase.
+- One transaction for the **seasons** phase.
+- One transaction per **episode** in the episodes phase.
 
 Failures in later phases can leave earlier committed phases in place (details -> credits -> seasons). In Phase 3, failed episodes are rolled back individually while successful episodes remain committed. Rerunning the same `--id` is idempotent.
 
@@ -129,19 +144,88 @@ Prerequisites:
 
 Description:
 
-Fetches one movie from TMDB (`GET /movie/{id}`) and upserts the row into `public.movie` via `INSERT ... ON CONFLICT (tmdb_id) DO UPDATE` with an `IS DISTINCT FROM` change-guard, so `updated_at` only moves when a tracked field actually changes. The result is classified as `inserted`, `updated`, or `unchanged`.
+Checks `public.movie` by `tmdb_id` first. If the movie already exists, the script skips immediately (no details refresh, no genres refresh, no credits/person work). If missing, it fetches TMDB data and inserts a new movie.
 
-Replaces genre associations in `public.movie_genre`: existing rows for the movie are deleted and re-inserted from the `genres[]` array on the TMDB payload. Each TMDB genre `id` is looked up in `genres.tmdb_id`; any genre not found in the local table is skipped with a warning (run `seed:tmdb:genres` first to populate it).
+For newly inserted movies, genre associations are inserted into `public.movie_genre` from the `genres[]` array on the TMDB payload. Each TMDB genre `id` is looked up in `genres.tmdb_id`; any genre not found in the local table is skipped with a warning (run `seed:tmdb:genres` first to populate it).
 
-Fetches credits from `GET /movie/{id}/credits` and fully replaces `public.movie_credits` for the movie:
+For newly inserted movies, it fetches credits from `GET /movie/{id}/credits` and inserts `public.movie_credits` rows:
 
-- Existing rows for the movie are deleted, then every `cast` and `crew` entry is re-inserted.
-- For each distinct credited person, `ingestPerson` (from `inject_person.js`) is invoked on the same transaction, so new people are upserted into `public.person` (with AKAs synced) before their credit row is written.
+- For each distinct credited person, `ingestPerson` (from `inject_person.js`) is invoked on the same transaction; existing people are skipped, missing people are inserted before their credit row is written.
 - Cast entries are linked to the job `"Actor"` in department `"Acting"`, with `title` set to the `character` string.
 - Crew entries are linked to the job matching `crew.job` in department `crew.department`, with `title = null` (the role is encoded in `job_id`).
 - Duplicate TMDB entries (same person + role) are deduped before insert.
 - Any credit whose `(job, department)` is not found in the local `job` table is skipped with a warning; run `seed:tmdb:jobs` first to populate it.
 
-Everything (movie upsert, genre replace, person upserts, credits replace) runs inside a single transaction (all-or-nothing) and is idempotent — safe to rerun.
+Everything for a new movie insert (movie row, genre links, person inserts, credits) runs inside transactions and is idempotent — safe to rerun.
 
 The script exports a reusable function `ingestMovie({ tmdbId, transaction, apiKey, onCreditsProgress })` for use by other scripts (e.g. future bulk movie loaders). When called with an existing `transaction`, the caller owns commit/rollback.
+
+## TMDB popular movies today ingestion
+
+Command:
+
+`npm run seed:tmdb:popular-movies-today -- --limit=<count>`
+
+Description:
+
+Fetches today’s TMDB popular movies from `GET /movie/popular` (paged), takes the first `limit` results (default `20`, max `500`), and checks which `tmdb_id` values already exist in `public.movie`.
+
+Existing movies are skipped, and no connected ingestion work runs for them (no movie details refresh, no genres refresh, no credits/person refresh). Only missing movies run through `ingestMovie`, which inserts the movie with genres and credits/person relationships.
+
+The script writes a top-level `script_logs` row (`inject_popular_movies_today:limit=<count>`) and prints a final summary with requested count, skipped existing count, and inserted count.
+
+## TMDB popular people today ingestion
+
+Command:
+
+`npm run seed:tmdb:popular-people-today -- --limit=<count>`
+
+Description:
+
+Fetches today’s TMDB popular people from `GET /person/popular` (paged), takes the first `limit` results (default `20`, max `500`), and checks which `tmdb_id` values already exist in `public.person`.
+
+Existing people are skipped, and no refresh/update is performed for those rows. Only missing people run through `ingestPerson`, which inserts the person and their AKA values.
+
+The script writes a top-level `script_logs` row (`inject_popular_people_today:limit=<count>`) and prints a final summary with requested count, skipped existing count, skipped race count, and inserted count.
+
+## TMDB popular shows today ingestion
+
+Command:
+
+`npm run seed:tmdb:popular-shows-today -- --limit=<count>`
+
+Description:
+
+Fetches today’s TMDB popular TV shows from `GET /tv/popular` (paged), takes the first `limit` results (default `20`, max `500`), and checks which `tmdb_id` values already exist in `public.show`.
+
+Existing shows are skipped, and no refresh/update is performed for those rows. Only missing shows run through `ingestTvShow`, which inserts the show and runs the same downstream ingestion phases as single-show ingestion.
+
+The script writes a top-level `script_logs` row (`inject_popular_shows_today:limit=<count>`) and prints a final summary with requested count, skipped existing count, skipped race count, and inserted count.
+
+## TMDB top-rated movies ingestion
+
+Command:
+
+`npm run seed:tmdb:top-rated-movies -- --limit=<count>`
+
+Description:
+
+Fetches TMDB top-rated movies from `GET /movie/top_rated` (paged), takes the first `limit` results (default `20`, max `500`), and checks which `tmdb_id` values already exist in `public.movie`.
+
+Existing movies are skipped, and no connected ingestion work runs for them (no movie details refresh, no genres refresh, no credits/person refresh). Only missing movies run through `ingestMovie`, which inserts the movie with genres and credits/person relationships.
+
+The script writes a top-level `script_logs` row (`inject_top_rated_movies:limit=<count>`) and prints a final summary with requested count, skipped existing count, skipped race count, and inserted count.
+
+## TMDB top-rated shows ingestion
+
+Command:
+
+`npm run seed:tmdb:top-rated-shows -- --limit=<count>`
+
+Description:
+
+Fetches TMDB top-rated TV shows from `GET /tv/top_rated` (paged), takes the first `limit` results (default `20`, max `500`), and checks which `tmdb_id` values already exist in `public.show`.
+
+Existing shows are skipped, and no refresh/update is performed for those rows. Only missing shows run through `ingestTvShow`, which inserts the show and runs the same downstream ingestion phases as single-show ingestion.
+
+The script writes a top-level `script_logs` row (`inject_top_rated_shows:limit=<count>`) and prints a final summary with requested count, skipped existing count, skipped race count, and inserted count.
