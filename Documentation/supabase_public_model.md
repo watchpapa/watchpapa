@@ -144,9 +144,10 @@ CREATE TABLE public.person (
   created_at timestamp with time zone NOT NULL DEFAULT (now() AT TIME ZONE 'utc'::text),
   updated_at timestamp with time zone,
   deleted_at timestamp with time zone,
-  known_for_department text,
+  known_for_department_id bigint,
   profile_path text,
-  CONSTRAINT person_pkey PRIMARY KEY (id)
+  CONSTRAINT person_pkey PRIMARY KEY (id),
+  CONSTRAINT person_known_for_department_id_fkey FOREIGN KEY (known_for_department_id) REFERENCES public.department(id)
 );
 CREATE TABLE public.person_aka (
   id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
@@ -180,6 +181,7 @@ CREATE TABLE public.script_logs (
   error_detail text,
   started_at timestamp with time zone,
   finished_at timestamp with time zone DEFAULT (now() AT TIME ZONE 'utc'::text),
+  runtime double precision,
   created_at timestamp with time zone NOT NULL DEFAULT (now() AT TIME ZONE 'utc'::text),
   CONSTRAINT script_logs_pkey PRIMARY KEY (id)
 );
@@ -284,11 +286,11 @@ Stores TMDB TV show metadata: `adult`, `episode_run_time`, `first_air_date`, `in
 
 ### `person`
 
-Stores cast/crew person records from TMDB: `name`, `adult`, optional `biography` and `birthday`, optional `place_of_birth` and `deathday`, `gender`, `popularity`, optional `known_for_department` and `profile_path`.
+Stores cast/crew person records from TMDB: `name`, `adult`, optional `biography` and `birthday`, optional `place_of_birth` and `deathday`, `gender`, `popularity`, optional `known_for_department_id` and `profile_path`.
 
 - Primary key: `id` (`bigint`, identity)
 - External source key: `tmdb_id` (required, `NOT NULL`, unique)
-- Optional text field: `known_for_department` (raw TMDB label, nullable)
+- Optional reference: `known_for_department_id` (nullable `bigint`) — resolved from the TMDB `known_for_department` text field by looking up a row in `department` by `name` at ingestion time, and enforced by FK `person_known_for_department_id_fkey` to `department.id`.
 
 ### `person_aka`
 
@@ -428,7 +430,7 @@ Stores outcomes for background scripts or ETL jobs (ingestion, backfills, etc.).
 - Primary key: `id` (uuid, default `gen_random_uuid()`)
 - `script_name` (required)
 - `status` is nullable but constrained to `success` or `failure` when set
-- Optional: `batch_size`, `error_code`, `error_detail`, `started_at`; `finished_at` defaults to `now()` in the DDL
+- Optional: `batch_size`, `error_code`, `error_detail`, `started_at`, `runtime` (`double precision`, elapsed seconds when the script supplies both start and finish); `finished_at` defaults to UTC `now()` in the DDL
 - `created_at` with UTC default (ingestion/audit row time, distinct from `started_at` / `finished_at`)
 - No foreign keys to content tables
 
@@ -512,9 +514,9 @@ For `user_followed_shows`:
 
 ## Notes and Observations
 
-- Timestamp defaults for `created_at` in this schema use `(now() AT TIME ZONE 'utc')` (including join and follow tables); `script_logs.finished_at` still defaults to plain `now()`.
+- Timestamp defaults for `created_at` in this schema use `(now() AT TIME ZONE 'utc')` (including join and follow tables); `script_logs.finished_at` uses the same UTC expression.
 - Soft-delete fields (`deleted_at`) exist on `genres` and other domain tables; they are absent on credit rows, genre join rows (`movie_genre`, `show_genre`), `script_logs`, and follow tables.
 - `episode_credits`, `movie_credits`, and `show_credits` have `created_at` but no `updated_at` / `deleted_at` in this schema.
-- `script_logs` includes `created_at` (UTC) in addition to `started_at` / `finished_at` for run timing.
+- `script_logs` includes `created_at` (UTC) in addition to `started_at` / `finished_at` and optional `runtime` (elapsed seconds, `double precision`) for run timing.
 - Constraint names are explicit and clear, which is helpful for migrations and debugging.
 

@@ -10,6 +10,8 @@
     "seed:tmdb:jobs": "node Backend/src/scripts/inject_jobs_and_departments.js",
     "seed:tmdb:genres": "node Backend/src/scripts/inject_genres.js",
     "seed:tmdb:person": "node Backend/src/scripts/inject_person.js",
+    "seed:tmdb:tv-show": "node Backend/src/scripts/inject_tv_show.js",
+    "seed:tmdb:movie": "node Backend/src/scripts/inject_movie.js",
     "test:py": "pytest"
   },
   "dependencies": {
