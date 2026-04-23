@@ -8,7 +8,7 @@ Items tracked here are follow-ups for schema or docs that are not part of a sing
 
 - `person.tmdb_id` — **`NOT NULL UNIQUE`** (`inject_person`: `ON CONFLICT (tmdb_id)`).
 - `season.tmdb_id` — **`NOT NULL UNIQUE`** — TV ingest can upsert seasons with `ON CONFLICT (tmdb_id) DO UPDATE` (and still set `show_id` / `season_number` from TMDB on conflict).
-- `episode.tmdb_id` — **`NOT NULL UNIQUE`** — TV ingest can upsert episodes with `ON CONFLICT (tmdb_id) DO UPDATE` while keeping `id` equal to TMDB episode id as today.
+- `episode.tmdb_id` — **`NOT NULL UNIQUE`** — TV ingest can upsert episodes with `ON CONFLICT (tmdb_id) DO UPDATE` while keeping `id` independent as the database-generated primary key.
 
 **Optional follow-ups** (not in the current DDL): composite uniques if you want the database to enforce “one row per show season index” or “one row per season episode index” independent of TMDB id stability:
 

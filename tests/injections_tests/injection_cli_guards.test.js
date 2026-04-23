@@ -64,3 +64,35 @@ test("inject_popular_shows_today rejects limit values above max", () => {
   assert.notEqual(result.status, 0);
   assert.match(result.stderr, /Requested --limit=999 is too high/);
 });
+
+test("inject_changed_movies_24h rejects limit values above max", () => {
+  const result = runScript("Backend/src/scripts/inject_changed_movies_24h.js", [
+    "--limit=100001",
+  ]);
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /Requested --limit=100001 is too high/);
+});
+
+test("inject_changed_people_24h rejects limit values above max", () => {
+  const result = runScript("Backend/src/scripts/inject_changed_people_24h.js", [
+    "--limit=100001",
+  ]);
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /Requested --limit=100001 is too high/);
+});
+
+test("inject_changed_shows_24h rejects limit values above max", () => {
+  const result = runScript("Backend/src/scripts/inject_changed_shows_24h.js", [
+    "--limit=100001",
+  ]);
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /Requested --limit=100001 is too high/);
+});
+
+test("inject_changed_all_24h rejects limit values above max", () => {
+  const result = runScript("Backend/src/scripts/inject_changed_all_24h.js", [
+    "--limit=100001",
+  ]);
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /Requested --limit=100001 is too high/);
+});

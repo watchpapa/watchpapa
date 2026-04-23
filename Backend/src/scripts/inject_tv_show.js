@@ -409,7 +409,6 @@ function normalizeEpisodePayload(payload, seasonId) {
   }
 
   return {
-    id: tmdbId,
     tmdbId,
     seasonId,
     name,
@@ -444,9 +443,77 @@ async function findExistingShowId(tmdbId, transaction) {
   return showId;
 }
 
-async function upsertShow(normalized, transaction) {
+async function upsertShow(
+  normalized,
+  transaction,
+  { allowUpdateExisting = false } = {}
+) {
+  const replacements = {
+    tmdbId: normalized.tmdbId,
+    adult: normalized.adult,
+    episodeRunTime: normalized.episodeRunTime,
+    firstAirDate: normalized.firstAirDate,
+    inProduction: normalized.inProduction,
+    lastAirDate: normalized.lastAirDate,
+    name: normalized.name,
+    numberOfEpisodes: normalized.numberOfEpisodes,
+    numberOfSeasons: normalized.numberOfSeasons,
+    originalLanguage: normalized.originalLanguage,
+    originalName: normalized.originalName,
+    overview: normalized.overview,
+    tmdbPopularity: normalized.tmdbPopularity,
+    status: normalized.status,
+    tagline: normalized.tagline,
+    type: normalized.type,
+    tmdbVoteAvg: normalized.tmdbVoteAvg,
+    tmdbVoteCount: normalized.tmdbVoteCount,
+  };
+
   const [rows] = await sequelize.query(
+    allowUpdateExisting
+      ? `
+      INSERT INTO show (
+        tmdb_id, adult, episode_run_time, first_air_date, in_production, last_air_date,
+        name, number_of_episodes, number_of_seasons, original_language, original_name,
+        overview, tmdb_popularity, status, tagline, type, tmdb_vote_avg, tmdb_vote_count
+      ) VALUES (
+        :tmdbId, :adult, :episodeRunTime, :firstAirDate, :inProduction, :lastAirDate,
+        :name, :numberOfEpisodes, :numberOfSeasons, :originalLanguage, :originalName,
+        :overview, :tmdbPopularity, :status, :tagline, :type, :tmdbVoteAvg, :tmdbVoteCount
+      )
+      ON CONFLICT (tmdb_id) DO UPDATE SET
+        adult = EXCLUDED.adult,
+        episode_run_time = EXCLUDED.episode_run_time,
+        first_air_date = EXCLUDED.first_air_date,
+        in_production = EXCLUDED.in_production,
+        last_air_date = EXCLUDED.last_air_date,
+        name = EXCLUDED.name,
+        number_of_episodes = EXCLUDED.number_of_episodes,
+        number_of_seasons = EXCLUDED.number_of_seasons,
+        original_language = EXCLUDED.original_language,
+        original_name = EXCLUDED.original_name,
+        overview = EXCLUDED.overview,
+        tmdb_popularity = EXCLUDED.tmdb_popularity,
+        status = EXCLUDED.status,
+        tagline = EXCLUDED.tagline,
+        type = EXCLUDED.type,
+        tmdb_vote_avg = EXCLUDED.tmdb_vote_avg,
+        tmdb_vote_count = EXCLUDED.tmdb_vote_count,
+        updated_at = now()
+      WHERE (
+        show.adult, show.episode_run_time, show.first_air_date, show.in_production,
+        show.last_air_date, show.name, show.number_of_episodes, show.number_of_seasons,
+        show.original_language, show.original_name, show.overview, show.tmdb_popularity,
+        show.status, show.tagline, show.type, show.tmdb_vote_avg, show.tmdb_vote_count
+      ) IS DISTINCT FROM (
+        EXCLUDED.adult, EXCLUDED.episode_run_time, EXCLUDED.first_air_date, EXCLUDED.in_production,
+        EXCLUDED.last_air_date, EXCLUDED.name, EXCLUDED.number_of_episodes, EXCLUDED.number_of_seasons,
+        EXCLUDED.original_language, EXCLUDED.original_name, EXCLUDED.overview, EXCLUDED.tmdb_popularity,
+        EXCLUDED.status, EXCLUDED.tagline, EXCLUDED.type, EXCLUDED.tmdb_vote_avg, EXCLUDED.tmdb_vote_count
+      )
+      RETURNING id, (xmax = 0) AS was_inserted;
     `
+      : `
       INSERT INTO show (
         tmdb_id, adult, episode_run_time, first_air_date, in_production, last_air_date,
         name, number_of_episodes, number_of_seasons, original_language, original_name,
@@ -460,26 +527,7 @@ async function upsertShow(normalized, transaction) {
       RETURNING id;
     `,
     {
-      replacements: {
-        tmdbId: normalized.tmdbId,
-        adult: normalized.adult,
-        episodeRunTime: normalized.episodeRunTime,
-        firstAirDate: normalized.firstAirDate,
-        inProduction: normalized.inProduction,
-        lastAirDate: normalized.lastAirDate,
-        name: normalized.name,
-        numberOfEpisodes: normalized.numberOfEpisodes,
-        numberOfSeasons: normalized.numberOfSeasons,
-        originalLanguage: normalized.originalLanguage,
-        originalName: normalized.originalName,
-        overview: normalized.overview,
-        tmdbPopularity: normalized.tmdbPopularity,
-        status: normalized.status,
-        tagline: normalized.tagline,
-        type: normalized.type,
-        tmdbVoteAvg: normalized.tmdbVoteAvg,
-        tmdbVoteCount: normalized.tmdbVoteCount,
-      },
+      replacements,
       transaction,
     }
   );
@@ -489,7 +537,10 @@ async function upsertShow(normalized, transaction) {
     existingShowIdCache.set(normalized.tmdbId, returned.id);
     return {
       showId: returned.id,
-      action: "inserted",
+      action:
+        allowUpdateExisting && returned.was_inserted === false
+          ? "updated_existing"
+          : "inserted",
     };
   }
 
@@ -501,7 +552,10 @@ async function upsertShow(normalized, transaction) {
   }
 
   existingShowIdCache.set(normalized.tmdbId, showId);
-  return { showId, action: "skipped_existing" };
+  return {
+    showId,
+    action: allowUpdateExisting ? "unchanged_existing" : "skipped_existing",
+  };
 }
 
 async function upsertSeason(normalized, transaction) {
@@ -631,9 +685,9 @@ async function upsertEpisode(normalized, transaction) {
   const [rows] = await sequelize.query(
     `
       INSERT INTO episode (
-        id, tmdb_id, season_id, name, episode_number, overview, runtime, air_date
+        tmdb_id, season_id, name, episode_number, overview, runtime, air_date
       ) VALUES (
-        :id, :tmdbId, :seasonId, :name, :episodeNumber, :overview, :runtime, :airDate
+        :tmdbId, :seasonId, :name, :episodeNumber, :overview, :runtime, :airDate
       )
       ON CONFLICT (tmdb_id) DO UPDATE SET
         season_id = EXCLUDED.season_id,
@@ -654,7 +708,6 @@ async function upsertEpisode(normalized, transaction) {
     `,
     {
       replacements: {
-        id: normalized.id,
         tmdbId: normalized.tmdbId,
         seasonId: normalized.seasonId,
         name: normalized.name,
@@ -1023,11 +1076,17 @@ async function processEpisodeCreditsPhase({
   return { linked, skipped, personsIngested };
 }
 
-async function runDetailsTransaction({ normalized, baseScriptName }) {
+async function runDetailsTransaction({
+  normalized,
+  baseScriptName,
+  forceRefreshExisting = false,
+}) {
   const startedAt = new Date();
   const tx = await sequelize.transaction();
   try {
-    const { showId, action } = await upsertShow(normalized, tx);
+    const { showId, action } = await upsertShow(normalized, tx, {
+      allowUpdateExisting: forceRefreshExisting,
+    });
     if (action === "skipped_existing") {
       await tx.commit();
 
@@ -1349,13 +1408,14 @@ export async function ingestTvShow({
   apiKey,
   onPrefetchProgress,
   onEpisodeProgress,
+  forceRefreshExisting = false,
 } = {}) {
   if (typeof tmdbTvId !== "number" || !Number.isFinite(tmdbTvId)) {
     throw new Error("ingestTvShow requires a numeric `tmdbTvId`.");
   }
 
   const existingShowId = await findExistingShowId(tmdbTvId);
-  if (existingShowId) {
+  if (existingShowId && !forceRefreshExisting) {
     return {
       showId: existingShowId,
       action: "skipped_existing",
@@ -1408,6 +1468,7 @@ export async function ingestTvShow({
   const detailsResult = await runDetailsTransaction({
     normalized,
     baseScriptName,
+    forceRefreshExisting,
   });
   const { showId, action, genresLinked, genresSkipped } = detailsResult;
   if (action === "skipped_existing") {

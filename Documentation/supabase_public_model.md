@@ -21,7 +21,7 @@ From those core entities, the model adds:
 
 Most tables use:
 
-- `id bigint` primary keys (many with identity generation); exceptions are `profile` (`uuid` PK aligned with `auth.users`) and `episode` (`bigint` PK without identity in this DDL),
+- `id bigint` primary keys (many with identity generation); exception is `profile` (`uuid` PK aligned with `auth.users`),
 - `created_at` with UTC default,
 - optional `updated_at` and `deleted_at` for lifecycle tracking.
 
@@ -42,7 +42,7 @@ CREATE TABLE public.department (
   CONSTRAINT department_pkey PRIMARY KEY (id)
 );
 CREATE TABLE public.episode (
-  id bigint NOT NULL,
+  id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
   tmdb_id bigint NOT NULL UNIQUE,
   season_id bigint NOT NULL,
   name text NOT NULL,
@@ -316,7 +316,7 @@ Represents a season of a show.
 
 Represents an episode in a season.
 
-- Primary key: `id` (`bigint`, not generated in this schema; supplied by the application sync layer together with `tmdb_id`)
+- Primary key: `id` (`bigint`, database-generated identity)
 - Unique external source key: `tmdb_id` (unique constraint)
 - Foreign key: `season_id -> season.id`
 - Required fields include `name`, `episode_number`, `overview`, `runtime`, `air_date`

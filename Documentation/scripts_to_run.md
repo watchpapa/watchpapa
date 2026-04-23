@@ -12,6 +12,10 @@
 - `npm run seed:tmdb:popular-shows-today -- --limit=<count>`
 - `npm run seed:tmdb:top-rated-movies -- --limit=<count>`
 - `npm run seed:tmdb:top-rated-shows -- --limit=<count>`
+- `npm run seed:tmdb:changed-movies-24h -- --limit=<count> --start-date=<yyyy-mm-dd> --end-date=<yyyy-mm-dd>`
+- `npm run seed:tmdb:changed-shows-24h -- --limit=<count> --start-date=<yyyy-mm-dd> --end-date=<yyyy-mm-dd>`
+- `npm run seed:tmdb:changed-people-24h -- --limit=<count> --start-date=<yyyy-mm-dd> --end-date=<yyyy-mm-dd>`
+- `npm run seed:tmdb:changed-all-24h -- --limit=<count> --start-date=<yyyy-mm-dd> --end-date=<yyyy-mm-dd>`
 
 ## Injection script tests
 
@@ -112,7 +116,8 @@ After Phase 1 commits, the script runs Phase 2 season sync:
 After Phase 2 commits, the script runs Phase 3 episode sync:
 
 - For each regular season, reads season episode numbers and fetches episode detail from `GET /tv/{id}/season/{season_number}/episode/{episode_number}`.
-- Upserts each episode into `public.episode` (`id` and `tmdb_id` both use TMDB episode id), tracking `inserted`, `updated`, and `unchanged`.
+- Upserts each episode into `public.episode` by `tmdb_id` (`ON CONFLICT (tmdb_id)`), while `id` is the database-generated primary key, tracking `inserted`, `updated`, and `unchanged`.
+- This requires `public.episode.id` to be an identity/defaulted bigint in the database schema.
 - Fetches episode credits from `GET /tv/{id}/season/{season_number}/episode/{episode_number}/credits`.
 - Merges cast + crew + guest stars from episode detail and episode-credits payloads, dedupes, and fully replaces `public.episode_credits` per episode.
 - Cast and guest stars are mapped to job `"Actor"` in department `"Acting"`; crew uses TMDB `job` + `department`.
@@ -229,3 +234,63 @@ Fetches TMDB top-rated TV shows from `GET /tv/top_rated` (paged), takes the firs
 Existing shows are skipped, and no refresh/update is performed for those rows. Only missing shows run through `ingestTvShow`, which inserts the show and runs the same downstream ingestion phases as single-show ingestion.
 
 The script writes a top-level `script_logs` row (`inject_top_rated_shows:limit=<count>`) and prints a final summary with requested count, skipped existing count, skipped race count, and inserted count.
+
+## TMDB changed movies in last 24h refresh
+
+Command:
+
+`npm run seed:tmdb:changed-movies-24h -- --limit=<count> --start-date=<yyyy-mm-dd> --end-date=<yyyy-mm-dd>`
+
+Description:
+
+Fetches changed movie IDs from `GET /movie/changes` for the requested date window. If no dates are passed, it defaults to the last 24 hours.
+
+Changed IDs are cached in-memory for the run, then filtered to movies that already exist in `public.movie`. Only existing rows are refreshed. Each matched movie is processed independently and reruns full movie sync (details + genres + credits/person sync) with isolated transaction phases.
+
+The script writes a top-level `script_logs` row (`inject_changed_movies_24h:limit=<count>`) and prints changed fetched, matched existing, refreshed, failed, and skipped-race totals.
+
+## TMDB changed shows in last 24h refresh
+
+Command:
+
+`npm run seed:tmdb:changed-shows-24h -- --limit=<count> --start-date=<yyyy-mm-dd> --end-date=<yyyy-mm-dd>`
+
+Description:
+
+Fetches changed show IDs from `GET /tv/changes` for the requested date window. If no dates are passed, it defaults to the last 24 hours.
+
+Changed IDs are cached in-memory for the run, then filtered to shows that already exist in `public.show`. Only existing rows are refreshed. Each matched show reruns full show sync (details, show credits, seasons, and episodes/episode credits), with isolated transactions per phase and per episode.
+
+The script writes a top-level `script_logs` row (`inject_changed_shows_24h:limit=<count>`) and prints changed fetched, matched existing, refreshed, failed, and skipped-race totals.
+
+## TMDB changed people in last 24h refresh
+
+Command:
+
+`npm run seed:tmdb:changed-people-24h -- --limit=<count> --start-date=<yyyy-mm-dd> --end-date=<yyyy-mm-dd>`
+
+Description:
+
+Fetches changed person IDs from `GET /person/changes` for the requested date window. If no dates are passed, it defaults to the last 24 hours.
+
+Changed IDs are cached in-memory for the run, then filtered to people that already exist in `public.person`. Only existing rows are refreshed. Each matched person reruns person detail + AKA sync in its own transaction.
+
+The script writes a top-level `script_logs` row (`inject_changed_people_24h:limit=<count>`) and prints changed fetched, matched existing, refreshed, failed, and skipped-race totals.
+
+## TMDB changed all entities in last 24h refresh
+
+Command:
+
+`npm run seed:tmdb:changed-all-24h -- --limit=<count> --start-date=<yyyy-mm-dd> --end-date=<yyyy-mm-dd>`
+
+Description:
+
+Runs all three refresh scripts in sequence for the same date window and limit:
+
+- changed movies (`GET /movie/changes`)
+- changed shows (`GET /tv/changes`)
+- changed people (`GET /person/changes`)
+
+Each underlying script still does in-memory ID caching for that run, intersects changed IDs with existing rows in your DB, and refreshes only existing records in isolated transactions.
+
+The orchestrator writes a top-level `script_logs` row (`inject_changed_all_24h:limit=<count>`) and prints per-entity plus total refreshed/failed counts.

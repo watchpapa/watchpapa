@@ -46,6 +46,52 @@ test("ingestPerson returns skipped_existing when person exists", async () => {
   );
 });
 
+test("ingestPerson can force-refresh an existing person", async () => {
+  let sawUpdate = false;
+  await withPatchedMethod(
+    sequelize,
+    "query",
+    async (sql) => {
+      if (sql.includes("FROM person") && sql.includes("WHERE tmdb_id")) {
+        return [[{ id: 456 }]];
+      }
+      if (sql.includes("UPDATE person")) {
+        sawUpdate = true;
+        return [[], null];
+      }
+      if (sql.includes("FROM person_aka")) {
+        return [[]];
+      }
+      return [[]];
+    },
+    async () => {
+      const result = await ingestPerson({
+        tmdbId: 456,
+        transaction: { id: "fake-tx" },
+        forceRefreshExisting: true,
+        preloadedPayload: {
+          id: 456,
+          name: "Updated Name",
+          adult: false,
+          biography: "Updated bio",
+          birthday: null,
+          place_of_birth: null,
+          deathday: null,
+          gender: 0,
+          popularity: 1.23,
+          known_for_department: "Acting",
+          profile_path: "/profile.jpg",
+          also_known_as: [],
+        },
+      });
+
+      assert.equal(result.personId, 456);
+      assert.equal(result.action, "updated_existing");
+      assert.equal(sawUpdate, true);
+    }
+  );
+});
+
 test("ingestMovie returns skipped_existing when movie exists", async () => {
   await withPatchedMethod(
     sequelize,

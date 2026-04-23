@@ -362,6 +362,7 @@ export async function ingestPerson({
   transaction,
   apiKey,
   preloadedPayload,
+  forceRefreshExisting = false,
 } = {}) {
   if (typeof tmdbId !== "number" || !Number.isFinite(tmdbId)) {
     throw new Error("ingestPerson requires a numeric `tmdbId`.");
@@ -372,7 +373,7 @@ export async function ingestPerson({
 
   try {
     const existingPersonId = await findExistingPersonId(tmdbId, tx);
-    if (existingPersonId) {
+    if (existingPersonId && !forceRefreshExisting) {
       if (ownsTransaction) await tx.commit();
       return {
         personId: existingPersonId,
@@ -391,6 +392,61 @@ export async function ingestPerson({
       payload = await fetchTmdbPerson(resolvedKey, tmdbId);
     }
     const normalized = normalizePersonPayload(payload);
+
+    if (existingPersonId && forceRefreshExisting) {
+      const knownForDepartmentId = await resolveDepartmentId(
+        normalized.knownForDepartmentName,
+        tx
+      );
+      await sequelize.query(
+        `
+          UPDATE person
+          SET
+            name = :name,
+            adult = :adult,
+            biography = :biography,
+            birthday = :birthday,
+            place_of_birth = :placeOfBirth,
+            deathday = :deathday,
+            gender = :gender,
+            popularity = :popularity,
+            known_for_department_id = :knownForDepartmentId,
+            profile_path = :profilePath,
+            updated_at = now()
+          WHERE id = :personId;
+        `,
+        {
+          replacements: {
+            personId: existingPersonId,
+            name: normalized.name,
+            adult: normalized.adult,
+            biography: normalized.biography,
+            birthday: normalized.birthday,
+            placeOfBirth: normalized.placeOfBirth,
+            deathday: normalized.deathday,
+            gender: normalized.gender,
+            popularity: normalized.popularity,
+            knownForDepartmentId,
+            profilePath: normalized.profilePath,
+          },
+          transaction: tx,
+        }
+      );
+
+      const { akaInserted, akaRestored, akaDeleted } = await syncPersonAka(
+        existingPersonId,
+        normalized.alsoKnownAs,
+        tx
+      );
+      if (ownsTransaction) await tx.commit();
+      return {
+        personId: existingPersonId,
+        action: "updated_existing",
+        akaInserted,
+        akaRestored,
+        akaDeleted,
+      };
+    }
 
     const insertResult = await insertPerson(normalized, tx);
     if (!insertResult.inserted) {

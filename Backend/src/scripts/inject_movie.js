@@ -220,9 +220,69 @@ function normalizeMoviePayload(payload) {
   };
 }
 
-async function upsertMovie(normalized, transaction) {
+async function upsertMovie(
+  normalized,
+  transaction,
+  { allowUpdateExisting = false } = {}
+) {
+  const replacements = {
+    tmdbId: normalized.tmdbId,
+    adult: normalized.adult,
+    budget: normalized.budget,
+    originalLanguage: normalized.originalLanguage,
+    originalTitle: normalized.originalTitle,
+    overview: normalized.overview,
+    tmdbPopularity: normalized.tmdbPopularity,
+    releaseDate: normalized.releaseDate,
+    revenue: normalized.revenue,
+    runtime: normalized.runtime,
+    status: normalized.status,
+    tagline: normalized.tagline,
+    title: normalized.title,
+    tmdbVoteAvg: normalized.tmdbVoteAvg,
+    tmdbVoteCount: normalized.tmdbVoteCount,
+  };
+
   const [rows] = await sequelize.query(
+    allowUpdateExisting
+      ? `
+      INSERT INTO movie (
+        tmdb_id, adult, budget, original_language, original_title, overview,
+        tmdb_popularity, release_date, revenue, runtime, status, tagline,
+        title, tmdb_vote_avg, tmdb_vote_count
+      ) VALUES (
+        :tmdbId, :adult, :budget, :originalLanguage, :originalTitle, :overview,
+        :tmdbPopularity, :releaseDate, :revenue, :runtime, :status, :tagline,
+        :title, :tmdbVoteAvg, :tmdbVoteCount
+      )
+      ON CONFLICT (tmdb_id) DO UPDATE SET
+        adult = EXCLUDED.adult,
+        budget = EXCLUDED.budget,
+        original_language = EXCLUDED.original_language,
+        original_title = EXCLUDED.original_title,
+        overview = EXCLUDED.overview,
+        tmdb_popularity = EXCLUDED.tmdb_popularity,
+        release_date = EXCLUDED.release_date,
+        revenue = EXCLUDED.revenue,
+        runtime = EXCLUDED.runtime,
+        status = EXCLUDED.status,
+        tagline = EXCLUDED.tagline,
+        title = EXCLUDED.title,
+        tmdb_vote_avg = EXCLUDED.tmdb_vote_avg,
+        tmdb_vote_count = EXCLUDED.tmdb_vote_count,
+        updated_at = now()
+      WHERE (
+        movie.adult, movie.budget, movie.original_language, movie.original_title, movie.overview,
+        movie.tmdb_popularity, movie.release_date, movie.revenue, movie.runtime, movie.status,
+        movie.tagline, movie.title, movie.tmdb_vote_avg, movie.tmdb_vote_count
+      ) IS DISTINCT FROM (
+        EXCLUDED.adult, EXCLUDED.budget, EXCLUDED.original_language, EXCLUDED.original_title, EXCLUDED.overview,
+        EXCLUDED.tmdb_popularity, EXCLUDED.release_date, EXCLUDED.revenue, EXCLUDED.runtime, EXCLUDED.status,
+        EXCLUDED.tagline, EXCLUDED.title, EXCLUDED.tmdb_vote_avg, EXCLUDED.tmdb_vote_count
+      )
+      RETURNING id, (xmax = 0) AS was_inserted;
     `
+      : `
       INSERT INTO movie (
         tmdb_id, adult, budget, original_language, original_title, overview,
         tmdb_popularity, release_date, revenue, runtime, status, tagline,
@@ -235,26 +295,7 @@ async function upsertMovie(normalized, transaction) {
       ON CONFLICT (tmdb_id) DO NOTHING
       RETURNING id;
     `,
-    {
-      replacements: {
-        tmdbId: normalized.tmdbId,
-        adult: normalized.adult,
-        budget: normalized.budget,
-        originalLanguage: normalized.originalLanguage,
-        originalTitle: normalized.originalTitle,
-        overview: normalized.overview,
-        tmdbPopularity: normalized.tmdbPopularity,
-        releaseDate: normalized.releaseDate,
-        revenue: normalized.revenue,
-        runtime: normalized.runtime,
-        status: normalized.status,
-        tagline: normalized.tagline,
-        title: normalized.title,
-        tmdbVoteAvg: normalized.tmdbVoteAvg,
-        tmdbVoteCount: normalized.tmdbVoteCount,
-      },
-      transaction,
-    }
+    { replacements, transaction }
   );
 
   const returned = rows?.[0];
@@ -262,7 +303,10 @@ async function upsertMovie(normalized, transaction) {
     existingMovieIdCache.set(normalized.tmdbId, returned.id);
     return {
       movieId: returned.id,
-      action: "inserted",
+      action:
+        allowUpdateExisting && returned.was_inserted === false
+          ? "updated_existing"
+          : "inserted",
     };
   }
 
@@ -274,7 +318,10 @@ async function upsertMovie(normalized, transaction) {
   }
 
   existingMovieIdCache.set(normalized.tmdbId, movieId);
-  return { movieId, action: "skipped_existing" };
+  return {
+    movieId,
+    action: allowUpdateExisting ? "unchanged_existing" : "skipped_existing",
+  };
 }
 
 async function replaceMovieGenres(movieId, tmdbGenres, transaction) {
@@ -520,11 +567,17 @@ async function processCreditsPhase({
   return { linked, skipped, personsIngested };
 }
 
-async function runDetailsTransaction({ normalized, baseScriptName }) {
+async function runDetailsTransaction({
+  normalized,
+  baseScriptName,
+  forceRefreshExisting = false,
+}) {
   const startedAt = new Date();
   const tx = await sequelize.transaction();
   try {
-    const { movieId, action } = await upsertMovie(normalized, tx);
+    const { movieId, action } = await upsertMovie(normalized, tx, {
+      allowUpdateExisting: forceRefreshExisting,
+    });
     if (action === "skipped_existing") {
       await tx.commit();
 
@@ -635,13 +688,14 @@ export async function ingestMovie({
   tmdbId,
   apiKey,
   onPrefetchProgress,
+  forceRefreshExisting = false,
 } = {}) {
   if (typeof tmdbId !== "number" || !Number.isFinite(tmdbId)) {
     throw new Error("ingestMovie requires a numeric `tmdbId`.");
   }
 
   const existingMovieId = await findExistingMovieId(tmdbId);
-  if (existingMovieId) {
+  if (existingMovieId && !forceRefreshExisting) {
     return {
       movieId: existingMovieId,
       action: "skipped_existing",
@@ -692,6 +746,7 @@ export async function ingestMovie({
   const detailsResult = await runDetailsTransaction({
     normalized,
     baseScriptName,
+    forceRefreshExisting,
   });
   const { movieId, action, genresLinked, genresSkipped } = detailsResult;
   if (action === "skipped_existing") {
