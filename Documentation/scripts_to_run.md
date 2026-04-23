@@ -59,19 +59,24 @@ Command:
 Prerequisites:
 
 - `npm run seed:tmdb:jobs` (department/job rows — required so credits can resolve `job.id` for `"Actor"` and crew jobs).
+- `npm run seed:tmdb:genres` (required so `show_genre` can resolve `genres.id` from TMDB genre ids on the show detail payload).
 
 Scope:
 
 Current implementation ingests:
 
 - **Phase 1:** TV show details + show-level credits.
+- **Phase 1:** TV show details + `show_genre` + show-level credits.
 - **Phase 2:** season rows in `public.season` for regular seasons only (`season_number > 0`).
+- **Phase 3:** episode rows in `public.episode` and episode-level credits in `public.episode_credits` for regular seasons.
 
-Special seasons (`season_number <= 0`, usually season 0) are intentionally skipped. Episodes (`episode`, `episode_credits`) and `show_genre` are still deferred.
+Special seasons (`season_number <= 0`, usually season 0) are intentionally skipped. `show_genre` is still deferred.
 
 Description:
 
 Fetches one TV series from TMDB (`GET /tv/{id}`) and upserts the row into `public.show` via `INSERT ... ON CONFLICT (tmdb_id) DO UPDATE` with an `IS DISTINCT FROM` change-guard, so `updated_at` only moves when a tracked field actually changes. The result is classified as `inserted`, `updated`, or `unchanged`.
+
+Also replaces genre associations in `public.show_genre`: existing rows for the show are deleted and re-inserted from the TV detail `genres[]` array. Each TMDB genre id is resolved through `genres.tmdb_id`; missing mappings are skipped with a warning.
 
 Fetches credits from `GET /tv/{id}/credits` and fully replaces `public.show_credits` for the show:
 
@@ -89,17 +94,27 @@ After Phase 1 commits, the script runs Phase 2 season sync:
 - Upserts each season into `public.season` (`ON CONFLICT (tmdb_id)`), tracking `inserted`, `updated`, and `unchanged`.
 - Special seasons (`season_number <= 0`) are counted and skipped.
 
+After Phase 2 commits, the script runs Phase 3 episode sync:
+
+- For each regular season, reads season episode numbers and fetches episode detail from `GET /tv/{id}/season/{season_number}/episode/{episode_number}`.
+- Upserts each episode into `public.episode` (`id` and `tmdb_id` both use TMDB episode id), tracking `inserted`, `updated`, and `unchanged`.
+- Fetches episode credits from `GET /tv/{id}/season/{season_number}/episode/{episode_number}/credits`.
+- Merges cast + crew + guest stars from episode detail and episode-credits payloads, dedupes, and fully replaces `public.episode_credits` per episode.
+- Cast and guest stars are mapped to job `"Actor"` in department `"Acting"`; crew uses TMDB `job` + `department`.
+- Missing job mappings are skipped with warnings (requires `seed:tmdb:jobs`).
+
 Transactions:
 
 - One transaction for the **show details** upsert.
 - One transaction for the **credits** replace (delete-then-bulk-insert, with person upserts).
 - One transaction for the **seasons** phase (upsert regular seasons only).
+- One transaction per **episode** in the episodes phase (episode upsert + episode_credits replace for that single episode).
 
-Failures in later phases can leave earlier committed phases in place (details -> credits -> seasons). Rerunning the same `--id` is idempotent.
+Failures in later phases can leave earlier committed phases in place (details -> credits -> seasons). In Phase 3, failed episodes are rolled back individually while successful episodes remain committed. Rerunning the same `--id` is idempotent.
 
-While the script runs, a **terminal progress bar** shows person prefetch progress and then the final show + credits + seasons summary.
+While the script runs, terminal progress bars show show-credit person prefetch and live episode progress (`processed/total` with current `SxEy`) during Phase 3, then the final summary.
 
-The script exports `ingestTvShow({ tmdbTvId, apiKey, onPrefetchProgress })` for reuse; the CLI entrypoint writes `script_logs` on success or failure (with per-phase rows for `inject_tv_show:details`, `inject_tv_show:credits`, and `inject_tv_show:seasons`).
+The script exports `ingestTvShow({ tmdbTvId, apiKey, onPrefetchProgress, onEpisodeProgress })` for reuse; the CLI entrypoint writes `script_logs` on success or failure (with per-phase rows for `inject_tv_show:details`, `inject_tv_show:credits`, `inject_tv_show:seasons`, and `inject_tv_show:episodes`).
 
 ## TMDB single movie ingestion
 
