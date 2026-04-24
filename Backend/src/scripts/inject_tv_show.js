@@ -1058,188 +1058,93 @@ async function processEpisodeCreditsPhase({
 
 async function runDetailsTransaction({
   normalized,
-  baseScriptName,
+  transaction,
   forceRefreshExisting = false,
 }) {
-  const startedAt = new Date();
-  const tx = await sequelize.transaction();
-  try {
-    const { showId, action } = await upsertShow(normalized, tx, {
-      allowUpdateExisting: forceRefreshExisting,
-    });
-    if (action === "skipped_existing") {
-      await tx.commit();
-
-      await writeScriptLog({
-        scriptName: `${baseScriptName}:details`,
-        status: "success",
-        batchSize: 0,
-        startedAt,
-      });
-
-      return { showId, action, genresLinked: 0, genresSkipped: 0 };
-    }
-
-    const { linked: genresLinked, skipped: genresSkipped } =
-      await replaceShowGenres(showId, normalized.genres, tx);
-    await tx.commit();
-
-    await writeScriptLog({
-      scriptName: `${baseScriptName}:details`,
-      status: "success",
-      batchSize: 1,
-      startedAt,
-    });
-
-    return { showId, action, genresLinked, genresSkipped };
-  } catch (error) {
-    try {
-      await tx.rollback();
-    } catch (_rollbackError) {
-      // swallow rollback error so the original error surfaces
-    }
-    await writeScriptLog({
-      scriptName: `${baseScriptName}:details`,
-      status: "failure",
-      errorCode: error?.name ?? "Error",
-      errorDetail: error?.message ?? String(error),
-      startedAt,
-    });
-    throw error;
+  const { showId, action } = await upsertShow(normalized, transaction, {
+    allowUpdateExisting: forceRefreshExisting,
+  });
+  if (action === "skipped_existing") {
+    return { showId, action, genresLinked: 0, genresSkipped: 0 };
   }
+  const { linked: genresLinked, skipped: genresSkipped } = await replaceShowGenres(
+    showId,
+    normalized.genres,
+    transaction
+  );
+  return { showId, action, genresLinked, genresSkipped };
 }
 
 async function runCreditsTransaction({
-  baseScriptName,
   showId,
   tasks,
   personPayloads,
   jobCache,
+  transaction,
 }) {
-  const startedAt = new Date();
-  const scriptName = `${baseScriptName}:credits`;
-  const tx = await sequelize.transaction();
-  try {
-    await sequelize.query(
-      `
-        DELETE FROM show_credits
-        WHERE show_id = :showId;
-      `,
-      {
-        replacements: { showId },
-        transaction: tx,
-      }
-    );
-
-    const { linked, skipped, personsIngested } = await processCreditsPhase({
-      tasks,
-      personPayloads,
-      showId,
-      jobCache,
-      transaction: tx,
-    });
-
-    await tx.commit();
-
-    await writeScriptLog({
-      scriptName,
-      status: "success",
-      batchSize: linked,
-      startedAt,
-    });
-
-    return { linked, skipped, personsIngested };
-  } catch (error) {
-    try {
-      await tx.rollback();
-    } catch (_rollbackError) {
-      // swallow rollback error so the original error surfaces
+  await sequelize.query(
+    `
+      DELETE FROM show_credits
+      WHERE show_id = :showId;
+    `,
+    {
+      replacements: { showId },
+      transaction,
     }
-    await writeScriptLog({
-      scriptName,
-      status: "failure",
-      errorCode: error?.name ?? "Error",
-      errorDetail: error?.message ?? String(error),
-      startedAt,
-    });
-    throw error;
-  }
+  );
+  return processCreditsPhase({
+    tasks,
+    personPayloads,
+    showId,
+    jobCache,
+    transaction,
+  });
 }
 
 async function runSeasonsTransaction({
-  baseScriptName,
   showId,
   tmdbTvId,
   seasonNumbers,
   apiKey,
+  transaction,
 }) {
-  const startedAt = new Date();
-  const scriptName = `${baseScriptName}:seasons`;
-  const tx = await sequelize.transaction();
-  try {
-    let seasonsProcessed = 0;
-    let seasonsInserted = 0;
-    let seasonsUpdated = 0;
-    let seasonsUnchanged = 0;
-    const seasonByNumber = new Map();
+  let seasonsProcessed = 0;
+  let seasonsInserted = 0;
+  let seasonsUpdated = 0;
+  let seasonsUnchanged = 0;
+  const seasonByNumber = new Map();
 
-    for (const seasonNumber of seasonNumbers) {
-      const seasonPayload = await fetchTmdbSeason(apiKey, tmdbTvId, seasonNumber);
-      const normalized = normalizeSeasonPayload(seasonPayload, showId);
-      const result = await upsertSeason(normalized, tx);
-      seasonByNumber.set(seasonNumber, {
-        seasonId: result.seasonId,
-        seasonPayload,
-      });
-      seasonsProcessed += 1;
-      if (result.action === "inserted") seasonsInserted += 1;
-      else if (result.action === "updated") seasonsUpdated += 1;
-      else seasonsUnchanged += 1;
-    }
-
-    await tx.commit();
-
-    await writeScriptLog({
-      scriptName,
-      status: "success",
-      batchSize: seasonsProcessed,
-      startedAt,
+  for (const seasonNumber of seasonNumbers) {
+    const seasonPayload = await fetchTmdbSeason(apiKey, tmdbTvId, seasonNumber);
+    const normalized = normalizeSeasonPayload(seasonPayload, showId);
+    const result = await upsertSeason(normalized, transaction);
+    seasonByNumber.set(seasonNumber, {
+      seasonId: result.seasonId,
+      seasonPayload,
     });
-
-    return {
-      seasonsProcessed,
-      seasonsInserted,
-      seasonsUpdated,
-      seasonsUnchanged,
-      seasonByNumber,
-    };
-  } catch (error) {
-    try {
-      await tx.rollback();
-    } catch (_rollbackError) {
-      // swallow rollback error so the original error surfaces
-    }
-    await writeScriptLog({
-      scriptName,
-      status: "failure",
-      errorCode: error?.name ?? "Error",
-      errorDetail: error?.message ?? String(error),
-      startedAt,
-    });
-    throw error;
+    seasonsProcessed += 1;
+    if (result.action === "inserted") seasonsInserted += 1;
+    else if (result.action === "updated") seasonsUpdated += 1;
+    else seasonsUnchanged += 1;
   }
+
+  return {
+    seasonsProcessed,
+    seasonsInserted,
+    seasonsUpdated,
+    seasonsUnchanged,
+    seasonByNumber,
+  };
 }
 
 async function runEpisodesTransaction({
-  baseScriptName,
   tmdbTvId,
   seasonByNumber,
   apiKey,
   jobCache,
   onEpisodeProgress,
+  transaction,
 }) {
-  const startedAt = new Date();
-  const scriptName = `${baseScriptName}:episodes`;
   let episodesProcessed = 0;
   let episodesInserted = 0;
   let episodesUpdated = 0;
@@ -1276,100 +1181,72 @@ async function runEpisodesTransaction({
 
   for (const item of workItems) {
     const { seasonNumber, seasonId, episodeNumber } = item;
-    const tx = await sequelize.transaction();
-    try {
-      const [episodePayload, episodeCreditsPayload] = await Promise.all([
-        fetchTmdbEpisode(apiKey, tmdbTvId, seasonNumber, episodeNumber),
-        fetchTmdbEpisodeCredits(apiKey, tmdbTvId, seasonNumber, episodeNumber),
-      ]);
+    const [episodePayload, episodeCreditsPayload] = await Promise.all([
+      fetchTmdbEpisode(apiKey, tmdbTvId, seasonNumber, episodeNumber),
+      fetchTmdbEpisodeCredits(apiKey, tmdbTvId, seasonNumber, episodeNumber),
+    ]);
 
-      const normalizedEpisode = normalizeEpisodePayload(episodePayload, seasonId);
-      const episodeResult = await upsertEpisode(normalizedEpisode, tx);
-      const episodeId = episodeResult.episodeId;
-      if (episodeResult.action === "inserted") episodesInserted += 1;
-      else if (episodeResult.action === "updated") episodesUpdated += 1;
-      else episodesUnchanged += 1;
+    const normalizedEpisode = normalizeEpisodePayload(episodePayload, seasonId);
+    const episodeResult = await upsertEpisode(normalizedEpisode, transaction);
+    const episodeId = episodeResult.episodeId;
+    if (episodeResult.action === "inserted") episodesInserted += 1;
+    else if (episodeResult.action === "updated") episodesUpdated += 1;
+    else episodesUnchanged += 1;
 
-      const episodeCreditTasks = collectEpisodeCreditTasks(
-        episodePayload,
-        episodeCreditsPayload
-      );
+    const episodeCreditTasks = collectEpisodeCreditTasks(
+      episodePayload,
+      episodeCreditsPayload
+    );
 
-      await sequelize.query(
-        `
-          DELETE FROM episode_credits
-          WHERE episode_id = :episodeId;
-        `,
-        {
-          replacements: { episodeId },
-          transaction: tx,
-        }
-      );
-
-      const prefetch = await prefetchPersonPayloadsWithCache(
-        episodeCreditTasks.map((t) => t.personTmdbId),
-        apiKey,
-        personPayloadCache
-      );
-
-      const episodeCreditResult = await processEpisodeCreditsPhase({
-        tasks: episodeCreditTasks,
-        personPayloads: prefetch.payloads,
-        episodeId,
-        jobCache,
-        personIdCache,
-        transaction: tx,
-      });
-
-      episodeCreditsLinked += episodeCreditResult.linked;
-      episodeCreditsSkipped +=
-        episodeCreditResult.skipped + prefetch.failures.length;
-      episodePersonsIngested += episodeCreditResult.personsIngested;
-
-      for (const f of prefetch.failures) {
-        console.warn(
-          `  Warning: failed to prefetch person tmdb_id=${f.tmdbId}: ${f.message}. Its episode credits were skipped.`
-        );
+    await sequelize.query(
+      `
+        DELETE FROM episode_credits
+        WHERE episode_id = :episodeId;
+      `,
+      {
+        replacements: { episodeId },
+        transaction,
       }
+    );
 
-      await tx.commit();
-    } catch (error) {
-      try {
-        await tx.rollback();
-      } catch (_rollbackError) {
-        // swallow rollback error so the original error surfaces
-      }
-      episodesFailed += 1;
+    const prefetch = await prefetchPersonPayloadsWithCache(
+      episodeCreditTasks.map((t) => t.personTmdbId),
+      apiKey,
+      personPayloadCache
+    );
+
+    const episodeCreditResult = await processEpisodeCreditsPhase({
+      tasks: episodeCreditTasks,
+      personPayloads: prefetch.payloads,
+      episodeId,
+      jobCache,
+      personIdCache,
+      transaction,
+    });
+
+    episodeCreditsLinked += episodeCreditResult.linked;
+    episodeCreditsSkipped += episodeCreditResult.skipped + prefetch.failures.length;
+    episodePersonsIngested += episodeCreditResult.personsIngested;
+
+    for (const f of prefetch.failures) {
       console.warn(
-        `  Warning: failed to ingest episode S${seasonNumber}E${episodeNumber}: ${error.message}`
+        `  Warning: failed to prefetch person tmdb_id=${f.tmdbId}: ${f.message}. Its episode credits were skipped.`
       );
-    } finally {
-      episodesProcessed += 1;
-      if (typeof onEpisodeProgress === "function") {
-        onEpisodeProgress({
-          processed: episodesProcessed,
-          total: totalEpisodes,
-          seasonNumber,
-          episodeNumber,
-          episodeCreditsLinked,
-          episodeCreditsSkipped,
-          episodesFailed,
-        });
-      }
+    }
+
+    episodesProcessed += 1;
+    if (typeof onEpisodeProgress === "function") {
+      onEpisodeProgress({
+        processed: episodesProcessed,
+        total: totalEpisodes,
+        seasonNumber,
+        episodeNumber,
+        episodeCreditsLinked,
+        episodeCreditsSkipped,
+        episodesFailed,
+      });
     }
   }
-
-  await writeScriptLog({
-    scriptName,
-    status: episodesFailed === 0 ? "success" : "failure",
-    batchSize: episodesProcessed,
-    errorCode: episodesFailed === 0 ? null : "EpisodePartialFailure",
-    errorDetail:
-      episodesFailed === 0
-        ? null
-        : `${episodesFailed} episode(s) failed; see warnings in output.`,
-    startedAt,
-  });
 
   return {
     episodesProcessed,
@@ -1421,7 +1298,6 @@ export async function ingestTvShow({
   }
 
   const resolvedKey = apiKey ?? getApiKey();
-  const baseScriptName = `${SCRIPT_NAME}:${tmdbTvId}`;
 
   const [showPayload, credits] = await Promise.all([
     fetchTmdbTvShow(resolvedKey, tmdbTvId),
@@ -1444,64 +1320,79 @@ export async function ingestTvShow({
   );
 
   const jobCache = new Map();
+  const tx = await sequelize.transaction();
+  let showId;
+  let action;
+  let genresLinked = 0;
+  let genresSkipped = 0;
+  let creditsLinked = 0;
+  let creditsSkipped = 0;
+  let personsIngested = 0;
+  let seasonsResult = {
+    seasonsProcessed: 0,
+    seasonsInserted: 0,
+    seasonsUpdated: 0,
+    seasonsUnchanged: 0,
+  };
+  let episodesResult = {
+    episodesProcessed: 0,
+    episodesInserted: 0,
+    episodesUpdated: 0,
+    episodesUnchanged: 0,
+    episodesFailed: 0,
+    episodeCreditsLinked: 0,
+    episodeCreditsSkipped: 0,
+    episodePersonsIngested: 0,
+  };
+  try {
+    const detailsResult = await runDetailsTransaction({
+      normalized,
+      transaction: tx,
+      forceRefreshExisting,
+    });
+    showId = detailsResult.showId;
+    action = detailsResult.action;
+    genresLinked = detailsResult.genresLinked;
+    genresSkipped = detailsResult.genresSkipped;
 
-  const detailsResult = await runDetailsTransaction({
-    normalized,
-    baseScriptName,
-    forceRefreshExisting,
-  });
-  const { showId, action, genresLinked, genresSkipped } = detailsResult;
-  if (action === "skipped_existing") {
-    return {
-      showId,
-      action,
-      genresLinked: 0,
-      genresSkipped: 0,
-      creditsLinked: 0,
-      creditsSkipped: 0,
-      personsIngested: 0,
-      seasonsProcessed: 0,
-      seasonsInserted: 0,
-      seasonsUpdated: 0,
-      seasonsUnchanged: 0,
-      seasonsSkippedSpecial: 0,
-      episodesProcessed: 0,
-      episodesInserted: 0,
-      episodesUpdated: 0,
-      episodesUnchanged: 0,
-      episodesFailed: 0,
-      episodeCreditsLinked: 0,
-      episodeCreditsSkipped: 0,
-      episodePersonsIngested: 0,
-    };
+    if (action !== "skipped_existing") {
+      const creditsResult = await runCreditsTransaction({
+        showId,
+        tasks: creditTasks,
+        personPayloads: prefetch.payloads,
+        jobCache,
+        transaction: tx,
+      });
+      creditsLinked = creditsResult.linked;
+      creditsSkipped = creditsResult.skipped + prefetch.failures.length;
+      personsIngested = creditsResult.personsIngested;
+
+      seasonsResult = await runSeasonsTransaction({
+        showId,
+        tmdbTvId,
+        seasonNumbers,
+        apiKey: resolvedKey,
+        transaction: tx,
+      });
+      episodesResult = await runEpisodesTransaction({
+        tmdbTvId,
+        seasonByNumber: seasonsResult.seasonByNumber,
+        apiKey: resolvedKey,
+        jobCache,
+        onEpisodeProgress,
+        transaction: tx,
+      });
+    }
+
+    await tx.commit();
+  } catch (error) {
+    try {
+      await tx.rollback();
+    } catch (_rollbackError) {
+      // swallow rollback error so the original error surfaces
+    }
+    throw error;
   }
-
-  const creditsResult = await runCreditsTransaction({
-    baseScriptName,
-    showId,
-    tasks: creditTasks,
-    personPayloads: prefetch.payloads,
-    jobCache,
-  });
-  const creditsLinked = creditsResult.linked;
-  const creditsSkipped = creditsResult.skipped + prefetch.failures.length;
-  const personsIngested = creditsResult.personsIngested;
-
-  const seasonsResult = await runSeasonsTransaction({
-    baseScriptName,
-    showId,
-    tmdbTvId,
-    seasonNumbers,
-    apiKey: resolvedKey,
-  });
-  const episodesResult = await runEpisodesTransaction({
-    baseScriptName,
-    tmdbTvId,
-    seasonByNumber: seasonsResult.seasonByNumber,
-    apiKey: resolvedKey,
-    jobCache,
-    onEpisodeProgress,
-  });
 
   for (const f of prefetch.failures) {
     console.warn(

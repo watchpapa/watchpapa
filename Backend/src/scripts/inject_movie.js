@@ -547,123 +547,6 @@ async function processCreditsPhase({
   return { linked, skipped, personsIngested };
 }
 
-async function runDetailsTransaction({
-  normalized,
-  baseScriptName,
-  forceRefreshExisting = false,
-}) {
-  const startedAt = new Date();
-  const tx = await sequelize.transaction();
-  try {
-    const { movieId, action } = await upsertMovie(normalized, tx, {
-      allowUpdateExisting: forceRefreshExisting,
-    });
-    if (action === "skipped_existing") {
-      await tx.commit();
-
-      await writeScriptLog({
-        scriptName: `${baseScriptName}:details`,
-        status: "success",
-        batchSize: 0,
-        startedAt,
-      });
-
-      return { movieId, action, genresLinked: 0, genresSkipped: 0 };
-    }
-
-    const { linked: genresLinked, skipped: genresSkipped } = await replaceMovieGenres(
-      movieId,
-      normalized.genres,
-      tx
-    );
-    await tx.commit();
-
-    await writeScriptLog({
-      scriptName: `${baseScriptName}:details`,
-      status: "success",
-      batchSize: 1,
-      startedAt,
-    });
-
-    return { movieId, action, genresLinked, genresSkipped };
-  } catch (error) {
-    try {
-      await tx.rollback();
-    } catch (_rollbackError) {
-      // swallow rollback error so the original error surfaces
-    }
-    await writeScriptLog({
-      scriptName: `${baseScriptName}:details`,
-      status: "failure",
-      errorCode: error?.name ?? "Error",
-      errorDetail: error?.message ?? String(error),
-      startedAt,
-    });
-    throw error;
-  }
-}
-
-async function runCreditsPhaseTransaction({
-  baseScriptName,
-  phaseName,
-  movieId,
-  tasks,
-  personPayloads,
-  jobCache,
-  deleteExisting,
-}) {
-  const startedAt = new Date();
-  const scriptName = `${baseScriptName}:${phaseName}`;
-  const tx = await sequelize.transaction();
-  try {
-    if (deleteExisting) {
-      await sequelize.query(
-        `
-          DELETE FROM movie_credits
-          WHERE movie_id = :movieId;
-        `,
-        {
-          replacements: { movieId },
-          transaction: tx,
-        }
-      );
-    }
-
-    const { linked, skipped, personsIngested } = await processCreditsPhase({
-      tasks,
-      personPayloads,
-      movieId,
-      jobCache,
-      transaction: tx,
-    });
-
-    await tx.commit();
-
-    await writeScriptLog({
-      scriptName,
-      status: "success",
-      batchSize: linked,
-      startedAt,
-    });
-
-    return { linked, skipped, personsIngested };
-  } catch (error) {
-    try {
-      await tx.rollback();
-    } catch (_rollbackError) {
-      // swallow rollback error so the original error surfaces
-    }
-    await writeScriptLog({
-      scriptName,
-      status: "failure",
-      errorCode: error?.name ?? "Error",
-      errorDetail: error?.message ?? String(error),
-      startedAt,
-    });
-    throw error;
-  }
-}
-
 export async function ingestMovie({
   tmdbId,
   apiKey,
@@ -691,7 +574,6 @@ export async function ingestMovie({
   }
 
   const resolvedKey = apiKey ?? getApiKey();
-  const baseScriptName = `${SCRIPT_NAME}:${tmdbId}`;
   const [moviePayload, credits] = await Promise.all([
     fetchTmdbMovie(resolvedKey, tmdbId),
     fetchTmdbMovieCredits(resolvedKey, tmdbId),
@@ -723,52 +605,72 @@ export async function ingestMovie({
 
   const jobCache = new Map();
 
-  const detailsResult = await runDetailsTransaction({
-    normalized,
-    baseScriptName,
-    forceRefreshExisting,
-  });
-  const { movieId, action, genresLinked, genresSkipped } = detailsResult;
-  if (action === "skipped_existing") {
-    return {
-      movieId,
-      action,
-      genresLinked: 0,
-      genresSkipped: 0,
-      castLinked: 0,
-      castSkipped: 0,
-      castPersonsIngested: 0,
-      crewLinked: 0,
-      crewSkipped: 0,
-      crewPersonsIngested: 0,
-    };
+  const tx = await sequelize.transaction();
+  let movieId;
+  let action;
+  let genresLinked = 0;
+  let genresSkipped = 0;
+  let castLinked = 0;
+  let castSkipped = 0;
+  let castPersonsIngested = 0;
+  let crewLinked = 0;
+  let crewSkipped = 0;
+  let crewPersonsIngested = 0;
+  try {
+    const upsertResult = await upsertMovie(normalized, tx, {
+      allowUpdateExisting: forceRefreshExisting,
+    });
+    movieId = upsertResult.movieId;
+    action = upsertResult.action;
+
+    if (action !== "skipped_existing") {
+      const genresResult = await replaceMovieGenres(movieId, normalized.genres, tx);
+      genresLinked = genresResult.linked;
+      genresSkipped = genresResult.skipped;
+
+      await sequelize.query(
+        `
+          DELETE FROM movie_credits
+          WHERE movie_id = :movieId;
+        `,
+        {
+          replacements: { movieId },
+          transaction: tx,
+        }
+      );
+
+      const castResult = await processCreditsPhase({
+        tasks: castTasks,
+        personPayloads: castPrefetch.payloads,
+        movieId,
+        jobCache,
+        transaction: tx,
+      });
+      castLinked = castResult.linked;
+      castSkipped = castResult.skipped + castPrefetch.failures.length;
+      castPersonsIngested = castResult.personsIngested;
+
+      const crewResult = await processCreditsPhase({
+        tasks: crewTasks,
+        personPayloads: crewPrefetch.payloads,
+        movieId,
+        jobCache,
+        transaction: tx,
+      });
+      crewLinked = crewResult.linked;
+      crewSkipped = crewResult.skipped + crewPrefetch.failures.length;
+      crewPersonsIngested = crewResult.personsIngested;
+    }
+
+    await tx.commit();
+  } catch (error) {
+    try {
+      await tx.rollback();
+    } catch (_rollbackError) {
+      // swallow rollback error so the original error surfaces
+    }
+    throw error;
   }
-
-  const castResult = await runCreditsPhaseTransaction({
-    baseScriptName,
-    phaseName: "cast",
-    movieId,
-    tasks: castTasks,
-    personPayloads: castPrefetch.payloads,
-    jobCache,
-    deleteExisting: true,
-  });
-  const castLinked = castResult.linked;
-  const castSkipped = castResult.skipped + castPrefetch.failures.length;
-  const castPersonsIngested = castResult.personsIngested;
-
-  const crewResult = await runCreditsPhaseTransaction({
-    baseScriptName,
-    phaseName: "crew",
-    movieId,
-    tasks: crewTasks,
-    personPayloads: crewPrefetch.payloads,
-    jobCache,
-    deleteExisting: false,
-  });
-  const crewLinked = crewResult.linked;
-  const crewSkipped = crewResult.skipped + crewPrefetch.failures.length;
-  const crewPersonsIngested = crewResult.personsIngested;
 
   for (const f of [...castPrefetch.failures, ...crewPrefetch.failures]) {
     console.warn(
