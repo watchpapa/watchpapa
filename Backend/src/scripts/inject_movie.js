@@ -3,6 +3,7 @@ import { pathToFileURL } from "url";
 import sequelize from "../db/database.js";
 import { tmdbRateLimitedFetch } from "./tmdb_rate_limited_fetch.js";
 import { ingestPerson, fetchTmdbPerson } from "./inject_person.js";
+import { resolveOrCreateJobId } from "./resolve_job.js";
 
 dotenv.config();
 
@@ -382,28 +383,7 @@ async function replaceMovieGenres(movieId, tmdbGenres, transaction) {
 }
 
 async function resolveJobId(jobName, departmentName, jobCache, transaction) {
-  const key = `${jobName}||${departmentName}`;
-  if (jobCache.has(key)) {
-    return jobCache.get(key);
-  }
-
-  const [rows] = await sequelize.query(
-    `
-      SELECT j.id
-      FROM job j
-      JOIN department d ON d.id = j.department_id
-      WHERE j.name = :jobName AND d.name = :departmentName
-      LIMIT 1;
-    `,
-    {
-      replacements: { jobName, departmentName },
-      transaction,
-    }
-  );
-
-  const jobId = rows?.[0]?.id ?? null;
-  jobCache.set(key, jobId);
-  return jobId;
+  return resolveOrCreateJobId(jobName, departmentName, jobCache, transaction);
 }
 
 function collectCreditTasks(cast, crew) {
@@ -527,7 +507,7 @@ async function processCreditsPhase({
     );
     if (!jobId) {
       console.warn(
-        `  Warning: job "${task.jobName}" in department "${task.departmentName}" not found — skipping credit for ${task.personName}. Run seed:tmdb:jobs first.`
+        `  Warning: job "${task.jobName}" could not be resolved for department "${task.departmentName}" (ambiguous duplicate with no matching department) — skipping credit for ${task.personName}.`
       );
       skipped += 1;
       continue;

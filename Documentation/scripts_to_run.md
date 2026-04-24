@@ -78,7 +78,7 @@ Command:
 
 Prerequisites:
 
-- `npm run seed:tmdb:jobs` (department/job rows — required so credits can resolve `job.id` for `"Actor"` and crew jobs).
+- `npm run seed:tmdb:jobs` (recommended to pre-seed department/job taxonomy; the credits resolver can now create missing department/job rows on demand).
 - `npm run seed:tmdb:genres` (required so `show_genre` can resolve `genres.id` from TMDB genre ids on the show detail payload).
 
 Scope:
@@ -104,7 +104,12 @@ For newly inserted shows, it fetches credits from `GET /tv/{id}/credits` and ins
 - Cast entries are linked to the job `"Actor"` in department `"Acting"`, with `title` set to the `character` string.
 - Crew entries are linked to the job matching `crew.job` in department `crew.department`, with `title = null` (the role is encoded in `job_id`).
 - Duplicate TMDB entries (same person + role) are deduped before insert.
-- Any credit whose `(job, department)` is not found in the local `job` table is skipped with a warning; run `seed:tmdb:jobs` first to populate it.
+- Job resolution is case-insensitive and job-first:
+  - It first searches globally by job name (ignoring department and letter case).
+  - If exactly one job-name match exists, that job is used even if TMDB department differs.
+  - If multiple matches exist (same job name in multiple departments), department is used only to disambiguate (case-insensitive).
+  - If no global match exists, the resolver creates/fetches the TMDB department (case-insensitive) and creates the job in that department.
+  - If multiple job-name matches exist but none match the TMDB department, the credit is skipped with an ambiguity warning.
 
 After Phase 1 commits, the script runs Phase 2 season sync:
 
@@ -121,7 +126,7 @@ After Phase 2 commits, the script runs Phase 3 episode sync:
 - Fetches episode credits from `GET /tv/{id}/season/{season_number}/episode/{episode_number}/credits`.
 - Merges cast + crew + guest stars from episode detail and episode-credits payloads, dedupes, and fully replaces `public.episode_credits` per episode.
 - Cast and guest stars are mapped to job `"Actor"` in department `"Acting"`; crew uses TMDB `job` + `department`.
-- Missing job mappings are skipped with warnings (requires `seed:tmdb:jobs`).
+- Episode credit job resolution uses the same case-insensitive, job-first rules as show/movie credits; ambiguous duplicates with no matching department are skipped with warnings.
 
 Transactions:
 
@@ -144,7 +149,7 @@ Command:
 
 Prerequisites:
 
-- `npm run seed:tmdb:jobs` (department/job rows — required so credits can resolve `job.id` for `"Actor"` and crew jobs).
+- `npm run seed:tmdb:jobs` (recommended to pre-seed department/job taxonomy; the credits resolver can now create missing department/job rows on demand).
 - `npm run seed:tmdb:genres` (required so `movie_genre` can resolve `genres.id` from TMDB genre ids on the movie detail payload).
 
 Description:
@@ -159,7 +164,12 @@ For newly inserted movies, it fetches credits from `GET /movie/{id}/credits` and
 - Cast entries are linked to the job `"Actor"` in department `"Acting"`, with `title` set to the `character` string.
 - Crew entries are linked to the job matching `crew.job` in department `crew.department`, with `title = null` (the role is encoded in `job_id`).
 - Duplicate TMDB entries (same person + role) are deduped before insert.
-- Any credit whose `(job, department)` is not found in the local `job` table is skipped with a warning; run `seed:tmdb:jobs` first to populate it.
+- Job resolution is case-insensitive and job-first:
+  - It first searches globally by job name (ignoring department and letter case).
+  - If exactly one job-name match exists, that job is used even if TMDB department differs.
+  - If multiple matches exist (same job name in multiple departments), department is used only to disambiguate (case-insensitive).
+  - If no global match exists, the resolver creates/fetches the TMDB department (case-insensitive) and creates the job in that department.
+  - If multiple job-name matches exist but none match the TMDB department, the credit is skipped with an ambiguity warning.
 
 Everything for a new movie insert (movie row, genre links, person inserts, credits) runs inside transactions and is idempotent — safe to rerun.
 
