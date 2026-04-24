@@ -405,10 +405,6 @@ function normalizeEpisodePayload(payload, seasonId) {
     throw new Error(`TMDB episode ${tmdbId} is missing required \`name\`.`);
   }
 
-  if (!payload.air_date) {
-    throw new Error(`TMDB episode ${tmdbId} is missing required \`air_date\`.`);
-  }
-
   return {
     tmdbId,
     seasonId,
@@ -416,7 +412,7 @@ function normalizeEpisodePayload(payload, seasonId) {
     episodeNumber,
     overview: typeof payload.overview === "string" ? payload.overview : "",
     runtime: Number.isFinite(payload.runtime) ? payload.runtime : 0,
-    airDate: payload.air_date,
+    airDate: payload.air_date || null,
   };
 }
 

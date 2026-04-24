@@ -49,7 +49,7 @@ CREATE TABLE public.episode (
   episode_number bigint NOT NULL,
   overview text NOT NULL,
   runtime bigint NOT NULL,
-  air_date date NOT NULL,
+  air_date date,
   created_at timestamp with time zone NOT NULL DEFAULT (now() AT TIME ZONE 'utc'::text),
   updated_at timestamp with time zone,
   deleted_at timestamp with time zone,
@@ -192,7 +192,7 @@ CREATE TABLE public.season (
   name text NOT NULL,
   season_number bigint NOT NULL,
   overview text NOT NULL,
-  air_date date NOT NULL,
+  air_date date,
   created_at timestamp with time zone NOT NULL DEFAULT (now() AT TIME ZONE 'utc'::text),
   updated_at timestamp with time zone,
   deleted_at timestamp with time zone,
@@ -204,7 +204,7 @@ CREATE TABLE public.show (
   tmdb_id bigint NOT NULL UNIQUE,
   adult boolean NOT NULL,
   episode_run_time bigint,
-  first_air_date date NOT NULL,
+  first_air_date date,
   in_production boolean NOT NULL,
   last_air_date date,
   name text NOT NULL,
@@ -319,7 +319,7 @@ Represents an episode in a season.
 - Primary key: `id` (`bigint`, database-generated identity)
 - Unique external source key: `tmdb_id` (unique constraint)
 - Foreign key: `season_id -> season.id`
-- Required fields include `name`, `episode_number`, `overview`, `runtime`, `air_date`
+- Required fields include `name`, `episode_number`, `overview`, `runtime`; `air_date` is nullable
 
 Relationship chain:
 
@@ -519,4 +519,5 @@ For `user_followed_shows`:
 - `episode_credits`, `movie_credits`, and `show_credits` have `created_at` but no `updated_at` / `deleted_at` in this schema.
 - `script_logs` includes `created_at` (UTC) in addition to `started_at` / `finished_at` and optional `runtime` (elapsed seconds, `double precision`) for run timing.
 - Constraint names are explicit and clear, which is helpful for migrations and debugging.
+- Date nullability reflects current schema: `movie.release_date`, `show.first_air_date`, `season.air_date`, and `episode.air_date` are nullable.
 
