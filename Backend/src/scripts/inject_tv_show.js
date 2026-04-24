@@ -1536,6 +1536,9 @@ export async function ingestTvShow({
 export default ingestTvShow;
 
 function parseArgs(argv) {
+  let tmdbTvId = null;
+  let forceRefreshExisting = false;
+
   for (const arg of argv) {
     const match = /^--id=(.+)$/.exec(arg);
     if (match) {
@@ -1545,12 +1548,22 @@ function parseArgs(argv) {
           `Invalid --id value "${match[1]}". Expected a positive integer.`
         );
       }
-      return { tmdbTvId: parsed };
+      tmdbTvId = parsed;
+      continue;
+    }
+
+    if (arg === "--force") {
+      forceRefreshExisting = true;
     }
   }
-  throw new Error(
-    "Missing required --id=<tmdbTvId>. Example: npm run seed:tmdb:tv-show -- --id=1399"
-  );
+
+  if (tmdbTvId == null) {
+    throw new Error(
+      "Missing required --id=<tmdbTvId>. Example: npm run seed:tmdb:tv-show -- --id=1399 [--force]"
+    );
+  }
+
+  return { tmdbTvId, forceRefreshExisting };
 }
 
 function renderProgressBar(current, total, width = 30) {
@@ -1564,7 +1577,7 @@ function renderProgressBar(current, total, width = 30) {
 
 async function main() {
   const startedAt = new Date();
-  const { tmdbTvId } = parseArgs(process.argv.slice(2));
+  const { tmdbTvId, forceRefreshExisting } = parseArgs(process.argv.slice(2));
   const scopedScriptName = `${SCRIPT_NAME}:${tmdbTvId}`;
 
   try {
@@ -1604,6 +1617,7 @@ async function main() {
         tmdbTvId,
         onPrefetchProgress,
         onEpisodeProgress,
+        forceRefreshExisting,
       });
 
       const totalCredits = result.creditsLinked + result.creditsSkipped;

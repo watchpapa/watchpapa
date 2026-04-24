@@ -490,6 +490,9 @@ export async function ingestPerson({
 export default ingestPerson;
 
 function parseArgs(argv) {
+  let tmdbId = null;
+  let forceRefreshExisting = false;
+
   for (const arg of argv) {
     const match = /^--id=(.+)$/.exec(arg);
     if (match) {
@@ -499,12 +502,22 @@ function parseArgs(argv) {
           `Invalid --id value "${match[1]}". Expected a positive integer.`
         );
       }
-      return { tmdbId: parsed };
+      tmdbId = parsed;
+      continue;
+    }
+
+    if (arg === "--force") {
+      forceRefreshExisting = true;
     }
   }
-  throw new Error(
-    "Missing required --id=<tmdbPersonId>. Example: npm run seed:tmdb:person -- --id=287"
-  );
+
+  if (tmdbId == null) {
+    throw new Error(
+      "Missing required --id=<tmdbPersonId>. Example: npm run seed:tmdb:person -- --id=287 [--force]"
+    );
+  }
+
+  return { tmdbId, forceRefreshExisting };
 }
 
 function renderProgressBar(current, total, width = 30) {
@@ -518,7 +531,7 @@ function renderProgressBar(current, total, width = 30) {
 
 async function main() {
   const startedAt = new Date();
-  const { tmdbId } = parseArgs(process.argv.slice(2));
+  const { tmdbId, forceRefreshExisting } = parseArgs(process.argv.slice(2));
   const scopedScriptName = `${SCRIPT_NAME}:${tmdbId}`;
 
   try {
@@ -530,7 +543,7 @@ async function main() {
         `Ingest ${renderProgressBar(0, 1)} | Person ${tmdbId}\r`
       );
 
-      const result = await ingestPerson({ tmdbId });
+      const result = await ingestPerson({ tmdbId, forceRefreshExisting });
 
       process.stdout.write(
         `Ingest ${renderProgressBar(1, 1)} | Person ${tmdbId} | ${result.action} | AKAs +${result.akaInserted} restored ${result.akaRestored} -${result.akaDeleted}\n`
