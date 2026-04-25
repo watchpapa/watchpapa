@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import { envWithoutTmdbKey, runScript } from "./helpers/script_runner.js";
+import { buildFailureErrorDetail } from "../../Backend/src/scripts/inject_changed_all_24h.js";
 
 test("inject_genres exits with clear error when TMDB key is missing", () => {
   const result = runScript(
@@ -95,4 +96,58 @@ test("inject_changed_all_24h rejects limit values above max", () => {
   ]);
   assert.notEqual(result.status, 0);
   assert.match(result.stderr, /Requested --limit=100001 is too high/);
+});
+
+test("signal handler exits non-zero and logs stopped message on SIGINT", () => {
+  const result = runScript(
+    "tests/injections_tests/helpers/signal_test_harness.js",
+    ["SIGINT"]
+  );
+  assert.equal(result.status, 1);
+  assert.match(
+    result.stderr,
+    /Received SIGINT\. Writing stopped log and exiting/
+  );
+});
+
+test("signal handler exits non-zero and logs stopped message on SIGTERM", () => {
+  const result = runScript(
+    "tests/injections_tests/helpers/signal_test_harness.js",
+    ["SIGTERM"]
+  );
+  assert.equal(result.status, 1);
+  assert.match(
+    result.stderr,
+    /Received SIGTERM\. Writing stopped log and exiting/
+  );
+});
+
+test("signal handler writes exactly one log on repeated SIGINT", () => {
+  const result = runScript(
+    "tests/injections_tests/helpers/signal_test_harness.js",
+    ["SIGINT", "3"]
+  );
+  assert.equal(result.status, 1);
+  const matches = result.stderr.match(/Received SIGINT/g) || [];
+  assert.equal(matches.length, 1);
+});
+
+test("buildFailureErrorDetail serializes failedItems as parseable JSON", () => {
+  const payload = buildFailureErrorDetail({
+    scriptName: "inject_changed_all_24h:limit=5",
+    summary: { refreshed: 2, failed: 2 },
+    failedItems: [
+      { entityType: "movie", tmdbId: 11 },
+      { entityType: "show", tmdbId: 22 },
+    ],
+  });
+
+  const parsed = JSON.parse(payload);
+  assert.equal(parsed.scriptName, "inject_changed_all_24h:limit=5");
+  assert.deepEqual(parsed.summary, { refreshed: 2, failed: 2 });
+  assert.deepEqual(parsed.failedItems, [
+    { entityType: "movie", tmdbId: 11 },
+    { entityType: "show", tmdbId: 22 },
+  ]);
+  assert.equal(parsed.fatalError, null);
 });

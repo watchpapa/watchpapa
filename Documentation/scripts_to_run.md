@@ -31,6 +31,7 @@ Runs Node-based tests under `tests/injections_tests` for all `inject_*.js` scrip
 - Environment guards (missing `TMDB_API_KEY_SECRET`).
 - Exported ingestion function guards (invalid ids, required api key checks).
 - Fast-path skip behavior when records already exist (mocked `sequelize.query`).
+- Signal handling: SIGINT/SIGTERM handlers exit non-zero and write exactly one `stopped` message (tested via `signal_test_harness.js`).
 
 ## TMDB jobs and departments ingestion
 
@@ -189,6 +190,10 @@ Existing movies are skipped, and no connected ingestion work runs for them (no m
 
 The script writes a top-level `script_logs` row (`inject_popular_movies_today:limit=<count>`) and prints a final summary with requested count, skipped existing count, and inserted count.
 
+If the process is interrupted (Ctrl+C / SIGTERM), a `script_logs` row is written with `status = 'stopped'`, `error_code = 'StoppedBySignal'`, and the signal name in `error_detail`. A guard ensures exactly one log row is written per run.
+
+If one or more items fail during processing, the run finishes with `status = 'failure'` and `error_detail` contains JSON with aggregate summary fields plus a `failedItems` array of `{ entityType, tmdbId }`.
+
 ## TMDB popular people today ingestion
 
 Command:
@@ -202,6 +207,10 @@ Fetches today’s TMDB popular people from `GET /person/popular` (paged), takes 
 Existing people are skipped, and no refresh/update is performed for those rows. Only missing people run through `ingestPerson`, which inserts the person and their AKA values.
 
 The script writes a top-level `script_logs` row (`inject_popular_people_today:limit=<count>`) and prints a final summary with requested count, skipped existing count, skipped race count, and inserted count.
+
+If the process is interrupted (Ctrl+C / SIGTERM), a `script_logs` row is written with `status = 'stopped'`, `error_code = 'StoppedBySignal'`, and the signal name in `error_detail`. A guard ensures exactly one log row is written per run.
+
+If one or more items fail during processing, the run finishes with `status = 'failure'` and `error_detail` contains JSON with aggregate summary fields plus a `failedItems` array of `{ entityType, tmdbId }`.
 
 ## TMDB popular shows today ingestion
 
@@ -217,6 +226,10 @@ Existing shows are skipped, and no refresh/update is performed for those rows. O
 
 The script writes a top-level `script_logs` row (`inject_popular_shows_today:limit=<count>`) and prints a final summary with requested count, skipped existing count, skipped race count, and inserted count.
 
+If the process is interrupted (Ctrl+C / SIGTERM), a `script_logs` row is written with `status = 'stopped'`, `error_code = 'StoppedBySignal'`, and the signal name in `error_detail`. A guard ensures exactly one log row is written per run.
+
+If one or more items fail during processing, the run finishes with `status = 'failure'` and `error_detail` contains JSON with aggregate summary fields plus a `failedItems` array of `{ entityType, tmdbId }`.
+
 ## TMDB top-rated movies ingestion
 
 Command:
@@ -230,6 +243,10 @@ Fetches TMDB top-rated movies from `GET /movie/top_rated` (paged), takes the fir
 Existing movies are skipped, and no connected ingestion work runs for them (no movie details refresh, no genres refresh, no credits/person refresh). Only missing movies run through `ingestMovie`, which inserts the movie with genres and credits/person relationships.
 
 The script writes a top-level `script_logs` row (`inject_top_rated_movies:limit=<count>`) and prints a final summary with requested count, skipped existing count, skipped race count, and inserted count.
+
+If the process is interrupted (Ctrl+C / SIGTERM), a `script_logs` row is written with `status = 'stopped'`, `error_code = 'StoppedBySignal'`, and the signal name in `error_detail`. A guard ensures exactly one log row is written per run.
+
+If one or more items fail during processing, the run finishes with `status = 'failure'` and `error_detail` contains JSON with aggregate summary fields plus a `failedItems` array of `{ entityType, tmdbId }`.
 
 ## TMDB top-rated shows ingestion
 
@@ -245,6 +262,10 @@ Existing shows are skipped, and no refresh/update is performed for those rows. O
 
 The script writes a top-level `script_logs` row (`inject_top_rated_shows:limit=<count>`) and prints a final summary with requested count, skipped existing count, skipped race count, and inserted count.
 
+If the process is interrupted (Ctrl+C / SIGTERM), a `script_logs` row is written with `status = 'stopped'`, `error_code = 'StoppedBySignal'`, and the signal name in `error_detail`. A guard ensures exactly one log row is written per run.
+
+If one or more items fail during processing, the run finishes with `status = 'failure'` and `error_detail` contains JSON with aggregate summary fields plus a `failedItems` array of `{ entityType, tmdbId }`.
+
 ## TMDB changed movies in last 24h refresh
 
 Command:
@@ -258,6 +279,10 @@ Fetches changed movie IDs from `GET /movie/changes` for the requested date windo
 Changed IDs are cached in-memory for the run, then filtered to movies that already exist in `public.movie`. Only existing rows are refreshed. Each matched movie is processed independently and reruns full movie sync (details + genres + credits/person sync) with isolated transaction phases.
 
 The script writes a top-level `script_logs` row (`inject_changed_movies_24h:limit=<count>`) and prints changed fetched, matched existing, refreshed, failed, and skipped-race totals.
+
+If the process is interrupted (Ctrl+C / SIGTERM), a `script_logs` row is written with `status = 'stopped'`, `error_code = 'StoppedBySignal'`, and the signal name in `error_detail`. A guard ensures exactly one log row is written per run.
+
+If one or more items fail during processing, the run finishes with `status = 'failure'` and `error_detail` contains JSON with aggregate summary fields plus a `failedItems` array of `{ entityType, tmdbId }`.
 
 ## TMDB changed shows in last 24h refresh
 
@@ -273,6 +298,10 @@ Changed IDs are cached in-memory for the run, then filtered to shows that alread
 
 The script writes a top-level `script_logs` row (`inject_changed_shows_24h:limit=<count>`) and prints changed fetched, matched existing, refreshed, failed, and skipped-race totals.
 
+If the process is interrupted (Ctrl+C / SIGTERM), a `script_logs` row is written with `status = 'stopped'`, `error_code = 'StoppedBySignal'`, and the signal name in `error_detail`. A guard ensures exactly one log row is written per run.
+
+If one or more items fail during processing, the run finishes with `status = 'failure'` and `error_detail` contains JSON with aggregate summary fields plus a `failedItems` array of `{ entityType, tmdbId }`.
+
 ## TMDB changed people in last 24h refresh
 
 Command:
@@ -286,6 +315,10 @@ Fetches changed person IDs from `GET /person/changes` for the requested date win
 Changed IDs are cached in-memory for the run, then filtered to people that already exist in `public.person`. Only existing rows are refreshed. Each matched person reruns person detail + AKA sync in its own transaction.
 
 The script writes a top-level `script_logs` row (`inject_changed_people_24h:limit=<count>`) and prints changed fetched, matched existing, refreshed, failed, and skipped-race totals.
+
+If the process is interrupted (Ctrl+C / SIGTERM), a `script_logs` row is written with `status = 'stopped'`, `error_code = 'StoppedBySignal'`, and the signal name in `error_detail`. A guard ensures exactly one log row is written per run.
+
+If one or more items fail during processing, the run finishes with `status = 'failure'` and `error_detail` contains JSON with aggregate summary fields plus a `failedItems` array of `{ entityType, tmdbId }`.
 
 ## TMDB changed all entities in last 24h refresh
 
@@ -304,3 +337,7 @@ Runs all three refresh scripts in sequence for the same date window and limit:
 Each underlying script still does in-memory ID caching for that run, intersects changed IDs with existing rows in your DB, and refreshes only existing records in isolated transactions.
 
 The orchestrator writes a top-level `script_logs` row (`inject_changed_all_24h:limit=<count>`) and prints per-entity plus total refreshed/failed counts.
+
+If the process is interrupted (Ctrl+C / SIGTERM), a `script_logs` row is written with `status = 'stopped'`, `error_code = 'StoppedBySignal'`, and the signal name in `error_detail`. A guard ensures exactly one log row is written per run.
+
+If one or more items fail during processing, the run finishes with `status = 'failure'` and `error_detail` contains JSON with aggregate summary fields plus a `failedItems` array of `{ entityType, tmdbId }`.

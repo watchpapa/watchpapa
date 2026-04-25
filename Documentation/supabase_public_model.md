@@ -175,7 +175,7 @@ CREATE TABLE public.profile (
 CREATE TABLE public.script_logs (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   script_name text NOT NULL,
-  status text CHECK (status = ANY (ARRAY['success'::text, 'failure'::text])),
+  status text CHECK (status = ANY (ARRAY['success'::text, 'failure'::text, 'stopped'::text])),
   batch_size integer,
   error_code text,
   error_detail text,

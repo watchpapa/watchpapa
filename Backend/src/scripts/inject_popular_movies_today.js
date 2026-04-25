@@ -12,6 +12,7 @@ const TMDB_PAGE_SIZE = 20;
 const MAX_LIMIT = 500;
 
 let cachedApiKey = null;
+let logWritten = false;
 
 function getApiKey() {
   if (cachedApiKey) return cachedApiKey;
@@ -150,9 +151,21 @@ async function fetchExistingMovieTmdbIds(tmdbIds) {
     { replacements: { tmdbIds } }
   );
 
-  // movie.tmdb_id is BIGINT and the pg driver returns those as strings.
-  // Coerce to Number so Set.has(numericTmdbId) actually matches the input.
-  return new Set(rows.map((row) => Number(row.tmdb_id)));
+  return new Set(rows.map((row) => row.tmdb_id));
+}
+
+function buildFailureErrorDetail({ scriptName, summary, failedItems, fatalError }) {
+  return JSON.stringify({
+    scriptName,
+    summary,
+    failedItems,
+    fatalError: fatalError
+      ? {
+          name: fatalError?.name ?? "Error",
+          message: fatalError?.message ?? String(fatalError),
+        }
+      : null,
+  });
 }
 
 function parseArgs(argv) {
@@ -189,6 +202,8 @@ export async function ingestPopularMoviesToday({ limit = 20, apiKey } = {}) {
   let inserted = 0;
   let skippedExisting = 0;
   let skippedRace = 0;
+  let failed = 0;
+  const failedItems = [];
 
   for (let i = 0; i < requestedIds.length; i += 1) {
     const tmdbId = requestedIds[i];
@@ -208,17 +223,22 @@ export async function ingestPopularMoviesToday({ limit = 20, apiKey } = {}) {
       continue;
     }
 
-    const result = await ingestMovie({ tmdbId, apiKey: resolvedKey });
-    if (result.action !== "inserted") {
-      // Keep behavior strict for this loader: treat non-insert as skipped.
-      console.log(`${prefix} Movie ${tmdbId} already synced elsewhere -> skipped`);
-      skippedRace += 1;
-      continue;
+    try {
+      const result = await ingestMovie({ tmdbId, apiKey: resolvedKey });
+      if (result.action !== "inserted") {
+        // Keep behavior strict for this loader: treat non-insert as skipped.
+        console.log(`${prefix} Movie ${tmdbId} already synced elsewhere -> skipped`);
+        skippedRace += 1;
+        continue;
+      }
+
+      inserted += 1;
+      console.log(`${prefix} Movie ${tmdbId} inserted (id=${result.movieId})`);
+    } catch (error) {
+      failed += 1;
+      failedItems.push({ entityType: "movie", tmdbId });
+      console.warn(`${prefix} Movie ${tmdbId} failed ingestion: ${error.message}`);
     }
-
-    inserted += 1;
-
-    console.log(`${prefix} Movie ${tmdbId} inserted (id=${result.movieId})`);
   }
 
   return {
@@ -226,6 +246,8 @@ export async function ingestPopularMoviesToday({ limit = 20, apiKey } = {}) {
     skippedExisting,
     skippedRace,
     inserted,
+    failed,
+    failedItems,
   };
 }
 
@@ -233,6 +255,25 @@ async function main() {
   const startedAt = new Date();
   const { limit } = parseArgs(process.argv.slice(2));
   const scopedScriptName = `${SCRIPT_NAME}:limit=${limit}`;
+
+  function handleStopSignal(signal) {
+    if (logWritten) return;
+    logWritten = true;
+    console.error(`\nReceived ${signal}. Writing stopped log and exiting...`);
+    writeScriptLog({
+      scriptName: scopedScriptName,
+      status: "stopped",
+      batchSize: null,
+      errorCode: "StoppedBySignal",
+      errorDetail: `Process interrupted by ${signal}.`,
+      startedAt,
+    })
+      .finally(() => sequelize.close())
+      .finally(() => process.exit(1));
+  }
+
+  process.on("SIGINT", handleStopSignal);
+  process.on("SIGTERM", handleStopSignal);
 
   try {
     try {
@@ -245,27 +286,56 @@ async function main() {
         `Popular movies ingestion complete. Requested: ${result.requested}. ` +
           `Skipped existing: ${result.skippedExisting}. ` +
           `Skipped race: ${result.skippedRace}. ` +
-          `Inserted: ${result.inserted}.`
+          `Inserted: ${result.inserted}. ` +
+          `Failed: ${result.failed}.`
       );
 
-      await writeScriptLog({
-        scriptName: scopedScriptName,
-        status: "success",
-        batchSize: result.inserted,
-        startedAt,
-      });
+      if (!logWritten) {
+        logWritten = true;
+        await writeScriptLog({
+          scriptName: scopedScriptName,
+          status: result.failed === 0 ? "success" : "failure",
+          batchSize: result.inserted,
+          errorCode: result.failed === 0 ? null : "PartialFailure",
+          errorDetail:
+            result.failed === 0
+              ? null
+              : buildFailureErrorDetail({
+                  scriptName: scopedScriptName,
+                  summary: {
+                    requested: result.requested,
+                    inserted: result.inserted,
+                    failed: result.failed,
+                    skippedExisting: result.skippedExisting,
+                    skippedRace: result.skippedRace,
+                  },
+                  failedItems: result.failedItems,
+                }),
+          startedAt,
+        });
+      }
     } catch (error) {
-      await writeScriptLog({
-        scriptName: scopedScriptName,
-        status: "failure",
-        batchSize: null,
-        errorCode: error?.name ?? "Error",
-        errorDetail: error?.message ?? String(error),
-        startedAt,
-      });
+      if (!logWritten) {
+        logWritten = true;
+        await writeScriptLog({
+          scriptName: scopedScriptName,
+          status: "failure",
+          batchSize: null,
+          errorCode: error?.name ?? "Error",
+          errorDetail: buildFailureErrorDetail({
+            scriptName: scopedScriptName,
+            summary: null,
+            failedItems: [],
+            fatalError: error,
+          }),
+          startedAt,
+        });
+      }
       throw error;
     }
   } finally {
+    process.off("SIGINT", handleStopSignal);
+    process.off("SIGTERM", handleStopSignal);
     await sequelize.close();
   }
 }

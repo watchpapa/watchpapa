@@ -13,6 +13,7 @@ const SCRIPT_NAME = "inject_changed_people_24h";
 const MAX_LIMIT = 100000;
 
 let cachedApiKey = null;
+let logWritten = false;
 
 function getApiKey() {
   if (cachedApiKey) return cachedApiKey;
@@ -143,6 +144,20 @@ async function fetchExistingPersonTmdbIds(tmdbIds) {
   return new Set(rows.map((row) => Number(row.tmdb_id)));
 }
 
+function buildFailureErrorDetail({ scriptName, summary, failedItems, fatalError }) {
+  return JSON.stringify({
+    scriptName,
+    summary,
+    failedItems,
+    fatalError: fatalError
+      ? {
+          name: fatalError?.name ?? "Error",
+          message: fatalError?.message ?? String(fatalError),
+        }
+      : null,
+  });
+}
+
 export async function ingestChangedPeople24h({
   limit = 100000,
   apiKey,
@@ -164,6 +179,7 @@ export async function ingestChangedPeople24h({
   let refreshed = 0;
   let failed = 0;
   let skippedRace = 0;
+  const failedItems = [];
 
   for (let i = 0; i < toRefresh.length; i += 1) {
     const tmdbId = toRefresh[i];
@@ -186,6 +202,7 @@ export async function ingestChangedPeople24h({
       refreshed += 1;
     } catch (error) {
       failed += 1;
+      failedItems.push({ entityType: "person", tmdbId });
       console.warn(`${prefix} Person ${tmdbId} failed refresh: ${error.message}`);
     }
   }
@@ -198,6 +215,7 @@ export async function ingestChangedPeople24h({
     refreshed,
     failed,
     skippedRace,
+    failedItems,
   };
 }
 
@@ -205,6 +223,25 @@ async function main() {
   const startedAt = new Date();
   const { limit, startDate, endDate } = parseArgs(process.argv.slice(2));
   const scopedScriptName = `${SCRIPT_NAME}:limit=${limit}`;
+
+  function handleStopSignal(signal) {
+    if (logWritten) return;
+    logWritten = true;
+    console.error(`\nReceived ${signal}. Writing stopped log and exiting...`);
+    writeScriptLog({
+      scriptName: scopedScriptName,
+      status: "stopped",
+      batchSize: null,
+      errorCode: "StoppedBySignal",
+      errorDetail: `Process interrupted by ${signal}.`,
+      startedAt,
+    })
+      .finally(() => sequelize.close())
+      .finally(() => process.exit(1));
+  }
+
+  process.on("SIGINT", handleStopSignal);
+  process.on("SIGTERM", handleStopSignal);
 
   try {
     try {
@@ -218,29 +255,54 @@ async function main() {
           `Refreshed: ${result.refreshed}. Failed: ${result.failed}. Skipped race: ${result.skippedRace}.`
       );
 
-      await writeScriptLog({
-        scriptName: scopedScriptName,
-        status: result.failed === 0 ? "success" : "failure",
-        batchSize: result.refreshed,
-        errorCode: result.failed === 0 ? null : "PartialFailure",
-        errorDetail:
-          result.failed === 0
-            ? null
-            : `${result.failed} refresh(es) failed in changed people run.`,
-        startedAt,
-      });
+      if (!logWritten) {
+        logWritten = true;
+        await writeScriptLog({
+          scriptName: scopedScriptName,
+          status: result.failed === 0 ? "success" : "failure",
+          batchSize: result.refreshed,
+          errorCode: result.failed === 0 ? null : "PartialFailure",
+          errorDetail:
+            result.failed === 0
+              ? null
+              : buildFailureErrorDetail({
+                  scriptName: scopedScriptName,
+                  summary: {
+                    refreshed: result.refreshed,
+                    failed: result.failed,
+                    changedFetched: result.changedFetched,
+                    existingMatched: result.existingMatched,
+                    skippedRace: result.skippedRace,
+                    startDate: result.startDate,
+                    endDate: result.endDate,
+                  },
+                  failedItems: result.failedItems,
+                }),
+          startedAt,
+        });
+      }
     } catch (error) {
-      await writeScriptLog({
-        scriptName: scopedScriptName,
-        status: "failure",
-        batchSize: null,
-        errorCode: error?.name ?? "Error",
-        errorDetail: error?.message ?? String(error),
-        startedAt,
-      });
+      if (!logWritten) {
+        logWritten = true;
+        await writeScriptLog({
+          scriptName: scopedScriptName,
+          status: "failure",
+          batchSize: null,
+          errorCode: error?.name ?? "Error",
+          errorDetail: buildFailureErrorDetail({
+            scriptName: scopedScriptName,
+            summary: null,
+            failedItems: [],
+            fatalError: error,
+          }),
+          startedAt,
+        });
+      }
       throw error;
     }
   } finally {
+    process.off("SIGINT", handleStopSignal);
+    process.off("SIGTERM", handleStopSignal);
     await sequelize.close();
   }
 }
