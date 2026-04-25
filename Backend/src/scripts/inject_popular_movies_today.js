@@ -150,7 +150,9 @@ async function fetchExistingMovieTmdbIds(tmdbIds) {
     { replacements: { tmdbIds } }
   );
 
-  return new Set(rows.map((row) => row.tmdb_id));
+  // movie.tmdb_id is BIGINT and the pg driver returns those as strings.
+  // Coerce to Number so Set.has(numericTmdbId) actually matches the input.
+  return new Set(rows.map((row) => Number(row.tmdb_id)));
 }
 
 function parseArgs(argv) {

@@ -11,6 +11,8 @@ For each index: short note on **what it’s for** in query plans and constraints
 | index_name | unique | primary | predicate | definition (summary) |
 |------------|--------|---------|-------------|----------------------|
 | `department_pkey` | yes | yes | — | btree `(id)` — primary key lookup. |
+| `department_name_idx` | no | no | — | btree `(name)` — exact-name resolver lookup for ingest scripts. |
+| `department_name_lower_idx` | no | no | — | btree `(lower(name))` — case-insensitive resolver lookup for ingest scripts. |
 
 ---
 
@@ -47,6 +49,8 @@ For each index: short note on **what it’s for** in query plans and constraints
 | index_name | unique | primary | predicate | definition (summary) |
 |------------|--------|---------|-------------|----------------------|
 | `job_pkey` | yes | yes | — | btree `(id)` — PK. |
+| `job_department_id_name_idx` | no | no | — | btree `(department_id, name)` — resolver lookup by department + job name. |
+| `job_name_lower_idx` | no | no | — | btree `(lower(name))` — case-insensitive resolver lookup by job name. |
 
 ---
 
@@ -94,6 +98,7 @@ For each index: short note on **what it’s for** in query plans and constraints
 | index_name | unique | primary | predicate | definition (summary) |
 |------------|--------|---------|-------------|----------------------|
 | `person_aka_pkey` | yes | yes | — | btree `(id)` — PK. |
+| `person_aka_person_id_idx` | no | no | — | btree `(person_id)` — list/sync AKAs for a person during ingest. |
 
 ---
 
