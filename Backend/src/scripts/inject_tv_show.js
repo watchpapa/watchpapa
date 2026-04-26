@@ -314,6 +314,7 @@ function normalizeShowPayload(payload) {
     tmdbVoteAvg: Number.isFinite(payload.vote_average) ? payload.vote_average : 0,
     tmdbVoteCount: Number.isFinite(payload.vote_count) ? payload.vote_count : 0,
     genres: Array.isArray(payload.genres) ? payload.genres : [],
+    posterPath: typeof payload.poster_path === "string" ? payload.poster_path : null,
   };
 }
 
@@ -384,6 +385,7 @@ function normalizeSeasonPayload(payload, showId) {
     seasonNumber,
     overview: typeof payload.overview === "string" ? payload.overview : "",
     airDate: payload.air_date || null,
+    posterPath: typeof payload.poster_path === "string" ? payload.poster_path : null,
   };
 }
 
@@ -413,6 +415,7 @@ function normalizeEpisodePayload(payload, seasonId) {
     overview: typeof payload.overview === "string" ? payload.overview : "",
     runtime: Number.isFinite(payload.runtime) ? payload.runtime : 0,
     airDate: payload.air_date || null,
+    posterPath: typeof payload.still_path === "string" ? payload.still_path : null,
   };
 }
 
@@ -464,6 +467,7 @@ async function upsertShow(
     type: normalized.type,
     tmdbVoteAvg: normalized.tmdbVoteAvg,
     tmdbVoteCount: normalized.tmdbVoteCount,
+    posterPath: normalized.posterPath,
   };
 
   const [rows] = await sequelize.query(
@@ -472,11 +476,13 @@ async function upsertShow(
       INSERT INTO show (
         tmdb_id, adult, episode_run_time, first_air_date, in_production, last_air_date,
         name, number_of_episodes, number_of_seasons, original_language, original_name,
-        overview, tmdb_popularity, status, tagline, type, tmdb_vote_avg, tmdb_vote_count
+        overview, tmdb_popularity, status, tagline, type, tmdb_vote_avg, tmdb_vote_count,
+        poster_path
       ) VALUES (
         :tmdbId, :adult, :episodeRunTime, :firstAirDate, :inProduction, :lastAirDate,
         :name, :numberOfEpisodes, :numberOfSeasons, :originalLanguage, :originalName,
-        :overview, :tmdbPopularity, :status, :tagline, :type, :tmdbVoteAvg, :tmdbVoteCount
+        :overview, :tmdbPopularity, :status, :tagline, :type, :tmdbVoteAvg, :tmdbVoteCount,
+        :posterPath
       )
       ON CONFLICT (tmdb_id) DO UPDATE SET
         adult = EXCLUDED.adult,
@@ -496,17 +502,20 @@ async function upsertShow(
         type = EXCLUDED.type,
         tmdb_vote_avg = EXCLUDED.tmdb_vote_avg,
         tmdb_vote_count = EXCLUDED.tmdb_vote_count,
+        poster_path = EXCLUDED.poster_path,
         updated_at = now()
       WHERE (
         show.adult, show.episode_run_time, show.first_air_date, show.in_production,
         show.last_air_date, show.name, show.number_of_episodes, show.number_of_seasons,
         show.original_language, show.original_name, show.overview, show.tmdb_popularity,
-        show.status, show.tagline, show.type, show.tmdb_vote_avg, show.tmdb_vote_count
+        show.status, show.tagline, show.type, show.tmdb_vote_avg, show.tmdb_vote_count,
+        show.poster_path
       ) IS DISTINCT FROM (
         EXCLUDED.adult, EXCLUDED.episode_run_time, EXCLUDED.first_air_date, EXCLUDED.in_production,
         EXCLUDED.last_air_date, EXCLUDED.name, EXCLUDED.number_of_episodes, EXCLUDED.number_of_seasons,
         EXCLUDED.original_language, EXCLUDED.original_name, EXCLUDED.overview, EXCLUDED.tmdb_popularity,
-        EXCLUDED.status, EXCLUDED.tagline, EXCLUDED.type, EXCLUDED.tmdb_vote_avg, EXCLUDED.tmdb_vote_count
+        EXCLUDED.status, EXCLUDED.tagline, EXCLUDED.type, EXCLUDED.tmdb_vote_avg, EXCLUDED.tmdb_vote_count,
+        EXCLUDED.poster_path
       )
       RETURNING id, (xmax = 0) AS was_inserted;
     `
@@ -514,11 +523,13 @@ async function upsertShow(
       INSERT INTO show (
         tmdb_id, adult, episode_run_time, first_air_date, in_production, last_air_date,
         name, number_of_episodes, number_of_seasons, original_language, original_name,
-        overview, tmdb_popularity, status, tagline, type, tmdb_vote_avg, tmdb_vote_count
+        overview, tmdb_popularity, status, tagline, type, tmdb_vote_avg, tmdb_vote_count,
+        poster_path
       ) VALUES (
         :tmdbId, :adult, :episodeRunTime, :firstAirDate, :inProduction, :lastAirDate,
         :name, :numberOfEpisodes, :numberOfSeasons, :originalLanguage, :originalName,
-        :overview, :tmdbPopularity, :status, :tagline, :type, :tmdbVoteAvg, :tmdbVoteCount
+        :overview, :tmdbPopularity, :status, :tagline, :type, :tmdbVoteAvg, :tmdbVoteCount,
+        :posterPath
       )
       ON CONFLICT (tmdb_id) DO NOTHING
       RETURNING id;
@@ -559,9 +570,9 @@ async function upsertSeason(normalized, transaction) {
   const [rows] = await sequelize.query(
     `
       INSERT INTO season (
-        tmdb_id, show_id, name, season_number, overview, air_date
+        tmdb_id, show_id, name, season_number, overview, air_date, poster_path
       ) VALUES (
-        :tmdbId, :showId, :name, :seasonNumber, :overview, :airDate
+        :tmdbId, :showId, :name, :seasonNumber, :overview, :airDate, :posterPath
       )
       ON CONFLICT (tmdb_id) DO UPDATE SET
         show_id = EXCLUDED.show_id,
@@ -569,11 +580,14 @@ async function upsertSeason(normalized, transaction) {
         season_number = EXCLUDED.season_number,
         overview = EXCLUDED.overview,
         air_date = EXCLUDED.air_date,
+        poster_path = EXCLUDED.poster_path,
         updated_at = now()
       WHERE (
-        season.show_id, season.name, season.season_number, season.overview, season.air_date
+        season.show_id, season.name, season.season_number, season.overview, season.air_date,
+        season.poster_path
       ) IS DISTINCT FROM (
-        EXCLUDED.show_id, EXCLUDED.name, EXCLUDED.season_number, EXCLUDED.overview, EXCLUDED.air_date
+        EXCLUDED.show_id, EXCLUDED.name, EXCLUDED.season_number, EXCLUDED.overview, EXCLUDED.air_date,
+        EXCLUDED.poster_path
       )
       RETURNING id, (xmax = 0) AS was_inserted;
     `,
@@ -585,6 +599,7 @@ async function upsertSeason(normalized, transaction) {
         seasonNumber: normalized.seasonNumber,
         overview: normalized.overview,
         airDate: normalized.airDate,
+        posterPath: normalized.posterPath,
       },
       transaction,
     }
@@ -682,9 +697,9 @@ async function upsertEpisode(normalized, transaction) {
   const [rows] = await sequelize.query(
     `
       INSERT INTO episode (
-        tmdb_id, season_id, name, episode_number, overview, runtime, air_date
+        tmdb_id, season_id, name, episode_number, overview, runtime, air_date, poster_path
       ) VALUES (
-        :tmdbId, :seasonId, :name, :episodeNumber, :overview, :runtime, :airDate
+        :tmdbId, :seasonId, :name, :episodeNumber, :overview, :runtime, :airDate, :posterPath
       )
       ON CONFLICT (tmdb_id) DO UPDATE SET
         season_id = EXCLUDED.season_id,
@@ -693,13 +708,14 @@ async function upsertEpisode(normalized, transaction) {
         overview = EXCLUDED.overview,
         runtime = EXCLUDED.runtime,
         air_date = EXCLUDED.air_date,
+        poster_path = EXCLUDED.poster_path,
         updated_at = now()
       WHERE (
         episode.season_id, episode.name, episode.episode_number, episode.overview,
-        episode.runtime, episode.air_date
+        episode.runtime, episode.air_date, episode.poster_path
       ) IS DISTINCT FROM (
         EXCLUDED.season_id, EXCLUDED.name, EXCLUDED.episode_number, EXCLUDED.overview,
-        EXCLUDED.runtime, EXCLUDED.air_date
+        EXCLUDED.runtime, EXCLUDED.air_date, EXCLUDED.poster_path
       )
       RETURNING id, (xmax = 0) AS was_inserted;
     `,
@@ -712,6 +728,7 @@ async function upsertEpisode(normalized, transaction) {
         overview: normalized.overview,
         runtime: normalized.runtime,
         airDate: normalized.airDate,
+        posterPath: normalized.posterPath,
       },
       transaction,
     }
