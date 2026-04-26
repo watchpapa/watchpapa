@@ -4,9 +4,9 @@
 
 - `npm run seed:tmdb:jobs`
 - `npm run seed:tmdb:genres`
-- `npm run seed:tmdb:person -- --id=<tmdb_person_id>`
-- `npm run seed:tmdb:tv-show -- --id=<tmdb_tv_id>`
-- `npm run seed:tmdb:movie -- --id=<tmdb_movie_id>`
+- `npm run seed:tmdb:person -- --id=<tmdb_person_id> [--force]`
+- `npm run seed:tmdb:tv-show -- --id=<tmdb_tv_id> [--force]`
+- `npm run seed:tmdb:movie -- --id=<tmdb_movie_id> [--force]`
 - `npm run seed:tmdb:popular-movies-today -- --limit=<count>`
 - `npm run seed:tmdb:popular-people-today -- --limit=<count>`
 - `npm run seed:tmdb:popular-shows-today -- --limit=<count>`
@@ -57,25 +57,33 @@ Fetches TMDB movie and TV genre lists and upserts them into the shared `public.g
 
 Command:
 
-`npm run seed:tmdb:person -- --id=<tmdb_person_id>`
+`npm run seed:tmdb:person -- --id=<tmdb_person_id> [--force]`
 
 Description:
 
-Checks `public.person` by `tmdb_id` first. If the person already exists, the script skips without updating person fields or AKAs. If missing, it fetches TMDB person details and inserts a new row into `public.person`.
+Checks `public.person` by `tmdb_id` first.
 
-For newly inserted people only, it inserts `also_known_as` values into `public.person_aka`.
+- Without `--force`: existing people are skipped.
+- With `--force`: existing people are refreshed (person fields are updated and AKAs are synced).
+- If missing, the script fetches TMDB person details and inserts a new row into `public.person`.
+
+For inserted or force-refreshed people, `also_known_as` values are synced in `public.person_aka`:
+
+- new AKA values are inserted,
+- previously soft-deleted matches are restored,
+- stale active AKA values are soft-deleted.
 
 `known_for_department_id` is resolved by looking up the TMDB `known_for_department` text value (e.g. `"Acting"`) against `department.name` and storing the resulting `department.id` (nullable `bigint`). Resolutions are memoized for the lifetime of the process. Requires `seed:tmdb:jobs` to have been run first so the `department` rows exist.
 
-The ingestion runs inside a single transaction (all-or-nothing) and is idempotent — safe to rerun.
+Each person sync runs inside a single transaction (all-or-nothing) and is idempotent — safe to rerun.
 
-The script also exports a reusable function `ingestPerson({ tmdbId, transaction, apiKey })` for use by other scripts (e.g. show/cast ingestion, future bulk popular-people loader). When called with an existing `transaction`, the caller owns commit/rollback.
+The script also exports a reusable function `ingestPerson({ tmdbId, transaction, apiKey, preloadedPayload, forceRefreshExisting })` for use by other scripts (e.g. show/cast ingestion, bulk loaders, and refresh jobs). When called with an existing `transaction`, the caller owns commit/rollback.
 
 ## TMDB single TV show ingestion
 
 Command:
 
-`npm run seed:tmdb:tv-show -- --id=<tmdb_tv_id>`
+`npm run seed:tmdb:tv-show -- --id=<tmdb_tv_id> [--force]`
 
 Prerequisites:
 
@@ -86,20 +94,23 @@ Scope:
 
 Current implementation ingests:
 
-- **Phase 1:** TV show details + show-level credits.
 - **Phase 1:** TV show details + `show_genre` + show-level credits.
 - **Phase 2:** season rows in `public.season` for regular seasons only (`season_number > 0`).
 - **Phase 3:** episode rows in `public.episode` and episode-level credits in `public.episode_credits` for regular seasons.
 
-Special seasons (`season_number <= 0`, usually season 0) are intentionally skipped. `show_genre` is still deferred.
+Special seasons (`season_number <= 0`, usually season 0) are intentionally skipped.
 
 Description:
 
-Checks `public.show` by `tmdb_id` first. If the show already exists, the script skips immediately (no details refresh, no genres refresh, no credits/seasons/episodes work). If missing, it fetches TMDB data and inserts a new show.
+Checks `public.show` by `tmdb_id` first.
 
-For newly inserted shows, genre associations are inserted into `public.show_genre` from the TV detail `genres[]` array. Each TMDB genre id is resolved through `genres.tmdb_id`; missing mappings are skipped with a warning.
+- Without `--force`: existing shows are skipped immediately (no details refresh, no genres refresh, no credits/seasons/episodes work).
+- With `--force`: existing shows are refreshed (details, `show_genre`, show credits, seasons, episodes, and episode credits are resynced).
+- If missing, it fetches TMDB data and inserts a new show.
 
-For newly inserted shows, it fetches credits from `GET /tv/{id}/credits` and inserts `public.show_credits` rows:
+For inserted or force-refreshed shows, genre associations are synced in `public.show_genre` from the TV detail `genres[]` array. Each TMDB genre id is resolved through `genres.tmdb_id`; missing mappings are skipped with a warning.
+
+For inserted or force-refreshed shows, it fetches credits from `GET /tv/{id}/credits` and syncs `public.show_credits` rows:
 
 - For each distinct credited person, `ingestPerson` (from `inject_person.js`) is invoked on the same transaction; existing people are skipped, missing people are inserted before their credit row is written.
 - Cast entries are linked to the job `"Actor"` in department `"Acting"`, with `title` set to the `character` string.
@@ -131,22 +142,19 @@ After Phase 2 commits, the script runs Phase 3 episode sync:
 
 Transactions:
 
-- One transaction for the **show details** insert.
-- One transaction for the **credits** insert phase.
-- One transaction for the **seasons** phase.
-- One transaction per **episode** in the episodes phase.
-
-Failures in later phases can leave earlier committed phases in place (details -> credits -> seasons). In Phase 3, failed episodes are rolled back individually while successful episodes remain committed. Rerunning the same `--id` is idempotent.
+- Show sync runs inside a single transaction covering details, show genres, show credits, seasons, episodes, and episode credits.
+- Any failure rolls back the full show sync for that run.
+- Rerunning the same `--id` is idempotent.
 
 While the script runs, terminal progress bars show show-credit person prefetch and live episode progress (`processed/total` with current `SxEy`) during Phase 3, then the final summary.
 
-The script exports `ingestTvShow({ tmdbTvId, apiKey, onPrefetchProgress, onEpisodeProgress })` for reuse; the CLI entrypoint writes `script_logs` on success or failure (with per-phase rows for `inject_tv_show:details`, `inject_tv_show:credits`, `inject_tv_show:seasons`, and `inject_tv_show:episodes`).
+The script exports `ingestTvShow({ tmdbTvId, apiKey, onPrefetchProgress, onEpisodeProgress, forceRefreshExisting })` for reuse; the CLI entrypoint writes a single top-level `script_logs` row for the run (`inject_tv_show:<tmdbTvId>`) on success or failure.
 
 ## TMDB single movie ingestion
 
 Command:
 
-`npm run seed:tmdb:movie -- --id=<tmdb_movie_id>`
+`npm run seed:tmdb:movie -- --id=<tmdb_movie_id> [--force]`
 
 Prerequisites:
 
@@ -155,11 +163,15 @@ Prerequisites:
 
 Description:
 
-Checks `public.movie` by `tmdb_id` first. If the movie already exists, the script skips immediately (no details refresh, no genres refresh, no credits/person work). If missing, it fetches TMDB data and inserts a new movie.
+Checks `public.movie` by `tmdb_id` first.
 
-For newly inserted movies, genre associations are inserted into `public.movie_genre` from the `genres[]` array on the TMDB payload. Each TMDB genre `id` is looked up in `genres.tmdb_id`; any genre not found in the local table is skipped with a warning (run `seed:tmdb:genres` first to populate it).
+- Without `--force`: existing movies are skipped immediately (no details refresh, no genres refresh, no credits/person work).
+- With `--force`: existing movies are refreshed (details, `movie_genre`, and movie credits/person relationships are resynced).
+- If missing, it fetches TMDB data and inserts a new movie.
 
-For newly inserted movies, it fetches credits from `GET /movie/{id}/credits` and inserts `public.movie_credits` rows:
+For inserted or force-refreshed movies, genre associations are synced in `public.movie_genre` from the `genres[]` array on the TMDB payload. Each TMDB genre `id` is looked up in `genres.tmdb_id`; any genre not found in the local table is skipped with a warning (run `seed:tmdb:genres` first to populate it).
+
+For inserted or force-refreshed movies, it fetches credits from `GET /movie/{id}/credits` and syncs `public.movie_credits` rows:
 
 - For each distinct credited person, `ingestPerson` (from `inject_person.js`) is invoked on the same transaction; existing people are skipped, missing people are inserted before their credit row is written.
 - Cast entries are linked to the job `"Actor"` in department `"Acting"`, with `title` set to the `character` string.
@@ -172,9 +184,9 @@ For newly inserted movies, it fetches credits from `GET /movie/{id}/credits` and
   - If no global match exists, the resolver creates/fetches the TMDB department (case-insensitive) and creates the job in that department.
   - If multiple job-name matches exist but none match the TMDB department, the credit is skipped with an ambiguity warning.
 
-Everything for a new movie insert (movie row, genre links, person inserts, credits) runs inside transactions and is idempotent — safe to rerun.
+Each movie sync runs inside one transaction (movie row, genre links, person ingestion, and credits) and is idempotent — safe to rerun.
 
-The script exports a reusable function `ingestMovie({ tmdbId, transaction, apiKey, onCreditsProgress })` for use by other scripts (e.g. future bulk movie loaders). When called with an existing `transaction`, the caller owns commit/rollback.
+The script exports a reusable function `ingestMovie({ tmdbId, apiKey, onPrefetchProgress, forceRefreshExisting })` for use by other scripts (e.g. bulk loaders and refresh jobs).
 
 ## TMDB popular movies today ingestion
 
@@ -188,7 +200,7 @@ Fetches today’s TMDB popular movies from `GET /movie/popular` (paged), takes t
 
 Existing movies are skipped, and no connected ingestion work runs for them (no movie details refresh, no genres refresh, no credits/person refresh). Only missing movies run through `ingestMovie`, which inserts the movie with genres and credits/person relationships.
 
-The script writes a top-level `script_logs` row (`inject_popular_movies_today:limit=<count>`) and prints a final summary with requested count, skipped existing count, and inserted count.
+The script writes a top-level `script_logs` row (`inject_popular_movies_today:limit=<count>`) and prints a final summary with requested count, skipped existing count, skipped race count, and inserted count.
 
 If the process is interrupted (Ctrl+C / SIGTERM), a `script_logs` row is written with `status = 'stopped'`, `error_code = 'StoppedBySignal'`, and the signal name in `error_detail`. A guard ensures exactly one log row is written per run.
 
@@ -274,9 +286,9 @@ Command:
 
 Description:
 
-Fetches changed movie IDs from `GET /movie/changes` for the requested date window. If no dates are passed, it defaults to the last 24 hours.
+Fetches changed movie IDs from `GET /movie/changes` for the requested date window. If no dates are passed, it defaults to the last 24 hours. `--limit` defaults to `100000` (max `100000`).
 
-Changed IDs are cached in-memory for the run, then filtered to movies that already exist in `public.movie`. Only existing rows are refreshed. Each matched movie is processed independently and reruns full movie sync (details + genres + credits/person sync) with isolated transaction phases.
+Changed IDs are cached in-memory for the run, then filtered to movies that already exist in `public.movie`. Only existing rows are refreshed. Each matched movie is processed independently and reruns full movie sync (details + genres + credits/person sync) via forced refresh.
 
 The script writes a top-level `script_logs` row (`inject_changed_movies_24h:limit=<count>`) and prints changed fetched, matched existing, refreshed, failed, and skipped-race totals.
 
@@ -292,9 +304,9 @@ Command:
 
 Description:
 
-Fetches changed show IDs from `GET /tv/changes` for the requested date window. If no dates are passed, it defaults to the last 24 hours.
+Fetches changed show IDs from `GET /tv/changes` for the requested date window. If no dates are passed, it defaults to the last 24 hours. `--limit` defaults to `100000` (max `100000`).
 
-Changed IDs are cached in-memory for the run, then filtered to shows that already exist in `public.show`. Only existing rows are refreshed. Each matched show reruns full show sync (details, show credits, seasons, and episodes/episode credits), with isolated transactions per phase and per episode.
+Changed IDs are cached in-memory for the run, then filtered to shows that already exist in `public.show`. Only existing rows are refreshed. Each matched show reruns full show sync (details, show genres, show credits, seasons, and episodes/episode credits) via forced refresh.
 
 The script writes a top-level `script_logs` row (`inject_changed_shows_24h:limit=<count>`) and prints changed fetched, matched existing, refreshed, failed, and skipped-race totals.
 
@@ -310,7 +322,7 @@ Command:
 
 Description:
 
-Fetches changed person IDs from `GET /person/changes` for the requested date window. If no dates are passed, it defaults to the last 24 hours.
+Fetches changed person IDs from `GET /person/changes` for the requested date window. If no dates are passed, it defaults to the last 24 hours. `--limit` defaults to `100000` (max `100000`).
 
 Changed IDs are cached in-memory for the run, then filtered to people that already exist in `public.person`. Only existing rows are refreshed. Each matched person reruns person detail + AKA sync in its own transaction.
 
@@ -328,7 +340,7 @@ Command:
 
 Description:
 
-Runs all three refresh scripts in sequence for the same date window and limit:
+Runs all three refresh scripts in sequence for the same date window and limit (`--limit` defaults to `100000`, max `100000`):
 
 - changed movies (`GET /movie/changes`)
 - changed shows (`GET /tv/changes`)
