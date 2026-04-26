@@ -218,6 +218,7 @@ function normalizeMoviePayload(payload) {
     tmdbVoteAvg: Number.isFinite(payload.vote_average) ? payload.vote_average : 0,
     tmdbVoteCount: Number.isFinite(payload.vote_count) ? payload.vote_count : 0,
     genres: Array.isArray(payload.genres) ? payload.genres : [],
+    posterPath: typeof payload.poster_path === "string" ? payload.poster_path : null,
   };
 }
 
@@ -242,6 +243,7 @@ async function upsertMovie(
     title: normalized.title,
     tmdbVoteAvg: normalized.tmdbVoteAvg,
     tmdbVoteCount: normalized.tmdbVoteCount,
+    posterPath: normalized.posterPath,
   };
 
   const [rows] = await sequelize.query(
@@ -250,11 +252,11 @@ async function upsertMovie(
       INSERT INTO movie (
         tmdb_id, adult, budget, original_language, original_title, overview,
         tmdb_popularity, release_date, revenue, runtime, status, tagline,
-        title, tmdb_vote_avg, tmdb_vote_count
+        title, tmdb_vote_avg, tmdb_vote_count, poster_path
       ) VALUES (
         :tmdbId, :adult, :budget, :originalLanguage, :originalTitle, :overview,
         :tmdbPopularity, :releaseDate, :revenue, :runtime, :status, :tagline,
-        :title, :tmdbVoteAvg, :tmdbVoteCount
+        :title, :tmdbVoteAvg, :tmdbVoteCount, :posterPath
       )
       ON CONFLICT (tmdb_id) DO UPDATE SET
         adult = EXCLUDED.adult,
@@ -271,15 +273,16 @@ async function upsertMovie(
         title = EXCLUDED.title,
         tmdb_vote_avg = EXCLUDED.tmdb_vote_avg,
         tmdb_vote_count = EXCLUDED.tmdb_vote_count,
+        poster_path = EXCLUDED.poster_path,
         updated_at = now()
       WHERE (
         movie.adult, movie.budget, movie.original_language, movie.original_title, movie.overview,
         movie.tmdb_popularity, movie.release_date, movie.revenue, movie.runtime, movie.status,
-        movie.tagline, movie.title, movie.tmdb_vote_avg, movie.tmdb_vote_count
+        movie.tagline, movie.title, movie.tmdb_vote_avg, movie.tmdb_vote_count, movie.poster_path
       ) IS DISTINCT FROM (
         EXCLUDED.adult, EXCLUDED.budget, EXCLUDED.original_language, EXCLUDED.original_title, EXCLUDED.overview,
         EXCLUDED.tmdb_popularity, EXCLUDED.release_date, EXCLUDED.revenue, EXCLUDED.runtime, EXCLUDED.status,
-        EXCLUDED.tagline, EXCLUDED.title, EXCLUDED.tmdb_vote_avg, EXCLUDED.tmdb_vote_count
+        EXCLUDED.tagline, EXCLUDED.title, EXCLUDED.tmdb_vote_avg, EXCLUDED.tmdb_vote_count, EXCLUDED.poster_path
       )
       RETURNING id, (xmax = 0) AS was_inserted;
     `
@@ -287,11 +290,11 @@ async function upsertMovie(
       INSERT INTO movie (
         tmdb_id, adult, budget, original_language, original_title, overview,
         tmdb_popularity, release_date, revenue, runtime, status, tagline,
-        title, tmdb_vote_avg, tmdb_vote_count
+        title, tmdb_vote_avg, tmdb_vote_count, poster_path
       ) VALUES (
         :tmdbId, :adult, :budget, :originalLanguage, :originalTitle, :overview,
         :tmdbPopularity, :releaseDate, :revenue, :runtime, :status, :tagline,
-        :title, :tmdbVoteAvg, :tmdbVoteCount
+        :title, :tmdbVoteAvg, :tmdbVoteCount, :posterPath
       )
       ON CONFLICT (tmdb_id) DO NOTHING
       RETURNING id;
