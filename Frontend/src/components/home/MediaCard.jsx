@@ -1,3 +1,5 @@
+import { Link } from "react-router-dom";
+
 const TMDB_IMG = "https://image.tmdb.org/t/p/w300";
 
 function PlusIcon() {
@@ -8,12 +10,13 @@ function PlusIcon() {
   );
 }
 
-function MediaCard({ title, posterPath, isFollowing = false, onFollowToggle }) {
+function MediaCard({ id, type, title, posterPath, isFollowing = false, onFollowToggle }) {
   const imgSrc = posterPath ? `${TMDB_IMG}${posterPath}` : null;
+  const to = type === "movie" ? `/movies/${id}` : `/shows/${id}`;
 
   return (
     <article className="flex w-[130px] flex-shrink-0 flex-col gap-2 sm:w-[150px]">
-      <div className="relative overflow-hidden rounded-2xl border border-[#2a3570] bg-[#12163a] aspect-[2/3]">
+      <Link to={to} className="relative overflow-hidden rounded-2xl border border-[#2a3570] bg-[#12163a] aspect-[2/3] block">
         {imgSrc ? (
           <img
             src={imgSrc}
@@ -30,7 +33,7 @@ function MediaCard({ title, posterPath, isFollowing = false, onFollowToggle }) {
             <span className="text-center text-[11px] font-medium leading-tight text-[#3a3a7a] line-clamp-3">{title}</span>
           </div>
         )}
-      </div>
+      </Link>
 
       <p className="text-center text-xs font-semibold leading-tight text-white line-clamp-2 min-h-[2.5em]">
         {title}

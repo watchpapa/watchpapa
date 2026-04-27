@@ -49,7 +49,7 @@ function MediaRow({ title, items }) {
           style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
         >
           {items.map((item) => (
-            <MediaCard key={item.id} {...item} />
+            <MediaCard key={`${item.type}-${item.id}`} {...item} />
           ))}
         </div>
 
