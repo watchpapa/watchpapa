@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { Link, NavLink } from "react-router-dom";
 import { supabase } from "../../lib/supabase.js";
 import { useNavigate } from "react-router-dom";
@@ -21,14 +22,22 @@ function CalendarIcon() {
 
 function Navbar({ session }) {
   const navigate = useNavigate();
+  const [avatarLoadFailed, setAvatarLoadFailed] = useState(false);
 
   const onSignOut = async () => {
     await supabase.auth.signOut();
     navigate("/login", { replace: true });
   };
 
-  const avatarUrl = session?.user?.user_metadata?.avatar_url;
+  const avatarUrl =
+    session?.user?.user_metadata?.avatar_url ??
+    session?.user?.user_metadata?.picture ??
+    null;
   const initials = (session?.user?.email?.[0] ?? "?").toUpperCase();
+
+  useEffect(() => {
+    setAvatarLoadFailed(false);
+  }, [avatarUrl]);
 
   return (
     <header className="sticky top-0 z-50 flex h-14 items-center justify-between gap-4 border-b border-[#1a1f3a] bg-[#0d0f1e]/95 px-5 backdrop-blur-sm lg:px-8">
@@ -71,8 +80,13 @@ function Navbar({ session }) {
           className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full border-2 border-[#3a3a7a] bg-[#1a1d35] text-sm font-bold text-[#a0a0e8] transition hover:border-[#7070d0]"
           title="Sign out"
         >
-          {avatarUrl ? (
-            <img src={avatarUrl} alt="avatar" className="h-full w-full object-cover" />
+          {avatarUrl && !avatarLoadFailed ? (
+            <img
+              src={avatarUrl}
+              alt="avatar"
+              className="h-full w-full object-cover"
+              onError={() => setAvatarLoadFailed(true)}
+            />
           ) : (
             initials
           )}
