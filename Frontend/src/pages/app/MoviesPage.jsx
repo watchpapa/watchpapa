@@ -20,7 +20,15 @@ function SkeletonRow() {
 }
 
 function MoviesPage({ session }) {
-  const { popular, byGenre, isLoading, error } = useMoviesPageData(session);
+  const {
+    popular,
+    byGenre,
+    isLoading,
+    error,
+    hasMorePopular,
+    loadMorePopular,
+    loadingMorePopular,
+  } = useMoviesPageData(session);
 
   return (
     <AppLayout session={session}>
@@ -37,9 +45,24 @@ function MoviesPage({ session }) {
           </>
         ) : (
           <>
-            <MediaRow title="Popular" items={popular} session={session} />
-            {byGenre.map(({ genreId, genreName, items }) => (
-              <MediaRow key={genreId} title={genreName} items={items} session={session} />
+            <MediaRow
+              title="Popular"
+              items={popular}
+              session={session}
+              hasMore={hasMorePopular}
+              onLoadMore={loadMorePopular}
+              isLoadingMore={loadingMorePopular}
+            />
+            {byGenre.map(({ genreId, genreName, items, hasMore, onLoadMore, isLoadingMore }) => (
+              <MediaRow
+                key={genreId}
+                title={genreName}
+                items={items}
+                session={session}
+                hasMore={hasMore}
+                onLoadMore={onLoadMore}
+                isLoadingMore={isLoadingMore}
+              />
             ))}
           </>
         )}
