@@ -17,15 +17,16 @@ function ChevronRight() {
   );
 }
 
-function MediaRow({ title, items }) {
+function MediaRow({ title, items, session }) {
   const scrollRef = useRef(null);
+  const scrollDelta = typeof window !== "undefined" && window.innerWidth < 768 ? 280 : 480;
 
   const scrollLeft = () => {
-    scrollRef.current?.scrollBy({ left: -480, behavior: "smooth" });
+    scrollRef.current?.scrollBy({ left: -scrollDelta, behavior: "smooth" });
   };
 
   const scrollRight = () => {
-    scrollRef.current?.scrollBy({ left: 480, behavior: "smooth" });
+    scrollRef.current?.scrollBy({ left: scrollDelta, behavior: "smooth" });
   };
 
   return (
@@ -38,7 +39,7 @@ function MediaRow({ title, items }) {
         <button
           onClick={scrollLeft}
           aria-label="Scroll left"
-          className="mr-3 flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full border border-[#2a3570] bg-[#141728] text-[#8888c8] transition hover:border-[#5050a0] hover:text-white"
+          className="mr-3 hidden h-10 w-10 flex-shrink-0 items-center justify-center rounded-full border border-[#2a3570] bg-[#141728] text-[#8888c8] transition hover:border-[#5050a0] hover:text-white md:flex"
         >
           <ChevronLeft />
         </button>
@@ -49,14 +50,14 @@ function MediaRow({ title, items }) {
           style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
         >
           {items.map((item) => (
-            <MediaCard key={`${item.type}-${item.id}`} {...item} />
+            <MediaCard key={`${item.type}-${item.id}`} {...item} isAuthenticated={!!session} />
           ))}
         </div>
 
         <button
           onClick={scrollRight}
           aria-label="Scroll right"
-          className="ml-3 flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full border border-[#2a3570] bg-[#141728] text-[#8888c8] transition hover:border-[#5050a0] hover:text-white"
+          className="ml-3 hidden h-10 w-10 flex-shrink-0 items-center justify-center rounded-full border border-[#2a3570] bg-[#141728] text-[#8888c8] transition hover:border-[#5050a0] hover:text-white md:flex"
         >
           <ChevronRight />
         </button>

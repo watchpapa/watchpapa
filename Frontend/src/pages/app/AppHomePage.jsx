@@ -6,9 +6,9 @@ import { useHomeData } from "../../features/home/hooks/useHomeData.js";
 
 function SkeletonRow() {
   return (
-    <section>
+    <section className="flex flex-col items-center">
       <div className="mb-3 h-6 w-32 animate-pulse rounded bg-[#1e2240]" />
-      <div className="flex gap-3 overflow-hidden">
+      <div className="flex w-full justify-center gap-3 overflow-hidden">
         {Array.from({ length: 8 }).map((_, i) => (
           <div key={i} className="w-[130px] flex-shrink-0 sm:w-[150px]">
             <div className="aspect-[2/3] animate-pulse rounded-2xl bg-[#1e2240]" />
@@ -50,7 +50,7 @@ function AppHomePage({ session }) {
           </>
         ) : (
           sections.map(({ title, items }) => (
-            <MediaRow key={title} title={title} items={items} />
+            <MediaRow key={title} title={title} items={items} session={session} />
           ))
         )}
       </div>

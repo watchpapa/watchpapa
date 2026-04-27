@@ -1,4 +1,6 @@
+import { useState } from "react";
 import { Link } from "react-router-dom";
+import AuthPromptModal from "../AuthPromptModal.jsx";
 
 const TMDB_IMG = "https://image.tmdb.org/t/p/w300";
 
@@ -10,12 +12,33 @@ function PlusIcon() {
   );
 }
 
-function MediaCard({ id, type, title, posterPath, isFollowing = false, onFollowToggle }) {
+function MinusIcon() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+      <path d="M5 12h14" />
+    </svg>
+  );
+}
+
+function MediaCard({ id, type, title, posterPath, isFollowing = false, onFollowToggle, isAuthenticated }) {
   const imgSrc = posterPath ? `${TMDB_IMG}${posterPath}` : null;
   const to = type === "movie" ? `/movies/${id}` : `/shows/${id}`;
+  const [hovering, setHovering] = useState(false);
+  const [showAuthPrompt, setShowAuthPrompt] = useState(false);
+
+  function handleFollow(e) {
+    e.preventDefault();
+    if (!isAuthenticated) {
+      setShowAuthPrompt(true);
+    } else {
+      onFollowToggle?.();
+    }
+  }
 
   return (
     <article className="flex w-[130px] flex-shrink-0 flex-col gap-2 sm:w-[150px]">
+      {showAuthPrompt && <AuthPromptModal onClose={() => setShowAuthPrompt(false)} />}
+
       <Link to={to} className="relative overflow-hidden rounded-2xl border border-[#2a3570] bg-[#12163a] aspect-[2/3] block">
         {imgSrc ? (
           <img
@@ -40,15 +63,22 @@ function MediaCard({ id, type, title, posterPath, isFollowing = false, onFollowT
       </p>
 
       <button
-        onClick={onFollowToggle}
-        className={`mx-auto flex items-center gap-1 rounded-full border px-3 py-0.5 text-[11px] font-bold transition ${
+        onClick={handleFollow}
+        onMouseEnter={() => setHovering(true)}
+        onMouseLeave={() => setHovering(false)}
+        className={`mx-auto flex min-w-[5.5rem] items-center justify-center gap-1 rounded-full border px-3 py-0.5 text-[11px] font-bold transition ${
           isFollowing
-            ? "border-[#5050b0] bg-[#2a2d60] text-[#a0a0e8]"
+            ? hovering
+              ? "border-red-500 bg-[#2d1a1a] text-red-400"
+              : "border-[#5050b0] bg-[#2a2d60] text-[#a0a0e8]"
             : "border-[#3a3a7a] bg-[#1a1d35] text-[#8888c8] hover:border-[#6060b0] hover:text-white"
         }`}
       >
-        Follow
-        {!isFollowing && <PlusIcon />}
+        {isFollowing ? (
+          hovering ? <><MinusIcon /> Unfollow</> : "Followed"
+        ) : (
+          <><PlusIcon /> Follow</>
+        )}
       </button>
     </article>
   );
