@@ -1,0 +1,286 @@
+import sequelize from "../db/database.js";
+import { tmdbRateLimitedFetch } from "../scripts/tmdb_rate_limited_fetch.js";
+
+const TMDB_SEARCH_URL = "https://api.themoviedb.org/3/search/multi";
+
+function escapePattern(q) {
+  return "%" + q.replace(/[%_]/g, "\\$&") + "%";
+}
+
+function yearFrom(dateStr) {
+  return typeof dateStr === "string" && dateStr.length >= 4
+    ? dateStr.slice(0, 4)
+    : null;
+}
+
+export async function searchLocal(query, perTypeLimit = 5) {
+  const pattern = escapePattern(query);
+  const limit = perTypeLimit;
+
+  const [movieRows, showRows, personRows] = await Promise.all([
+    sequelize.query(
+      `SELECT id, tmdb_id, title, poster_path, tmdb_popularity, release_date
+       FROM movie
+       WHERE deleted_at IS NULL
+         AND (title ILIKE :pattern OR original_title ILIKE :pattern)
+       ORDER BY tmdb_popularity DESC
+       LIMIT :limit`,
+      { replacements: { pattern, limit }, type: sequelize.QueryTypes.SELECT }
+    ),
+    sequelize.query(
+      `SELECT id, tmdb_id, name, poster_path, tmdb_popularity, first_air_date
+       FROM show
+       WHERE deleted_at IS NULL
+         AND (name ILIKE :pattern OR original_name ILIKE :pattern)
+       ORDER BY tmdb_popularity DESC
+       LIMIT :limit`,
+      { replacements: { pattern, limit }, type: sequelize.QueryTypes.SELECT }
+    ),
+    sequelize.query(
+      `SELECT * FROM (
+         SELECT DISTINCT ON (p.id) p.id, p.tmdb_id, p.name, p.profile_path, p.popularity
+         FROM person p
+         LEFT JOIN person_aka pa ON pa.person_id = p.id AND pa.deleted_at IS NULL
+         WHERE p.deleted_at IS NULL
+           AND (p.name ILIKE :pattern OR pa.nickname ILIKE :pattern)
+         ORDER BY p.id, p.popularity DESC
+       ) d
+       ORDER BY popularity DESC
+       LIMIT :limit`,
+      { replacements: { pattern, limit }, type: sequelize.QueryTypes.SELECT }
+    ),
+  ]);
+
+  const movies = (movieRows ?? []).map((r) => ({
+    source: "local",
+    type: "movie",
+    localId: r.id,
+    tmdbId: r.tmdb_id,
+    title: r.title,
+    posterPath: r.poster_path ?? null,
+    year: yearFrom(r.release_date),
+    popularity: r.tmdb_popularity ?? 0,
+  }));
+
+  const shows = (showRows ?? []).map((r) => ({
+    source: "local",
+    type: "show",
+    localId: r.id,
+    tmdbId: r.tmdb_id,
+    title: r.name,
+    posterPath: r.poster_path ?? null,
+    year: yearFrom(r.first_air_date),
+    popularity: r.tmdb_popularity ?? 0,
+  }));
+
+  const people = (personRows ?? []).map((r) => ({
+    source: "local",
+    type: "person",
+    localId: r.id,
+    tmdbId: r.tmdb_id,
+    title: r.name,
+    posterPath: r.profile_path ?? null,
+    year: null,
+    popularity: r.popularity ?? 0,
+  }));
+
+  return [...movies, ...shows, ...people];
+}
+
+export async function searchTmdb(query, apiKey) {
+  if (!apiKey) return [];
+
+  const url = new URL(TMDB_SEARCH_URL);
+  url.searchParams.set("query", query);
+  url.searchParams.set("api_key", apiKey);
+  url.searchParams.set("language", "en-US");
+  url.searchParams.set("page", "1");
+
+  let payload;
+  try {
+    const res = await tmdbRateLimitedFetch(url.toString());
+    if (!res.ok) return [];
+    payload = await res.json();
+  } catch {
+    return [];
+  }
+
+  const allowed = new Set(["movie", "tv", "person"]);
+  return (payload.results ?? [])
+    .filter((r) => allowed.has(r.media_type))
+    .slice(0, 10)
+    .map((r) => {
+      if (r.media_type === "movie") {
+        return {
+          source: "tmdb-only",
+          type: "movie",
+          localId: null,
+          tmdbId: r.id,
+          title: r.title ?? r.original_title ?? "",
+          posterPath: r.poster_path ?? null,
+          year: yearFrom(r.release_date),
+          popularity: r.popularity ?? 0,
+          // extra fields for fast upsert
+          originalTitle: r.original_title ?? r.title ?? "",
+          overview: r.overview ?? "",
+          releaseDate: r.release_date ?? null,
+          originalLanguage: r.original_language ?? null,
+          adult: r.adult ?? false,
+          tmdbVoteAvg: r.vote_average ?? 0,
+          tmdbVoteCount: r.vote_count ?? 0,
+        };
+      }
+      if (r.media_type === "tv") {
+        return {
+          source: "tmdb-only",
+          type: "show",
+          localId: null,
+          tmdbId: r.id,
+          title: r.name ?? r.original_name ?? "",
+          posterPath: r.poster_path ?? null,
+          year: yearFrom(r.first_air_date),
+          popularity: r.popularity ?? 0,
+          // extra fields for fast upsert
+          originalName: r.original_name ?? r.name ?? "",
+          overview: r.overview ?? "",
+          firstAirDate: r.first_air_date ?? null,
+          originalLanguage: r.original_language ?? null,
+          adult: r.adult ?? false,
+          tmdbVoteAvg: r.vote_average ?? 0,
+          tmdbVoteCount: r.vote_count ?? 0,
+        };
+      }
+      // person
+      return {
+        source: "tmdb-only",
+        type: "person",
+        localId: null,
+        tmdbId: r.id,
+        title: r.name ?? "",
+        posterPath: r.profile_path ?? null,
+        year: null,
+        popularity: r.popularity ?? 0,
+        // extra fields for fast upsert
+        adult: r.adult ?? false,
+      };
+    });
+}
+
+export function mergeResults(localResults, tmdbResults) {
+  const localTmdbIds = new Set(localResults.map((r) => r.tmdbId));
+  const tmdbOnly = tmdbResults.filter((r) => !localTmdbIds.has(r.tmdbId));
+  return [...localResults, ...tmdbOnly];
+}
+
+export async function fastUpsertMovie(item) {
+  const [rows] = await sequelize.query(
+    `INSERT INTO movie (
+       tmdb_id, title, original_title, poster_path, tmdb_popularity,
+       overview, release_date, original_language, adult, tmdb_vote_avg, tmdb_vote_count
+     ) VALUES (
+       :tmdbId, :title, :originalTitle, :posterPath, :tmdbPopularity,
+       :overview, :releaseDate, :originalLanguage, :adult, :tmdbVoteAvg, :tmdbVoteCount
+     )
+     ON CONFLICT (tmdb_id) DO UPDATE SET
+       title             = EXCLUDED.title,
+       original_title    = EXCLUDED.original_title,
+       poster_path       = COALESCE(EXCLUDED.poster_path, movie.poster_path),
+       tmdb_popularity   = EXCLUDED.tmdb_popularity,
+       overview          = EXCLUDED.overview,
+       release_date      = EXCLUDED.release_date,
+       original_language = EXCLUDED.original_language,
+       adult             = EXCLUDED.adult,
+       tmdb_vote_avg     = EXCLUDED.tmdb_vote_avg,
+       tmdb_vote_count   = EXCLUDED.tmdb_vote_count,
+       updated_at        = now()
+     RETURNING id`,
+    {
+      replacements: {
+        tmdbId: item.tmdbId,
+        title: item.title,
+        originalTitle: item.originalTitle ?? item.title,
+        posterPath: item.posterPath ?? null,
+        tmdbPopularity: item.popularity ?? 0,
+        overview: item.overview ?? "",
+        releaseDate: item.releaseDate ?? null,
+        originalLanguage: item.originalLanguage ?? null,
+        adult: item.adult ?? false,
+        tmdbVoteAvg: item.tmdbVoteAvg ?? 0,
+        tmdbVoteCount: item.tmdbVoteCount ?? 0,
+      },
+    }
+  );
+  return rows[0];
+}
+
+export async function fastUpsertShow(item) {
+  const [rows] = await sequelize.query(
+    `INSERT INTO show (
+       tmdb_id, name, original_name, poster_path, tmdb_popularity,
+       overview, first_air_date, original_language, adult, tmdb_vote_avg, tmdb_vote_count,
+       episode_run_time, in_production, last_air_date,
+       number_of_episodes, number_of_seasons, status, tagline, type
+     ) VALUES (
+       :tmdbId, :name, :originalName, :posterPath, :tmdbPopularity,
+       :overview, :firstAirDate, :originalLanguage, :adult, :tmdbVoteAvg, :tmdbVoteCount,
+       0, false, NULL,
+       0, 0, '', '', ''
+     )
+     ON CONFLICT (tmdb_id) DO UPDATE SET
+       name              = EXCLUDED.name,
+       original_name     = EXCLUDED.original_name,
+       poster_path       = COALESCE(EXCLUDED.poster_path, show.poster_path),
+       tmdb_popularity   = EXCLUDED.tmdb_popularity,
+       overview          = EXCLUDED.overview,
+       first_air_date    = EXCLUDED.first_air_date,
+       original_language = EXCLUDED.original_language,
+       adult             = EXCLUDED.adult,
+       tmdb_vote_avg     = EXCLUDED.tmdb_vote_avg,
+       tmdb_vote_count   = EXCLUDED.tmdb_vote_count,
+       updated_at        = now()
+     RETURNING id`,
+    {
+      replacements: {
+        tmdbId: item.tmdbId,
+        name: item.title,
+        originalName: item.originalName ?? item.title,
+        posterPath: item.posterPath ?? null,
+        tmdbPopularity: item.popularity ?? 0,
+        overview: item.overview ?? "",
+        firstAirDate: item.firstAirDate ?? null,
+        originalLanguage: item.originalLanguage ?? null,
+        adult: item.adult ?? false,
+        tmdbVoteAvg: item.tmdbVoteAvg ?? 0,
+        tmdbVoteCount: item.tmdbVoteCount ?? 0,
+      },
+    }
+  );
+  return rows[0];
+}
+
+export async function fastUpsertPerson(item) {
+  const [rows] = await sequelize.query(
+    `INSERT INTO person (
+       tmdb_id, name, profile_path, popularity, adult, gender
+     ) VALUES (
+       :tmdbId, :name, :profilePath, :popularity, :adult, 0
+     )
+     ON CONFLICT (tmdb_id) DO UPDATE SET
+       name         = EXCLUDED.name,
+       profile_path = COALESCE(EXCLUDED.profile_path, person.profile_path),
+       popularity   = EXCLUDED.popularity,
+       adult        = EXCLUDED.adult,
+       updated_at   = now()
+     RETURNING id`,
+    {
+      replacements: {
+        tmdbId: item.tmdbId,
+        name: item.title,
+        profilePath: item.posterPath ?? null,
+        popularity: item.popularity ?? 0,
+        adult: item.adult ?? false,
+      },
+    }
+  );
+  return rows[0];
+}
