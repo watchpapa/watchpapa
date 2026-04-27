@@ -35,7 +35,7 @@ function CompleteUsernameForm({ userId, initialUsername = "", onCompleted }) {
 
     setIsSubmitting(true);
     const now = new Date().toISOString();
-    const { error } = await supabase.from("profile").upsert(
+    const { error: profileError } = await supabase.from("profile").upsert(
       {
         id: userId,
         username: normalizedUsername,
@@ -46,15 +46,27 @@ function CompleteUsernameForm({ userId, initialUsername = "", onCompleted }) {
       },
       { onConflict: "id" },
     );
-    setIsSubmitting(false);
 
-    if (error) {
-      const normalizedMessage = error.message?.toLowerCase() ?? "";
+    if (profileError) {
+      setIsSubmitting(false);
+      const normalizedMessage = profileError.message?.toLowerCase() ?? "";
       if (normalizedMessage.includes("duplicate key value")) {
         setSubmitError("This username is already in use.");
       } else {
-        setSubmitError(error.message ?? "Failed to save username.");
+        setSubmitError(profileError.message ?? "Failed to save username.");
       }
+      return;
+    }
+
+    const { error: authError } = await supabase.auth.updateUser({
+      data: {
+        username: normalizedUsername,
+      },
+    });
+    setIsSubmitting(false);
+
+    if (authError) {
+      setSubmitError(authError.message ?? "Username saved in profile, but auth metadata update failed.");
       return;
     }
 

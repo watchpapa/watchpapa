@@ -129,11 +129,17 @@ function RegisterForm() {
       return;
     }
 
-    if (data?.user) {
-      navigate(
-        `/verify-email?email=${encodeURIComponent(formState.email.trim())}`,
-      );
+    // Confirmations off: session returned immediately
+    if (data?.session) {
+      navigate("/", { replace: true });
+      return;
     }
+
+    // With email confirmation, `user` may be null (GoTrue obfuscation); still send user to verify flow
+    navigate(
+      `/verify-email?email=${encodeURIComponent(formState.email.trim())}`,
+      { replace: true },
+    );
   };
 
   const onOAuth = (provider) => async () => {
