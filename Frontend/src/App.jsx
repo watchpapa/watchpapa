@@ -8,6 +8,9 @@ import ResetPasswordPage from "./pages/auth/ResetPasswordPage.jsx";
 import VerifyEmailPage from "./pages/auth/VerifyEmailPage.jsx";
 import CompleteUsernamePage from "./pages/auth/CompleteUsernamePage.jsx";
 import AppHomePage from "./pages/app/AppHomePage.jsx";
+import MoviesPage from "./pages/app/MoviesPage.jsx";
+import ShowsPage from "./pages/app/ShowsPage.jsx";
+import PeoplePage from "./pages/app/PeoplePage.jsx";
 import MoviePage from "./pages/app/MoviePage.jsx";
 import ShowPage from "./pages/app/ShowPage.jsx";
 import SeasonPage from "./pages/app/SeasonPage.jsx";
@@ -36,6 +39,13 @@ function ProtectedRoute({
   }
   if (!needsUsernameSetup && allowUsernameSetup) {
     return <Navigate to="/" replace />;
+  }
+  return children;
+}
+
+function PublicRoute({ session, needsUsernameSetup, children }) {
+  if (session && needsUsernameSetup) {
+    return <Navigate to="/complete-username" replace />;
   }
   return children;
 }
@@ -104,7 +114,7 @@ function App() {
     setIsProfileLoading(true);
     supabase
       .from("profile")
-      .select("username")
+      .select("username, is_adult, date_of_birth")
       .eq("id", session.user.id)
       .maybeSingle()
       .then(({ data, error }) => {
@@ -120,6 +130,21 @@ function App() {
         setInitialUsername(nextUsername);
         setNeedsUsernameSetup(nextUsername.length === 0);
         setIsProfileLoading(false);
+
+        if (data && !data.is_adult && data.date_of_birth) {
+          const dob = new Date(data.date_of_birth);
+          const today = new Date();
+          let age = today.getFullYear() - dob.getFullYear();
+          const m = today.getMonth() - dob.getMonth();
+          if (m < 0 || (m === 0 && today.getDate() < dob.getDate())) age--;
+          if (age >= 18) {
+            supabase
+              .from("profile")
+              .update({ is_adult: true, updated_at: new Date().toISOString() })
+              .eq("id", session.user.id)
+              .then(() => {});
+          }
+        }
       });
 
     return () => {
@@ -196,60 +221,84 @@ function App() {
       <Route
         path="/"
         element={
-          <ProtectedRoute session={session} needsUsernameSetup={needsUsernameSetup}>
+          <PublicRoute session={session} needsUsernameSetup={needsUsernameSetup}>
             <AppHomePage session={session} />
-          </ProtectedRoute>
+          </PublicRoute>
+        }
+      />
+      <Route
+        path="/movies"
+        element={
+          <PublicRoute session={session} needsUsernameSetup={needsUsernameSetup}>
+            <MoviesPage session={session} />
+          </PublicRoute>
         }
       />
       <Route
         path="/movies/:id"
         element={
-          <ProtectedRoute session={session} needsUsernameSetup={needsUsernameSetup}>
+          <PublicRoute session={session} needsUsernameSetup={needsUsernameSetup}>
             <MoviePage session={session} />
-          </ProtectedRoute>
+          </PublicRoute>
+        }
+      />
+      <Route
+        path="/shows"
+        element={
+          <PublicRoute session={session} needsUsernameSetup={needsUsernameSetup}>
+            <ShowsPage session={session} />
+          </PublicRoute>
         }
       />
       <Route
         path="/shows/:id"
         element={
-          <ProtectedRoute session={session} needsUsernameSetup={needsUsernameSetup}>
+          <PublicRoute session={session} needsUsernameSetup={needsUsernameSetup}>
             <ShowPage session={session} />
-          </ProtectedRoute>
+          </PublicRoute>
         }
       />
       <Route
         path="/shows/:id/seasons/:seasonId"
         element={
-          <ProtectedRoute session={session} needsUsernameSetup={needsUsernameSetup}>
+          <PublicRoute session={session} needsUsernameSetup={needsUsernameSetup}>
             <SeasonPage session={session} />
-          </ProtectedRoute>
+          </PublicRoute>
         }
       />
       <Route
         path="/shows/:id/seasons/:seasonId/episodes/:episodeId"
         element={
-          <ProtectedRoute session={session} needsUsernameSetup={needsUsernameSetup}>
+          <PublicRoute session={session} needsUsernameSetup={needsUsernameSetup}>
             <EpisodePage session={session} />
-          </ProtectedRoute>
+          </PublicRoute>
+        }
+      />
+      <Route
+        path="/people"
+        element={
+          <PublicRoute session={session} needsUsernameSetup={needsUsernameSetup}>
+            <PeoplePage session={session} />
+          </PublicRoute>
         }
       />
       <Route
         path="/people/:id"
         element={
-          <ProtectedRoute session={session} needsUsernameSetup={needsUsernameSetup}>
+          <PublicRoute session={session} needsUsernameSetup={needsUsernameSetup}>
             <PersonPage session={session} />
-          </ProtectedRoute>
+          </PublicRoute>
         }
       />
       <Route
         path="/calendar"
         element={
-          <ProtectedRoute session={session} needsUsernameSetup={needsUsernameSetup}>
+          <PublicRoute session={session} needsUsernameSetup={needsUsernameSetup}>
             <ReleasesCalendarPage session={session} />
-          </ProtectedRoute>
+          </PublicRoute>
         }
       />
-      <Route path="*" element={<Navigate to={session ? "/" : "/login"} replace />} />
+      <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
 }
