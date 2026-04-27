@@ -33,9 +33,14 @@ function isAdult(dateString) {
 
 function validate(state) {
   const errors = {};
+  const normalizedUsername = state.username.trim();
 
   if (!state.email.trim()) errors.email = "Email is required.";
-  if (!state.username.trim()) errors.username = "Username is required.";
+  if (!normalizedUsername) {
+    errors.username = "Username is required.";
+  } else if (normalizedUsername.length < 4) {
+    errors.username = "Username must be at least 4 characters.";
+  }
 
   if (!state.password) {
     errors.password = "Password is required.";
