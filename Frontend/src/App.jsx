@@ -8,6 +8,7 @@ import ResetPasswordPage from "./pages/auth/ResetPasswordPage.jsx";
 import VerifyEmailPage from "./pages/auth/VerifyEmailPage.jsx";
 import CompleteUsernamePage from "./pages/auth/CompleteUsernamePage.jsx";
 import AppHomePage from "./pages/app/AppHomePage.jsx";
+import SearchPage from "./pages/app/SearchPage.jsx";
 import MoviesPage from "./pages/app/MoviesPage.jsx";
 import ShowsPage from "./pages/app/ShowsPage.jsx";
 import PeoplePage from "./pages/app/PeoplePage.jsx";
@@ -230,6 +231,14 @@ function App() {
         element={
           <PublicRoute session={session} needsUsernameSetup={needsUsernameSetup}>
             <AppHomePage session={session} />
+          </PublicRoute>
+        }
+      />
+      <Route
+        path="/search"
+        element={
+          <PublicRoute session={session} needsUsernameSetup={needsUsernameSetup}>
+            <SearchPage session={session} />
           </PublicRoute>
         }
       />
