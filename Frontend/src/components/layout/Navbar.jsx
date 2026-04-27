@@ -1,7 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, NavLink } from "react-router-dom";
-import { supabase } from "../../lib/supabase.js";
-import { useNavigate } from "react-router-dom";
+import AuthPromptModal from "../AuthPromptModal.jsx";
+import ProfileMenu from "./ProfileMenu.jsx";
+import watchpapaBanner from "../../assets/branding/watchpapa-banner.svg";
 
 const NAV_LINKS = [
   { label: "Popular", to: "/" },
@@ -20,79 +21,151 @@ function CalendarIcon() {
   );
 }
 
+function MenuIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+      <path d="M4 6h16M4 12h16M4 18h16" />
+    </svg>
+  );
+}
+
+function XIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+      <path d="M18 6L6 18M6 6l12 12" />
+    </svg>
+  );
+}
+
 function Navbar({ session }) {
-  const navigate = useNavigate();
-  const [avatarLoadFailed, setAvatarLoadFailed] = useState(false);
-
-  const onSignOut = async () => {
-    await supabase.auth.signOut();
-    navigate("/login", { replace: true });
-  };
-
-  const avatarUrl =
-    session?.user?.user_metadata?.avatar_url ??
-    session?.user?.user_metadata?.picture ??
-    null;
-  const initials = (session?.user?.email?.[0] ?? "?").toUpperCase();
+  const [showAuthPrompt, setShowAuthPrompt] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const headerRef = useRef(null);
 
   useEffect(() => {
-    setAvatarLoadFailed(false);
-  }, [avatarUrl]);
+    function onPointerdown(e) {
+      if (headerRef.current && !headerRef.current.contains(e.target)) {
+        setMobileOpen(false);
+      }
+    }
+    if (mobileOpen) document.addEventListener("pointerdown", onPointerdown);
+    return () => document.removeEventListener("pointerdown", onPointerdown);
+  }, [mobileOpen]);
 
   return (
-    <header className="sticky top-0 z-50 flex h-14 items-center justify-between gap-4 border-b border-[#1a1f3a] bg-[#0d0f1e]/95 px-5 backdrop-blur-sm lg:px-8">
-      <nav className="flex items-center gap-5">
-        {NAV_LINKS.map(({ label, to }) => (
-          <NavLink
-            key={label}
-            to={to}
-            end
-            className={({ isActive }) =>
-              `text-sm font-semibold tracking-wide transition-colors ${
-                isActive ? "text-white" : "text-[#8888c8] hover:text-white"
-              }`
-            }
-          >
-            {label}
-          </NavLink>
-        ))}
-      </nav>
+    <>
+      {showAuthPrompt && <AuthPromptModal onClose={() => setShowAuthPrompt(false)} />}
+      <header ref={headerRef} className="sticky top-0 z-50 border-b border-[#1a1f3a] bg-[#0d0f1e]/95 backdrop-blur-sm">
+        <div className="relative flex min-h-14 items-center justify-between gap-3 px-3 py-2 sm:gap-4 sm:px-5 sm:py-0 lg:px-8">
 
-      <Link
-        to="/"
-        className="absolute left-1/2 -translate-x-1/2 text-2xl font-extrabold tracking-tight"
-        style={{ background: "linear-gradient(90deg, #ff80b5 0%, #9089fc 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}
-      >
-        watchpapa
-      </Link>
+          {/* Left: hamburger (mobile) or nav links (sm+) */}
+          <div className="flex items-center">
+            <button
+              onClick={() => setMobileOpen((v) => !v)}
+              className="flex h-9 w-9 items-center justify-center rounded-xl text-[#8888c8] transition hover:text-white sm:hidden"
+              aria-label={mobileOpen ? "Close menu" : "Open menu"}
+            >
+              {mobileOpen ? <XIcon /> : <MenuIcon />}
+            </button>
 
-      <div className="flex items-center gap-3">
-        <Link
-          to="/calendar"
-          className="hidden items-center gap-2 rounded-xl border border-[#3a3a7a] bg-[#1a1d35] px-3 py-1.5 text-xs font-semibold text-[#a0a0e8] transition hover:border-[#5a5aaa] hover:text-white sm:flex"
-        >
-          <CalendarIcon />
-          Your Releases Calendar
-        </Link>
+            <nav className="hidden items-center gap-5 sm:flex">
+              {NAV_LINKS.map(({ label, to }) => (
+                <NavLink
+                  key={label}
+                  to={to}
+                  end
+                  className={({ isActive }) =>
+                    `text-sm font-semibold tracking-wide transition-colors ${
+                      isActive ? "text-white" : "text-[#8888c8] hover:text-white"
+                    }`
+                  }
+                >
+                  {label}
+                </NavLink>
+              ))}
+            </nav>
+          </div>
 
-        <button
-          onClick={onSignOut}
-          className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full border-2 border-[#3a3a7a] bg-[#1a1d35] text-sm font-bold text-[#a0a0e8] transition hover:border-[#7070d0]"
-          title="Sign out"
-        >
-          {avatarUrl && !avatarLoadFailed ? (
-            <img
-              src={avatarUrl}
-              alt="avatar"
-              className="h-full w-full object-cover"
-              onError={() => setAvatarLoadFailed(true)}
-            />
-          ) : (
-            initials
-          )}
-        </button>
-      </div>
-    </header>
+          {/* Center: Logo */}
+          <Link to="/" className="mx-auto sm:absolute sm:left-1/2 sm:mx-0 sm:-translate-x-1/2">
+            <img src={watchpapaBanner} alt="watchpapa" className="h-9 drop-shadow-md" />
+          </Link>
+
+          {/* Right: calendar + auth */}
+          <div className="flex items-center gap-2 sm:gap-3">
+            {session ? (
+              <Link
+                to="/calendar"
+                className="hidden items-center gap-2 rounded-xl border border-[#3a3a7a] bg-[#1a1d35] px-3 py-1.5 text-xs font-semibold text-[#a0a0e8] transition hover:border-[#5a5aaa] hover:text-white sm:flex"
+              >
+                <CalendarIcon />
+                <span className="hidden lg:inline">Your Releases Calendar</span>
+                <span className="inline lg:hidden">Calendar</span>
+              </Link>
+            ) : (
+              <button
+                onClick={() => setShowAuthPrompt(true)}
+                className="hidden items-center gap-2 rounded-xl border border-[#3a3a7a] bg-[#1a1d35] px-3 py-1.5 text-xs font-semibold text-[#a0a0e8] transition hover:border-[#5a5aaa] hover:text-white sm:flex"
+              >
+                <CalendarIcon />
+                <span className="hidden lg:inline">Your Releases Calendar</span>
+                <span className="inline lg:hidden">Calendar</span>
+              </button>
+            )}
+
+            {session ? (
+              <ProfileMenu session={session} />
+            ) : (
+              <div className="flex items-center gap-1.5 sm:gap-2">
+                <Link
+                  to="/login"
+                  className="rounded-xl px-2.5 py-1.5 text-xs font-semibold text-[#8888c8] transition hover:text-white sm:px-3"
+                >
+                  Sign in
+                </Link>
+                <Link
+                  to="/register"
+                  className="rounded-xl border border-[#3a3a7a] bg-[#1a1d35] px-2.5 py-1.5 text-xs font-semibold text-[#a0a0e8] transition hover:border-[#5a5aaa] hover:text-white sm:px-3"
+                >
+                  Register
+                </Link>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Mobile dropdown */}
+        {mobileOpen && (
+          <div className="border-t border-[#1a1f3a] px-5 pb-2 sm:hidden">
+            {NAV_LINKS.map(({ label, to }) => (
+              <NavLink
+                key={label}
+                to={to}
+                end
+                onClick={() => setMobileOpen(false)}
+                className={({ isActive }) =>
+                  `block border-b border-[#1a1f3a] py-3 text-sm font-semibold transition last:border-0 ${
+                    isActive ? "text-white" : "text-[#8888c8]"
+                  }`
+                }
+              >
+                {label}
+              </NavLink>
+            ))}
+            {session ? (
+              <Link
+                to="/calendar"
+                onClick={() => setMobileOpen(false)}
+                className="flex items-center gap-2 py-3 text-sm font-semibold text-[#8888c8] transition hover:text-white"
+              >
+                <CalendarIcon />
+                Your Releases Calendar
+              </Link>
+            ) : null}
+          </div>
+        )}
+      </header>
+    </>
   );
 }
 
