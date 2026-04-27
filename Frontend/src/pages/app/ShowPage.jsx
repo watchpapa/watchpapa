@@ -2,10 +2,13 @@ import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import AppLayout from "../../layouts/AppLayout.jsx";
 import DetailPageLayout from "../../components/detail/DetailPageLayout.jsx";
+import SkeletonDetailPage from "../../components/detail/SkeletonDetailPage.jsx";
 import PosterCard from "../../components/detail/PosterCard.jsx";
 import ContentPanel from "../../components/detail/ContentPanel.jsx";
 import FollowButton from "../../components/detail/FollowButton.jsx";
 import CastGrid from "../../components/detail/CastGrid.jsx";
+import CrewSection from "../../components/detail/CrewSection.jsx";
+import AuthPromptModal from "../../components/AuthPromptModal.jsx";
 import { useShowData } from "../../features/show/hooks/useShowData.js";
 
 const TMDB_IMG = "https://image.tmdb.org/t/p/w185";
@@ -19,21 +22,6 @@ function fmtDate(val) {
   return new Date(val).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
 }
 
-function SkeletonDetail() {
-  return (
-    <div className="space-y-4 animate-pulse">
-      <div className="h-8 w-64 rounded bg-[#1e2240]" />
-      <div className="flex gap-6">
-        <div className="hidden lg:block w-[220px] flex-shrink-0 aspect-[2/3] rounded-2xl bg-[#1e2240]" />
-        <div className="flex-1 space-y-4">
-          <div className="h-32 rounded-2xl bg-[#1e2240]" />
-          <div className="h-24 rounded-2xl bg-[#1e2240]" />
-          <div className="h-48 rounded-2xl bg-[#1e2240]" />
-        </div>
-      </div>
-    </div>
-  );
-}
 
 function SeasonCard({ season, showId }) {
   const episodeCount = season.episode?.length ?? 0;
@@ -68,9 +56,13 @@ function SeasonCard({ season, showId }) {
 function ShowPage({ session }) {
   const { id } = useParams();
   const [showAllSeasons, setShowAllSeasons] = useState(false);
-  const { show, genres, seasons, cast, isFollowing, isLoading, error, toggleFollow } = useShowData(id, session);
+  const [showAuthPrompt, setShowAuthPrompt] = useState(false);
+  const { show, genres, seasons, cast, crew, isFollowing, isLoading, error, toggleFollow } = useShowData(id, session);
+  const handleFollow = session ? toggleFollow : () => setShowAuthPrompt(true);
 
-  if (isLoading) return <AppLayout session={session}><SkeletonDetail /></AppLayout>;
+  const breadcrumbs = show ? [{ label: "Shows", to: "/shows" }, { label: show.name }] : undefined;
+
+  if (isLoading) return <AppLayout session={session}><SkeletonDetailPage /></AppLayout>;
   if (error) return <AppLayout session={session}><p className="text-center text-red-400 mt-12">{error}</p></AppLayout>;
   if (!show) return null;
 
@@ -90,10 +82,11 @@ function ShowPage({ session }) {
   const visibleSeasons = showAllSeasons ? seasons : seasons.slice(0, 5);
 
   return (
-    <AppLayout session={session}>
+    <AppLayout session={session} breadcrumbs={breadcrumbs}>
+      {showAuthPrompt && <AuthPromptModal onClose={() => setShowAuthPrompt(false)} />}
       <DetailPageLayout
         title={show.name}
-        followButton={<FollowButton isFollowing={isFollowing} onToggle={toggleFollow} />}
+        followButton={<FollowButton isFollowing={isFollowing} onToggle={handleFollow} />}
         sidebarTop={<PosterCard title={show.name} posterPath={show.poster_path} />}
         sidebarBottom={
           <ul className="space-y-1.5 text-xs">
@@ -149,8 +142,14 @@ function ShowPage({ session }) {
         )}
 
         {cast.length > 0 && (
-          <ContentPanel label="Main Cast">
+          <ContentPanel label="Cast">
             <CastGrid credits={cast} />
+          </ContentPanel>
+        )}
+
+        {crew.length > 0 && (
+          <ContentPanel label="Crew">
+            <CrewSection crew={crew} />
           </ContentPanel>
         )}
       </DetailPageLayout>

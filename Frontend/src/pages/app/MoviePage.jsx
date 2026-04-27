@@ -1,10 +1,14 @@
+import { useState } from "react";
 import { useParams } from "react-router-dom";
 import AppLayout from "../../layouts/AppLayout.jsx";
 import DetailPageLayout from "../../components/detail/DetailPageLayout.jsx";
+import SkeletonDetailPage from "../../components/detail/SkeletonDetailPage.jsx";
 import PosterCard from "../../components/detail/PosterCard.jsx";
 import ContentPanel from "../../components/detail/ContentPanel.jsx";
 import FollowButton from "../../components/detail/FollowButton.jsx";
 import CastGrid from "../../components/detail/CastGrid.jsx";
+import CrewSection from "../../components/detail/CrewSection.jsx";
+import AuthPromptModal from "../../components/AuthPromptModal.jsx";
 import { useMovieData } from "../../features/movie/hooks/useMovieData.js";
 
 function fmt(val, fallback = "—") {
@@ -28,27 +32,15 @@ function fmtRuntime(val) {
   return h > 0 ? `${h}h ${m}m` : `${m}m`;
 }
 
-function SkeletonDetail() {
-  return (
-    <div className="space-y-4 animate-pulse">
-      <div className="h-8 w-64 rounded bg-[#1e2240]" />
-      <div className="flex gap-6">
-        <div className="hidden lg:block w-[220px] flex-shrink-0 aspect-[2/3] rounded-2xl bg-[#1e2240]" />
-        <div className="flex-1 space-y-4">
-          <div className="h-32 rounded-2xl bg-[#1e2240]" />
-          <div className="h-24 rounded-2xl bg-[#1e2240]" />
-          <div className="h-48 rounded-2xl bg-[#1e2240]" />
-        </div>
-      </div>
-    </div>
-  );
-}
-
 function MoviePage({ session }) {
   const { id } = useParams();
-  const { movie, genres, cast, isFollowing, isLoading, error, toggleFollow } = useMovieData(id, session);
+  const [showAuthPrompt, setShowAuthPrompt] = useState(false);
+  const { movie, genres, cast, crew, isFollowing, isLoading, error, toggleFollow } = useMovieData(id, session);
+  const handleFollow = session ? toggleFollow : () => setShowAuthPrompt(true);
 
-  if (isLoading) return <AppLayout session={session}><SkeletonDetail /></AppLayout>;
+  const breadcrumbs = movie ? [{ label: "Movies", to: "/movies" }, { label: movie.title }] : undefined;
+
+  if (isLoading) return <AppLayout session={session}><SkeletonDetailPage /></AppLayout>;
   if (error) return <AppLayout session={session}><p className="text-center text-red-400 mt-12">{error}</p></AppLayout>;
   if (!movie) return null;
 
@@ -70,10 +62,11 @@ function MoviePage({ session }) {
   ];
 
   return (
-    <AppLayout session={session}>
+    <AppLayout session={session} breadcrumbs={breadcrumbs}>
+      {showAuthPrompt && <AuthPromptModal onClose={() => setShowAuthPrompt(false)} />}
       <DetailPageLayout
         title={movie.title}
-        followButton={<FollowButton isFollowing={isFollowing} onToggle={toggleFollow} />}
+        followButton={<FollowButton isFollowing={isFollowing} onToggle={handleFollow} />}
         sidebarTop={<PosterCard title={movie.title} posterPath={movie.poster_path} />}
         sidebarBottom={
           <ul className="space-y-1.5 text-xs">
@@ -107,8 +100,14 @@ function MoviePage({ session }) {
         )}
 
         {cast.length > 0 && (
-          <ContentPanel label="Main Cast">
+          <ContentPanel label="Cast">
             <CastGrid credits={cast} />
+          </ContentPanel>
+        )}
+
+        {crew.length > 0 && (
+          <ContentPanel label="Crew">
+            <CrewSection crew={crew} />
           </ContentPanel>
         )}
       </DetailPageLayout>

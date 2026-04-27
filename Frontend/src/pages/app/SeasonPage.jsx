@@ -1,10 +1,16 @@
+import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import AppLayout from "../../layouts/AppLayout.jsx";
 import DetailPageLayout from "../../components/detail/DetailPageLayout.jsx";
 import PosterCard from "../../components/detail/PosterCard.jsx";
 import ContentPanel from "../../components/detail/ContentPanel.jsx";
 import CastGrid from "../../components/detail/CastGrid.jsx";
+import CrewSection from "../../components/detail/CrewSection.jsx";
+import FollowButton from "../../components/detail/FollowButton.jsx";
+import AuthPromptModal from "../../components/AuthPromptModal.jsx";
+import SkeletonDetailPage from "../../components/detail/SkeletonDetailPage.jsx";
 import { useSeasonData } from "../../features/season/hooks/useSeasonData.js";
+import { useShowFollow } from "../../features/show/hooks/useShowFollow.js";
 
 const TMDB_IMG = "https://image.tmdb.org/t/p/w185";
 
@@ -15,20 +21,6 @@ function fmtDate(val) {
   return new Date(val).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
 }
 
-function SkeletonDetail() {
-  return (
-    <div className="space-y-4 animate-pulse">
-      <div className="h-8 w-80 rounded bg-[#1e2240]" />
-      <div className="flex gap-6">
-        <div className="hidden lg:block w-[220px] flex-shrink-0 aspect-[2/3] rounded-2xl bg-[#1e2240]" />
-        <div className="flex-1 space-y-4">
-          <div className="h-24 rounded-2xl bg-[#1e2240]" />
-          <div className="h-48 rounded-2xl bg-[#1e2240]" />
-        </div>
-      </div>
-    </div>
-  );
-}
 
 function EpisodeRow({ episode, showId, seasonId }) {
   const imgSrc = episode.poster_path ? `${TMDB_IMG}${episode.poster_path}` : null;
@@ -60,19 +52,20 @@ function EpisodeRow({ episode, showId, seasonId }) {
 
 function SeasonPage({ session }) {
   const { id: showId, seasonId } = useParams();
-  const { season, show, episodes, cast, isLoading, error } = useSeasonData(seasonId, showId);
+  const [showAuthPrompt, setShowAuthPrompt] = useState(false);
+  const { season, show, episodes, cast, crew, isLoading, error } = useSeasonData(seasonId, showId);
+  const { isFollowing, toggleFollow } = useShowFollow(showId, session);
+  const handleFollow = session ? toggleFollow : () => setShowAuthPrompt(true);
 
-  if (isLoading) return <AppLayout session={session}><SkeletonDetail /></AppLayout>;
+  const breadcrumbs = season && show ? [
+    { label: "Shows", to: "/shows" },
+    { label: show.name, to: `/shows/${showId}` },
+    { label: season.name },
+  ] : undefined;
+
+  if (isLoading) return <AppLayout session={session}><SkeletonDetailPage /></AppLayout>;
   if (error) return <AppLayout session={session}><p className="text-center text-red-400 mt-12">{error}</p></AppLayout>;
   if (!season || !show) return null;
-
-  const title = (
-    <span>
-      <Link to={`/shows/${showId}`} className="hover:underline">{show.name}</Link>
-      <span className="text-[#5050b0]"> › </span>
-      {season.name}
-    </span>
-  );
 
   const details = [
     ["Air date", fmtDate(season.air_date)],
@@ -81,9 +74,11 @@ function SeasonPage({ session }) {
   ];
 
   return (
-    <AppLayout session={session}>
+    <AppLayout session={session} breadcrumbs={breadcrumbs}>
+      {showAuthPrompt && <AuthPromptModal onClose={() => setShowAuthPrompt(false)} />}
       <DetailPageLayout
-        title={title}
+        title={season.name}
+        followButton={<FollowButton isFollowing={isFollowing} onToggle={handleFollow} />}
         sidebarTop={<PosterCard title={season.name} posterPath={season.poster_path} />}
         sidebarBottom={
           <ul className="space-y-1.5 text-xs">
@@ -122,8 +117,14 @@ function SeasonPage({ session }) {
         )}
 
         {cast.length > 0 && (
-          <ContentPanel label="Main Cast">
+          <ContentPanel label="Cast">
             <CastGrid credits={cast} />
+          </ContentPanel>
+        )}
+
+        {crew.length > 0 && (
+          <ContentPanel label="Crew">
+            <CrewSection crew={crew} />
           </ContentPanel>
         )}
       </DetailPageLayout>
