@@ -17,6 +17,13 @@ import SeasonPage from "./pages/app/SeasonPage.jsx";
 import EpisodePage from "./pages/app/EpisodePage.jsx";
 import PersonPage from "./pages/app/PersonPage.jsx";
 import ReleasesCalendarPage from "./pages/app/ReleasesCalendarPage.jsx";
+import {
+  AboutPage,
+  ContactPage,
+  HelpPage,
+  PrivacyPage,
+  TermsPage,
+} from "./pages/app/static/StaticInfoPages.jsx";
 
 function PublicOnlyRoute({ session, needsUsernameSetup, children }) {
   if (session) {
@@ -295,6 +302,46 @@ function App() {
         element={
           <PublicRoute session={session} needsUsernameSetup={needsUsernameSetup}>
             <ReleasesCalendarPage session={session} />
+          </PublicRoute>
+        }
+      />
+      <Route
+        path="/about"
+        element={
+          <PublicRoute session={session} needsUsernameSetup={needsUsernameSetup}>
+            <AboutPage session={session} />
+          </PublicRoute>
+        }
+      />
+      <Route
+        path="/help"
+        element={
+          <PublicRoute session={session} needsUsernameSetup={needsUsernameSetup}>
+            <HelpPage session={session} />
+          </PublicRoute>
+        }
+      />
+      <Route
+        path="/terms"
+        element={
+          <PublicRoute session={session} needsUsernameSetup={needsUsernameSetup}>
+            <TermsPage session={session} />
+          </PublicRoute>
+        }
+      />
+      <Route
+        path="/contact"
+        element={
+          <PublicRoute session={session} needsUsernameSetup={needsUsernameSetup}>
+            <ContactPage session={session} />
+          </PublicRoute>
+        }
+      />
+      <Route
+        path="/privacy"
+        element={
+          <PublicRoute session={session} needsUsernameSetup={needsUsernameSetup}>
+            <PrivacyPage session={session} />
           </PublicRoute>
         }
       />
