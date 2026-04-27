@@ -90,8 +90,8 @@ export function useCalendarData(session, year, month) {
               showName: ep.season?.show?.name ?? "",
               showId,
               seasonId: ep.season?.id,
+              seasonNumber: ep.season?.season_number,
               episodeNumber: ep.episode_number,
-              runtime: ep.runtime,
             });
           }
         }
