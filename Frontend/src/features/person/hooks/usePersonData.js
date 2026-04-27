@@ -14,6 +14,7 @@ function reducer(state, action) {
 
 const initialState = {
   person: null,
+  knownForDepartment: null,
   nicknames: [],
   movieCredits: [],
   showCredits: [],
@@ -35,6 +36,7 @@ export function usePersonData(rawPersonId) {
           .from("person")
           .select(`
             *,
+            known_for:known_for_department_id(name),
             person_aka(nickname),
             movie_credits(title, job(name, department(name)), movie(id, title, poster_path)),
             show_credits(title, job(name, department(name)), show(id, name, poster_path))
@@ -76,6 +78,7 @@ export function usePersonData(rawPersonId) {
           type: "LOADED",
           payload: {
             person: data,
+            knownForDepartment: data.known_for?.name ?? null,
             nicknames: (data.person_aka ?? []).map((a) => a.nickname),
             movieCredits,
             showCredits,

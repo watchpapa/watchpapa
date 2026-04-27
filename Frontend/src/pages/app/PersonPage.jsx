@@ -2,6 +2,7 @@ import { Link, useParams } from "react-router-dom";
 import AppLayout from "../../layouts/AppLayout.jsx";
 import DetailPageLayout from "../../components/detail/DetailPageLayout.jsx";
 import ContentPanel from "../../components/detail/ContentPanel.jsx";
+import SkeletonDetailPage from "../../components/detail/SkeletonDetailPage.jsx";
 import { usePersonData } from "../../features/person/hooks/usePersonData.js";
 
 const TMDB_IMG_PROFILE = "https://image.tmdb.org/t/p/w342";
@@ -14,20 +15,6 @@ function fmtDate(val) {
   return new Date(val).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
 }
 
-function SkeletonDetail() {
-  return (
-    <div className="space-y-4 animate-pulse">
-      <div className="h-8 w-48 rounded bg-[#1e2240]" />
-      <div className="flex gap-6">
-        <div className="hidden lg:block w-[220px] flex-shrink-0 aspect-[2/3] rounded-2xl bg-[#1e2240]" />
-        <div className="flex-1 space-y-4">
-          <div className="h-24 rounded-2xl bg-[#1e2240]" />
-          <div className="h-32 rounded-2xl bg-[#1e2240]" />
-        </div>
-      </div>
-    </div>
-  );
-}
 
 function ProfilePicture({ name, profilePath }) {
   const imgSrc = profilePath ? `${TMDB_IMG_PROFILE}${profilePath}` : null;
@@ -79,9 +66,11 @@ function FilmographyCard({ credit }) {
 
 function PersonPage({ session }) {
   const { id } = useParams();
-  const { person, nicknames, movieCredits, showCredits, isLoading, error } = usePersonData(id);
+  const { person, knownForDepartment, nicknames, movieCredits, showCredits, isLoading, error } = usePersonData(id);
 
-  if (isLoading) return <AppLayout session={session}><SkeletonDetail /></AppLayout>;
+  const breadcrumbs = person ? [{ label: "People", to: "/people" }, { label: person.name }] : undefined;
+
+  if (isLoading) return <AppLayout session={session}><SkeletonDetailPage withFollow={false} /></AppLayout>;
   if (error) return <AppLayout session={session}><p className="text-center text-red-400 mt-12">{error}</p></AppLayout>;
   if (!person) return null;
 
@@ -89,7 +78,7 @@ function PersonPage({ session }) {
   const uniqueCredits = Array.from(new Map(allCredits.map((c) => [c.id, c])).values());
 
   return (
-    <AppLayout session={session}>
+    <AppLayout session={session} breadcrumbs={breadcrumbs}>
       <DetailPageLayout
         title={person.name}
         sidebarTop={<ProfilePicture name={person.name} profilePath={person.profile_path} />}
@@ -109,7 +98,8 @@ function PersonPage({ session }) {
           <ul className="grid grid-cols-1 gap-1.5 text-sm sm:grid-cols-2">
             {[
               ["Name", fmt(person.name)],
-              ...(nicknames.length > 0 ? [["Nicknames", nicknames.join(", ")]] : []),
+              ...(nicknames.length > 0 ? [["AKA", nicknames.join(", ")]] : []),
+              ...(knownForDepartment ? [["Known for", knownForDepartment]] : []),
               ["Birthday", fmtDate(person.birthday)],
               ["Place of birth", fmt(person.place_of_birth)],
               ...(person.deathday ? [["Deathday", fmtDate(person.deathday)]] : []),
