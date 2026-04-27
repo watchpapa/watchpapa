@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useReducer } from "react";
+import { useCallback, useEffect, useReducer, useRef } from "react";
 import { supabase } from "../../../lib/supabase.js";
 
-const POPULAR_LIMIT = 20;
+const PAGE_SIZE = 20;
 
 function toMovieItem(row, followedIds) {
   return {
@@ -29,8 +29,47 @@ function reducer(state, action) {
   switch (action.type) {
     case "LOADED":
       return { ...state, ...action.payload, isLoading: false, error: null };
+    case "APPEND_MOVIES":
+      return {
+        ...state,
+        movies: [...state.movies, ...action.rows],
+        movieHasMore: action.hasMore,
+        loadingMoreMovies: false,
+      };
+    case "APPEND_SHOWS":
+      return {
+        ...state,
+        shows: [...state.shows, ...action.rows],
+        showHasMore: action.hasMore,
+        loadingMoreShows: false,
+      };
+    case "SET_LOADING_MORE_MOVIES":
+      return { ...state, loadingMoreMovies: action.value };
+    case "SET_LOADING_MORE_SHOWS":
+      return { ...state, loadingMoreShows: action.value };
+    case "SET_LOADING_MORE_POPULAR":
+      return { ...state, loadingMorePopular: action.value };
+    case "EXPAND_POPULAR_DISPLAY":
+      return { ...state, popularDisplayCount: action.count, loadingMorePopular: false };
+    case "SET_POPULAR_MERGE":
+      return {
+        ...state,
+        movies: action.payload.movies,
+        shows: action.payload.shows,
+        movieHasMore: action.payload.movieHasMore,
+        showHasMore: action.payload.showHasMore,
+        popularDisplayCount: action.payload.popularDisplayCount,
+        loadingMorePopular: false,
+      };
     case "ERROR":
-      return { ...state, isLoading: false, error: action.error };
+      return {
+        ...state,
+        isLoading: false,
+        error: action.error,
+        loadingMoreMovies: false,
+        loadingMoreShows: false,
+        loadingMorePopular: false,
+      };
     case "TOGGLE_MOVIE": {
       const next = new Set(state.followedMovieIds);
       next.has(action.id) ? next.delete(action.id) : next.add(action.id);
@@ -53,10 +92,24 @@ const initialState = {
   followedShowIds: new Set(),
   isLoading: true,
   error: null,
+  movieHasMore: true,
+  showHasMore: true,
+  popularDisplayCount: PAGE_SIZE,
+  loadingMoreMovies: false,
+  loadingMoreShows: false,
+  loadingMorePopular: false,
 };
+
+function mergePopularItems(movies, shows, followedMovieIds, followedShowIds) {
+  const movieItems = movies.map((m) => toMovieItem(m, followedMovieIds));
+  const showItems = shows.map((s) => toShowItem(s, followedShowIds));
+  return [...movieItems, ...showItems].sort((a, b) => b.tmdbPopularity - a.tmdbPopularity);
+}
 
 export function useHomeData(session) {
   const [state, dispatch] = useReducer(reducer, initialState);
+  const stateRef = useRef(state);
+  stateRef.current = state;
 
   useEffect(() => {
     let cancelled = false;
@@ -69,13 +122,13 @@ export function useHomeData(session) {
             .select("id, tmdb_id, title, tmdb_popularity, poster_path")
             .is("deleted_at", null)
             .order("tmdb_popularity", { ascending: false })
-            .limit(POPULAR_LIMIT),
+            .range(0, PAGE_SIZE - 1),
           supabase
             .from("show")
             .select("id, tmdb_id, name, tmdb_popularity, poster_path")
             .is("deleted_at", null)
             .order("tmdb_popularity", { ascending: false })
-            .limit(POPULAR_LIMIT),
+            .range(0, PAGE_SIZE - 1),
         ]);
 
         if (moviesRes.error) throw moviesRes.error;
@@ -101,13 +154,18 @@ export function useHomeData(session) {
         }
 
         if (!cancelled) {
+          const movieRows = moviesRes.data ?? [];
+          const showRows = showsRes.data ?? [];
           dispatch({
             type: "LOADED",
             payload: {
-              movies: moviesRes.data ?? [],
-              shows: showsRes.data ?? [],
+              movies: movieRows,
+              shows: showRows,
               followedMovieIds,
               followedShowIds,
+              movieHasMore: movieRows.length >= PAGE_SIZE,
+              showHasMore: showRows.length >= PAGE_SIZE,
+              popularDisplayCount: PAGE_SIZE,
             },
           });
         }
@@ -162,7 +220,140 @@ export function useHomeData(session) {
     [session?.user?.id, state.followedShowIds],
   );
 
-  const { movies, shows, followedMovieIds, followedShowIds, isLoading, error } = state;
+  const loadMoreMovies = useCallback(async () => {
+    const s = stateRef.current;
+    if (s.loadingMoreMovies || !s.movieHasMore) return;
+    dispatch({ type: "SET_LOADING_MORE_MOVIES", value: true });
+    const from = s.movies.length;
+    try {
+      const { data, error: qErr } = await supabase
+        .from("movie")
+        .select("id, tmdb_id, title, tmdb_popularity, poster_path")
+        .is("deleted_at", null)
+        .order("tmdb_popularity", { ascending: false })
+        .range(from, from + PAGE_SIZE - 1);
+      if (qErr) throw qErr;
+      const rows = data ?? [];
+      dispatch({
+        type: "APPEND_MOVIES",
+        rows,
+        hasMore: rows.length >= PAGE_SIZE,
+      });
+    } catch {
+      dispatch({ type: "SET_LOADING_MORE_MOVIES", value: false });
+    }
+  }, []);
+
+  const loadMoreShows = useCallback(async () => {
+    const s = stateRef.current;
+    if (s.loadingMoreShows || !s.showHasMore) return;
+    dispatch({ type: "SET_LOADING_MORE_SHOWS", value: true });
+    const from = s.shows.length;
+    try {
+      const { data, error: qErr } = await supabase
+        .from("show")
+        .select("id, tmdb_id, name, tmdb_popularity, poster_path")
+        .is("deleted_at", null)
+        .order("tmdb_popularity", { ascending: false })
+        .range(from, from + PAGE_SIZE - 1);
+      if (qErr) throw qErr;
+      const rows = data ?? [];
+      dispatch({
+        type: "APPEND_SHOWS",
+        rows,
+        hasMore: rows.length >= PAGE_SIZE,
+      });
+    } catch {
+      dispatch({ type: "SET_LOADING_MORE_SHOWS", value: false });
+    }
+  }, []);
+
+  const loadMorePopular = useCallback(async () => {
+    const s = stateRef.current;
+    if (s.loadingMorePopular) return;
+    dispatch({ type: "SET_LOADING_MORE_POPULAR", value: true });
+    const target = s.popularDisplayCount + PAGE_SIZE;
+    let movies = [...s.movies];
+    let shows = [...s.shows];
+    let movieHasMore = s.movieHasMore;
+    let showHasMore = s.showHasMore;
+    const { followedMovieIds, followedShowIds } = s;
+
+    try {
+      while (true) {
+        const mergedLen = mergePopularItems(movies, shows, followedMovieIds, followedShowIds).length;
+        if (mergedLen >= target) {
+          dispatch({
+            type: "SET_POPULAR_MERGE",
+            payload: {
+              movies,
+              shows,
+              movieHasMore,
+              showHasMore,
+              popularDisplayCount: target,
+            },
+          });
+          return;
+        }
+        if (!movieHasMore && !showHasMore) {
+          dispatch({
+            type: "SET_POPULAR_MERGE",
+            payload: {
+              movies,
+              shows,
+              movieHasMore,
+              showHasMore,
+              popularDisplayCount: Math.min(target, mergedLen),
+            },
+          });
+          return;
+        }
+        if (movieHasMore) {
+          const from = movies.length;
+          const { data, error: qErr } = await supabase
+            .from("movie")
+            .select("id, tmdb_id, title, tmdb_popularity, poster_path")
+            .is("deleted_at", null)
+            .order("tmdb_popularity", { ascending: false })
+            .range(from, from + PAGE_SIZE - 1);
+          if (qErr) throw qErr;
+          const rows = data ?? [];
+          movies = [...movies, ...rows];
+          movieHasMore = rows.length >= PAGE_SIZE;
+        }
+        if (showHasMore) {
+          const from = shows.length;
+          const { data, error: qErr } = await supabase
+            .from("show")
+            .select("id, tmdb_id, name, tmdb_popularity, poster_path")
+            .is("deleted_at", null)
+            .order("tmdb_popularity", { ascending: false })
+            .range(from, from + PAGE_SIZE - 1);
+          if (qErr) throw qErr;
+          const rows = data ?? [];
+          shows = [...shows, ...rows];
+          showHasMore = rows.length >= PAGE_SIZE;
+        }
+      }
+    } catch {
+      dispatch({ type: "SET_LOADING_MORE_POPULAR", value: false });
+    }
+  }, []);
+
+  const {
+    movies,
+    shows,
+    followedMovieIds,
+    followedShowIds,
+    isLoading,
+    error,
+    movieHasMore,
+    showHasMore,
+    popularDisplayCount,
+    loadingMoreMovies,
+    loadingMoreShows,
+    loadingMorePopular,
+  } = state;
 
   const movieItems = movies.map((m) => ({
     ...toMovieItem(m, followedMovieIds),
@@ -174,16 +365,35 @@ export function useHomeData(session) {
     onFollowToggle: () => toggleShowFollow(s.id),
   }));
 
-  const popular = [...movies.map((m) => toMovieItem(m, followedMovieIds)), ...shows.map((s) => toShowItem(s, followedShowIds))]
-    .sort((a, b) => b.tmdbPopularity - a.tmdbPopularity)
-    .slice(0, POPULAR_LIMIT)
-    .map((item) => ({
-      ...item,
-      onFollowToggle:
-        item.type === "movie"
-          ? () => toggleMovieFollow(item.id)
-          : () => toggleShowFollow(item.id),
-    }));
+  const mergedPopular = mergePopularItems(movies, shows, followedMovieIds, followedShowIds);
+  const popular = mergedPopular.slice(0, popularDisplayCount).map((item) => ({
+    ...item,
+    onFollowToggle:
+      item.type === "movie"
+        ? () => toggleMovieFollow(item.id)
+        : () => toggleShowFollow(item.id),
+  }));
 
-  return { popular, movieItems, showItems, isLoading, error };
+  const mergedPopularLen = mergedPopular.length;
+  const hasMoreMovies = movieHasMore;
+  const hasMoreShows = showHasMore;
+  const hasMorePopular =
+    popularDisplayCount < mergedPopularLen || movieHasMore || showHasMore;
+
+  return {
+    popular,
+    movieItems,
+    showItems,
+    isLoading,
+    error,
+    hasMoreMovies,
+    hasMoreShows,
+    hasMorePopular,
+    loadMoreMovies,
+    loadMoreShows,
+    loadMorePopular,
+    loadingMoreMovies,
+    loadingMoreShows,
+    loadingMorePopular,
+  };
 }

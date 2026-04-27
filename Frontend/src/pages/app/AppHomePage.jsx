@@ -23,12 +23,45 @@ function SkeletonRow() {
 
 function AppHomePage({ session }) {
   const [search, setSearch] = useState("");
-  const { popular, movieItems, showItems, isLoading, error } = useHomeData(session);
+  const {
+    popular,
+    movieItems,
+    showItems,
+    isLoading,
+    error,
+    hasMorePopular,
+    hasMoreMovies,
+    hasMoreShows,
+    loadMorePopular,
+    loadMoreMovies,
+    loadMoreShows,
+    loadingMorePopular,
+    loadingMoreMovies,
+    loadingMoreShows,
+  } = useHomeData(session);
 
   const sections = [
-    { title: "Popular", items: popular },
-    { title: "Movies", items: movieItems },
-    { title: "Shows", items: showItems },
+    {
+      title: "Popular",
+      items: popular,
+      hasMore: hasMorePopular,
+      onLoadMore: loadMorePopular,
+      isLoadingMore: loadingMorePopular,
+    },
+    {
+      title: "Movies",
+      items: movieItems,
+      hasMore: hasMoreMovies,
+      onLoadMore: loadMoreMovies,
+      isLoadingMore: loadingMoreMovies,
+    },
+    {
+      title: "Shows",
+      items: showItems,
+      hasMore: hasMoreShows,
+      onLoadMore: loadMoreShows,
+      isLoadingMore: loadingMoreShows,
+    },
   ];
 
   return (
@@ -49,8 +82,16 @@ function AppHomePage({ session }) {
             <SkeletonRow />
           </>
         ) : (
-          sections.map(({ title, items }) => (
-            <MediaRow key={title} title={title} items={items} session={session} />
+          sections.map(({ title, items, hasMore, onLoadMore, isLoadingMore }) => (
+            <MediaRow
+              key={title}
+              title={title}
+              items={items}
+              session={session}
+              hasMore={hasMore}
+              onLoadMore={onLoadMore}
+              isLoadingMore={isLoadingMore}
+            />
           ))
         )}
       </div>
