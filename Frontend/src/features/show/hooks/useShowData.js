@@ -1,17 +1,6 @@
 import { useCallback, useEffect, useReducer } from "react";
 import { supabase } from "../../../lib/supabase.js";
-
-function toCredits(rows) {
-  return rows
-    .filter((r) => r.person && r.job?.name === "Actor")
-    .map((r) => ({
-      id: `${r.person.id}-${r.title}`,
-      personId: r.person.id,
-      name: r.person.name,
-      profilePath: r.person.profile_path ?? null,
-      character: r.title ?? null,
-    }));
-}
+import { toCast, toCrew } from "../../../lib/credits.js";
 
 function reducer(state, action) {
   switch (action.type) {
@@ -31,6 +20,7 @@ const initialState = {
   genres: [],
   seasons: [],
   cast: [],
+  crew: [],
   isFollowing: false,
   isLoading: true,
   error: null,
@@ -49,7 +39,7 @@ export function useShowData(rawShowId, session) {
         const [showRes, followRes] = await Promise.all([
           supabase
             .from("show")
-            .select(`*, show_genre(genres(*)), season(id, name, season_number, air_date, poster_path, episode(id)), show_credits(title, person(id, name, profile_path), job(name))`)
+            .select(`*, show_genre(genres(*)), season(id, name, season_number, air_date, poster_path, episode(id)), show_credits(title, person(id, name, profile_path), job(name, department(name)))`)
             .eq("id", showId)
             .is("deleted_at", null)
             .single(),
@@ -77,7 +67,8 @@ export function useShowData(rawShowId, session) {
             show: row,
             genres: row.show_genre?.map((g) => g.genres).filter(Boolean) ?? [],
             seasons,
-            cast: toCredits(row.show_credits ?? []),
+            cast: toCast(row.show_credits ?? []),
+            crew: toCrew(row.show_credits ?? []),
             isFollowing: !!followRes.data,
           },
         });

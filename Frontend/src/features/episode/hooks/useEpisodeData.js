@@ -1,17 +1,6 @@
 import { useEffect, useReducer } from "react";
 import { supabase } from "../../../lib/supabase.js";
-
-function toCredits(rows) {
-  return rows
-    .filter((r) => r.person && r.job?.name === "Actor")
-    .map((r) => ({
-      id: `${r.person.id}-${r.title}`,
-      personId: r.person.id,
-      name: r.person.name,
-      profilePath: r.person.profile_path ?? null,
-      character: r.title ?? null,
-    }));
-}
+import { toCast, toCrew } from "../../../lib/credits.js";
 
 function reducer(state, action) {
   switch (action.type) {
@@ -30,6 +19,7 @@ const initialState = {
   show: null,
   siblings: [],
   cast: [],
+  crew: [],
   isLoading: true,
   error: null,
 };
@@ -49,7 +39,7 @@ export function useEpisodeData(rawEpisodeId, rawSeasonId, rawShowId) {
         const [epRes, seasonRes, showRes] = await Promise.all([
           supabase
             .from("episode")
-            .select(`*, episode_credits(title, person(id, name, profile_path), job(name))`)
+            .select(`*, episode_credits(title, person(id, name, profile_path), job(name, department(name)))`)
             .eq("id", episodeId)
             .single(),
           supabase
@@ -73,6 +63,8 @@ export function useEpisodeData(rawEpisodeId, rawSeasonId, rawShowId) {
           .filter((e) => e.id !== episodeId)
           .sort((a, b) => a.episode_number - b.episode_number);
 
+        const credits = epRes.data.episode_credits ?? [];
+
         dispatch({
           type: "LOADED",
           payload: {
@@ -80,7 +72,8 @@ export function useEpisodeData(rawEpisodeId, rawSeasonId, rawShowId) {
             season: seasonRes.data,
             show: showRes.data,
             siblings,
-            cast: toCredits(epRes.data.episode_credits ?? []),
+            cast: toCast(credits),
+            crew: toCrew(credits),
           },
         });
       } catch (err) {

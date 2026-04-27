@@ -1,17 +1,6 @@
 import { useCallback, useEffect, useReducer } from "react";
 import { supabase } from "../../../lib/supabase.js";
-
-function toCredits(rows) {
-  return rows
-    .filter((r) => r.person && r.job?.name === "Actor")
-    .map((r) => ({
-      id: `${r.person.id}-${r.title}`,
-      personId: r.person.id,
-      name: r.person.name,
-      profilePath: r.person.profile_path ?? null,
-      character: r.title ?? null,
-    }));
-}
+import { toCast, toCrew } from "../../../lib/credits.js";
 
 function reducer(state, action) {
   switch (action.type) {
@@ -30,6 +19,7 @@ const initialState = {
   movie: null,
   genres: [],
   cast: [],
+  crew: [],
   isFollowing: false,
   isLoading: true,
   error: null,
@@ -48,7 +38,7 @@ export function useMovieData(rawMovieId, session) {
         const [movieRes, followRes] = await Promise.all([
           supabase
             .from("movie")
-            .select(`*, movie_genre(genres(*)), movie_credits(title, person(id, name, profile_path), job(name))`)
+            .select(`*, movie_genre(genres(*)), movie_credits(title, person(id, name, profile_path), job(name, department(name)))`)
             .eq("id", movieId)
             .is("deleted_at", null)
             .single(),
@@ -71,7 +61,8 @@ export function useMovieData(rawMovieId, session) {
           payload: {
             movie: row,
             genres: row.movie_genre?.map((g) => g.genres).filter(Boolean) ?? [],
-            cast: toCredits(row.movie_credits ?? []),
+            cast: toCast(row.movie_credits ?? []),
+            crew: toCrew(row.movie_credits ?? []),
             isFollowing: !!followRes.data,
           },
         });
