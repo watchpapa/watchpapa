@@ -2,20 +2,45 @@
 
 ## Commands
 
+### TMDB ingestion
+
+#### Reference data (taxonomy)
+
 - `npm run seed:tmdb:jobs`
 - `npm run seed:tmdb:genres`
+
+#### Single entity (by TMDB id)
+
 - `npm run seed:tmdb:person -- --id=<tmdb_person_id> [--force]`
 - `npm run seed:tmdb:tv-show -- --id=<tmdb_tv_id> [--force]`
 - `npm run seed:tmdb:movie -- --id=<tmdb_movie_id> [--force]`
+
+#### Discovery lists (popular and top-rated)
+
 - `npm run seed:tmdb:popular-movies-today -- --limit=<count>`
 - `npm run seed:tmdb:popular-people-today -- --limit=<count>`
 - `npm run seed:tmdb:popular-shows-today -- --limit=<count>`
 - `npm run seed:tmdb:top-rated-movies -- --limit=<count>`
 - `npm run seed:tmdb:top-rated-shows -- --limit=<count>`
+
+#### Incremental refresh (TMDB changes)
+
 - `npm run seed:tmdb:changed-movies-24h -- --limit=<count> --start-date=<yyyy-mm-dd> --end-date=<yyyy-mm-dd>`
 - `npm run seed:tmdb:changed-shows-24h -- --limit=<count> --start-date=<yyyy-mm-dd> --end-date=<yyyy-mm-dd>`
 - `npm run seed:tmdb:changed-people-24h -- --limit=<count> --start-date=<yyyy-mm-dd> --end-date=<yyyy-mm-dd>`
 - `npm run seed:tmdb:changed-all-24h -- --limit=<count> --start-date=<yyyy-mm-dd> --end-date=<yyyy-mm-dd>`
+
+### TMDB maintenance
+
+#### Popularity-only refresh (existing rows)
+
+- `npm run seed:tmdb:update-popularity -- --entity=<movie|show|person|all> --page-size=<count> --limit=<count> --fetch-concurrency=<count>`
+
+### Tests
+
+- `npm run test:injections`
+- `npm run test:injections:watch`
+- `npm run test:py`
 
 ## Injection script tests
 
@@ -241,6 +266,32 @@ The script writes a top-level `script_logs` row (`inject_popular_shows_today:lim
 If the process is interrupted (Ctrl+C / SIGTERM), a `script_logs` row is written with `status = 'stopped'`, `error_code = 'StoppedBySignal'`, and the signal name in `error_detail`. A guard ensures exactly one log row is written per run.
 
 If one or more items fail during processing, the run finishes with `status = 'failure'` and `error_detail` contains JSON with aggregate summary fields plus a `failedItems` array of `{ entityType, tmdbId }`.
+
+## TMDB popularity-only refresh
+
+Command:
+
+`npm run seed:tmdb:update-popularity -- --entity=<movie|show|person|all> --page-size=<count> --limit=<count> --fetch-concurrency=<count>`
+
+Description:
+
+Refreshes only popularity values for existing rows by reading local `tmdb_id` values in pages, fetching TMDB detail payloads, and performing bulk updates.
+
+- `movie` updates `movie.tmdb_popularity` from `GET /movie/{id}`.
+- `show` updates `show.tmdb_popularity` from `GET /tv/{id}`.
+- `person` updates `person.popularity` from `GET /person/{id}`.
+- `all` (default) runs movie, then show, then person.
+
+Only rows with `deleted_at IS NULL` are considered. Updates use `IS DISTINCT FROM` checks so unchanged popularity values are skipped without rewriting rows.
+
+Defaults:
+
+- `--entity=all`
+- `--page-size=1000` (max `5000`)
+- `--fetch-concurrency=128` (max `512`)
+- `--limit` omitted means full-table scan per selected entity
+
+The script writes a top-level `script_logs` row (`update_tmdb_popularity:entity=<...>:pageSize=<...>:limit=<...>:fetchConcurrency=<...>`) and prints a final summary with fetched, updated, missing-on-TMDB, and failed counts.
 
 ## TMDB top-rated movies ingestion
 
