@@ -21,6 +21,7 @@
     "seed:tmdb:changed-shows-24h": "node Backend/src/scripts/inject_changed_shows_24h.js",
     "seed:tmdb:changed-people-24h": "node Backend/src/scripts/inject_changed_people_24h.js",
     "seed:tmdb:changed-all-24h": "node Backend/src/scripts/inject_changed_all_24h.js",
+    "seed:tmdb:update-popularity": "node Backend/src/scripts/update_tmdb_popularity.js",
     "test:injections": "node --test \"tests/injections_tests/**/*.test.js\"",
     "test:injections:watch": "node --test --watch \"tests/injections_tests/**/*.test.js\"",
     "test:py": "pytest"
