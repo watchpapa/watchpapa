@@ -577,6 +577,101 @@ async function main() {
   }
 }
 
+export async function batchIngestPersons(tmdbIds, personPayloads, transaction) {
+  if (tmdbIds.length === 0) return new Map();
+
+  const existRepl = {};
+  tmdbIds.forEach((id, i) => { existRepl[`eid${i}`] = id; });
+  const [existingRows] = await sequelize.query(
+    `SELECT id, tmdb_id FROM person WHERE tmdb_id IN (${tmdbIds.map((_, i) => `:eid${i}`).join(", ")})`,
+    { replacements: existRepl, transaction }
+  );
+
+  const personIdMap = new Map();
+  for (const row of existingRows) {
+    personIdMap.set(row.tmdb_id, row.id);
+    existingPersonIdCache.set(row.tmdb_id, row.id);
+  }
+
+  const newIds = tmdbIds.filter((id) => !personIdMap.has(id));
+  if (newIds.length === 0) return personIdMap;
+
+  const normalizedList = [];
+  for (const id of newIds) {
+    const n = normalizePersonPayload(personPayloads.get(id));
+    n.knownForDepartmentId = await resolveDepartmentId(n.knownForDepartmentName, transaction);
+    normalizedList.push(n);
+  }
+
+  const insRepl = {};
+  const tuples = normalizedList.map((n, i) => {
+    insRepl[`t${i}`] = n.tmdbId;
+    insRepl[`nm${i}`] = n.name;
+    insRepl[`ad${i}`] = n.adult;
+    insRepl[`bi${i}`] = n.biography;
+    insRepl[`bd${i}`] = n.birthday;
+    insRepl[`pb${i}`] = n.placeOfBirth;
+    insRepl[`dd${i}`] = n.deathday;
+    insRepl[`gn${i}`] = n.gender;
+    insRepl[`pp${i}`] = n.popularity;
+    insRepl[`kd${i}`] = n.knownForDepartmentId;
+    insRepl[`pf${i}`] = n.profilePath;
+    return `(:t${i},:nm${i},:ad${i},:bi${i},:bd${i},:pb${i},:dd${i},:gn${i},:pp${i},:kd${i},:pf${i})`;
+  });
+
+  const [insertedRows] = await sequelize.query(
+    `INSERT INTO person (tmdb_id,name,adult,biography,birthday,place_of_birth,deathday,gender,popularity,known_for_department_id,profile_path)
+     VALUES ${tuples.join(", ")}
+     ON CONFLICT (tmdb_id) DO NOTHING
+     RETURNING id, tmdb_id`,
+    { replacements: insRepl, transaction }
+  );
+
+  for (const row of insertedRows) {
+    personIdMap.set(row.tmdb_id, row.id);
+    existingPersonIdCache.set(row.tmdb_id, row.id);
+  }
+
+  const stillMissing = newIds.filter((id) => !personIdMap.has(id));
+  if (stillMissing.length > 0) {
+    const missRepl = {};
+    stillMissing.forEach((id, i) => { missRepl[`mid${i}`] = id; });
+    const [missRows] = await sequelize.query(
+      `SELECT id, tmdb_id FROM person WHERE tmdb_id IN (${stillMissing.map((_, i) => `:mid${i}`).join(", ")})`,
+      { replacements: missRepl, transaction }
+    );
+    for (const row of missRows) {
+      personIdMap.set(row.tmdb_id, row.id);
+      existingPersonIdCache.set(row.tmdb_id, row.id);
+    }
+  }
+
+  if (insertedRows.length > 0) {
+    const akaRows = [];
+    const normalizedByTmdbId = new Map(normalizedList.map((n) => [n.tmdbId, n]));
+    for (const row of insertedRows) {
+      const n = normalizedByTmdbId.get(row.tmdb_id);
+      for (const nickname of (n?.alsoKnownAs ?? [])) {
+        akaRows.push({ personId: row.id, nickname });
+      }
+    }
+    if (akaRows.length > 0) {
+      const akaRepl = {};
+      const akaTuples = akaRows.map((r, i) => {
+        akaRepl[`ap${i}`] = r.personId;
+        akaRepl[`an${i}`] = r.nickname;
+        return `(:ap${i},:an${i})`;
+      });
+      await sequelize.query(
+        `INSERT INTO person_aka (person_id, nickname) VALUES ${akaTuples.join(", ")}`,
+        { replacements: akaRepl, transaction }
+      );
+    }
+  }
+
+  return personIdMap;
+}
+
 const isDirectRun = import.meta.url === pathToFileURL(process.argv[1]).href;
 if (isDirectRun) {
   main().catch((error) => {

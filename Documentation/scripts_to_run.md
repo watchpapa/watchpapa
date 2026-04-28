@@ -1,5 +1,17 @@
 # Scripts to Run
 
+## Database migrations
+
+Run once against the Supabase project (SQL editor or any Postgres client):
+
+```
+Backend/migrations/001_perf_indexes.sql
+```
+
+Adds: `genres(tmdb_id)` unique index, `person(popularity DESC)` partial index, and GIN trigram indexes on movie/show/person name columns for fast ILIKE search. Requires the `pg_trgm` extension (enabled by the script).
+
+---
+
 ## Commands
 
 ### TMDB ingestion

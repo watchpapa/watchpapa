@@ -2,7 +2,7 @@ import dotenv from "dotenv";
 import { pathToFileURL } from "url";
 import sequelize from "../db/database.js";
 import { tmdbRateLimitedFetch } from "./tmdb_rate_limited_fetch.js";
-import { ingestPerson, fetchTmdbPerson } from "./inject_person.js";
+import { ingestPerson, batchIngestPersons, fetchTmdbPerson } from "./inject_person.js";
 import { resolveOrCreateJobId } from "./resolve_job.js";
 
 dotenv.config();
@@ -637,60 +637,73 @@ async function upsertSeason(normalized, transaction) {
 }
 
 async function replaceShowGenres(showId, tmdbGenres, transaction) {
-  await sequelize.query(
-    `
-      DELETE FROM show_genre
-      WHERE show_id = :showId;
-    `,
-    {
-      replacements: { showId },
-      transaction,
-    }
+  const validGenres = tmdbGenres.filter((g) => typeof g?.id === "number");
+
+  if (validGenres.length === 0) {
+    await sequelize.query(
+      `DELETE FROM show_genre WHERE show_id = :showId;`,
+      { replacements: { showId }, transaction }
+    );
+    return { linked: 0, skipped: 0 };
+  }
+
+  const lookupRepl = {};
+  validGenres.forEach((g, i) => { lookupRepl[`gid${i}`] = g.id; });
+  const [genreRows] = await sequelize.query(
+    `SELECT id, tmdb_id FROM genres WHERE tmdb_id IN (${validGenres.map((_, i) => `:gid${i}`).join(", ")});`,
+    { replacements: lookupRepl, transaction }
+  );
+  const genreMap = new Map(
+    genreRows.map((r) => [Number(r.tmdb_id), Number(r.id)])
   );
 
-  let linked = 0;
   let skipped = 0;
-
-  for (const tmdbGenre of tmdbGenres) {
-    const tmdbGenreId = tmdbGenre?.id;
-    if (typeof tmdbGenreId !== "number") continue;
-
-    const [genreRows] = await sequelize.query(
-      `
-        SELECT id
-        FROM genres
-        WHERE tmdb_id = :tmdbGenreId
-        LIMIT 1;
-      `,
-      {
-        replacements: { tmdbGenreId },
-        transaction,
-      }
-    );
-
-    const genresId = genreRows?.[0]?.id;
+  const linkedIds = [];
+  for (const g of validGenres) {
+    const genresId = genreMap.get(Number(g.id));
     if (!genresId) {
       console.warn(
-        `  Warning: genre tmdb_id=${tmdbGenreId} (${tmdbGenre?.name ?? "?"}) not found in genres table — skipping. Run seed:tmdb:genres first.`
+        `  Warning: genre tmdb_id=${g.id} (${g?.name ?? "?"}) not found in genres table — skipping. Run seed:tmdb:genres first.`
       );
       skipped += 1;
       continue;
     }
-
-    await sequelize.query(
-      `
-        INSERT INTO show_genre (show_id, genres_id)
-        VALUES (:showId, :genresId);
-      `,
-      {
-        replacements: { showId, genresId },
-        transaction,
-      }
-    );
-    linked += 1;
+    linkedIds.push(genresId);
   }
 
-  return { linked, skipped };
+  if (linkedIds.length === 0) {
+    await sequelize.query(
+      `DELETE FROM show_genre WHERE show_id = :showId;`,
+      { replacements: { showId }, transaction }
+    );
+    return { linked: 0, skipped };
+  }
+
+  const upsertRepl = { showId };
+  const tuples = linkedIds.map((gId, i) => {
+    upsertRepl[`sg${i}`] = gId;
+    return `(:showId, :sg${i})`;
+  });
+  await sequelize.query(
+    `INSERT INTO show_genre (show_id, genres_id)
+     VALUES ${tuples.join(", ")}
+     ON CONFLICT (show_id, genres_id) DO NOTHING;`,
+    { replacements: upsertRepl, transaction }
+  );
+
+  const deleteRepl = { showId };
+  const keepPlaceholders = linkedIds.map((gId, i) => {
+    deleteRepl[`keep${i}`] = gId;
+    return `:keep${i}`;
+  });
+  await sequelize.query(
+    `DELETE FROM show_genre
+     WHERE show_id = :showId
+       AND genres_id NOT IN (${keepPlaceholders.join(", ")});`,
+    { replacements: deleteRepl, transaction }
+  );
+
+  return { linked: linkedIds.length, skipped };
 }
 
 async function upsertEpisode(normalized, transaction) {
@@ -952,10 +965,14 @@ async function processCreditsPhase({
   jobCache,
   transaction,
 }) {
+  const uniqueIds = [
+    ...new Set(tasks.map((t) => t.personTmdbId).filter((id) => personPayloads.has(id))),
+  ];
+  const personIdMap = await batchIngestPersons(uniqueIds, personPayloads, transaction);
+
   let linked = 0;
-  let skipped = 0;
-  let personsIngested = 0;
-  const personCache = new Map();
+  let skipped = tasks.length - uniqueIds.length;
+  const personsIngested = personIdMap.size;
   const creditRows = [];
 
   for (const task of tasks) {
@@ -973,29 +990,10 @@ async function processCreditsPhase({
       continue;
     }
 
-    let personId = personCache.get(task.personTmdbId);
+    const personId = personIdMap.get(task.personTmdbId);
     if (!personId) {
-      const preloadedPayload = personPayloads.get(task.personTmdbId);
-      if (!preloadedPayload) {
-        skipped += 1;
-        continue;
-      }
-      try {
-        const personResult = await ingestPerson({
-          tmdbId: task.personTmdbId,
-          transaction,
-          preloadedPayload,
-        });
-        personId = personResult.personId;
-        personCache.set(task.personTmdbId, personId);
-        personsIngested += 1;
-      } catch (error) {
-        console.warn(
-          `  Warning: failed to ingest person tmdb_id=${task.personTmdbId} (${task.personName}): ${error.message}. Skipping this credit.`
-        );
-        skipped += 1;
-        continue;
-      }
+      skipped += 1;
+      continue;
     }
 
     creditRows.push({ personId, jobId, title: task.title });
@@ -1015,9 +1013,24 @@ async function processEpisodeCreditsPhase({
   personIdCache,
   transaction,
 }) {
+  const newIds = [
+    ...new Set(
+      tasks
+        .map((t) => t.personTmdbId)
+        .filter((id) => !personIdCache.has(id) && personPayloads.has(id))
+    ),
+  ];
+
+  if (newIds.length > 0) {
+    const batchMap = await batchIngestPersons(newIds, personPayloads, transaction);
+    for (const [tmdbId, personId] of batchMap.entries()) {
+      personIdCache.set(tmdbId, personId);
+    }
+  }
+
   let linked = 0;
   let skipped = 0;
-  let personsIngested = 0;
+  const personsIngested = newIds.length;
   const creditRows = [];
 
   for (const task of tasks) {
@@ -1035,29 +1048,10 @@ async function processEpisodeCreditsPhase({
       continue;
     }
 
-    let personId = personIdCache.get(task.personTmdbId);
+    const personId = personIdCache.get(task.personTmdbId);
     if (!personId) {
-      const preloadedPayload = personPayloads.get(task.personTmdbId);
-      if (!preloadedPayload) {
-        skipped += 1;
-        continue;
-      }
-      try {
-        const personResult = await ingestPerson({
-          tmdbId: task.personTmdbId,
-          transaction,
-          preloadedPayload,
-        });
-        personId = personResult.personId;
-        personIdCache.set(task.personTmdbId, personId);
-        personsIngested += 1;
-      } catch (error) {
-        console.warn(
-          `  Warning: failed to ingest person tmdb_id=${task.personTmdbId} (${task.personName}): ${error.message}. Skipping this episode credit.`
-        );
-        skipped += 1;
-        continue;
-      }
+      skipped += 1;
+      continue;
     }
 
     creditRows.push({ personId, jobId, title: task.title });
