@@ -131,7 +131,7 @@ async function searchLocalSupabase(query, perTypeLimit) {
   return [...movies, ...shows, ...people];
 }
 
-export function useSearch(query, { perTypeLimit = 5 } = {}) {
+export function useSearch(query, { perTypeLimit = 5, backendLimit = 30 } = {}) {
   const [state, dispatch] = useReducer(reducer, initialState);
   const timerRef = useRef(null);
   const genRef = useRef(0);
@@ -153,9 +153,33 @@ export function useSearch(query, { perTypeLimit = 5 } = {}) {
       dispatch({ type: "FETCHING" });
 
       searchLocalSupabase(trimmed, perTypeLimit)
-        .then((results) => {
+        .then((localResults) => {
           if (stale()) return;
-          dispatch({ type: "LOADED", results });
+          dispatch({ type: "LOADED", results: localResults });
+
+          // Phase 2: enrich with TMDB-only items from backend
+          // Use String() on both sides — Supabase returns bigint tmdb_id as string,
+          // backend Sequelize returns it as number, so Set.has() would fail without normalization.
+          const localTmdbIds = new Set(localResults.map((r) => String(r.tmdbId)));
+          fetch(
+            `/api/search?q=${encodeURIComponent(trimmed)}&limit=${backendLimit}&localPerType=${perTypeLimit}`
+          )
+            .then((r) => {
+              if (!r.ok) throw new Error(r.status);
+              return r.json();
+            })
+            .then((d) => {
+              if (stale()) return;
+              const tmdbOnly = (d.results ?? [])
+                .filter((r) => !localTmdbIds.has(String(r.tmdbId)))
+                .map((r) => ({ ...r, needsInjection: true }));
+              if (tmdbOnly.length > 0) {
+                dispatch({ type: "LOADED", results: [...localResults, ...tmdbOnly] });
+              }
+            })
+            .catch(() => {
+              // backend unavailable — local results already visible
+            });
         })
         .catch(() => {
           if (!stale()) dispatch({ type: "ERROR", error: "Search failed" });
@@ -163,7 +187,7 @@ export function useSearch(query, { perTypeLimit = 5 } = {}) {
     }, DEBOUNCE_MS);
 
     return () => clearTimeout(timerRef.current);
-  }, [query, perTypeLimit]);
+  }, [query, perTypeLimit, backendLimit]);
 
   return state;
 }

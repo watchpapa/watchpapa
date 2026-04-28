@@ -17,6 +17,7 @@ import ShowPage from "./pages/app/ShowPage.jsx";
 import SeasonPage from "./pages/app/SeasonPage.jsx";
 import EpisodePage from "./pages/app/EpisodePage.jsx";
 import PersonPage from "./pages/app/PersonPage.jsx";
+import TmdbResolvePage from "./pages/app/TmdbResolvePage.jsx";
 import ReleasesCalendarPage from "./pages/app/ReleasesCalendarPage.jsx";
 import {
   AboutPage,
@@ -303,6 +304,30 @@ function App() {
         element={
           <PublicRoute session={session} needsUsernameSetup={needsUsernameSetup}>
             <PersonPage session={session} />
+          </PublicRoute>
+        }
+      />
+      <Route
+        path="/movies/tmdb/:tmdbId"
+        element={
+          <PublicRoute session={session} needsUsernameSetup={needsUsernameSetup}>
+            <TmdbResolvePage type="movie" session={session} />
+          </PublicRoute>
+        }
+      />
+      <Route
+        path="/shows/tmdb/:tmdbId"
+        element={
+          <PublicRoute session={session} needsUsernameSetup={needsUsernameSetup}>
+            <TmdbResolvePage type="show" session={session} />
+          </PublicRoute>
+        }
+      />
+      <Route
+        path="/people/tmdb/:tmdbId"
+        element={
+          <PublicRoute session={session} needsUsernameSetup={needsUsernameSetup}>
+            <TmdbResolvePage type="person" session={session} />
           </PublicRoute>
         }
       />

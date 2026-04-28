@@ -39,9 +39,10 @@ function SkeletonGrid() {
 }
 
 function PersonCard({ person }) {
+  const to = person.localId ? `/people/${person.localId}` : `/people/tmdb/${person.tmdbId}`;
   return (
     <Link
-      to={`/people/${person.localId}`}
+      to={to}
       className="flex w-[130px] flex-shrink-0 flex-col gap-2 sm:w-[150px]"
     >
       <div className="aspect-[2/3] overflow-hidden rounded-2xl border border-[#2a3570] bg-[#12163a]">
@@ -78,7 +79,7 @@ function SearchPage({ session }) {
     setBarValue(qFromUrl);
   }, [qFromUrl]);
 
-  const { results, isLoading, status } = useSearch(q, { perTypeLimit: 20 });
+  const { results, isLoading, status } = useSearch(q, { perTypeLimit: 20, backendLimit: 20 });
 
   const movieResults = results.filter((r) => r.type === "movie");
   const showResults = results.filter((r) => r.type === "show");
@@ -131,6 +132,7 @@ function SearchPage({ session }) {
                     <MediaCard
                       key={`movie-${item.tmdbId}`}
                       id={item.localId}
+                      customTo={item.localId ? undefined : `/movies/tmdb/${item.tmdbId}`}
                       type="movie"
                       title={item.title}
                       posterPath={item.posterPath}
@@ -149,6 +151,7 @@ function SearchPage({ session }) {
                     <MediaCard
                       key={`show-${item.tmdbId}`}
                       id={item.localId}
+                      customTo={item.localId ? undefined : `/shows/tmdb/${item.tmdbId}`}
                       type="show"
                       title={item.title}
                       posterPath={item.posterPath}

@@ -20,9 +20,9 @@ function MinusIcon() {
   );
 }
 
-function MediaCard({ id, type, title, posterPath, isFollowing = false, onFollowToggle, isAuthenticated }) {
+function MediaCard({ id, type, title, posterPath, isFollowing = false, onFollowToggle, isAuthenticated, customTo }) {
   const imgSrc = posterPath ? `${TMDB_IMG}${posterPath}` : null;
-  const to = type === "movie" ? `/movies/${id}` : `/shows/${id}`;
+  const to = customTo ?? (type === "movie" ? `/movies/${id}` : `/shows/${id}`);
   const [hovering, setHovering] = useState(false);
   const [showAuthPrompt, setShowAuthPrompt] = useState(false);
 

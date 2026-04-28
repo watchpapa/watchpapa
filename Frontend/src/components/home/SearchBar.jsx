@@ -48,9 +48,25 @@ function ArrowRightIcon() {
 }
 
 function routeFor(item) {
-  if (item.type === "movie") return `/movies/${item.localId}`;
-  if (item.type === "show") return `/shows/${item.localId}`;
-  return `/people/${item.localId}`;
+  if (item.type === "movie") return item.localId ? `/movies/${item.localId}` : `/movies/tmdb/${item.tmdbId}`;
+  if (item.type === "show") return item.localId ? `/shows/${item.localId}` : `/shows/tmdb/${item.tmdbId}`;
+  return item.localId ? `/people/${item.localId}` : `/people/tmdb/${item.tmdbId}`;
+}
+
+function SkeletonRows({ count = 4 }) {
+  return (
+    <div className="py-1">
+      {Array.from({ length: count }).map((_, i) => (
+        <div key={i} className="flex items-center gap-3 px-3 py-2">
+          <div className="h-[54px] w-[36px] flex-shrink-0 animate-pulse rounded-md bg-[#1e2240]" />
+          <div className="flex-1 space-y-2">
+            <div className="h-3 w-3/4 animate-pulse rounded bg-[#1e2240]" />
+            <div className="h-4 w-10 animate-pulse rounded-full bg-[#1e2240]" />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
 }
 
 function GroupLabel({ label }) {
@@ -140,10 +156,7 @@ function SearchBar({ value, onChange }) {
     return () => document.removeEventListener("keydown", onKey);
   }, []);
 
-  const movieResults = results.filter((r) => r.type === "movie");
-  const showResults = results.filter((r) => r.type === "show");
-  const personResults = results.filter((r) => r.type === "person");
-  const flatResults = [...movieResults, ...showResults, ...personResults];
+  const flatResults = [...results].sort((a, b) => (b.popularity ?? 0) - (a.popularity ?? 0));
 
   // total navigable slots: flatResults + 1 for "Explore more"
   const totalSlots = flatResults.length + 1;
@@ -184,9 +197,6 @@ function SearchBar({ value, onChange }) {
     }
   }
 
-  const showOffset = movieResults.length;
-  const personOffset = movieResults.length + showResults.length;
-
   return (
     <div ref={wrapperRef} className="relative mx-auto w-full max-w-[560px]">
       <span className="pointer-events-none absolute inset-y-0 left-4 flex items-center text-[#5a5a9a]">
@@ -221,58 +231,23 @@ function SearchBar({ value, onChange }) {
           role="listbox"
           className="absolute left-0 right-0 top-full z-50 mt-1.5 max-h-[480px] overflow-y-auto rounded-2xl border border-[#2a2d50] bg-[#141728] shadow-xl"
         >
-          {status !== "loading" && results.length === 0 ? (
+          {status === "loading" && results.length === 0 ? (
+            <SkeletonRows count={4} />
+          ) : status !== "loading" && results.length === 0 ? (
             <p className="px-4 py-4 text-center text-sm text-[#4a4a7a]">
               No results for &ldquo;{trimmed}&rdquo;
             </p>
           ) : (
-            <>
-              {movieResults.length > 0 && (
-                <div>
-                  <GroupLabel label="Movies" />
-                  {movieResults.map((item, i) => (
-                    <ResultRow
-                      key={`movie-${item.tmdbId}`}
-                      item={item}
-                      isActive={i === activeIndex}
-                      onSelect={handleSelect}
-                    />
-                  ))}
-                </div>
-              )}
-
-              {showResults.length > 0 && (
-                <div>
-                  {movieResults.length > 0 && <div className="mx-3 border-t border-[#1e2240]" />}
-                  <GroupLabel label="Shows" />
-                  {showResults.map((item, i) => (
-                    <ResultRow
-                      key={`show-${item.tmdbId}`}
-                      item={item}
-                      isActive={showOffset + i === activeIndex}
-                      onSelect={handleSelect}
-                    />
-                  ))}
-                </div>
-              )}
-
-              {personResults.length > 0 && (
-                <div>
-                  {(movieResults.length > 0 || showResults.length > 0) && (
-                    <div className="mx-3 border-t border-[#1e2240]" />
-                  )}
-                  <GroupLabel label="People" />
-                  {personResults.map((item, i) => (
-                    <ResultRow
-                      key={`person-${item.tmdbId}`}
-                      item={item}
-                      isActive={personOffset + i === activeIndex}
-                      onSelect={handleSelect}
-                    />
-                  ))}
-                </div>
-              )}
-            </>
+            <div>
+              {flatResults.map((item, i) => (
+                <ResultRow
+                  key={`${item.type}-${item.tmdbId}`}
+                  item={item}
+                  isActive={i === activeIndex}
+                  onSelect={handleSelect}
+                />
+              ))}
+            </div>
           )}
 
           {/* Explore more — always last */}
