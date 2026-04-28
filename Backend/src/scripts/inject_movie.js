@@ -15,6 +15,43 @@ const CAST_DEPARTMENT_NAME = "Acting";
 let cachedApiKey = null;
 const existingMovieIdCache = new Map();
 
+export const FULL_MOVIE_REFRESH_SCOPE = Object.freeze({
+  details: true,
+  genres: true,
+  credits: true,
+});
+
+export function normalizeMovieRefreshScope(scope) {
+  if (!scope) return { ...FULL_MOVIE_REFRESH_SCOPE };
+  return {
+    details: Boolean(scope.details),
+    genres: Boolean(scope.genres),
+    credits: Boolean(scope.credits),
+  };
+}
+
+function isAllFalseScope(scope) {
+  if (!scope) return false;
+  for (const v of Object.values(scope)) if (v) return false;
+  return true;
+}
+
+function buildEmptyMovieResult(movieId, action, scope) {
+  return {
+    movieId,
+    action,
+    scope: scope ? { ...scope } : { ...FULL_MOVIE_REFRESH_SCOPE },
+    genresLinked: 0,
+    genresSkipped: 0,
+    castLinked: 0,
+    castSkipped: 0,
+    castPersonsIngested: 0,
+    crewLinked: 0,
+    crewSkipped: 0,
+    crewPersonsIngested: 0,
+  };
+}
+
 async function writeScriptLog({
   scriptName = SCRIPT_NAME,
   status,
@@ -553,6 +590,7 @@ export async function ingestMovie({
   apiKey,
   onPrefetchProgress,
   forceRefreshExisting = false,
+  refreshScope = null,
 } = {}) {
   if (typeof tmdbId !== "number" || !Number.isFinite(tmdbId)) {
     throw new Error("ingestMovie requires a numeric `tmdbId`.");
@@ -560,49 +598,66 @@ export async function ingestMovie({
 
   const existingMovieId = await findExistingMovieId(tmdbId);
   if (existingMovieId && !forceRefreshExisting) {
-    return {
-      movieId: existingMovieId,
-      action: "skipped_existing",
-      genresLinked: 0,
-      genresSkipped: 0,
-      castLinked: 0,
-      castSkipped: 0,
-      castPersonsIngested: 0,
-      crewLinked: 0,
-      crewSkipped: 0,
-      crewPersonsIngested: 0,
-    };
+    return buildEmptyMovieResult(existingMovieId, "skipped_existing", null);
+  }
+
+  const isExistingEntity = Boolean(existingMovieId);
+  const effectiveScope =
+    isExistingEntity && refreshScope
+      ? normalizeMovieRefreshScope(refreshScope)
+      : { ...FULL_MOVIE_REFRESH_SCOPE };
+
+  if (isExistingEntity && refreshScope && isAllFalseScope(effectiveScope)) {
+    return buildEmptyMovieResult(
+      existingMovieId,
+      "unchanged_existing",
+      effectiveScope
+    );
   }
 
   const resolvedKey = apiKey ?? getApiKey();
-  const [moviePayload, credits] = await Promise.all([
-    fetchTmdbMovie(resolvedKey, tmdbId),
-    fetchTmdbMovieCredits(resolvedKey, tmdbId),
-  ]);
+  const fetchPromises = [fetchTmdbMovie(resolvedKey, tmdbId)];
+  if (effectiveScope.credits) {
+    fetchPromises.push(fetchTmdbMovieCredits(resolvedKey, tmdbId));
+  }
+  const fetched = await Promise.all(fetchPromises);
+  const moviePayload = fetched[0];
+  const credits = effectiveScope.credits
+    ? fetched[1]
+    : { cast: [], crew: [] };
   const normalized = normalizeMoviePayload(moviePayload);
 
-  const castTasks = collectCreditTasks(credits.cast, []);
-  const crewTasks = collectCreditTasks([], credits.crew);
+  const castTasks = effectiveScope.credits
+    ? collectCreditTasks(credits.cast, [])
+    : [];
+  const crewTasks = effectiveScope.credits
+    ? collectCreditTasks([], credits.crew)
+    : [];
 
   const castIds = castTasks.map((t) => t.personTmdbId);
   const crewIds = crewTasks.map((t) => t.personTmdbId);
 
-  const [castPrefetch, crewPrefetch] = await Promise.all([
-    prefetchPersonPayloads(
-      castIds,
-      resolvedKey,
-      onPrefetchProgress
-        ? (done, total) => onPrefetchProgress("cast", done, total)
-        : undefined
-    ),
-    prefetchPersonPayloads(
-      crewIds,
-      resolvedKey,
-      onPrefetchProgress
-        ? (done, total) => onPrefetchProgress("crew", done, total)
-        : undefined
-    ),
-  ]);
+  const [castPrefetch, crewPrefetch] = effectiveScope.credits
+    ? await Promise.all([
+        prefetchPersonPayloads(
+          castIds,
+          resolvedKey,
+          onPrefetchProgress
+            ? (done, total) => onPrefetchProgress("cast", done, total)
+            : undefined
+        ),
+        prefetchPersonPayloads(
+          crewIds,
+          resolvedKey,
+          onPrefetchProgress
+            ? (done, total) => onPrefetchProgress("crew", done, total)
+            : undefined
+        ),
+      ])
+    : [
+        { payloads: new Map(), failures: [] },
+        { payloads: new Map(), failures: [] },
+      ];
 
   const jobCache = new Map();
 
@@ -618,49 +673,67 @@ export async function ingestMovie({
   let crewSkipped = 0;
   let crewPersonsIngested = 0;
   try {
-    const upsertResult = await upsertMovie(normalized, tx, {
-      allowUpdateExisting: forceRefreshExisting,
-    });
-    movieId = upsertResult.movieId;
-    action = upsertResult.action;
+    if (!isExistingEntity || effectiveScope.details) {
+      const upsertResult = await upsertMovie(normalized, tx, {
+        allowUpdateExisting: forceRefreshExisting,
+      });
+      movieId = upsertResult.movieId;
+      action = upsertResult.action;
+    } else {
+      movieId = await findExistingMovieId(tmdbId, tx);
+      if (!movieId) {
+        throw new Error(
+          `Cannot scope-update non-existent movie tmdb_id=${tmdbId}.`
+        );
+      }
+      action = "scoped_existing";
+    }
 
     if (action !== "skipped_existing") {
-      const genresResult = await replaceMovieGenres(movieId, normalized.genres, tx);
-      genresLinked = genresResult.linked;
-      genresSkipped = genresResult.skipped;
+      if (effectiveScope.genres) {
+        const genresResult = await replaceMovieGenres(
+          movieId,
+          normalized.genres,
+          tx
+        );
+        genresLinked = genresResult.linked;
+        genresSkipped = genresResult.skipped;
+      }
 
-      await sequelize.query(
-        `
-          DELETE FROM movie_credits
-          WHERE movie_id = :movieId;
-        `,
-        {
-          replacements: { movieId },
+      if (effectiveScope.credits) {
+        await sequelize.query(
+          `
+            DELETE FROM movie_credits
+            WHERE movie_id = :movieId;
+          `,
+          {
+            replacements: { movieId },
+            transaction: tx,
+          }
+        );
+
+        const castResult = await processCreditsPhase({
+          tasks: castTasks,
+          personPayloads: castPrefetch.payloads,
+          movieId,
+          jobCache,
           transaction: tx,
-        }
-      );
+        });
+        castLinked = castResult.linked;
+        castSkipped = castResult.skipped + castPrefetch.failures.length;
+        castPersonsIngested = castResult.personsIngested;
 
-      const castResult = await processCreditsPhase({
-        tasks: castTasks,
-        personPayloads: castPrefetch.payloads,
-        movieId,
-        jobCache,
-        transaction: tx,
-      });
-      castLinked = castResult.linked;
-      castSkipped = castResult.skipped + castPrefetch.failures.length;
-      castPersonsIngested = castResult.personsIngested;
-
-      const crewResult = await processCreditsPhase({
-        tasks: crewTasks,
-        personPayloads: crewPrefetch.payloads,
-        movieId,
-        jobCache,
-        transaction: tx,
-      });
-      crewLinked = crewResult.linked;
-      crewSkipped = crewResult.skipped + crewPrefetch.failures.length;
-      crewPersonsIngested = crewResult.personsIngested;
+        const crewResult = await processCreditsPhase({
+          tasks: crewTasks,
+          personPayloads: crewPrefetch.payloads,
+          movieId,
+          jobCache,
+          transaction: tx,
+        });
+        crewLinked = crewResult.linked;
+        crewSkipped = crewResult.skipped + crewPrefetch.failures.length;
+        crewPersonsIngested = crewResult.personsIngested;
+      }
     }
 
     await tx.commit();
@@ -682,6 +755,7 @@ export async function ingestMovie({
   return {
     movieId,
     action,
+    scope: effectiveScope,
     genresLinked,
     genresSkipped,
     castLinked,

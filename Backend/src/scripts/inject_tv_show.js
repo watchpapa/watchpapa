@@ -15,6 +15,59 @@ const CAST_DEPARTMENT_NAME = "Acting";
 let cachedApiKey = null;
 const existingShowIdCache = new Map();
 
+export const FULL_TV_REFRESH_SCOPE = Object.freeze({
+  details: true,
+  genres: true,
+  credits: true,
+  seasons: true,
+  episodes: true,
+  episodeCredits: true,
+});
+
+export function normalizeTvRefreshScope(scope) {
+  if (!scope) return { ...FULL_TV_REFRESH_SCOPE };
+  return {
+    details: Boolean(scope.details),
+    genres: Boolean(scope.genres),
+    credits: Boolean(scope.credits),
+    seasons: Boolean(scope.seasons),
+    episodes: Boolean(scope.episodes),
+    episodeCredits: Boolean(scope.episodeCredits),
+  };
+}
+
+function isAllFalseScope(scope) {
+  if (!scope) return false;
+  for (const v of Object.values(scope)) if (v) return false;
+  return true;
+}
+
+function buildEmptyShowResult(showId, action, scope) {
+  return {
+    showId,
+    action,
+    scope: scope ? { ...scope } : { ...FULL_TV_REFRESH_SCOPE },
+    genresLinked: 0,
+    genresSkipped: 0,
+    creditsLinked: 0,
+    creditsSkipped: 0,
+    personsIngested: 0,
+    seasonsProcessed: 0,
+    seasonsInserted: 0,
+    seasonsUpdated: 0,
+    seasonsUnchanged: 0,
+    seasonsSkippedSpecial: 0,
+    episodesProcessed: 0,
+    episodesInserted: 0,
+    episodesUpdated: 0,
+    episodesUnchanged: 0,
+    episodesFailed: 0,
+    episodeCreditsLinked: 0,
+    episodeCreditsSkipped: 0,
+    episodePersonsIngested: 0,
+  };
+}
+
 async function writeScriptLog({
   scriptName = SCRIPT_NAME,
   status,
@@ -441,6 +494,38 @@ async function findExistingShowId(tmdbId, transaction) {
     existingShowIdCache.set(tmdbId, showId);
   }
   return showId;
+}
+
+async function findSeasonIdByShowAndNumber(showId, seasonNumber, transaction) {
+  const [rows] = await sequelize.query(
+    `
+      SELECT id
+      FROM season
+      WHERE show_id = :showId AND season_number = :seasonNumber
+      LIMIT 1;
+    `,
+    {
+      replacements: { showId, seasonNumber },
+      transaction,
+    }
+  );
+  return rows?.[0]?.id ?? null;
+}
+
+async function findEpisodeIdBySeasonAndNumber(seasonId, episodeNumber, transaction) {
+  const [rows] = await sequelize.query(
+    `
+      SELECT id
+      FROM episode
+      WHERE season_id = :seasonId AND episode_number = :episodeNumber
+      LIMIT 1;
+    `,
+    {
+      replacements: { seasonId, episodeNumber },
+      transaction,
+    }
+  );
+  return rows?.[0]?.id ?? null;
 }
 
 async function upsertShow(
@@ -1067,19 +1152,38 @@ async function runDetailsTransaction({
   normalized,
   transaction,
   forceRefreshExisting = false,
+  scope,
+  isNewEntity = false,
 }) {
-  const { showId, action } = await upsertShow(normalized, transaction, {
-    allowUpdateExisting: forceRefreshExisting,
-  });
-  if (action === "skipped_existing") {
-    return { showId, action, genresLinked: 0, genresSkipped: 0 };
+  let showId;
+  let action;
+
+  if (isNewEntity || scope.details) {
+    const result = await upsertShow(normalized, transaction, {
+      allowUpdateExisting: forceRefreshExisting,
+    });
+    showId = result.showId;
+    action = result.action;
+    if (action === "skipped_existing") {
+      return { showId, action, genresLinked: 0, genresSkipped: 0 };
+    }
+  } else {
+    showId = await findExistingShowId(normalized.tmdbId, transaction);
+    if (!showId) {
+      throw new Error(
+        `Cannot scope-update non-existent tv show tmdb_id=${normalized.tmdbId}.`
+      );
+    }
+    action = "scoped_existing";
   }
-  const { linked: genresLinked, skipped: genresSkipped } = await replaceShowGenres(
-    showId,
-    normalized.genres,
-    transaction
-  );
-  return { showId, action, genresLinked, genresSkipped };
+
+  if (scope.genres) {
+    const { linked: genresLinked, skipped: genresSkipped } =
+      await replaceShowGenres(showId, normalized.genres, transaction);
+    return { showId, action, genresLinked, genresSkipped };
+  }
+
+  return { showId, action, genresLinked: 0, genresSkipped: 0 };
 }
 
 async function runCreditsTransaction({
@@ -1113,6 +1217,7 @@ async function runSeasonsTransaction({
   tmdbTvId,
   seasonNumbers,
   apiKey,
+  scope,
   transaction,
 }) {
   let seasonsProcessed = 0;
@@ -1120,19 +1225,41 @@ async function runSeasonsTransaction({
   let seasonsUpdated = 0;
   let seasonsUnchanged = 0;
   const seasonByNumber = new Map();
+  const needsEpisodeWork = scope.episodes || scope.episodeCredits;
 
   for (const seasonNumber of seasonNumbers) {
-    const seasonPayload = await fetchTmdbSeason(apiKey, tmdbTvId, seasonNumber);
-    const normalized = normalizeSeasonPayload(seasonPayload, showId);
-    const result = await upsertSeason(normalized, transaction);
-    seasonByNumber.set(seasonNumber, {
-      seasonId: result.seasonId,
-      seasonPayload,
-    });
-    seasonsProcessed += 1;
-    if (result.action === "inserted") seasonsInserted += 1;
-    else if (result.action === "updated") seasonsUpdated += 1;
-    else seasonsUnchanged += 1;
+    if (scope.seasons) {
+      const seasonPayload = await fetchTmdbSeason(apiKey, tmdbTvId, seasonNumber);
+      const normalized = normalizeSeasonPayload(seasonPayload, showId);
+      const result = await upsertSeason(normalized, transaction);
+      seasonByNumber.set(seasonNumber, {
+        seasonId: result.seasonId,
+        seasonPayload,
+      });
+      seasonsProcessed += 1;
+      if (result.action === "inserted") seasonsInserted += 1;
+      else if (result.action === "updated") seasonsUpdated += 1;
+      else seasonsUnchanged += 1;
+      continue;
+    }
+
+    if (!needsEpisodeWork) continue;
+
+    let seasonId = await findSeasonIdByShowAndNumber(
+      showId,
+      seasonNumber,
+      transaction
+    );
+    let seasonPayload = null;
+    if (!seasonId) {
+      seasonPayload = await fetchTmdbSeason(apiKey, tmdbTvId, seasonNumber);
+      const normalized = normalizeSeasonPayload(seasonPayload, showId);
+      const result = await upsertSeason(normalized, transaction);
+      seasonId = result.seasonId;
+    } else {
+      seasonPayload = await fetchTmdbSeason(apiKey, tmdbTvId, seasonNumber);
+    }
+    seasonByNumber.set(seasonNumber, { seasonId, seasonPayload });
   }
 
   return {
@@ -1146,9 +1273,10 @@ async function runSeasonsTransaction({
 
 async function runEpisodesTransaction({
   tmdbTvId,
-  seasonByNumber,
+  workItems,
   apiKey,
   jobCache,
+  scope,
   onEpisodeProgress,
   transaction,
 }) {
@@ -1162,16 +1290,6 @@ async function runEpisodesTransaction({
   let episodePersonsIngested = 0;
   const personPayloadCache = new Map();
   const personIdCache = new Map();
-  const workItems = [];
-
-  for (const [seasonNumber, seasonState] of seasonByNumber.entries()) {
-    const seasonPayload = seasonState.seasonPayload;
-    const seasonId = seasonState.seasonId;
-    const episodeNumbers = deriveEpisodeNumbers(seasonPayload.episodes);
-    for (const episodeNumber of episodeNumbers) {
-      workItems.push({ seasonNumber, seasonId, episodeNumber });
-    }
-  }
 
   const totalEpisodes = workItems.length;
   if (typeof onEpisodeProgress === "function") {
@@ -1188,57 +1306,85 @@ async function runEpisodesTransaction({
 
   for (const item of workItems) {
     const { seasonNumber, seasonId, episodeNumber } = item;
-    const [episodePayload, episodeCreditsPayload] = await Promise.all([
+    const fetchTasks = [
       fetchTmdbEpisode(apiKey, tmdbTvId, seasonNumber, episodeNumber),
-      fetchTmdbEpisodeCredits(apiKey, tmdbTvId, seasonNumber, episodeNumber),
-    ]);
-
-    const normalizedEpisode = normalizeEpisodePayload(episodePayload, seasonId);
-    const episodeResult = await upsertEpisode(normalizedEpisode, transaction);
-    const episodeId = episodeResult.episodeId;
-    if (episodeResult.action === "inserted") episodesInserted += 1;
-    else if (episodeResult.action === "updated") episodesUpdated += 1;
-    else episodesUnchanged += 1;
-
-    const episodeCreditTasks = collectEpisodeCreditTasks(
-      episodePayload,
-      episodeCreditsPayload
-    );
-
-    await sequelize.query(
-      `
-        DELETE FROM episode_credits
-        WHERE episode_id = :episodeId;
-      `,
-      {
-        replacements: { episodeId },
-        transaction,
-      }
-    );
-
-    const prefetch = await prefetchPersonPayloadsWithCache(
-      episodeCreditTasks.map((t) => t.personTmdbId),
-      apiKey,
-      personPayloadCache
-    );
-
-    const episodeCreditResult = await processEpisodeCreditsPhase({
-      tasks: episodeCreditTasks,
-      personPayloads: prefetch.payloads,
-      episodeId,
-      jobCache,
-      personIdCache,
-      transaction,
-    });
-
-    episodeCreditsLinked += episodeCreditResult.linked;
-    episodeCreditsSkipped += episodeCreditResult.skipped + prefetch.failures.length;
-    episodePersonsIngested += episodeCreditResult.personsIngested;
-
-    for (const f of prefetch.failures) {
-      console.warn(
-        `  Warning: failed to prefetch person tmdb_id=${f.tmdbId}: ${f.message}. Its episode credits were skipped.`
+    ];
+    if (scope.episodeCredits) {
+      fetchTasks.push(
+        fetchTmdbEpisodeCredits(apiKey, tmdbTvId, seasonNumber, episodeNumber)
       );
+    }
+    const fetched = await Promise.all(fetchTasks);
+    const episodePayload = fetched[0];
+    const episodeCreditsPayload =
+      scope.episodeCredits ? fetched[1] : { cast: [], crew: [], guestStars: [] };
+
+    let episodeId;
+    if (scope.episodes) {
+      const normalizedEpisode = normalizeEpisodePayload(episodePayload, seasonId);
+      const episodeResult = await upsertEpisode(normalizedEpisode, transaction);
+      episodeId = episodeResult.episodeId;
+      if (episodeResult.action === "inserted") episodesInserted += 1;
+      else if (episodeResult.action === "updated") episodesUpdated += 1;
+      else episodesUnchanged += 1;
+    } else {
+      episodeId = await findEpisodeIdBySeasonAndNumber(
+        seasonId,
+        episodeNumber,
+        transaction
+      );
+      if (!episodeId) {
+        const normalizedEpisode = normalizeEpisodePayload(episodePayload, seasonId);
+        const episodeResult = await upsertEpisode(normalizedEpisode, transaction);
+        episodeId = episodeResult.episodeId;
+        if (episodeResult.action === "inserted") episodesInserted += 1;
+      } else {
+        episodesUnchanged += 1;
+      }
+    }
+
+    if (scope.episodeCredits) {
+      const episodeCreditTasks = collectEpisodeCreditTasks(
+        episodePayload,
+        episodeCreditsPayload
+      );
+
+      await sequelize.query(
+        `
+          DELETE FROM episode_credits
+          WHERE episode_id = :episodeId;
+        `,
+        {
+          replacements: { episodeId },
+          transaction,
+        }
+      );
+
+      const prefetch = await prefetchPersonPayloadsWithCache(
+        episodeCreditTasks.map((t) => t.personTmdbId),
+        apiKey,
+        personPayloadCache
+      );
+
+      const episodeCreditResult = await processEpisodeCreditsPhase({
+        tasks: episodeCreditTasks,
+        personPayloads: prefetch.payloads,
+        episodeId,
+        jobCache,
+        personIdCache,
+        transaction,
+      });
+
+      episodeCreditsLinked += episodeCreditResult.linked;
+      episodeCreditsSkipped +=
+        episodeCreditResult.skipped + prefetch.failures.length;
+      episodePersonsIngested += episodeCreditResult.personsIngested;
+
+      for (const f of prefetch.failures) {
+        console.warn(
+          `  Warning: failed to prefetch person tmdb_id=${f.tmdbId}: ${f.message}. Its episode credits were skipped.`
+        );
+      }
     }
 
     episodesProcessed += 1;
@@ -1267,12 +1413,71 @@ async function runEpisodesTransaction({
   };
 }
 
+async function buildTargetedEpisodeWorkItems({
+  showId,
+  tmdbTvId,
+  targetedEpisodes,
+  apiKey,
+  transaction,
+}) {
+  const items = [];
+  const cachedSeasonIds = new Map();
+  for (const ep of targetedEpisodes) {
+    if (!Number.isFinite(ep?.seasonNumber) || ep.seasonNumber <= 0) continue;
+    if (!Number.isFinite(ep?.episodeNumber) || ep.episodeNumber <= 0) continue;
+
+    let seasonId = cachedSeasonIds.get(ep.seasonNumber);
+    if (!seasonId) {
+      seasonId = await findSeasonIdByShowAndNumber(
+        showId,
+        ep.seasonNumber,
+        transaction
+      );
+      if (!seasonId) {
+        const seasonPayload = await fetchTmdbSeason(
+          apiKey,
+          tmdbTvId,
+          ep.seasonNumber
+        );
+        const normalized = normalizeSeasonPayload(seasonPayload, showId);
+        const result = await upsertSeason(normalized, transaction);
+        seasonId = result.seasonId;
+      }
+      cachedSeasonIds.set(ep.seasonNumber, seasonId);
+    }
+
+    items.push({
+      seasonNumber: ep.seasonNumber,
+      seasonId,
+      episodeNumber: ep.episodeNumber,
+    });
+  }
+  return items;
+}
+
+function buildFullEpisodeWorkItems(seasonByNumber) {
+  const items = [];
+  for (const [seasonNumber, seasonState] of seasonByNumber.entries()) {
+    const episodeNumbers = deriveEpisodeNumbers(seasonState.seasonPayload?.episodes);
+    for (const episodeNumber of episodeNumbers) {
+      items.push({
+        seasonNumber,
+        seasonId: seasonState.seasonId,
+        episodeNumber,
+      });
+    }
+  }
+  return items;
+}
+
 export async function ingestTvShow({
   tmdbTvId,
   apiKey,
   onPrefetchProgress,
   onEpisodeProgress,
   forceRefreshExisting = false,
+  refreshScope = null,
+  targetedEpisodes = null,
 } = {}) {
   if (typeof tmdbTvId !== "number" || !Number.isFinite(tmdbTvId)) {
     throw new Error("ingestTvShow requires a numeric `tmdbTvId`.");
@@ -1280,51 +1485,69 @@ export async function ingestTvShow({
 
   const existingShowId = await findExistingShowId(tmdbTvId);
   if (existingShowId && !forceRefreshExisting) {
-    return {
-      showId: existingShowId,
-      action: "skipped_existing",
-      genresLinked: 0,
-      genresSkipped: 0,
-      creditsLinked: 0,
-      creditsSkipped: 0,
-      personsIngested: 0,
-      seasonsProcessed: 0,
-      seasonsInserted: 0,
-      seasonsUpdated: 0,
-      seasonsUnchanged: 0,
-      seasonsSkippedSpecial: 0,
-      episodesProcessed: 0,
-      episodesInserted: 0,
-      episodesUpdated: 0,
-      episodesUnchanged: 0,
-      episodesFailed: 0,
-      episodeCreditsLinked: 0,
-      episodeCreditsSkipped: 0,
-      episodePersonsIngested: 0,
-    };
+    return buildEmptyShowResult(existingShowId, "skipped_existing", null);
+  }
+
+  const isExistingEntity = Boolean(existingShowId);
+  const effectiveScope =
+    isExistingEntity && refreshScope
+      ? normalizeTvRefreshScope(refreshScope)
+      : { ...FULL_TV_REFRESH_SCOPE };
+
+  if (
+    isExistingEntity &&
+    refreshScope &&
+    isAllFalseScope(effectiveScope) &&
+    (!targetedEpisodes || targetedEpisodes.length === 0)
+  ) {
+    return buildEmptyShowResult(
+      existingShowId,
+      "unchanged_existing",
+      effectiveScope
+    );
   }
 
   const resolvedKey = apiKey ?? getApiKey();
 
-  const [showPayload, credits] = await Promise.all([
-    fetchTmdbTvShow(resolvedKey, tmdbTvId),
-    fetchTmdbTvShowCredits(resolvedKey, tmdbTvId),
-  ]);
+  const fetchPromises = [fetchTmdbTvShow(resolvedKey, tmdbTvId)];
+  const fetchCredits = effectiveScope.credits;
+  if (fetchCredits) {
+    fetchPromises.push(fetchTmdbTvShowCredits(resolvedKey, tmdbTvId));
+  }
+  const fetched = await Promise.all(fetchPromises);
+  const showPayload = fetched[0];
+  const credits = fetchCredits ? fetched[1] : { cast: [], crew: [] };
   const normalized = normalizeShowPayload(showPayload);
   const { seasonNumbers, seasonsSkippedSpecial } = deriveRegularSeasonNumbers(
     showPayload.seasons
   );
 
-  const creditTasks = collectCreditTasks(credits.cast, credits.crew);
+  const creditTasks = effectiveScope.credits
+    ? collectCreditTasks(credits.cast, credits.crew)
+    : [];
   const creditIds = creditTasks.map((t) => t.personTmdbId);
 
-  const prefetch = await prefetchPersonPayloads(
-    creditIds,
-    resolvedKey,
-    onPrefetchProgress
-      ? (done, total) => onPrefetchProgress(done, total)
-      : undefined
-  );
+  const prefetch = effectiveScope.credits
+    ? await prefetchPersonPayloads(
+        creditIds,
+        resolvedKey,
+        onPrefetchProgress
+          ? (done, total) => onPrefetchProgress(done, total)
+          : undefined
+      )
+    : { payloads: new Map(), failures: [] };
+
+  const useTargeted =
+    Array.isArray(targetedEpisodes) && targetedEpisodes.length > 0;
+  const needsSeasonsLoop =
+    !useTargeted &&
+    (effectiveScope.seasons ||
+      effectiveScope.episodes ||
+      effectiveScope.episodeCredits);
+  const needsEpisodesLoop =
+    useTargeted ||
+    effectiveScope.episodes ||
+    effectiveScope.episodeCredits;
 
   const jobCache = new Map();
   const tx = await sequelize.transaction();
@@ -1340,6 +1563,7 @@ export async function ingestTvShow({
     seasonsInserted: 0,
     seasonsUpdated: 0,
     seasonsUnchanged: 0,
+    seasonByNumber: new Map(),
   };
   let episodesResult = {
     episodesProcessed: 0,
@@ -1356,6 +1580,8 @@ export async function ingestTvShow({
       normalized,
       transaction: tx,
       forceRefreshExisting,
+      scope: effectiveScope,
+      isNewEntity: !isExistingEntity,
     });
     showId = detailsResult.showId;
     action = detailsResult.action;
@@ -1363,32 +1589,53 @@ export async function ingestTvShow({
     genresSkipped = detailsResult.genresSkipped;
 
     if (action !== "skipped_existing") {
-      const creditsResult = await runCreditsTransaction({
-        showId,
-        tasks: creditTasks,
-        personPayloads: prefetch.payloads,
-        jobCache,
-        transaction: tx,
-      });
-      creditsLinked = creditsResult.linked;
-      creditsSkipped = creditsResult.skipped + prefetch.failures.length;
-      personsIngested = creditsResult.personsIngested;
+      if (effectiveScope.credits) {
+        const creditsRes = await runCreditsTransaction({
+          showId,
+          tasks: creditTasks,
+          personPayloads: prefetch.payloads,
+          jobCache,
+          transaction: tx,
+        });
+        creditsLinked = creditsRes.linked;
+        creditsSkipped = creditsRes.skipped + prefetch.failures.length;
+        personsIngested = creditsRes.personsIngested;
+      }
 
-      seasonsResult = await runSeasonsTransaction({
-        showId,
-        tmdbTvId,
-        seasonNumbers,
-        apiKey: resolvedKey,
-        transaction: tx,
-      });
-      episodesResult = await runEpisodesTransaction({
-        tmdbTvId,
-        seasonByNumber: seasonsResult.seasonByNumber,
-        apiKey: resolvedKey,
-        jobCache,
-        onEpisodeProgress,
-        transaction: tx,
-      });
+      let workItems = [];
+      if (useTargeted) {
+        workItems = await buildTargetedEpisodeWorkItems({
+          showId,
+          tmdbTvId,
+          targetedEpisodes,
+          apiKey: resolvedKey,
+          transaction: tx,
+        });
+      } else if (needsSeasonsLoop) {
+        seasonsResult = await runSeasonsTransaction({
+          showId,
+          tmdbTvId,
+          seasonNumbers,
+          apiKey: resolvedKey,
+          scope: effectiveScope,
+          transaction: tx,
+        });
+        if (needsEpisodesLoop) {
+          workItems = buildFullEpisodeWorkItems(seasonsResult.seasonByNumber);
+        }
+      }
+
+      if (needsEpisodesLoop && workItems.length > 0) {
+        episodesResult = await runEpisodesTransaction({
+          tmdbTvId,
+          workItems,
+          apiKey: resolvedKey,
+          jobCache,
+          scope: effectiveScope,
+          onEpisodeProgress,
+          transaction: tx,
+        });
+      }
     }
 
     await tx.commit();
@@ -1410,6 +1657,8 @@ export async function ingestTvShow({
   return {
     showId,
     action,
+    scope: effectiveScope,
+    targetedEpisodes: useTargeted ? targetedEpisodes.length : 0,
     genresLinked,
     genresSkipped,
     creditsLinked,

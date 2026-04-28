@@ -122,12 +122,16 @@ function parseArgs(argv) {
   return { limit, startDate, endDate };
 }
 
+function sumField(field, ...results) {
+  return results.reduce((acc, r) => acc + (r?.[field] ?? 0), 0);
+}
+
 function sumRefreshed(...results) {
-  return results.reduce((acc, r) => acc + (r?.refreshed ?? 0), 0);
+  return sumField("refreshed", ...results);
 }
 
 function sumFailed(...results) {
-  return results.reduce((acc, r) => acc + (r?.failed ?? 0), 0);
+  return sumField("failed", ...results);
 }
 
 function combineFailedItems(...results) {
@@ -167,6 +171,10 @@ export async function ingestChangedAll24h({ limit = 100000, apiKey, startDate, e
     shows,
     people,
     refreshed: sumRefreshed(movies, shows, people),
+    refreshedFull: sumField("refreshedFull", movies, shows, people),
+    refreshedScoped: sumField("refreshedScoped", movies, shows, people),
+    refreshedTargeted: sumField("refreshedTargeted", movies, shows, people),
+    unchanged: sumField("unchanged", movies, shows, people),
     failed: sumFailed(movies, shows, people),
     failedItems: combineFailedItems(movies, shows, people),
   };
@@ -204,10 +212,19 @@ async function main() {
       const result = await ingestChangedAll24h({ limit, startDate, endDate });
       console.log(
         `Changed all refresh complete (${result.startDate}..${result.endDate}). ` +
-          `Movies refreshed: ${result.movies.refreshed}, failed: ${result.movies.failed}. ` +
-          `Shows refreshed: ${result.shows.refreshed}, failed: ${result.shows.failed}. ` +
-          `People refreshed: ${result.people.refreshed}, failed: ${result.people.failed}. ` +
-          `Total refreshed: ${result.refreshed}, total failed: ${result.failed}.`
+          `Movies refreshed: ${result.movies.refreshed} ` +
+          `(full ${result.movies.refreshedFull ?? 0}, scoped ${result.movies.refreshedScoped ?? 0}), ` +
+          `unchanged: ${result.movies.unchanged ?? 0}, failed: ${result.movies.failed}. ` +
+          `Shows refreshed: ${result.shows.refreshed} ` +
+          `(full ${result.shows.refreshedFull ?? 0}, scoped ${result.shows.refreshedScoped ?? 0}, ` +
+          `targetedEpisodes ${result.shows.refreshedTargeted ?? 0}), ` +
+          `unchanged: ${result.shows.unchanged ?? 0}, failed: ${result.shows.failed}. ` +
+          `People refreshed: ${result.people.refreshed} ` +
+          `(full ${result.people.refreshedFull ?? 0}, scoped ${result.people.refreshedScoped ?? 0}), ` +
+          `unchanged: ${result.people.unchanged ?? 0}, failed: ${result.people.failed}. ` +
+          `Total refreshed: ${result.refreshed} ` +
+          `(full ${result.refreshedFull}, scoped ${result.refreshedScoped}, targetedEpisodes ${result.refreshedTargeted}), ` +
+          `total unchanged: ${result.unchanged}, total failed: ${result.failed}.`
       );
 
       if (!logWritten) {
@@ -224,19 +241,33 @@ async function main() {
                   scriptName: scopedScriptName,
                   summary: {
                     refreshed: result.refreshed,
+                    refreshedFull: result.refreshedFull,
+                    refreshedScoped: result.refreshedScoped,
+                    refreshedTargeted: result.refreshedTargeted,
+                    unchanged: result.unchanged,
                     failed: result.failed,
                     startDate: result.startDate,
                     endDate: result.endDate,
                     movies: {
                       refreshed: result.movies.refreshed,
+                      refreshedFull: result.movies.refreshedFull ?? 0,
+                      refreshedScoped: result.movies.refreshedScoped ?? 0,
+                      unchanged: result.movies.unchanged ?? 0,
                       failed: result.movies.failed,
                     },
                     shows: {
                       refreshed: result.shows.refreshed,
+                      refreshedFull: result.shows.refreshedFull ?? 0,
+                      refreshedScoped: result.shows.refreshedScoped ?? 0,
+                      refreshedTargeted: result.shows.refreshedTargeted ?? 0,
+                      unchanged: result.shows.unchanged ?? 0,
                       failed: result.shows.failed,
                     },
                     people: {
                       refreshed: result.people.refreshed,
+                      refreshedFull: result.people.refreshedFull ?? 0,
+                      refreshedScoped: result.people.refreshedScoped ?? 0,
+                      unchanged: result.people.unchanged ?? 0,
                       failed: result.people.failed,
                     },
                   },

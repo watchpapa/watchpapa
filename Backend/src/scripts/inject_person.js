@@ -10,6 +10,25 @@ const SCRIPT_NAME = "inject_person";
 
 let cachedApiKey = null;
 
+export const FULL_PERSON_REFRESH_SCOPE = Object.freeze({
+  details: true,
+  aka: true,
+});
+
+export function normalizePersonRefreshScope(scope) {
+  if (!scope) return { ...FULL_PERSON_REFRESH_SCOPE };
+  return {
+    details: Boolean(scope.details),
+    aka: Boolean(scope.aka),
+  };
+}
+
+function isAllFalsePersonScope(scope) {
+  if (!scope) return false;
+  for (const v of Object.values(scope)) if (v) return false;
+  return true;
+}
+
 async function writeScriptLog({
   scriptName = SCRIPT_NAME,
   status,
@@ -363,6 +382,7 @@ export async function ingestPerson({
   apiKey,
   preloadedPayload,
   forceRefreshExisting = false,
+  refreshScope = null,
 } = {}) {
   if (typeof tmdbId !== "number" || !Number.isFinite(tmdbId)) {
     throw new Error("ingestPerson requires a numeric `tmdbId`.");
@@ -378,6 +398,29 @@ export async function ingestPerson({
       return {
         personId: existingPersonId,
         action: "skipped_existing",
+        scope: { ...FULL_PERSON_REFRESH_SCOPE },
+        akaInserted: 0,
+        akaRestored: 0,
+        akaDeleted: 0,
+      };
+    }
+
+    const isExistingEntity = Boolean(existingPersonId);
+    const effectiveScope =
+      isExistingEntity && refreshScope
+        ? normalizePersonRefreshScope(refreshScope)
+        : { ...FULL_PERSON_REFRESH_SCOPE };
+
+    if (
+      isExistingEntity &&
+      refreshScope &&
+      isAllFalsePersonScope(effectiveScope)
+    ) {
+      if (ownsTransaction) await tx.commit();
+      return {
+        personId: existingPersonId,
+        action: "unchanged_existing",
+        scope: effectiveScope,
         akaInserted: 0,
         akaRestored: 0,
         akaDeleted: 0,
@@ -394,54 +437,66 @@ export async function ingestPerson({
     const normalized = normalizePersonPayload(payload);
 
     if (existingPersonId && forceRefreshExisting) {
-      const knownForDepartmentId = await resolveDepartmentId(
-        normalized.knownForDepartmentName,
-        tx
-      );
-      await sequelize.query(
-        `
-          UPDATE person
-          SET
-            name = :name,
-            adult = :adult,
-            biography = :biography,
-            birthday = :birthday,
-            place_of_birth = :placeOfBirth,
-            deathday = :deathday,
-            gender = :gender,
-            popularity = :popularity,
-            known_for_department_id = :knownForDepartmentId,
-            profile_path = :profilePath,
-            updated_at = now()
-          WHERE id = :personId;
-        `,
-        {
-          replacements: {
-            personId: existingPersonId,
-            name: normalized.name,
-            adult: normalized.adult,
-            biography: normalized.biography,
-            birthday: normalized.birthday,
-            placeOfBirth: normalized.placeOfBirth,
-            deathday: normalized.deathday,
-            gender: normalized.gender,
-            popularity: normalized.popularity,
-            knownForDepartmentId,
-            profilePath: normalized.profilePath,
-          },
-          transaction: tx,
-        }
-      );
+      if (effectiveScope.details) {
+        const knownForDepartmentId = await resolveDepartmentId(
+          normalized.knownForDepartmentName,
+          tx
+        );
+        await sequelize.query(
+          `
+            UPDATE person
+            SET
+              name = :name,
+              adult = :adult,
+              biography = :biography,
+              birthday = :birthday,
+              place_of_birth = :placeOfBirth,
+              deathday = :deathday,
+              gender = :gender,
+              popularity = :popularity,
+              known_for_department_id = :knownForDepartmentId,
+              profile_path = :profilePath,
+              updated_at = now()
+            WHERE id = :personId;
+          `,
+          {
+            replacements: {
+              personId: existingPersonId,
+              name: normalized.name,
+              adult: normalized.adult,
+              biography: normalized.biography,
+              birthday: normalized.birthday,
+              placeOfBirth: normalized.placeOfBirth,
+              deathday: normalized.deathday,
+              gender: normalized.gender,
+              popularity: normalized.popularity,
+              knownForDepartmentId,
+              profilePath: normalized.profilePath,
+            },
+            transaction: tx,
+          }
+        );
+      }
 
-      const { akaInserted, akaRestored, akaDeleted } = await syncPersonAka(
-        existingPersonId,
-        normalized.alsoKnownAs,
-        tx
-      );
+      let akaInserted = 0;
+      let akaRestored = 0;
+      let akaDeleted = 0;
+      if (effectiveScope.aka) {
+        const akaResult = await syncPersonAka(
+          existingPersonId,
+          normalized.alsoKnownAs,
+          tx
+        );
+        akaInserted = akaResult.akaInserted;
+        akaRestored = akaResult.akaRestored;
+        akaDeleted = akaResult.akaDeleted;
+      }
+
       if (ownsTransaction) await tx.commit();
       return {
         personId: existingPersonId,
-        action: "updated_existing",
+        action: refreshScope ? "scoped_existing" : "updated_existing",
+        scope: effectiveScope,
         akaInserted,
         akaRestored,
         akaDeleted,
@@ -454,6 +509,7 @@ export async function ingestPerson({
       return {
         personId: insertResult.personId,
         action: "skipped_existing",
+        scope: { ...FULL_PERSON_REFRESH_SCOPE },
         akaInserted: 0,
         akaRestored: 0,
         akaDeleted: 0,
@@ -471,6 +527,7 @@ export async function ingestPerson({
     return {
       personId: insertResult.personId,
       action: "inserted",
+      scope: { ...FULL_PERSON_REFRESH_SCOPE },
       akaInserted,
       akaRestored,
       akaDeleted,
@@ -589,8 +646,10 @@ export async function batchIngestPersons(tmdbIds, personPayloads, transaction) {
 
   const personIdMap = new Map();
   for (const row of existingRows) {
-    personIdMap.set(row.tmdb_id, row.id);
-    existingPersonIdCache.set(row.tmdb_id, row.id);
+    const tmdbId = Number(row.tmdb_id);
+    if (!Number.isFinite(tmdbId)) continue;
+    personIdMap.set(tmdbId, row.id);
+    existingPersonIdCache.set(tmdbId, row.id);
   }
 
   const newIds = tmdbIds.filter((id) => !personIdMap.has(id));
@@ -628,8 +687,10 @@ export async function batchIngestPersons(tmdbIds, personPayloads, transaction) {
   );
 
   for (const row of insertedRows) {
-    personIdMap.set(row.tmdb_id, row.id);
-    existingPersonIdCache.set(row.tmdb_id, row.id);
+    const tmdbId = Number(row.tmdb_id);
+    if (!Number.isFinite(tmdbId)) continue;
+    personIdMap.set(tmdbId, row.id);
+    existingPersonIdCache.set(tmdbId, row.id);
   }
 
   const stillMissing = newIds.filter((id) => !personIdMap.has(id));
@@ -641,8 +702,10 @@ export async function batchIngestPersons(tmdbIds, personPayloads, transaction) {
       { replacements: missRepl, transaction }
     );
     for (const row of missRows) {
-      personIdMap.set(row.tmdb_id, row.id);
-      existingPersonIdCache.set(row.tmdb_id, row.id);
+      const tmdbId = Number(row.tmdb_id);
+      if (!Number.isFinite(tmdbId)) continue;
+      personIdMap.set(tmdbId, row.id);
+      existingPersonIdCache.set(tmdbId, row.id);
     }
   }
 

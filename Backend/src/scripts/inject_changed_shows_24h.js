@@ -3,7 +3,9 @@ import { pathToFileURL } from "url";
 import sequelize from "../db/database.js";
 import ingestTvShow from "./inject_tv_show.js";
 import {
+  classifyTvChanges,
   fetchChangedTvShowIds,
+  fetchTmdbEntityChanges,
   resolve24hDateWindow,
 } from "./tmdb_changes_fetch.js";
 
@@ -177,6 +179,10 @@ export async function ingestChangedShows24h({
   const toRefresh = changedIds.filter((tmdbId) => existingIds.has(tmdbId));
 
   let refreshed = 0;
+  let refreshedFull = 0;
+  let refreshedScoped = 0;
+  let refreshedTargeted = 0;
+  let unchanged = 0;
   let failed = 0;
   let skippedRace = 0;
   const failedItems = [];
@@ -193,13 +199,52 @@ export async function ingestChangedShows24h({
     }
 
     try {
+      const { changes } = await fetchTmdbEntityChanges({
+        apiKey: resolvedKey,
+        entityPath: "tv",
+        tmdbId,
+        startDate: resolvedRange.startDate,
+        endDate: resolvedRange.endDate,
+      });
+      const classification = classifyTvChanges(changes);
+
+      if (!classification.hasChanges) {
+        console.log(
+          `${prefix} Show ${tmdbId} no field-level changes -> unchanged`
+        );
+        unchanged += 1;
+        continue;
+      }
+
+      const refreshScope = classification.fullSync
+        ? null
+        : classification.scope;
+      const targetedEpisodes = classification.targetedEpisodes;
+
       const result = await ingestTvShow({
         tmdbTvId: tmdbId,
         apiKey: resolvedKey,
         forceRefreshExisting: true,
+        refreshScope,
+        targetedEpisodes,
       });
-      console.log(`${prefix} Show ${tmdbId} refreshed (${result.action})`);
+
+      let scopeLabel;
+      if (refreshScope == null) {
+        scopeLabel = "full";
+      } else if (targetedEpisodes && targetedEpisodes.length > 0) {
+        scopeLabel = `targeted=${targetedEpisodes.length} episode(s)`;
+      } else {
+        scopeLabel = `scope=${formatScope(classification.scope)}`;
+      }
+      console.log(
+        `${prefix} Show ${tmdbId} refreshed (${result.action}, ${scopeLabel})`
+      );
       refreshed += 1;
+      if (refreshScope == null) refreshedFull += 1;
+      else if (targetedEpisodes && targetedEpisodes.length > 0)
+        refreshedTargeted += 1;
+      else refreshedScoped += 1;
     } catch (error) {
       failed += 1;
       failedItems.push({ entityType: "show", tmdbId });
@@ -213,10 +258,21 @@ export async function ingestChangedShows24h({
     changedFetched: changedIds.length,
     existingMatched: toRefresh.length,
     refreshed,
+    refreshedFull,
+    refreshedScoped,
+    refreshedTargeted,
+    unchanged,
     failed,
     skippedRace,
     failedItems,
   };
+}
+
+function formatScope(scope) {
+  return Object.entries(scope)
+    .filter(([, v]) => v)
+    .map(([k]) => k)
+    .join(",") || "none";
 }
 
 async function main() {
@@ -252,7 +308,9 @@ async function main() {
       console.log(
         `Changed shows refresh complete (${result.startDate}..${result.endDate}). ` +
           `Changed fetched: ${result.changedFetched}. Existing matched: ${result.existingMatched}. ` +
-          `Refreshed: ${result.refreshed}. Failed: ${result.failed}. Skipped race: ${result.skippedRace}.`
+          `Refreshed: ${result.refreshed} (full ${result.refreshedFull}, scoped ${result.refreshedScoped}, ` +
+          `targetedEpisodes ${result.refreshedTargeted}). ` +
+          `Unchanged: ${result.unchanged}. Failed: ${result.failed}. Skipped race: ${result.skippedRace}.`
       );
 
       if (!logWritten) {
@@ -269,6 +327,10 @@ async function main() {
                   scriptName: scopedScriptName,
                   summary: {
                     refreshed: result.refreshed,
+                    refreshedFull: result.refreshedFull,
+                    refreshedScoped: result.refreshedScoped,
+                    refreshedTargeted: result.refreshedTargeted,
+                    unchanged: result.unchanged,
                     failed: result.failed,
                     changedFetched: result.changedFetched,
                     existingMatched: result.existingMatched,

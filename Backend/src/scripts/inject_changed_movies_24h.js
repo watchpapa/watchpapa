@@ -3,7 +3,9 @@ import { pathToFileURL } from "url";
 import sequelize from "../db/database.js";
 import ingestMovie from "./inject_movie.js";
 import {
+  classifyMovieChanges,
   fetchChangedMovieIds,
+  fetchTmdbEntityChanges,
   resolve24hDateWindow,
 } from "./tmdb_changes_fetch.js";
 
@@ -177,6 +179,9 @@ export async function ingestChangedMovies24h({
   const toRefresh = changedIds.filter((tmdbId) => existingIds.has(tmdbId));
 
   let refreshed = 0;
+  let refreshedFull = 0;
+  let refreshedScoped = 0;
+  let unchanged = 0;
   let failed = 0;
   let skippedRace = 0;
   const failedItems = [];
@@ -193,13 +198,43 @@ export async function ingestChangedMovies24h({
     }
 
     try {
+      const { changes } = await fetchTmdbEntityChanges({
+        apiKey: resolvedKey,
+        entityPath: "movie",
+        tmdbId,
+        startDate: resolvedRange.startDate,
+        endDate: resolvedRange.endDate,
+      });
+      const classification = classifyMovieChanges(changes);
+
+      if (!classification.hasChanges) {
+        console.log(
+          `${prefix} Movie ${tmdbId} no field-level changes -> unchanged`
+        );
+        unchanged += 1;
+        continue;
+      }
+
+      const refreshScope = classification.fullSync
+        ? null
+        : classification.scope;
+
       const result = await ingestMovie({
         tmdbId,
         apiKey: resolvedKey,
         forceRefreshExisting: true,
+        refreshScope,
       });
-      console.log(`${prefix} Movie ${tmdbId} refreshed (${result.action})`);
+
+      const scopeLabel = refreshScope
+        ? `scope=${formatScope(classification.scope)}`
+        : "full";
+      console.log(
+        `${prefix} Movie ${tmdbId} refreshed (${result.action}, ${scopeLabel})`
+      );
       refreshed += 1;
+      if (refreshScope) refreshedScoped += 1;
+      else refreshedFull += 1;
     } catch (error) {
       failed += 1;
       failedItems.push({ entityType: "movie", tmdbId });
@@ -213,10 +248,20 @@ export async function ingestChangedMovies24h({
     changedFetched: changedIds.length,
     existingMatched: toRefresh.length,
     refreshed,
+    refreshedFull,
+    refreshedScoped,
+    unchanged,
     failed,
     skippedRace,
     failedItems,
   };
+}
+
+function formatScope(scope) {
+  return Object.entries(scope)
+    .filter(([, v]) => v)
+    .map(([k]) => k)
+    .join(",") || "none";
 }
 
 async function main() {
@@ -252,7 +297,8 @@ async function main() {
       console.log(
         `Changed movies refresh complete (${result.startDate}..${result.endDate}). ` +
           `Changed fetched: ${result.changedFetched}. Existing matched: ${result.existingMatched}. ` +
-          `Refreshed: ${result.refreshed}. Failed: ${result.failed}. Skipped race: ${result.skippedRace}.`
+          `Refreshed: ${result.refreshed} (full ${result.refreshedFull}, scoped ${result.refreshedScoped}). ` +
+          `Unchanged: ${result.unchanged}. Failed: ${result.failed}. Skipped race: ${result.skippedRace}.`
       );
 
       if (!logWritten) {
@@ -269,6 +315,9 @@ async function main() {
                   scriptName: scopedScriptName,
                   summary: {
                     refreshed: result.refreshed,
+                    refreshedFull: result.refreshedFull,
+                    refreshedScoped: result.refreshedScoped,
+                    unchanged: result.unchanged,
                     failed: result.failed,
                     changedFetched: result.changedFetched,
                     existingMatched: result.existingMatched,
