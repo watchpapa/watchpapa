@@ -114,8 +114,8 @@ function parsePositiveInt(value, flagName) {
   return parsed;
 }
 
-function parseArgs(argv) {
-  let entity = DEFAULT_ENTITY;
+export function parsePopularityArgs(argv, { allowEntity = true } = {}) {
+  let entity = allowEntity ? DEFAULT_ENTITY : null;
   let pageSize = DEFAULT_PAGE_SIZE;
   let limit = null;
   let fetchConcurrency = DEFAULT_FETCH_CONCURRENCY;
@@ -123,6 +123,12 @@ function parseArgs(argv) {
   for (const arg of argv) {
     const entityMatch = /^--entity=(.+)$/.exec(arg);
     if (entityMatch) {
+      if (!allowEntity) {
+        throw new Error(
+          `Flag --entity is not supported by this script. ` +
+            `Run the entity-specific command, or use seed:tmdb:update-popularity for the multi-entity aggregator.`
+        );
+      }
       const normalized = entityMatch[1].trim().toLowerCase();
       if (!ALLOWED_ENTITIES.has(normalized)) {
         throw new Error(
@@ -168,6 +174,10 @@ function parseArgs(argv) {
   }
 
   return { entity, pageSize, limit, fetchConcurrency };
+}
+
+function parseArgs(argv) {
+  return parsePopularityArgs(argv, { allowEntity: true });
 }
 
 async function ensureTables() {
@@ -476,13 +486,29 @@ export async function updateTmdbPopularity({
   };
 }
 
-async function main() {
+/**
+ * Full CLI lifecycle for a popularity refresh run.
+ *
+ * - argv: process.argv.slice(2) for arg parsing.
+ * - fixedEntity: when set, ignores --entity and locks the run to this entity
+ *   (used by entity-specific wrapper scripts).
+ * - scriptNamePrefix: prefix for `script_logs.script_name` (e.g. wrappers use
+ *   their own prefix so logs are easy to filter).
+ */
+export async function runPopularityCli({
+  argv = process.argv.slice(2),
+  fixedEntity = null,
+  scriptNamePrefix = SCRIPT_NAME,
+} = {}) {
   const startedAt = new Date();
-  const { entity, pageSize, limit, fetchConcurrency } = parseArgs(
-    process.argv.slice(2)
-  );
+  const parsed = parsePopularityArgs(argv, {
+    allowEntity: fixedEntity == null,
+  });
+  const entity = fixedEntity ?? parsed.entity ?? DEFAULT_ENTITY;
+  const { pageSize, limit, fetchConcurrency } = parsed;
+
   const scopedScriptName =
-    `${SCRIPT_NAME}:entity=${entity}` +
+    `${scriptNamePrefix}:entity=${entity}` +
     `:pageSize=${pageSize}` +
     `:limit=${limit ?? "all"}` +
     `:fetchConcurrency=${fetchConcurrency}`;
@@ -508,6 +534,9 @@ async function main() {
 
   try {
     try {
+      // Surface missing TMDB key before any DB work so the error is clear
+      // even when running in an environment without DB access (CLI tests).
+      getApiKey();
       await sequelize.authenticate();
       await ensureTables();
 
@@ -550,6 +579,7 @@ async function main() {
           startedAt,
         });
       }
+      return result;
     } catch (error) {
       if (!logWritten) {
         logWritten = true;
@@ -574,6 +604,10 @@ async function main() {
     process.off("SIGTERM", handleStopSignal);
     await sequelize.close();
   }
+}
+
+async function main() {
+  await runPopularityCli({ argv: process.argv.slice(2) });
 }
 
 const isDirectRun = import.meta.url === pathToFileURL(process.argv[1]).href;

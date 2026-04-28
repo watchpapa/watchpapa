@@ -22,6 +22,9 @@
     "seed:tmdb:changed-people-24h": "node Backend/src/scripts/inject_changed_people_24h.js",
     "seed:tmdb:changed-all-24h": "node Backend/src/scripts/inject_changed_all_24h.js",
     "seed:tmdb:update-popularity": "node Backend/src/scripts/update_tmdb_popularity.js",
+    "seed:tmdb:update-popularity:movies": "node Backend/src/scripts/update_tmdb_popularity_movies.js",
+    "seed:tmdb:update-popularity:shows": "node Backend/src/scripts/update_tmdb_popularity_shows.js",
+    "seed:tmdb:update-popularity:people": "node Backend/src/scripts/update_tmdb_popularity_people.js",
     "test:injections": "node --test \"tests/injections_tests/**/*.test.js\"",
     "test:injections:watch": "node --test --watch \"tests/injections_tests/**/*.test.js\"",
     "test:py": "pytest"
