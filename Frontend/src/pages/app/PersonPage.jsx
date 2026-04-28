@@ -4,6 +4,7 @@ import DetailPageLayout from "../../components/detail/DetailPageLayout.jsx";
 import ContentPanel from "../../components/detail/ContentPanel.jsx";
 import SkeletonDetailPage from "../../components/detail/SkeletonDetailPage.jsx";
 import { usePersonData } from "../../features/person/hooks/usePersonData.js";
+import InjectingBanner from "../../components/detail/InjectingBanner.jsx";
 
 const TMDB_IMG_PROFILE = "https://image.tmdb.org/t/p/w342";
 const TMDB_IMG_POSTER = "https://image.tmdb.org/t/p/w185";
@@ -79,6 +80,7 @@ function PersonPage({ session }) {
 
   return (
     <AppLayout session={session} breadcrumbs={breadcrumbs}>
+      <div className="mb-6"><InjectingBanner /></div>
       <DetailPageLayout
         title={person.name}
         sidebarTop={<ProfilePicture name={person.name} profilePath={person.profile_path} />}

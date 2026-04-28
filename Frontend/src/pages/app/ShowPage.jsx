@@ -10,6 +10,7 @@ import CastGrid from "../../components/detail/CastGrid.jsx";
 import CrewSection from "../../components/detail/CrewSection.jsx";
 import AuthPromptModal from "../../components/AuthPromptModal.jsx";
 import { useShowData } from "../../features/show/hooks/useShowData.js";
+import InjectingBanner from "../../components/detail/InjectingBanner.jsx";
 
 const TMDB_IMG = "https://image.tmdb.org/t/p/w185";
 
@@ -84,6 +85,7 @@ function ShowPage({ session }) {
   return (
     <AppLayout session={session} breadcrumbs={breadcrumbs}>
       {showAuthPrompt && <AuthPromptModal onClose={() => setShowAuthPrompt(false)} />}
+      <div className="mb-6"><InjectingBanner /></div>
       <DetailPageLayout
         title={show.name}
         followButton={<FollowButton isFollowing={isFollowing} onToggle={handleFollow} />}

@@ -10,6 +10,7 @@ import CastGrid from "../../components/detail/CastGrid.jsx";
 import CrewSection from "../../components/detail/CrewSection.jsx";
 import AuthPromptModal from "../../components/AuthPromptModal.jsx";
 import { useMovieData } from "../../features/movie/hooks/useMovieData.js";
+import InjectingBanner from "../../components/detail/InjectingBanner.jsx";
 
 function fmt(val, fallback = "—") {
   return val ?? fallback;
@@ -64,6 +65,7 @@ function MoviePage({ session }) {
   return (
     <AppLayout session={session} breadcrumbs={breadcrumbs}>
       {showAuthPrompt && <AuthPromptModal onClose={() => setShowAuthPrompt(false)} />}
+      <div className="mb-6"><InjectingBanner /></div>
       <DetailPageLayout
         title={movie.title}
         followButton={<FollowButton isFollowing={isFollowing} onToggle={handleFollow} />}
