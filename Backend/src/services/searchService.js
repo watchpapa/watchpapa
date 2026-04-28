@@ -1,7 +1,6 @@
 import sequelize from "../db/database.js";
 import { tmdbRateLimitedFetch } from "../scripts/tmdb_rate_limited_fetch.js";
 
-const TMDB_SEARCH_URL = "https://api.themoviedb.org/3/search/multi";
 
 function escapePattern(q) {
   return "%" + q.replace(/[%_]/g, "\\$&") + "%";
@@ -87,83 +86,85 @@ export async function searchLocal(query, perTypeLimit = 5) {
   return [...movies, ...shows, ...people];
 }
 
+const PER_TYPE = 12;
+
 export async function searchTmdb(query, apiKey) {
   if (!apiKey) return [];
 
-  const url = new URL(TMDB_SEARCH_URL);
-  url.searchParams.set("query", query);
-  url.searchParams.set("api_key", apiKey);
-  url.searchParams.set("language", "en-US");
-  url.searchParams.set("page", "1");
+  const params = new URLSearchParams({
+    query,
+    api_key: apiKey,
+    language: "en-US",
+    page: "1",
+  });
+  const base = "https://api.themoviedb.org/3/search";
 
-  let payload;
+  let movieData, tvData, personData;
   try {
-    const res = await tmdbRateLimitedFetch(url.toString());
-    if (!res.ok) return [];
-    payload = await res.json();
+    [movieData, tvData, personData] = await Promise.all([
+      tmdbRateLimitedFetch(`${base}/movie?${params}`).then((r) =>
+        r.ok ? r.json() : { results: [] }
+      ),
+      tmdbRateLimitedFetch(`${base}/tv?${params}`).then((r) =>
+        r.ok ? r.json() : { results: [] }
+      ),
+      tmdbRateLimitedFetch(`${base}/person?${params}`).then((r) =>
+        r.ok ? r.json() : { results: [] }
+      ),
+    ]);
   } catch {
     return [];
   }
 
-  const allowed = new Set(["movie", "tv", "person"]);
-  return (payload.results ?? [])
-    .filter((r) => allowed.has(r.media_type))
-    .slice(0, 10)
-    .map((r) => {
-      if (r.media_type === "movie") {
-        return {
-          source: "tmdb-only",
-          type: "movie",
-          localId: null,
-          tmdbId: r.id,
-          title: r.title ?? r.original_title ?? "",
-          posterPath: r.poster_path ?? null,
-          year: yearFrom(r.release_date),
-          popularity: r.popularity ?? 0,
-          // extra fields for fast upsert
-          originalTitle: r.original_title ?? r.title ?? "",
-          overview: r.overview ?? "",
-          releaseDate: r.release_date ?? null,
-          originalLanguage: r.original_language ?? null,
-          adult: r.adult ?? false,
-          tmdbVoteAvg: r.vote_average ?? 0,
-          tmdbVoteCount: r.vote_count ?? 0,
-        };
-      }
-      if (r.media_type === "tv") {
-        return {
-          source: "tmdb-only",
-          type: "show",
-          localId: null,
-          tmdbId: r.id,
-          title: r.name ?? r.original_name ?? "",
-          posterPath: r.poster_path ?? null,
-          year: yearFrom(r.first_air_date),
-          popularity: r.popularity ?? 0,
-          // extra fields for fast upsert
-          originalName: r.original_name ?? r.name ?? "",
-          overview: r.overview ?? "",
-          firstAirDate: r.first_air_date ?? null,
-          originalLanguage: r.original_language ?? null,
-          adult: r.adult ?? false,
-          tmdbVoteAvg: r.vote_average ?? 0,
-          tmdbVoteCount: r.vote_count ?? 0,
-        };
-      }
-      // person
-      return {
-        source: "tmdb-only",
-        type: "person",
-        localId: null,
-        tmdbId: r.id,
-        title: r.name ?? "",
-        posterPath: r.profile_path ?? null,
-        year: null,
-        popularity: r.popularity ?? 0,
-        // extra fields for fast upsert
-        adult: r.adult ?? false,
-      };
-    });
+  const movies = (movieData.results ?? []).slice(0, PER_TYPE).map((r) => ({
+    source: "tmdb-only",
+    type: "movie",
+    localId: null,
+    tmdbId: r.id,
+    title: r.title ?? r.original_title ?? "",
+    posterPath: r.poster_path ?? null,
+    year: yearFrom(r.release_date),
+    popularity: r.popularity ?? 0,
+    originalTitle: r.original_title ?? r.title ?? "",
+    overview: r.overview ?? "",
+    releaseDate: r.release_date ?? null,
+    originalLanguage: r.original_language ?? null,
+    adult: r.adult ?? false,
+    tmdbVoteAvg: r.vote_average ?? 0,
+    tmdbVoteCount: r.vote_count ?? 0,
+  }));
+
+  const shows = (tvData.results ?? []).slice(0, PER_TYPE).map((r) => ({
+    source: "tmdb-only",
+    type: "show",
+    localId: null,
+    tmdbId: r.id,
+    title: r.name ?? r.original_name ?? "",
+    posterPath: r.poster_path ?? null,
+    year: yearFrom(r.first_air_date),
+    popularity: r.popularity ?? 0,
+    originalName: r.original_name ?? r.name ?? "",
+    overview: r.overview ?? "",
+    firstAirDate: r.first_air_date ?? null,
+    originalLanguage: r.original_language ?? null,
+    adult: r.adult ?? false,
+    tmdbVoteAvg: r.vote_average ?? 0,
+    tmdbVoteCount: r.vote_count ?? 0,
+  }));
+
+  const people = (personData.results ?? []).slice(0, PER_TYPE).map((r) => ({
+    source: "tmdb-only",
+    type: "person",
+    localId: null,
+    tmdbId: r.id,
+    title: r.name ?? "",
+    posterPath: r.profile_path ?? null,
+    year: null,
+    popularity: r.popularity ?? 0,
+    adult: r.adult ?? false,
+  }));
+
+  return [...movies, ...shows, ...people];
 }
 
 export function mergeResults(localResults, tmdbResults) {
@@ -176,10 +177,12 @@ export async function fastUpsertMovie(item) {
   const [rows] = await sequelize.query(
     `INSERT INTO movie (
        tmdb_id, title, original_title, poster_path, tmdb_popularity,
-       overview, release_date, original_language, adult, tmdb_vote_avg, tmdb_vote_count
+       overview, release_date, original_language, adult, tmdb_vote_avg, tmdb_vote_count,
+       budget, revenue, runtime, status, tagline
      ) VALUES (
        :tmdbId, :title, :originalTitle, :posterPath, :tmdbPopularity,
-       :overview, :releaseDate, :originalLanguage, :adult, :tmdbVoteAvg, :tmdbVoteCount
+       :overview, :releaseDate, :originalLanguage, :adult, :tmdbVoteAvg, :tmdbVoteCount,
+       0, 0, 0, '', ''
      )
      ON CONFLICT (tmdb_id) DO UPDATE SET
        title             = EXCLUDED.title,

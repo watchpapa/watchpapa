@@ -2,6 +2,8 @@ import express from "express";
 import path from "path";
 import { fileURLToPath } from "url";
 import searchRouter from "./Backend/src/routes/search.js";
+import injectRouter from "./Backend/src/routes/inject.js";
+import resolveRouter from "./Backend/src/routes/resolve.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -12,7 +14,7 @@ app.use((req, res, next) => {
   const origin = req.headers.origin;
   if (origin === "http://localhost:5173" || origin === "http://localhost:4173") {
     res.setHeader("Access-Control-Allow-Origin", origin);
-    res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
+    res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
     res.setHeader("Access-Control-Allow-Headers", "Content-Type");
   }
   if (req.method === "OPTIONS") return res.sendStatus(204);
@@ -20,6 +22,8 @@ app.use((req, res, next) => {
 });
 
 app.use("/api/search", searchRouter);
+app.use("/api/inject", injectRouter);
+app.use("/api/resolve", resolveRouter);
 
 // Health check
 app.get("/health", (_req, res) => {
