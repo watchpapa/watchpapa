@@ -85,7 +85,7 @@ function ShowPage({ session }) {
   return (
     <AppLayout session={session} breadcrumbs={breadcrumbs}>
       {showAuthPrompt && <AuthPromptModal onClose={() => setShowAuthPrompt(false)} />}
-      <div className="mb-6"><InjectingBanner /></div>
+      <div className="mb-6"><InjectingBanner type="show" id={id} /></div>
       <DetailPageLayout
         title={show.name}
         followButton={<FollowButton isFollowing={isFollowing} onToggle={handleFollow} />}

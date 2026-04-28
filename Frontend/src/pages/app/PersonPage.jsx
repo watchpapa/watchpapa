@@ -80,7 +80,7 @@ function PersonPage({ session }) {
 
   return (
     <AppLayout session={session} breadcrumbs={breadcrumbs}>
-      <div className="mb-6"><InjectingBanner /></div>
+      <div className="mb-6"><InjectingBanner type="person" id={id} /></div>
       <DetailPageLayout
         title={person.name}
         sidebarTop={<ProfilePicture name={person.name} profilePath={person.profile_path} />}

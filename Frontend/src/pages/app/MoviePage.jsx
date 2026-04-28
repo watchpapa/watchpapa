@@ -65,7 +65,7 @@ function MoviePage({ session }) {
   return (
     <AppLayout session={session} breadcrumbs={breadcrumbs}>
       {showAuthPrompt && <AuthPromptModal onClose={() => setShowAuthPrompt(false)} />}
-      <div className="mb-6"><InjectingBanner /></div>
+      <div className="mb-6"><InjectingBanner type="movie" id={id} /></div>
       <DetailPageLayout
         title={movie.title}
         followButton={<FollowButton isFollowing={isFollowing} onToggle={handleFollow} />}
