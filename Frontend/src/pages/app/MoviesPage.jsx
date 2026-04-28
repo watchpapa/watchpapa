@@ -1,5 +1,7 @@
+import { useState } from "react";
 import AppLayout from "../../layouts/AppLayout.jsx";
 import MediaRow from "../../components/home/MediaRow.jsx";
+import SearchBar from "../../components/home/SearchBar.jsx";
 import { useMoviesPageData } from "../../features/movies/hooks/useMoviesPageData.js";
 
 function SkeletonRow() {
@@ -20,6 +22,7 @@ function SkeletonRow() {
 }
 
 function MoviesPage({ session }) {
+  const [search, setSearch] = useState("");
   const {
     popular,
     byGenre,
@@ -33,6 +36,7 @@ function MoviesPage({ session }) {
   return (
     <AppLayout session={session}>
       <div className="mx-auto max-w-[1600px] space-y-8">
+        <SearchBar value={search} onChange={(e) => setSearch(e.target.value)} />
         {error && (
           <p className="text-center text-sm text-red-400">Failed to load movies: {error}</p>
         )}

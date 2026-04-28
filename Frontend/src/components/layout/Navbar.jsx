@@ -9,6 +9,7 @@ const NAV_LINKS = [
   { label: "Movies", to: "/movies" },
   { label: "Shows", to: "/shows" },
   { label: "People", to: "/people" },
+  { label: "Search", to: "/search" },
 ];
 
 function CalendarIcon() {

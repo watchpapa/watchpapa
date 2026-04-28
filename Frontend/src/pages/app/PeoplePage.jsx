@@ -1,5 +1,7 @@
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import AppLayout from "../../layouts/AppLayout.jsx";
+import SearchBar from "../../components/home/SearchBar.jsx";
 import { usePeoplePageData } from "../../features/people/hooks/usePeoplePageData.js";
 
 const TMDB_IMG = "https://image.tmdb.org/t/p/w185";
@@ -84,12 +86,14 @@ function SkeletonRows() {
 }
 
 function PeoplePage({ session }) {
+  const [search, setSearch] = useState("");
   const { people, isLoading, isLoadingMore, hasMore, loadMore, error } = usePeoplePageData();
 
   return (
     <AppLayout session={session}>
       <div className="mx-auto max-w-3xl">
-        <h2 className="mb-6 text-xl font-extrabold tracking-tight" style={{ color: "#e8c04a" }}>
+        <SearchBar value={search} onChange={(e) => setSearch(e.target.value)} />
+        <h2 className="mt-8 mb-6 text-xl font-extrabold tracking-tight" style={{ color: "#e8c04a" }}>
           Popular People
         </h2>
 
