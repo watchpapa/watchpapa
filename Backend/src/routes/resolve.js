@@ -4,6 +4,7 @@ import { fastUpsertMovie, fastUpsertShow, fastUpsertPerson } from "../services/s
 import { ingestMovie } from "../scripts/inject_movie.js";
 import { ingestTvShow } from "../scripts/inject_tv_show.js";
 import { ingestPerson } from "../scripts/inject_person.js";
+import { dedupIngest } from "../lib/ingestionQueue.js";
 import sequelize from "../db/database.js";
 
 const router = Router();
@@ -99,9 +100,19 @@ router.post("/", async (req, res) => {
     res.json({ localId });
 
     if (API_KEY) {
-      if (type === "movie") ingestMovie({ tmdbId, apiKey: API_KEY, forceRefreshExisting: true }).catch((e) => console.warn(`bg inject movie ${tmdbId}:`, e.message));
-      else if (type === "show") ingestTvShow({ tmdbTvId: tmdbId, apiKey: API_KEY, forceRefreshExisting: true }).catch((e) => console.warn(`bg inject show ${tmdbId}:`, e.message));
-      else ingestPerson({ tmdbId, apiKey: API_KEY, forceRefreshExisting: true }).catch((e) => console.warn(`bg inject person ${tmdbId}:`, e.message));
+      if (type === "movie") {
+        dedupIngest(`movie:${tmdbId}`, () =>
+          ingestMovie({ tmdbId, apiKey: API_KEY, forceRefreshExisting: true })
+        ).catch((e) => console.warn(`bg inject movie ${tmdbId}:`, e.message));
+      } else if (type === "show") {
+        dedupIngest(`show:${tmdbId}`, () =>
+          ingestTvShow({ tmdbTvId: tmdbId, apiKey: API_KEY, forceRefreshExisting: true })
+        ).catch((e) => console.warn(`bg inject show ${tmdbId}:`, e.message));
+      } else {
+        dedupIngest(`person:${tmdbId}`, () =>
+          ingestPerson({ tmdbId, apiKey: API_KEY, forceRefreshExisting: true })
+        ).catch((e) => console.warn(`bg inject person ${tmdbId}:`, e.message));
+      }
     }
   } catch (e) {
     console.error("Resolve error:", e.message);
