@@ -12,15 +12,17 @@ function yearFrom(dateStr) {
     : null;
 }
 
-export async function searchLocal(query, perTypeLimit = 5) {
+export async function searchLocal(query, perTypeLimit = 5, { includeAdult = false } = {}) {
   const pattern = escapePattern(query);
   const limit = perTypeLimit;
+  const adultFilter = includeAdult ? "" : "AND adult = false";
 
   const [movieRows, showRows, personRows] = await Promise.all([
     sequelize.query(
       `SELECT id, tmdb_id, title, poster_path, tmdb_popularity, release_date
        FROM movie
        WHERE deleted_at IS NULL
+         ${adultFilter}
          AND (title ILIKE :pattern OR original_title ILIKE :pattern)
        ORDER BY tmdb_popularity DESC
        LIMIT :limit`,
@@ -30,6 +32,7 @@ export async function searchLocal(query, perTypeLimit = 5) {
       `SELECT id, tmdb_id, name, poster_path, tmdb_popularity, first_air_date
        FROM show
        WHERE deleted_at IS NULL
+         ${adultFilter}
          AND (name ILIKE :pattern OR original_name ILIKE :pattern)
        ORDER BY tmdb_popularity DESC
        LIMIT :limit`,
@@ -41,6 +44,7 @@ export async function searchLocal(query, perTypeLimit = 5) {
          FROM person p
          LEFT JOIN person_aka pa ON pa.person_id = p.id AND pa.deleted_at IS NULL
          WHERE p.deleted_at IS NULL
+           ${adultFilter}
            AND (p.name ILIKE :pattern OR pa.nickname ILIKE :pattern)
          ORDER BY p.id, p.popularity DESC
        ) d
@@ -88,7 +92,7 @@ export async function searchLocal(query, perTypeLimit = 5) {
 
 const PER_TYPE = 12;
 
-export async function searchTmdb(query, apiKey) {
+export async function searchTmdb(query, apiKey, { includeAdult = false } = {}) {
   if (!apiKey) return [];
 
   const params = new URLSearchParams({
@@ -96,6 +100,7 @@ export async function searchTmdb(query, apiKey) {
     api_key: apiKey,
     language: "en-US",
     page: "1",
+    include_adult: includeAdult ? "true" : "false",
   });
   const base = "https://api.themoviedb.org/3/search";
 
@@ -116,7 +121,10 @@ export async function searchTmdb(query, apiKey) {
     return [];
   }
 
-  const movies = (movieData.results ?? []).slice(0, PER_TYPE).map((r) => ({
+  const filterAdult = (results) =>
+    includeAdult ? results : results.filter((r) => !r.adult);
+
+  const movies = filterAdult(movieData.results ?? []).slice(0, PER_TYPE).map((r) => ({
     source: "tmdb-only",
     type: "movie",
     localId: null,
@@ -134,7 +142,7 @@ export async function searchTmdb(query, apiKey) {
     tmdbVoteCount: r.vote_count ?? 0,
   }));
 
-  const shows = (tvData.results ?? []).slice(0, PER_TYPE).map((r) => ({
+  const shows = filterAdult(tvData.results ?? []).slice(0, PER_TYPE).map((r) => ({
     source: "tmdb-only",
     type: "show",
     localId: null,
@@ -152,7 +160,7 @@ export async function searchTmdb(query, apiKey) {
     tmdbVoteCount: r.vote_count ?? 0,
   }));
 
-  const people = (personData.results ?? []).slice(0, PER_TYPE).map((r) => ({
+  const people = filterAdult(personData.results ?? []).slice(0, PER_TYPE).map((r) => ({
     source: "tmdb-only",
     type: "person",
     localId: null,

@@ -9,8 +9,10 @@ router.get("/", async (req, res) => {
   if (q.length < 2) return res.json({ results: [] });
   if (q.length > 100) return res.status(400).json({ error: "Query too long" });
 
+  const includeAdult = req.query.includeAdult === "true";
+
   try {
-    const items = await searchTmdb(q, TMDB_API_KEY);
+    const items = await searchTmdb(q, TMDB_API_KEY, { includeAdult });
     res.json({
       results: items.map(({ source: _s, ...rest }) => rest),
     });
