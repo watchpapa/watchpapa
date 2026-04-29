@@ -90,7 +90,7 @@ export async function searchLocal(query, perTypeLimit = 5, { includeAdult = fals
   return [...movies, ...shows, ...people];
 }
 
-const PER_TYPE = 12;
+const PER_TYPE = 15;
 
 export async function searchTmdb(query, apiKey, { includeAdult = false } = {}) {
   if (!apiKey) return [];
