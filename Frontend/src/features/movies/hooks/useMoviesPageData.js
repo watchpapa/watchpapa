@@ -82,23 +82,28 @@ const initialState = {
   loadingMoreGenreId: null,
 };
 
-export function useMoviesPageData(session) {
+export function useMoviesPageData(session, showAdult = false) {
   const [state, dispatch] = useReducer(reducer, initialState);
   const stateRef = useRef(state);
   stateRef.current = state;
+  const showAdultRef = useRef(showAdult);
+  showAdultRef.current = showAdult;
 
   useEffect(() => {
     let cancelled = false;
 
     async function load() {
       try {
+        let movieQ = supabase
+          .from("movie")
+          .select(MOVIE_SELECT)
+          .is("deleted_at", null)
+          .order("tmdb_popularity", { ascending: false })
+          .range(0, PAGE_SIZE - 1);
+        if (!showAdultRef.current) movieQ = movieQ.eq("adult", false);
+
         const [moviesRes, followRes] = await Promise.all([
-          supabase
-            .from("movie")
-            .select(MOVIE_SELECT)
-            .is("deleted_at", null)
-            .order("tmdb_popularity", { ascending: false })
-            .range(0, PAGE_SIZE - 1),
+          movieQ,
           session?.user?.id
             ? supabase.from("user_followed_movies").select("movie_id").eq("profile_id", session.user.id)
             : Promise.resolve({ data: [] }),
@@ -125,7 +130,7 @@ export function useMoviesPageData(session) {
 
     load();
     return () => { cancelled = true; };
-  }, [session?.user?.id]);
+  }, [session?.user?.id, showAdult]);
 
   const toggleFollow = useCallback(async (movieId) => {
     if (!session?.user?.id) return;
@@ -138,12 +143,14 @@ export function useMoviesPageData(session) {
   }, [session?.user?.id]);
 
   const appendMoviesFromOffset = useCallback(async (from) => {
-    const { data, error: qErr } = await supabase
+    let q = supabase
       .from("movie")
       .select(MOVIE_SELECT)
       .is("deleted_at", null)
       .order("tmdb_popularity", { ascending: false })
       .range(from, from + PAGE_SIZE - 1);
+    if (!showAdultRef.current) q = q.eq("adult", false);
+    const { data, error: qErr } = await q;
     if (qErr) throw qErr;
     const rows = data ?? [];
     return { rows, hasMore: rows.length >= PAGE_SIZE };

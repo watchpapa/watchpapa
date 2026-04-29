@@ -25,7 +25,7 @@ const initialState = {
   error: null,
 };
 
-export function useMovieData(rawMovieId, session) {
+export function useMovieData(rawMovieId, session, showAdult = false) {
   const movieId = rawMovieId ? parseInt(rawMovieId, 10) : null;
   const [state, dispatch] = useReducer(reducer, initialState);
 
@@ -56,6 +56,10 @@ export function useMovieData(rawMovieId, session) {
         if (cancelled) return;
 
         const row = movieRes.data;
+        if (!showAdult && row.adult) {
+          dispatch({ type: "ERROR", error: "This content is restricted." });
+          return;
+        }
         dispatch({
           type: "LOADED",
           payload: {
@@ -73,7 +77,7 @@ export function useMovieData(rawMovieId, session) {
 
     load();
     return () => { cancelled = true; };
-  }, [movieId, session?.user?.id]);
+  }, [movieId, session?.user?.id, showAdult]);
 
   const toggleFollow = useCallback(async () => {
     if (!session?.user?.id) return;

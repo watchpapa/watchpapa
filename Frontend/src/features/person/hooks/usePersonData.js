@@ -22,7 +22,7 @@ const initialState = {
   error: null,
 };
 
-export function usePersonData(rawPersonId) {
+export function usePersonData(rawPersonId, showAdult = false) {
   const personId = rawPersonId ? parseInt(rawPersonId, 10) : null;
   const [state, dispatch] = useReducer(reducer, initialState);
 
@@ -38,8 +38,8 @@ export function usePersonData(rawPersonId) {
             *,
             known_for:known_for_department_id(name),
             person_aka(nickname),
-            movie_credits(title, job(name, department(name)), movie(id, title, poster_path)),
-            show_credits(title, job(name, department(name)), show(id, name, poster_path))
+            movie_credits(title, job(name, department(name)), movie(id, title, poster_path, adult)),
+            show_credits(title, job(name, department(name)), show(id, name, poster_path, adult))
           `)
           .eq("id", personId)
           .is("deleted_at", null)
@@ -48,8 +48,13 @@ export function usePersonData(rawPersonId) {
         if (error) throw error;
         if (cancelled) return;
 
+        if (!showAdult && data.adult) {
+          dispatch({ type: "ERROR", error: "This content is restricted." });
+          return;
+        }
+
         const movieCredits = (data.movie_credits ?? [])
-          .filter((c) => c.movie)
+          .filter((c) => c.movie && (showAdult || !c.movie.adult))
           .map((c) => ({
             id: `m-${c.movie.id}-${c.title}`,
             mediaId: c.movie.id,
@@ -62,7 +67,7 @@ export function usePersonData(rawPersonId) {
           }));
 
         const showCredits = (data.show_credits ?? [])
-          .filter((c) => c.show)
+          .filter((c) => c.show && (showAdult || !c.show.adult))
           .map((c) => ({
             id: `s-${c.show.id}-${c.title}`,
             mediaId: c.show.id,
@@ -91,7 +96,7 @@ export function usePersonData(rawPersonId) {
 
     load();
     return () => { cancelled = true; };
-  }, [personId]);
+  }, [personId, showAdult]);
 
   return state;
 }

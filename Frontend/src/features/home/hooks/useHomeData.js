@@ -106,30 +106,36 @@ function mergePopularItems(movies, shows, followedMovieIds, followedShowIds) {
   return [...movieItems, ...showItems].sort((a, b) => b.tmdbPopularity - a.tmdbPopularity);
 }
 
-export function useHomeData(session) {
+export function useHomeData(session, showAdult = false) {
   const [state, dispatch] = useReducer(reducer, initialState);
   const stateRef = useRef(state);
   stateRef.current = state;
+  const showAdultRef = useRef(showAdult);
+  showAdultRef.current = showAdult;
 
   useEffect(() => {
     let cancelled = false;
 
     async function load() {
       try {
-        const [moviesRes, showsRes] = await Promise.all([
-          supabase
-            .from("movie")
-            .select("id, tmdb_id, title, tmdb_popularity, poster_path")
-            .is("deleted_at", null)
-            .order("tmdb_popularity", { ascending: false })
-            .range(0, PAGE_SIZE - 1),
-          supabase
-            .from("show")
-            .select("id, tmdb_id, name, tmdb_popularity, poster_path")
-            .is("deleted_at", null)
-            .order("tmdb_popularity", { ascending: false })
-            .range(0, PAGE_SIZE - 1),
-        ]);
+        const adult = showAdultRef.current;
+        let movieQ = supabase
+          .from("movie")
+          .select("id, tmdb_id, title, tmdb_popularity, poster_path")
+          .is("deleted_at", null)
+          .order("tmdb_popularity", { ascending: false })
+          .range(0, PAGE_SIZE - 1);
+        if (!adult) movieQ = movieQ.eq("adult", false);
+
+        let showQ = supabase
+          .from("show")
+          .select("id, tmdb_id, name, tmdb_popularity, poster_path")
+          .is("deleted_at", null)
+          .order("tmdb_popularity", { ascending: false })
+          .range(0, PAGE_SIZE - 1);
+        if (!adult) showQ = showQ.eq("adult", false);
+
+        const [moviesRes, showsRes] = await Promise.all([movieQ, showQ]);
 
         if (moviesRes.error) throw moviesRes.error;
         if (showsRes.error) throw showsRes.error;
@@ -176,7 +182,7 @@ export function useHomeData(session) {
 
     load();
     return () => { cancelled = true; };
-  }, [session?.user?.id]);
+  }, [session?.user?.id, showAdult]);
 
   const toggleMovieFollow = useCallback(
     async (movieId) => {
@@ -226,12 +232,14 @@ export function useHomeData(session) {
     dispatch({ type: "SET_LOADING_MORE_MOVIES", value: true });
     const from = s.movies.length;
     try {
-      const { data, error: qErr } = await supabase
+      let q = supabase
         .from("movie")
         .select("id, tmdb_id, title, tmdb_popularity, poster_path")
         .is("deleted_at", null)
         .order("tmdb_popularity", { ascending: false })
         .range(from, from + PAGE_SIZE - 1);
+      if (!showAdultRef.current) q = q.eq("adult", false);
+      const { data, error: qErr } = await q;
       if (qErr) throw qErr;
       const rows = data ?? [];
       dispatch({
@@ -250,12 +258,14 @@ export function useHomeData(session) {
     dispatch({ type: "SET_LOADING_MORE_SHOWS", value: true });
     const from = s.shows.length;
     try {
-      const { data, error: qErr } = await supabase
+      let q = supabase
         .from("show")
         .select("id, tmdb_id, name, tmdb_popularity, poster_path")
         .is("deleted_at", null)
         .order("tmdb_popularity", { ascending: false })
         .range(from, from + PAGE_SIZE - 1);
+      if (!showAdultRef.current) q = q.eq("adult", false);
+      const { data, error: qErr } = await q;
       if (qErr) throw qErr;
       const rows = data ?? [];
       dispatch({
@@ -310,12 +320,14 @@ export function useHomeData(session) {
         }
         if (movieHasMore) {
           const from = movies.length;
-          const { data, error: qErr } = await supabase
+          let q = supabase
             .from("movie")
             .select("id, tmdb_id, title, tmdb_popularity, poster_path")
             .is("deleted_at", null)
             .order("tmdb_popularity", { ascending: false })
             .range(from, from + PAGE_SIZE - 1);
+          if (!showAdultRef.current) q = q.eq("adult", false);
+          const { data, error: qErr } = await q;
           if (qErr) throw qErr;
           const rows = data ?? [];
           movies = [...movies, ...rows];
@@ -323,12 +335,14 @@ export function useHomeData(session) {
         }
         if (showHasMore) {
           const from = shows.length;
-          const { data, error: qErr } = await supabase
+          let q = supabase
             .from("show")
             .select("id, tmdb_id, name, tmdb_popularity, poster_path")
             .is("deleted_at", null)
             .order("tmdb_popularity", { ascending: false })
             .range(from, from + PAGE_SIZE - 1);
+          if (!showAdultRef.current) q = q.eq("adult", false);
+          const { data, error: qErr } = await q;
           if (qErr) throw qErr;
           const rows = data ?? [];
           shows = [...shows, ...rows];

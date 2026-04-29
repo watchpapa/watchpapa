@@ -3,7 +3,7 @@ import { supabase } from "../../../lib/supabase.js";
 
 const PAGE_SIZE = 20;
 
-export function usePeoplePageData() {
+export function usePeoplePageData(showAdult = false) {
   const [people, setPeople] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
@@ -11,6 +11,8 @@ export function usePeoplePageData() {
   const [error, setError] = useState(null);
   const pageRef = useRef(0);
   const busyRef = useRef(false);
+  const showAdultRef = useRef(showAdult);
+  showAdultRef.current = showAdult;
 
   const loadPage = useCallback(async (pageNum) => {
     if (busyRef.current) return;
@@ -19,12 +21,14 @@ export function usePeoplePageData() {
     else setIsLoadingMore(true);
 
     const from = pageNum * PAGE_SIZE;
-    const { data, error: err } = await supabase
+    let q = supabase
       .from("person")
       .select("id, name, profile_path, popularity, birthday, place_of_birth")
       .is("deleted_at", null)
       .order("popularity", { ascending: false })
       .range(from, from + PAGE_SIZE - 1);
+    if (!showAdultRef.current) q = q.eq("adult", false);
+    const { data, error: err } = await q;
 
     busyRef.current = false;
 
@@ -48,7 +52,10 @@ export function usePeoplePageData() {
     pageRef.current = pageNum;
   }, []);
 
-  useEffect(() => { loadPage(0); }, [loadPage]);
+  useEffect(() => {
+    pageRef.current = 0;
+    loadPage(0);
+  }, [loadPage, showAdult]);
 
   const loadMore = useCallback(() => {
     if (!busyRef.current && hasMore) loadPage(pageRef.current + 1);

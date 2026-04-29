@@ -85,9 +85,9 @@ function SkeletonRows() {
   );
 }
 
-function PeoplePage({ session }) {
+function PeoplePage({ session, showAdult }) {
   const [search, setSearch] = useState("");
-  const { people, isLoading, isLoadingMore, hasMore, loadMore, error } = usePeoplePageData();
+  const { people, isLoading, isLoadingMore, hasMore, loadMore, error } = usePeoplePageData(showAdult);
 
   return (
     <AppLayout session={session}>

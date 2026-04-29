@@ -37,9 +37,11 @@ function mergeRowsById(rowsA, rowsB, sortKey, ascending = false) {
   return list;
 }
 
-async function searchLocalSupabase(query, perTypeLimit) {
+async function searchLocalSupabase(query, perTypeLimit, showAdult) {
   const escaped = query.replace(/%/g, "\\%").replace(/_/g, "\\_");
   const pattern = `%${escaped}%`;
+
+  const applyAdultFilter = (q) => (showAdult ? q : q.eq("adult", false));
 
   const [
     moviesTitleRes,
@@ -48,41 +50,41 @@ async function searchLocalSupabase(query, perTypeLimit) {
     showsOrigRes,
     peopleRes,
   ] = await Promise.all([
-    supabase
+    applyAdultFilter(supabase
       .from("movie")
       .select("id, tmdb_id, title, poster_path, tmdb_popularity, release_date")
       .is("deleted_at", null)
       .ilike("title", pattern)
       .order("tmdb_popularity", { ascending: false })
-      .limit(perTypeLimit),
-    supabase
+      .limit(perTypeLimit)),
+    applyAdultFilter(supabase
       .from("movie")
       .select("id, tmdb_id, title, poster_path, tmdb_popularity, release_date")
       .is("deleted_at", null)
       .ilike("original_title", pattern)
       .order("tmdb_popularity", { ascending: false })
-      .limit(perTypeLimit),
-    supabase
+      .limit(perTypeLimit)),
+    applyAdultFilter(supabase
       .from("show")
       .select("id, tmdb_id, name, poster_path, tmdb_popularity, first_air_date")
       .is("deleted_at", null)
       .ilike("name", pattern)
       .order("tmdb_popularity", { ascending: false })
-      .limit(perTypeLimit),
-    supabase
+      .limit(perTypeLimit)),
+    applyAdultFilter(supabase
       .from("show")
       .select("id, tmdb_id, name, poster_path, tmdb_popularity, first_air_date")
       .is("deleted_at", null)
       .ilike("original_name", pattern)
       .order("tmdb_popularity", { ascending: false })
-      .limit(perTypeLimit),
-    supabase
+      .limit(perTypeLimit)),
+    applyAdultFilter(supabase
       .from("person")
       .select("id, tmdb_id, name, profile_path, popularity")
       .is("deleted_at", null)
       .ilike("name", pattern)
       .order("popularity", { ascending: false })
-      .limit(perTypeLimit),
+      .limit(perTypeLimit)),
   ]);
 
   const movieRows = mergeRowsById(
@@ -131,7 +133,7 @@ async function searchLocalSupabase(query, perTypeLimit) {
   return [...movies, ...shows, ...people];
 }
 
-export function useSearch(query, { perTypeLimit = 5, backendLimit = 30 } = {}) {
+export function useSearch(query, { perTypeLimit = 5, backendLimit = 30, showAdult = false } = {}) {
   const [state, dispatch] = useReducer(reducer, initialState);
   const timerRef = useRef(null);
   const genRef = useRef(0);
@@ -152,7 +154,7 @@ export function useSearch(query, { perTypeLimit = 5, backendLimit = 30 } = {}) {
 
       dispatch({ type: "FETCHING" });
 
-      searchLocalSupabase(trimmed, perTypeLimit)
+      searchLocalSupabase(trimmed, perTypeLimit, showAdult)
         .then((localResults) => {
           if (stale()) return;
           dispatch({ type: "LOADED", results: localResults });
@@ -162,7 +164,7 @@ export function useSearch(query, { perTypeLimit = 5, backendLimit = 30 } = {}) {
           // backend Sequelize returns it as number, so Set.has() would fail without normalization.
           const localTmdbIds = new Set(localResults.map((r) => String(r.tmdbId)));
           fetch(
-            `/api/search?q=${encodeURIComponent(trimmed)}&limit=${backendLimit}&localPerType=${perTypeLimit}`
+            `/api/search?q=${encodeURIComponent(trimmed)}&limit=${backendLimit}&localPerType=${perTypeLimit}&includeAdult=${showAdult}`
           )
             .then((r) => {
               if (!r.ok) throw new Error(r.status);
@@ -187,7 +189,7 @@ export function useSearch(query, { perTypeLimit = 5, backendLimit = 30 } = {}) {
     }, DEBOUNCE_MS);
 
     return () => clearTimeout(timerRef.current);
-  }, [query, perTypeLimit, backendLimit]);
+  }, [query, perTypeLimit, backendLimit, showAdult]);
 
   return state;
 }

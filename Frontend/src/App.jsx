@@ -65,6 +65,7 @@ function App() {
   const [isProfileLoading, setIsProfileLoading] = useState(false);
   const [needsUsernameSetup, setNeedsUsernameSetup] = useState(false);
   const [initialUsername, setInitialUsername] = useState("");
+  const [showAdult, setShowAdult] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -114,6 +115,7 @@ function App() {
     if (!session?.user?.id) {
       setNeedsUsernameSetup(false);
       setInitialUsername("");
+      setShowAdult(false);
       setIsProfileLoading(false);
       return () => {
         isMounted = false;
@@ -123,7 +125,7 @@ function App() {
     setIsProfileLoading(true);
     supabase
       .from("profile")
-      .select("username, is_adult, date_of_birth")
+      .select("username, is_adult, date_of_birth, setting_display_adult_content")
       .eq("id", session.user.id)
       .maybeSingle()
       .then(({ data, error }) => {
@@ -138,6 +140,7 @@ function App() {
         const nextUsername = data?.username?.trim() ?? "";
         setInitialUsername(nextUsername);
         setNeedsUsernameSetup(nextUsername.length === 0);
+        setShowAdult(data?.setting_display_adult_content ?? false);
         setIsProfileLoading(false);
 
         if (data && !data.is_adult && data.date_of_birth) {
@@ -231,7 +234,7 @@ function App() {
         path="/"
         element={
           <PublicRoute session={session} needsUsernameSetup={needsUsernameSetup}>
-            <AppHomePage session={session} />
+            <AppHomePage session={session} showAdult={showAdult} />
           </PublicRoute>
         }
       />
@@ -239,7 +242,7 @@ function App() {
         path="/search"
         element={
           <PublicRoute session={session} needsUsernameSetup={needsUsernameSetup}>
-            <SearchPage session={session} />
+            <SearchPage session={session} showAdult={showAdult} />
           </PublicRoute>
         }
       />
@@ -247,7 +250,7 @@ function App() {
         path="/movies"
         element={
           <PublicRoute session={session} needsUsernameSetup={needsUsernameSetup}>
-            <MoviesPage session={session} />
+            <MoviesPage session={session} showAdult={showAdult} />
           </PublicRoute>
         }
       />
@@ -255,7 +258,7 @@ function App() {
         path="/movies/:id"
         element={
           <PublicRoute session={session} needsUsernameSetup={needsUsernameSetup}>
-            <MoviePage session={session} />
+            <MoviePage session={session} showAdult={showAdult} />
           </PublicRoute>
         }
       />
@@ -263,7 +266,7 @@ function App() {
         path="/shows"
         element={
           <PublicRoute session={session} needsUsernameSetup={needsUsernameSetup}>
-            <ShowsPage session={session} />
+            <ShowsPage session={session} showAdult={showAdult} />
           </PublicRoute>
         }
       />
@@ -271,7 +274,7 @@ function App() {
         path="/shows/:id"
         element={
           <PublicRoute session={session} needsUsernameSetup={needsUsernameSetup}>
-            <ShowPage session={session} />
+            <ShowPage session={session} showAdult={showAdult} />
           </PublicRoute>
         }
       />
@@ -279,7 +282,7 @@ function App() {
         path="/shows/:id/seasons/:seasonId"
         element={
           <PublicRoute session={session} needsUsernameSetup={needsUsernameSetup}>
-            <SeasonPage session={session} />
+            <SeasonPage session={session} showAdult={showAdult} />
           </PublicRoute>
         }
       />
@@ -287,7 +290,7 @@ function App() {
         path="/shows/:id/seasons/:seasonId/episodes/:episodeId"
         element={
           <PublicRoute session={session} needsUsernameSetup={needsUsernameSetup}>
-            <EpisodePage session={session} />
+            <EpisodePage session={session} showAdult={showAdult} />
           </PublicRoute>
         }
       />
@@ -295,7 +298,7 @@ function App() {
         path="/people"
         element={
           <PublicRoute session={session} needsUsernameSetup={needsUsernameSetup}>
-            <PeoplePage session={session} />
+            <PeoplePage session={session} showAdult={showAdult} />
           </PublicRoute>
         }
       />
@@ -303,7 +306,7 @@ function App() {
         path="/people/:id"
         element={
           <PublicRoute session={session} needsUsernameSetup={needsUsernameSetup}>
-            <PersonPage session={session} />
+            <PersonPage session={session} showAdult={showAdult} />
           </PublicRoute>
         }
       />
@@ -311,7 +314,7 @@ function App() {
         path="/movies/tmdb/:tmdbId"
         element={
           <PublicRoute session={session} needsUsernameSetup={needsUsernameSetup}>
-            <TmdbResolvePage type="movie" session={session} />
+            <TmdbResolvePage type="movie" session={session} showAdult={showAdult} />
           </PublicRoute>
         }
       />
@@ -319,7 +322,7 @@ function App() {
         path="/shows/tmdb/:tmdbId"
         element={
           <PublicRoute session={session} needsUsernameSetup={needsUsernameSetup}>
-            <TmdbResolvePage type="show" session={session} />
+            <TmdbResolvePage type="show" session={session} showAdult={showAdult} />
           </PublicRoute>
         }
       />
@@ -327,7 +330,7 @@ function App() {
         path="/people/tmdb/:tmdbId"
         element={
           <PublicRoute session={session} needsUsernameSetup={needsUsernameSetup}>
-            <TmdbResolvePage type="person" session={session} />
+            <TmdbResolvePage type="person" session={session} showAdult={showAdult} />
           </PublicRoute>
         }
       />
@@ -335,7 +338,7 @@ function App() {
         path="/calendar"
         element={
           <PublicRoute session={session} needsUsernameSetup={needsUsernameSetup}>
-            <ReleasesCalendarPage session={session} />
+            <ReleasesCalendarPage session={session} showAdult={showAdult} />
           </PublicRoute>
         }
       />

@@ -21,7 +21,7 @@ function SkeletonRow() {
   );
 }
 
-function AppHomePage({ session }) {
+function AppHomePage({ session, showAdult }) {
   const [search, setSearch] = useState("");
   const {
     popular,
@@ -38,7 +38,7 @@ function AppHomePage({ session }) {
     loadingMorePopular,
     loadingMoreMovies,
     loadingMoreShows,
-  } = useHomeData(session);
+  } = useHomeData(session, showAdult);
 
   const sections = [
     {

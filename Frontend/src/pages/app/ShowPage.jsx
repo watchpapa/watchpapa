@@ -54,11 +54,11 @@ function SeasonCard({ season, showId }) {
   );
 }
 
-function ShowPage({ session }) {
+function ShowPage({ session, showAdult }) {
   const { id } = useParams();
   const [showAllSeasons, setShowAllSeasons] = useState(false);
   const [showAuthPrompt, setShowAuthPrompt] = useState(false);
-  const { show, genres, seasons, cast, crew, isFollowing, isLoading, error, toggleFollow } = useShowData(id, session);
+  const { show, genres, seasons, cast, crew, isFollowing, isLoading, error, toggleFollow } = useShowData(id, session, showAdult);
   const handleFollow = session ? toggleFollow : () => setShowAuthPrompt(true);
 
   const breadcrumbs = show ? [{ label: "Shows", to: "/shows" }, { label: show.name }] : undefined;

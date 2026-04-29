@@ -21,7 +21,7 @@ function SkeletonRow() {
   );
 }
 
-function ShowsPage({ session }) {
+function ShowsPage({ session, showAdult }) {
   const [search, setSearch] = useState("");
   const {
     popular,
@@ -31,7 +31,7 @@ function ShowsPage({ session }) {
     hasMorePopular,
     loadMorePopular,
     loadingMorePopular,
-  } = useShowsPageData(session);
+  } = useShowsPageData(session, showAdult);
 
   return (
     <AppLayout session={session}>

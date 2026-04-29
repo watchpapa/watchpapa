@@ -65,9 +65,9 @@ function FilmographyCard({ credit }) {
   );
 }
 
-function PersonPage({ session }) {
+function PersonPage({ session, showAdult }) {
   const { id } = useParams();
-  const { person, knownForDepartment, nicknames, movieCredits, showCredits, isLoading, error } = usePersonData(id);
+  const { person, knownForDepartment, nicknames, movieCredits, showCredits, isLoading, error } = usePersonData(id, showAdult);
 
   const breadcrumbs = person ? [{ label: "People", to: "/people" }, { label: person.name }] : undefined;
 

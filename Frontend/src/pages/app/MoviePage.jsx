@@ -33,10 +33,10 @@ function fmtRuntime(val) {
   return h > 0 ? `${h}h ${m}m` : `${m}m`;
 }
 
-function MoviePage({ session }) {
+function MoviePage({ session, showAdult }) {
   const { id } = useParams();
   const [showAuthPrompt, setShowAuthPrompt] = useState(false);
-  const { movie, genres, cast, crew, isFollowing, isLoading, error, toggleFollow } = useMovieData(id, session);
+  const { movie, genres, cast, crew, isFollowing, isLoading, error, toggleFollow } = useMovieData(id, session, showAdult);
   const handleFollow = session ? toggleFollow : () => setShowAuthPrompt(true);
 
   const breadcrumbs = movie ? [{ label: "Movies", to: "/movies" }, { label: movie.title }] : undefined;

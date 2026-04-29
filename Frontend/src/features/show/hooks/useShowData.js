@@ -26,7 +26,7 @@ const initialState = {
   error: null,
 };
 
-export function useShowData(rawShowId, session) {
+export function useShowData(rawShowId, session, showAdult = false) {
   const showId = rawShowId ? parseInt(rawShowId, 10) : null;
   const [state, dispatch] = useReducer(reducer, initialState);
 
@@ -57,6 +57,10 @@ export function useShowData(rawShowId, session) {
         if (cancelled) return;
 
         const row = showRes.data;
+        if (!showAdult && row.adult) {
+          dispatch({ type: "ERROR", error: "This content is restricted." });
+          return;
+        }
         const seasons = (row.season ?? [])
           .filter((s) => s.season_number > 0)
           .sort((a, b) => a.season_number - b.season_number);
@@ -79,7 +83,7 @@ export function useShowData(rawShowId, session) {
 
     load();
     return () => { cancelled = true; };
-  }, [showId, session?.user?.id]);
+  }, [showId, session?.user?.id, showAdult]);
 
   const toggleFollow = useCallback(async () => {
     if (!session?.user?.id) return;

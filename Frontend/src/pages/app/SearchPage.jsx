@@ -69,7 +69,7 @@ function PersonCard({ person }) {
   );
 }
 
-function SearchPage({ session }) {
+function SearchPage({ session, showAdult }) {
   const [searchParams, setSearchParams] = useSearchParams();
   const qFromUrl = searchParams.get("q") ?? "";
   const q = qFromUrl.trim();
@@ -79,7 +79,7 @@ function SearchPage({ session }) {
     setBarValue(qFromUrl);
   }, [qFromUrl]);
 
-  const { results, isLoading, status } = useSearch(q, { perTypeLimit: 20, backendLimit: 20 });
+  const { results, isLoading, status } = useSearch(q, { perTypeLimit: 20, backendLimit: 20, showAdult });
 
   const movieResults = results.filter((r) => r.type === "movie");
   const showResults = results.filter((r) => r.type === "show");
