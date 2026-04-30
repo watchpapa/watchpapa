@@ -6,12 +6,18 @@ import { dedupIngest } from "../lib/ingestionQueue.js";
 
 const router = Router();
 const TMDB_API_KEY = process.env.TMDB_API_KEY_SECRET;
+const ALLOWED_TYPES = new Set(["movie", "show", "person"]);
 
 router.post("/", (req, res) => {
-  const { type, tmdbId } = req.body ?? {};
-  res.json({ ok: true });
+  const { type, tmdbId: rawId } = req.body ?? {};
+  const tmdbId = Number(rawId);
 
-  if (!type || !tmdbId || !TMDB_API_KEY) return;
+  if (!ALLOWED_TYPES.has(type) || !Number.isInteger(tmdbId) || tmdbId <= 0 || tmdbId > 9_999_999) {
+    return res.status(400).json({ error: "type must be movie|show|person and tmdbId must be a positive integer" });
+  }
+  if (!TMDB_API_KEY) return res.status(503).json({ error: "Service unavailable" });
+
+  res.json({ ok: true });
 
   if (type === "movie") {
     dedupIngest(`movie:${tmdbId}`, () =>
