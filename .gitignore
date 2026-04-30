@@ -53,4 +53,5 @@ sql/
 .claude/
 
 # Other
-
+docs/
+.docs
