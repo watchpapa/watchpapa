@@ -285,6 +285,7 @@ npm run seed:tmdb:popular-movies-today
 npm run seed:tmdb:popular-shows-today
 npm run seed:tmdb:popular-people-today
 ```
+For the complete list of scripts (including changed-window refresh, top-rated loaders, popularity updates, and one-off utilities), see `Documentation/scripts_to_run.md`.
 
 ### 6) Tests
 ```bash
