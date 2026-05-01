@@ -3,16 +3,10 @@ import { useNavigate } from "react-router-dom";
 import FormField from "../../../components/ui/FormField.jsx";
 import Input from "../../../components/ui/Input.jsx";
 import { supabase } from "../../../lib/supabase.js";
+import { validateUsername } from "../../../lib/validate.js";
 
 function normalizeUsername(value) {
   return value.trim();
-}
-
-function validateUsername(value) {
-  if (!value) return "Username is required.";
-  if (value.length < 4) return "Username must be at least 4 characters.";
-  if (value.length > 50) return "Username must be less than 50 characters.";
-  return null;
 }
 
 function CompleteUsernameForm({ userId, initialUsername = "", onCompleted }) {

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useReducer, useRef } from "react";
 import { supabase } from "../../../lib/supabase.js";
+import { isValidId } from "../../../lib/validate.js";
 
 const PAGE_SIZE = 100;
 const MIN_GENRE_COUNT = 3;
@@ -132,7 +133,7 @@ export function useShowsPageData(session, showAdult = false) {
   }, [session?.user?.id, showAdult]);
 
   const toggleFollow = useCallback(async (showId) => {
-    if (!session?.user?.id) return;
+    if (!session?.user?.id || !isValidId(showId)) return;
     const was = stateRef.current.followedIds.has(showId);
     dispatch({ type: "TOGGLE", id: showId });
     const { error } = was

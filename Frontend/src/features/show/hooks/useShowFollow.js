@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "../../../lib/supabase.js";
+import { isValidId } from "../../../lib/validate.js";
 
 export function useShowFollow(rawShowId, session) {
   const showId = rawShowId ? parseInt(rawShowId, 10) : null;
@@ -26,7 +27,7 @@ export function useShowFollow(rawShowId, session) {
   }, [showId, session?.user?.id]);
 
   const toggleFollow = useCallback(async () => {
-    if (!session?.user?.id || !showId) return;
+    if (!session?.user?.id || !isValidId(showId)) return;
     const was = isFollowing;
     setIsFollowing(!was);
 

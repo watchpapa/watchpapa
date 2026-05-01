@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../../lib/supabase.js";
 import Toggle from "../ui/Toggle.jsx";
+import { validateUsername, isValidBoolean } from "../../lib/validate.js";
 
 function isAdult(dateString) {
   if (!dateString) return false;
@@ -13,13 +14,6 @@ function isAdult(dateString) {
     return age - 1 >= 18;
   }
   return age >= 18;
-}
-
-function validateUsername(value) {
-  if (!value) return "Username is required.";
-  if (value.length < 4) return "At least 4 characters.";
-  if (value.length > 50) return "At most 50 characters.";
-  return null;
 }
 
 const VIEW = { MENU: "menu", USERNAME: "username", DELETE: "delete" };
@@ -43,18 +37,8 @@ function ProfileMenu({ session }) {
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState(null);
 
-  const [avatarLoadFailed, setAvatarLoadFailed] = useState(false);
-
-  const avatarUrl =
-    session?.user?.user_metadata?.avatar_url ??
-    session?.user?.user_metadata?.picture ??
-    null;
-  const usernameForAvatar = (profile?.username ?? session?.user?.user_metadata?.username ?? "").trim();
-  const initials = (usernameForAvatar[0] ?? session?.user?.email?.[0] ?? "?").toUpperCase();
-
-  useEffect(() => {
-    setAvatarLoadFailed(false);
-  }, [avatarUrl]);
+  const usernameForInitials = (profile?.username ?? session?.user?.user_metadata?.username ?? "").trim();
+  const initials = (usernameForInitials[0] ?? session?.user?.email?.[0] ?? "?").toUpperCase();
 
   useEffect(() => {
     if (!open || !session?.user?.id) return;
@@ -93,7 +77,7 @@ function ProfileMenu({ session }) {
   }, [open]);
 
   const handleAdultToggle = async (val) => {
-    if (adultToggleBusy || !session?.user?.id) return;
+    if (adultToggleBusy || !session?.user?.id || !isValidBoolean(val)) return;
     const prev = profile?.setting_display_adult_content ?? false;
     setProfile((p) => ({ ...p, setting_display_adult_content: val }));
     setAdultToggleBusy(true);
@@ -169,16 +153,7 @@ function ProfileMenu({ session }) {
         className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full border-2 border-[#3a3a7a] bg-[#1a1d35] text-sm font-bold text-[#a0a0e8] transition hover:border-[#7070d0]"
         aria-label="Profile menu"
       >
-        {avatarUrl && !avatarLoadFailed ? (
-          <img
-            src={avatarUrl}
-            alt="avatar"
-            className="h-full w-full object-cover"
-            onError={() => setAvatarLoadFailed(true)}
-          />
-        ) : (
-          initials
-        )}
+        {initials}
       </button>
 
       {open && (

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useReducer } from "react";
 import { supabase } from "../../../lib/supabase.js";
+import { isValidId } from "../../../lib/validate.js";
 
 function reducer(state, action) {
   switch (action.type) {
@@ -125,7 +126,7 @@ export function useCalendarData(session, year, month) {
   }, [session?.user?.id, year, month]);
 
   const unfollowShow = useCallback(async (showId) => {
-    if (!session?.user?.id) return;
+    if (!session?.user?.id || !isValidId(showId)) return;
     dispatch({ type: "TOGGLE_SHOW", id: showId });
     const { error } = await supabase
       .from("user_followed_shows")
@@ -136,7 +137,7 @@ export function useCalendarData(session, year, month) {
   }, [session?.user?.id]);
 
   const unfollowMovie = useCallback(async (movieId) => {
-    if (!session?.user?.id) return;
+    if (!session?.user?.id || !isValidId(movieId)) return;
     dispatch({ type: "TOGGLE_MOVIE", id: movieId });
     const { error } = await supabase
       .from("user_followed_movies")

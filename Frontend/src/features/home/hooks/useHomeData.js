@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useReducer, useRef } from "react";
 import { supabase } from "../../../lib/supabase.js";
+import { isValidId } from "../../../lib/validate.js";
 
 const PAGE_SIZE = 20;
 
@@ -186,7 +187,7 @@ export function useHomeData(session, showAdult = false) {
 
   const toggleMovieFollow = useCallback(
     async (movieId) => {
-      if (!session?.user?.id) return;
+      if (!session?.user?.id || !isValidId(movieId)) return;
       const isFollowing = state.followedMovieIds.has(movieId);
       dispatch({ type: "TOGGLE_MOVIE", id: movieId });
 
@@ -207,7 +208,7 @@ export function useHomeData(session, showAdult = false) {
 
   const toggleShowFollow = useCallback(
     async (showId) => {
-      if (!session?.user?.id) return;
+      if (!session?.user?.id || !isValidId(showId)) return;
       const isFollowing = state.followedShowIds.has(showId);
       dispatch({ type: "TOGGLE_SHOW", id: showId });
 
