@@ -10,6 +10,7 @@ import sequelize from "../db/database.js";
 const router = Router();
 const API_KEY = process.env.TMDB_API_KEY_SECRET;
 const ALLOWED_TYPES = new Set(["movie", "show", "person"]);
+const ALLOWED_KEYS = new Set(["type", "tmdbId"]);
 const BASE = "https://api.themoviedb.org/3";
 
 async function findLocalId(table, tmdbId) {
@@ -87,7 +88,13 @@ async function resolvePerson(tmdbId) {
 }
 
 router.post("/", async (req, res) => {
-  const { type, tmdbId: raw } = req.body ?? {};
+  const body = req.body ?? {};
+  const extraKeys = Object.keys(body).filter((k) => !ALLOWED_KEYS.has(k));
+  if (extraKeys.length > 0) {
+    return res.status(400).json({ error: `Unknown fields: ${extraKeys.join(", ")}` });
+  }
+
+  const { type, tmdbId: raw } = body;
   const tmdbId = Number(raw);
   if (!ALLOWED_TYPES.has(type) || !Number.isInteger(tmdbId) || tmdbId <= 0 || tmdbId > 9_999_999) {
     return res.status(400).json({ error: "type must be movie|show|person and tmdbId must be a positive integer" });

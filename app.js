@@ -50,8 +50,8 @@ const mutationLimiter = rateLimit({
 app.use(globalLimiter);
 
 app.use("/api/search", searchRouter);
-app.use("/api/inject", mutationLimiter, requireAuth, auditLog("inject"), injectRouter);
-app.use("/api/resolve", mutationLimiter, requireAuth, auditLog("resolve"), resolveRouter);
+app.use("/api/inject", mutationLimiter, requireAuth, auditLog("inject", ["type", "tmdbId"]), injectRouter);
+app.use("/api/resolve", mutationLimiter, requireAuth, auditLog("resolve", ["type", "tmdbId"]), resolveRouter);
 
 // Health check
 app.get("/health", (_req, res) => {

@@ -7,9 +7,16 @@ import { dedupIngest } from "../lib/ingestionQueue.js";
 const router = Router();
 const TMDB_API_KEY = process.env.TMDB_API_KEY_SECRET;
 const ALLOWED_TYPES = new Set(["movie", "show", "person"]);
+const ALLOWED_KEYS = new Set(["type", "tmdbId"]);
 
 router.post("/", (req, res) => {
-  const { type, tmdbId: rawId } = req.body ?? {};
+  const body = req.body ?? {};
+  const extraKeys = Object.keys(body).filter((k) => !ALLOWED_KEYS.has(k));
+  if (extraKeys.length > 0) {
+    return res.status(400).json({ error: `Unknown fields: ${extraKeys.join(", ")}` });
+  }
+
+  const { type, tmdbId: rawId } = body;
   const tmdbId = Number(rawId);
 
   if (!ALLOWED_TYPES.has(type) || !Number.isInteger(tmdbId) || tmdbId <= 0 || tmdbId > 9_999_999) {
