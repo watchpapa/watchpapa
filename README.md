@@ -259,7 +259,6 @@ Create a root `.env` file (backend) with:
 Frontend (`Frontend/.env`) variables:
 - `VITE_SUPABASE_URL`
 - `VITE_SUPABASE_PUBLISHABLE_KEY` (or `VITE_SUPABASE_ANON_KEY`)
-- `VITE_HCAPTCHA_SITE_KEY` (if hCaptcha is enabled in your flow)
 
 ### 4) Run the app locally
 Start backend (from project root):
