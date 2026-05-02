@@ -18,6 +18,7 @@ import SeasonPage from "./pages/app/SeasonPage.jsx";
 import EpisodePage from "./pages/app/EpisodePage.jsx";
 import PersonPage from "./pages/app/PersonPage.jsx";
 import TmdbResolvePage from "./pages/app/TmdbResolvePage.jsx";
+import CookieConsentBanner from "./components/ui/CookieConsentBanner.jsx";
 import ReleasesCalendarPage from "./pages/app/ReleasesCalendarPage.jsx";
 import {
   AboutPage,
@@ -169,6 +170,8 @@ function App() {
   }
 
   return (
+    <>
+    <CookieConsentBanner />
     <Routes>
       <Route
         path="/login"
@@ -384,6 +387,7 @@ function App() {
       />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
+    </>
   );
 }
 
