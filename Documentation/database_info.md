@@ -1,11 +1,16 @@
 <a id="database-mvp"></a>
 ## <u>🗄️ Database (MVP)</u>
+>Updated 1 May 2026
 
 The MVP uses a relational PostgreSQL schema (Supabase) designed around users, follows, media entities, and release-related details.
 
 <a id="er-diagram"></a>
 ### 🗺️ ER diagram
 ![watchpapa MVP ER diagram](public/readme%20assets/watchpapa.tv%20-%20MVP%20ER.png)
+
+<a id="physical-model"></a>
+### Physical data model (public schema)
+![Physical data model — DBPRO public schema diagram](public/readme%20assets/DBPRO-public-diagram-2-05-2026.png)
 
 <a id="db-related-tools"></a>
 ### 🛠️ List of DB related tools
