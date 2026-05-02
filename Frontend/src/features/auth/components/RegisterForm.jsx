@@ -31,6 +31,33 @@ function isAdult(dateString) {
   return age >= 18;
 }
 
+function getPasswordPolicyStatus(pw) {
+  return {
+    minLength: pw.length >= 8,
+    lower: /[a-z]/.test(pw),
+    upper: /[A-Z]/.test(pw),
+    digit: /[0-9]/.test(pw),
+    symbol: /[^A-Za-z0-9]/.test(pw),
+  };
+}
+
+function passwordPolicyMissing(pw) {
+  const s = getPasswordPolicyStatus(pw);
+  const missing = [];
+  if (!s.minLength) missing.push("at least 8 characters");
+  if (!s.lower) missing.push("a lowercase letter");
+  if (!s.upper) missing.push("an uppercase letter");
+  if (!s.digit) missing.push("a digit");
+  if (!s.symbol) missing.push("a symbol");
+  return missing;
+}
+
+function joinMissingRequirements(missing) {
+  if (missing.length <= 1) return missing[0] ?? "";
+  if (missing.length === 2) return `${missing[0]} and ${missing[1]}`;
+  return `${missing.slice(0, -1).join(", ")}, and ${missing[missing.length - 1]}`;
+}
+
 function validate(state) {
   const errors = {};
   const normalizedUsername = state.username.trim();
@@ -44,8 +71,11 @@ function validate(state) {
 
   if (!state.password) {
     errors.password = "Password is required.";
-  } else if (state.password.length < 8) {
-    errors.password = "Password must be at least 8 characters.";
+  } else {
+    const missing = passwordPolicyMissing(state.password);
+    if (missing.length > 0) {
+      errors.password = `Password must include ${joinMissingRequirements(missing)}.`;
+    }
   }
 
   if (!state.repeatPassword) {
@@ -70,6 +100,10 @@ function RegisterForm() {
   const [submitError, setSubmitError] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const isAdultUser = isAdult(formState.dateOfBirth);
+  const passwordPolicy = getPasswordPolicyStatus(formState.password);
+  const repeatPasswordMatches =
+    formState.repeatPassword.length > 0 &&
+    formState.repeatPassword === formState.password;
 
   const onChangeField = (fieldName) => (event) => {
     const nextValue = event.target.value;
@@ -188,16 +222,47 @@ function RegisterForm() {
         </FormField>
 
         <FormField label="password" htmlFor="password" error={errors.password} labelClassName="text-[18px] sm:text-[22px]">
-          <Input
-            id="password"
-            name="password"
-            type="password"
-            autoComplete="new-password"
-            placeholder="************"
-            value={formState.password}
-            onChange={onChangeField("password")}
-            aria-invalid={Boolean(errors.password)}
-          />
+          <div className="space-y-[4px]">
+            <Input
+              id="password"
+              name="password"
+              type="password"
+              autoComplete="new-password"
+              placeholder="************"
+              value={formState.password}
+              onChange={onChangeField("password")}
+              aria-invalid={Boolean(errors.password)}
+              aria-describedby="password-requirements"
+            />
+            <ul
+              id="password-requirements"
+              className="list-none space-y-[3px] text-[11px] font-semibold leading-snug transition-colors"
+              aria-live="polite"
+            >
+              {[
+                { met: passwordPolicy.minLength, label: "At least 8 characters" },
+                { met: passwordPolicy.lower, label: "One lowercase letter" },
+                { met: passwordPolicy.upper, label: "One uppercase letter" },
+                { met: passwordPolicy.digit, label: "One digit" },
+                {
+                  met: passwordPolicy.symbol,
+                  label: "One symbol (!@#$% etc.)",
+                },
+              ].map(({ met, label }) => (
+                <li
+                  key={label}
+                  className={
+                    met
+                      ? "text-emerald-400/95"
+                      : "text-[#a0a0f7]/75"
+                  }
+                >
+                  <span aria-hidden>{met ? "✓ " : "○ "}</span>
+                  {label}
+                </li>
+              ))}
+            </ul>
+          </div>
         </FormField>
 
         <FormField
@@ -222,16 +287,27 @@ function RegisterForm() {
           error={errors.repeatPassword}
           labelClassName="text-[18px] sm:text-[22px]"
         >
-          <Input
-            id="repeatPassword"
-            name="repeatPassword"
-            type="password"
-            autoComplete="new-password"
-            placeholder="************"
-            value={formState.repeatPassword}
-            onChange={onChangeField("repeatPassword")}
-            aria-invalid={Boolean(errors.repeatPassword)}
-          />
+          <div className="space-y-[4px]">
+            <Input
+              id="repeatPassword"
+              name="repeatPassword"
+              type="password"
+              autoComplete="new-password"
+              placeholder="************"
+              value={formState.repeatPassword}
+              onChange={onChangeField("repeatPassword")}
+              aria-invalid={Boolean(errors.repeatPassword)}
+              aria-describedby="repeat-password-hint"
+            />
+            <p
+              id="repeat-password-hint"
+              className={`text-[11px] font-semibold leading-snug transition-colors ${repeatPasswordMatches ? "text-emerald-400/95" : "text-[#a0a0f7]/75"}`}
+              aria-live="polite"
+            >
+              <span aria-hidden>{repeatPasswordMatches ? "✓ " : "○ "}</span>
+              Must match the password field exactly.
+            </p>
+          </div>
         </FormField>
 
         {isAdultUser ? (
