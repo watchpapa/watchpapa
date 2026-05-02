@@ -128,7 +128,6 @@ function ProfileMenu({ session }) {
   const handleSignOut = async () => {
     setOpen(false);
     await supabase.auth.signOut();
-    navigate("/login", { replace: true });
   };
 
   const handleDeleteAccount = async () => {
