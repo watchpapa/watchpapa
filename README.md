@@ -321,4 +321,4 @@ This project was developed with AI-assisted support across brainstorming, implem
 
 This project was **not** vibe-coded. The architecture, planning, and technical decisions were made by the author; AI was used as an assistive tool during implementation and documentation.
 
-Most commits were created in Cursor using the prompt "Make atomic commits."
+Most commits were created in Cursor using the prompt "Make atomic commits"
