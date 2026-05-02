@@ -27,6 +27,7 @@
     "seed:tmdb:update-popularity:people": "node Backend/src/scripts/update_tmdb_popularity_people.js",
     "test:injections": "node --test \"tests/injections_tests/**/*.test.js\"",
     "test:injections:watch": "node --test --watch \"tests/injections_tests/**/*.test.js\"",
+    "test:rls": "node --test \"tests/rls_tests/**/*.test.js\"",
     "test:py": "pytest"
   },
   "dependencies": {
