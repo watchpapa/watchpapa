@@ -99,7 +99,7 @@ The MVP uses a relational PostgreSQL schema (Supabase) designed around users, fo
 
 ### 🗺️ ER diagram
 
-watchpapa MVP ER diagram
+![watchpapa.tv MVP ER diagram](public/readme%20assets/watchpapa.tv%20-%20MVP%20ER.png)
 
 ### 🛠️ List of DB related tools
 
