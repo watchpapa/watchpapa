@@ -20,7 +20,7 @@ const corsAllowedOrigins = allowedOrigins.length > 0 ? allowedOrigins : defaultA
 
 app.use(helmet());
 
-app.use(express.json({ limit: "64kb" }));
+app.use(express.json({ limit: "128kb" }));
 
 app.use((req, res, next) => {
   const origin = req.headers.origin;
@@ -47,11 +47,19 @@ const mutationLimiter = rateLimit({
   legacyHeaders: false,
 });
 
+const perUserMutationLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 20,
+  keyGenerator: (req) => req.user?.id ?? req.ip,
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 app.use(globalLimiter);
 
 app.use("/api/search", searchRouter);
-app.use("/api/inject", mutationLimiter, requireAuth, auditLog("inject", ["type", "tmdbId"]), injectRouter);
-app.use("/api/resolve", mutationLimiter, requireAuth, auditLog("resolve", ["type", "tmdbId"]), resolveRouter);
+app.use("/api/inject", mutationLimiter, requireAuth, perUserMutationLimiter, auditLog("inject", ["type", "tmdbId"]), injectRouter);
+app.use("/api/resolve", mutationLimiter, requireAuth, perUserMutationLimiter, auditLog("resolve", ["type", "tmdbId"]), resolveRouter);
 
 // Health check
 app.get("/health", (_req, res) => {
@@ -65,7 +73,11 @@ app.use((_req, res) => {
 
 // Error handler
 app.use((err, _req, res, _next) => {
-  console.error(err);
+  if (process.env.NODE_ENV === "production") {
+    console.error("[ERROR]", err.message);
+  } else {
+    console.error(err);
+  }
   res.status(500).json({ error: "Internal server error" });
 });
 
