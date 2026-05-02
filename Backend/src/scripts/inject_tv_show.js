@@ -4,6 +4,15 @@ import sequelize from "../db/database.js";
 import { tmdbRateLimitedFetch } from "./tmdb_rate_limited_fetch.js";
 import { ingestPerson, batchIngestPersons, fetchTmdbPerson } from "./inject_person.js";
 import { resolveOrCreateJobId } from "./resolve_job.js";
+import {
+  str,
+  strOrNull,
+  clampedNum,
+  clampedInt,
+  strictBool,
+  isoDate,
+  isoLang,
+} from "../lib/sanitizeTmdb.js";
 
 dotenv.config();
 
@@ -323,7 +332,8 @@ async function fetchTmdbEpisodeCredits(
 function pickEpisodeRunTime(raw) {
   if (!Array.isArray(raw)) return null;
   const firstFinite = raw.find((v) => Number.isFinite(v) && v > 0);
-  return Number.isFinite(firstFinite) ? firstFinite : null;
+  if (!Number.isFinite(firstFinite)) return null;
+  return clampedInt(firstFinite, null, 0, 100_000);
 }
 
 function normalizeShowPayload(payload) {
@@ -332,42 +342,38 @@ function normalizeShowPayload(payload) {
     throw new Error("TMDB tv payload is missing numeric `id`.");
   }
 
-  const name = typeof payload.name === "string" ? payload.name.trim() : "";
-  if (!name) {
+  const rawName = typeof payload.name === "string" ? payload.name.trim() : "";
+  if (!rawName) {
     throw new Error(`TMDB tv show ${tmdbId} is missing required \`name\`.`);
   }
+  const name = str(rawName, 500);
+
+  const rawOriginalName =
+    typeof payload.original_name === "string" && payload.original_name.trim()
+      ? payload.original_name.trim()
+      : rawName;
 
   return {
     tmdbId,
-    adult: Boolean(payload.adult),
+    adult: strictBool(payload.adult),
     episodeRunTime: pickEpisodeRunTime(payload.episode_run_time),
-    firstAirDate: payload.first_air_date || null,
-    inProduction: Boolean(payload.in_production),
-    lastAirDate: payload.last_air_date || null,
+    firstAirDate: isoDate(payload.first_air_date),
+    inProduction: strictBool(payload.in_production),
+    lastAirDate: isoDate(payload.last_air_date),
     name,
-    numberOfEpisodes: Number.isFinite(payload.number_of_episodes)
-      ? payload.number_of_episodes
-      : 0,
-    numberOfSeasons: Number.isFinite(payload.number_of_seasons)
-      ? payload.number_of_seasons
-      : 0,
-    originalLanguage:
-      typeof payload.original_language === "string"
-        ? payload.original_language
-        : "",
-    originalName:
-      typeof payload.original_name === "string" && payload.original_name.trim()
-        ? payload.original_name.trim()
-        : name,
-    overview: typeof payload.overview === "string" ? payload.overview : "",
-    tmdbPopularity: Number.isFinite(payload.popularity) ? payload.popularity : 0,
-    status: typeof payload.status === "string" ? payload.status : "",
-    tagline: typeof payload.tagline === "string" ? payload.tagline : "",
-    type: typeof payload.type === "string" ? payload.type : "",
-    tmdbVoteAvg: Number.isFinite(payload.vote_average) ? payload.vote_average : 0,
-    tmdbVoteCount: Number.isFinite(payload.vote_count) ? payload.vote_count : 0,
+    numberOfEpisodes: clampedInt(payload.number_of_episodes, 0, 0, 100_000),
+    numberOfSeasons: clampedInt(payload.number_of_seasons, 0, 0, 100_000),
+    originalLanguage: isoLang(payload.original_language) ?? "",
+    originalName: str(rawOriginalName, 500),
+    overview: str(payload.overview, 5000),
+    tmdbPopularity: clampedNum(payload.popularity, 0, 0, 9_999_999),
+    status: str(payload.status, 100),
+    tagline: str(payload.tagline, 500),
+    type: str(payload.type, 100),
+    tmdbVoteAvg: clampedNum(payload.vote_average, 0, 0, 10),
+    tmdbVoteCount: clampedInt(payload.vote_count, 0, 0, 99_999_999),
     genres: Array.isArray(payload.genres) ? payload.genres : [],
-    posterPath: typeof payload.poster_path === "string" ? payload.poster_path : null,
+    posterPath: strOrNull(payload.poster_path, 500),
   };
 }
 
@@ -426,19 +432,19 @@ function normalizeSeasonPayload(payload, showId) {
     );
   }
 
-  const name = typeof payload.name === "string" ? payload.name.trim() : "";
-  if (!name) {
+  const rawName = typeof payload.name === "string" ? payload.name.trim() : "";
+  if (!rawName) {
     throw new Error(`TMDB season ${tmdbId} is missing required \`name\`.`);
   }
 
   return {
     tmdbId,
     showId,
-    name,
-    seasonNumber,
-    overview: typeof payload.overview === "string" ? payload.overview : "",
-    airDate: payload.air_date || null,
-    posterPath: typeof payload.poster_path === "string" ? payload.poster_path : null,
+    name: str(rawName, 500),
+    seasonNumber: clampedInt(seasonNumber, 0, 0, 100_000),
+    overview: str(payload.overview, 5000),
+    airDate: isoDate(payload.air_date),
+    posterPath: strOrNull(payload.poster_path, 500),
   };
 }
 
@@ -455,20 +461,20 @@ function normalizeEpisodePayload(payload, seasonId) {
     );
   }
 
-  const name = typeof payload.name === "string" ? payload.name.trim() : "";
-  if (!name) {
+  const rawName = typeof payload.name === "string" ? payload.name.trim() : "";
+  if (!rawName) {
     throw new Error(`TMDB episode ${tmdbId} is missing required \`name\`.`);
   }
 
   return {
     tmdbId,
     seasonId,
-    name,
-    episodeNumber,
-    overview: typeof payload.overview === "string" ? payload.overview : "",
-    runtime: Number.isFinite(payload.runtime) ? payload.runtime : 0,
-    airDate: payload.air_date || null,
-    posterPath: typeof payload.still_path === "string" ? payload.still_path : null,
+    name: str(rawName, 500),
+    episodeNumber: clampedInt(episodeNumber, 0, 0, 100_000),
+    overview: str(payload.overview, 5000),
+    runtime: clampedInt(payload.runtime, 0, 0, 100_000),
+    airDate: isoDate(payload.air_date),
+    posterPath: strOrNull(payload.still_path, 500),
   };
 }
 

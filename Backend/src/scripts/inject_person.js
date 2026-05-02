@@ -2,6 +2,14 @@ import dotenv from "dotenv";
 import { pathToFileURL } from "url";
 import sequelize from "../db/database.js";
 import { tmdbRateLimitedFetch } from "./tmdb_rate_limited_fetch.js";
+import {
+  str,
+  strOrNull,
+  clampedNum,
+  clampedInt,
+  strictBool,
+  isoDate,
+} from "../lib/sanitizeTmdb.js";
 
 dotenv.config();
 
@@ -140,7 +148,7 @@ function normalizeNicknames(alsoKnownAs) {
   const out = [];
   for (const raw of alsoKnownAs) {
     if (typeof raw !== "string") continue;
-    const trimmed = raw.trim();
+    const trimmed = raw.trim().slice(0, 500);
     if (!trimmed) continue;
     if (seen.has(trimmed)) continue;
     seen.add(trimmed);
@@ -155,38 +163,23 @@ function normalizePersonPayload(payload) {
     throw new Error("TMDB person payload is missing numeric `id`.");
   }
 
-  const name = typeof payload.name === "string" ? payload.name.trim() : "";
-  if (!name) {
+  const rawName = typeof payload.name === "string" ? payload.name.trim() : "";
+  if (!rawName) {
     throw new Error(`TMDB person ${tmdbId} is missing required \`name\`.`);
   }
 
-  const biography =
-    typeof payload.biography === "string" ? payload.biography : null;
-
-  const knownForDepartmentName =
-    typeof payload.known_for_department === "string" &&
-    payload.known_for_department.trim() !== ""
-      ? payload.known_for_department
-      : null;
-
-  const profilePath =
-    typeof payload.profile_path === "string" ? payload.profile_path : null;
-
   return {
     tmdbId,
-    name,
-    adult: Boolean(payload.adult),
-    biography,
-    birthday: payload.birthday || null,
-    placeOfBirth:
-      typeof payload.place_of_birth === "string"
-        ? payload.place_of_birth
-        : null,
-    deathday: payload.deathday || null,
-    gender: Number.isFinite(payload.gender) ? payload.gender : 0,
-    popularity: Number.isFinite(payload.popularity) ? payload.popularity : 0,
-    knownForDepartmentName,
-    profilePath,
+    name: str(rawName, 500),
+    adult: strictBool(payload.adult),
+    biography: strOrNull(payload.biography, 50_000),
+    birthday: isoDate(payload.birthday),
+    placeOfBirth: strOrNull(payload.place_of_birth, 500),
+    deathday: isoDate(payload.deathday),
+    gender: clampedInt(payload.gender, 0, 0, 3),
+    popularity: clampedNum(payload.popularity, 0, 0, 9_999_999),
+    knownForDepartmentName: strOrNull(payload.known_for_department, 200),
+    profilePath: strOrNull(payload.profile_path, 500),
     alsoKnownAs: normalizeNicknames(payload.also_known_as),
   };
 }
@@ -195,8 +188,7 @@ const departmentCache = new Map();
 const existingPersonIdCache = new Map();
 
 function normalizeDepartmentName(name) {
-  if (name === "Actors") return "Acting";
-  return name;
+  return strOrNull(name === "Actors" ? "Acting" : name, 200);
 }
 
 async function resolveDepartmentId(deptName, transaction) {

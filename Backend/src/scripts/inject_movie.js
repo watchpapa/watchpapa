@@ -4,6 +4,15 @@ import sequelize from "../db/database.js";
 import { tmdbRateLimitedFetch } from "./tmdb_rate_limited_fetch.js";
 import { ingestPerson, batchIngestPersons, fetchTmdbPerson } from "./inject_person.js";
 import { resolveOrCreateJobId } from "./resolve_job.js";
+import {
+  str,
+  strOrNull,
+  clampedNum,
+  clampedInt,
+  strictBool,
+  isoDate,
+  isoLang,
+} from "../lib/sanitizeTmdb.js";
 
 dotenv.config();
 
@@ -226,36 +235,35 @@ function normalizeMoviePayload(payload) {
     throw new Error("TMDB movie payload is missing numeric `id`.");
   }
 
-  const title = typeof payload.title === "string" ? payload.title.trim() : "";
-  if (!title) {
+  const rawTitle = typeof payload.title === "string" ? payload.title.trim() : "";
+  if (!rawTitle) {
     throw new Error(`TMDB movie ${tmdbId} is missing required \`title\`.`);
   }
+  const title = str(rawTitle, 500);
+
+  const rawOriginalTitle =
+    typeof payload.original_title === "string" && payload.original_title.trim()
+      ? payload.original_title.trim()
+      : rawTitle;
 
   return {
     tmdbId,
-    adult: Boolean(payload.adult),
-    budget: Number.isFinite(payload.budget) ? payload.budget : 0,
-    originalLanguage:
-      typeof payload.original_language === "string"
-        ? payload.original_language
-        : "",
-    originalTitle:
-      typeof payload.original_title === "string"
-        ? payload.original_title.trim()
-        : title,
-    overview:
-      typeof payload.overview === "string" ? payload.overview : "",
-    tmdbPopularity: Number.isFinite(payload.popularity) ? payload.popularity : 0,
-    releaseDate: payload.release_date || null,
-    revenue: Number.isFinite(payload.revenue) ? payload.revenue : 0,
-    runtime: Number.isFinite(payload.runtime) ? payload.runtime : 0,
-    status: typeof payload.status === "string" ? payload.status : "",
-    tagline: typeof payload.tagline === "string" ? payload.tagline : "",
+    adult: strictBool(payload.adult),
+    budget: clampedInt(payload.budget, 0, 0, 9_999_999_999_999),
+    originalLanguage: isoLang(payload.original_language) ?? "",
+    originalTitle: str(rawOriginalTitle, 500),
+    overview: str(payload.overview, 5000),
+    tmdbPopularity: clampedNum(payload.popularity, 0, 0, 9_999_999),
+    releaseDate: isoDate(payload.release_date),
+    revenue: clampedInt(payload.revenue, 0, 0, 9_999_999_999_999),
+    runtime: clampedInt(payload.runtime, 0, 0, 100_000),
+    status: str(payload.status, 100),
+    tagline: str(payload.tagline, 500),
     title,
-    tmdbVoteAvg: Number.isFinite(payload.vote_average) ? payload.vote_average : 0,
-    tmdbVoteCount: Number.isFinite(payload.vote_count) ? payload.vote_count : 0,
+    tmdbVoteAvg: clampedNum(payload.vote_average, 0, 0, 10),
+    tmdbVoteCount: clampedInt(payload.vote_count, 0, 0, 99_999_999),
     genres: Array.isArray(payload.genres) ? payload.genres : [],
-    posterPath: typeof payload.poster_path === "string" ? payload.poster_path : null,
+    posterPath: strOrNull(payload.poster_path, 500),
   };
 }
 

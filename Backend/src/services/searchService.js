@@ -1,5 +1,6 @@
 import sequelize from "../db/database.js";
 import { tmdbRateLimitedFetch } from "../scripts/tmdb_rate_limited_fetch.js";
+import { sanitizeMovie, sanitizeShow, sanitizePerson } from "../lib/sanitizeTmdb.js";
 
 
 function escapePattern(q) {
@@ -182,6 +183,7 @@ export function mergeResults(localResults, tmdbResults) {
 }
 
 export async function fastUpsertMovie(item) {
+  const s = sanitizeMovie(item);
   const [rows] = await sequelize.query(
     `INSERT INTO movie (
        tmdb_id, title, original_title, poster_path, tmdb_popularity,
@@ -207,17 +209,17 @@ export async function fastUpsertMovie(item) {
      RETURNING id`,
     {
       replacements: {
-        tmdbId: item.tmdbId,
-        title: item.title,
-        originalTitle: item.originalTitle ?? item.title,
-        posterPath: item.posterPath ?? null,
-        tmdbPopularity: item.popularity ?? 0,
-        overview: item.overview ?? "",
-        releaseDate: item.releaseDate ?? null,
-        originalLanguage: item.originalLanguage ?? null,
-        adult: item.adult ?? false,
-        tmdbVoteAvg: item.tmdbVoteAvg ?? 0,
-        tmdbVoteCount: item.tmdbVoteCount ?? 0,
+        tmdbId: s.tmdbId,
+        title: s.title,
+        originalTitle: s.originalTitle,
+        posterPath: s.posterPath,
+        tmdbPopularity: s.popularity,
+        overview: s.overview,
+        releaseDate: s.releaseDate,
+        originalLanguage: s.originalLanguage,
+        adult: s.adult,
+        tmdbVoteAvg: s.tmdbVoteAvg,
+        tmdbVoteCount: s.tmdbVoteCount,
       },
     }
   );
@@ -225,6 +227,7 @@ export async function fastUpsertMovie(item) {
 }
 
 export async function fastUpsertShow(item) {
+  const s = sanitizeShow(item);
   const [rows] = await sequelize.query(
     `INSERT INTO show (
        tmdb_id, name, original_name, poster_path, tmdb_popularity,
@@ -252,17 +255,17 @@ export async function fastUpsertShow(item) {
      RETURNING id`,
     {
       replacements: {
-        tmdbId: item.tmdbId,
-        name: item.title,
-        originalName: item.originalName ?? item.title,
-        posterPath: item.posterPath ?? null,
-        tmdbPopularity: item.popularity ?? 0,
-        overview: item.overview ?? "",
-        firstAirDate: item.firstAirDate ?? null,
-        originalLanguage: item.originalLanguage ?? null,
-        adult: item.adult ?? false,
-        tmdbVoteAvg: item.tmdbVoteAvg ?? 0,
-        tmdbVoteCount: item.tmdbVoteCount ?? 0,
+        tmdbId: s.tmdbId,
+        name: s.title,
+        originalName: s.originalName,
+        posterPath: s.posterPath,
+        tmdbPopularity: s.popularity,
+        overview: s.overview,
+        firstAirDate: s.firstAirDate,
+        originalLanguage: s.originalLanguage,
+        adult: s.adult,
+        tmdbVoteAvg: s.tmdbVoteAvg,
+        tmdbVoteCount: s.tmdbVoteCount,
       },
     }
   );
@@ -270,6 +273,7 @@ export async function fastUpsertShow(item) {
 }
 
 export async function fastUpsertPerson(item) {
+  const s = sanitizePerson(item);
   const [rows] = await sequelize.query(
     `INSERT INTO person (
        tmdb_id, name, profile_path, popularity, adult, gender
@@ -285,11 +289,11 @@ export async function fastUpsertPerson(item) {
      RETURNING id`,
     {
       replacements: {
-        tmdbId: item.tmdbId,
-        name: item.title,
-        profilePath: item.posterPath ?? null,
-        popularity: item.popularity ?? 0,
-        adult: item.adult ?? false,
+        tmdbId: s.tmdbId,
+        name: s.title,
+        profilePath: s.posterPath,
+        popularity: s.popularity,
+        adult: s.adult,
       },
     }
   );

@@ -3,6 +3,10 @@
  * plus bounded retries on 429/503. Use for every themoviedb.org request from scripts.
  */
 
+function maskApiKey(str) {
+  return String(str).replace(/api_key=[^&\s]*/gi, "api_key=[REDACTED]");
+}
+
 const WINDOW_MS = 1000;
 const MAX_REQUESTS_PER_WINDOW = 35;
 const MAX_RATE_LIMIT_RETRIES = 8;
@@ -57,7 +61,12 @@ export async function tmdbRateLimitedFetch(url, init) {
   let rateLimitAttempt = 0;
   for (;;) {
     await acquireTmdbSlot();
-    const response = await fetch(url, init);
+    let response;
+    try {
+      response = await fetch(url, init);
+    } catch (err) {
+      throw new Error(`TMDB fetch failed: ${maskApiKey(err.message)}`);
+    }
     if (response.status !== 429 && response.status !== 503) {
       return response;
     }

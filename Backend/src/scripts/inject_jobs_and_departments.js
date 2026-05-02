@@ -1,6 +1,7 @@
 import dotenv from "dotenv";
 import sequelize from "../db/database.js";
 import { tmdbRateLimitedFetch } from "./tmdb_rate_limited_fetch.js";
+import { strOrNull } from "../lib/sanitizeTmdb.js";
 
 dotenv.config();
 
@@ -128,8 +129,12 @@ function logProgress(processedDepartments, totalDepartments, processedJobs, tota
 }
 
 function normalizeDepartmentName(name) {
-  if (name === "Actors") return "Acting";
-  return name;
+  const clamped = strOrNull(name === "Actors" ? "Acting" : name, 200);
+  return clamped;
+}
+
+function normalizeJobName(name) {
+  return strOrNull(name, 200);
 }
 
 async function saveJobs(jobsByDepartment, transaction) {
@@ -195,7 +200,8 @@ async function saveJobs(jobsByDepartment, transaction) {
       continue;
     }
 
-    for (const job of jobs) {
+    for (const rawJob of jobs) {
+      const job = normalizeJobName(rawJob);
       if (!job) continue;
 
       const [existingJobRows] = await sequelize.query(

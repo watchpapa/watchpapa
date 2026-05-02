@@ -1,6 +1,7 @@
 import dotenv from "dotenv";
 import sequelize from "../db/database.js";
 import { tmdbRateLimitedFetch } from "./tmdb_rate_limited_fetch.js";
+import { str } from "../lib/sanitizeTmdb.js";
 
 dotenv.config();
 
@@ -104,10 +105,10 @@ function mergeAndDedupe(...genreLists) {
   for (const list of genreLists) {
     for (const genre of list) {
       const tmdbId = genre?.id;
-      const name = genre?.name;
-      if (typeof tmdbId !== "number" || !name) continue;
+      const rawName = typeof genre?.name === "string" ? genre.name.trim() : "";
+      if (typeof tmdbId !== "number" || !rawName) continue;
       if (!byTmdbId.has(tmdbId)) {
-        byTmdbId.set(tmdbId, { tmdbId, name });
+        byTmdbId.set(tmdbId, { tmdbId, name: str(rawName, 200) });
       }
     }
   }
