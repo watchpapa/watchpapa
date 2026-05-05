@@ -6,6 +6,12 @@
   "observability": {
     "enabled": true
   },
+  "routes": [
+    {
+      "pattern": "api.watchpapa.tv/*",
+      "zone_name": "watchpapa.tv"
+    }
+  ],
   "vars": {
     "ALLOWED_ORIGINS": "https://watchpapa.tv"
   }
