@@ -1,0 +1,12 @@
+{
+  "$schema": "../node_modules/wrangler/config-schema.json",
+  "name": "watchpapa-api",
+  "main": "src/index.js",
+  "compatibility_date": "2026-05-05",
+  "observability": {
+    "enabled": true
+  },
+  "vars": {
+    "ALLOWED_ORIGINS": "https://watchpapa.tv"
+  }
+}
