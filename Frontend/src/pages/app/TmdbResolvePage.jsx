@@ -3,6 +3,12 @@ import { useNavigate, useParams } from "react-router-dom";
 import AuthPromptModal from "../../components/AuthPromptModal.jsx";
 import AppLayout from "../../layouts/AppLayout.jsx";
 
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL ?? "").replace(/\/+$/, "");
+
+function buildApiUrl(path) {
+  return API_BASE_URL ? `${API_BASE_URL}${path}` : path;
+}
+
 function TmdbResolvePage({ type, session }) {
   const { tmdbId } = useParams();
   const navigate = useNavigate();
@@ -15,7 +21,7 @@ function TmdbResolvePage({ type, session }) {
       return;
     }
 
-    fetch("/api/resolve", {
+    fetch(buildApiUrl("/api/resolve"), {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
