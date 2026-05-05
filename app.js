@@ -2,7 +2,7 @@ import express from "express";
 import path from "path";
 import { fileURLToPath } from "url";
 import helmet from "helmet";
-import rateLimit, { ipKeyGenerator } from "express-rate-limit";
+import rateLimit from "express-rate-limit";
 import searchRouter from "./Backend/src/routes/search.js";
 import injectRouter from "./Backend/src/routes/inject.js";
 import resolveRouter from "./Backend/src/routes/resolve.js";
@@ -50,7 +50,7 @@ const mutationLimiter = rateLimit({
 const perUserMutationLimiter = rateLimit({
   windowMs: 60 * 1000,
   max: 20,
-  keyGenerator: (req) => req.user?.id ?? ipKeyGenerator(req.ip),
+  keyGenerator: (req) => req.user?.id ?? req.ip,
   standardHeaders: true,
   legacyHeaders: false,
 });

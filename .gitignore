@@ -10,7 +10,6 @@ env/
 
 # Environment & secrets
 .env
-.env.production
 .env.local
 .env.*.local
 *.pem
@@ -56,9 +55,3 @@ sql/
 # Other
 docs/
 .docs
-
-# wrangler files
-.wrangler
-.dev.vars*
-!.dev.vars.example
-!.env.example

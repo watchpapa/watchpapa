@@ -314,7 +314,7 @@ For the complete list of scripts (including changed-window refresh, top-rated lo
 ```bash
 npm run test:injections
 ```
- 
+
 ## 🤖 AI Usage Note
 
 This project was developed with AI-assisted support across brainstorming, implementation, debugging, and documentation tasks. All outputs were reviewed and adapted by the author before being included in the project.

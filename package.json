@@ -28,9 +28,7 @@
     "test:injections": "node --test \"tests/injections_tests/**/*.test.js\"",
     "test:injections:watch": "node --test --watch \"tests/injections_tests/**/*.test.js\"",
     "test:rls": "node --test \"tests/rls_tests/**/*.test.js\"",
-    "test:py": "pytest",
-    "deploy": "wrangler deploy",
-    "preview": "wrangler dev"
+    "test:py": "pytest"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.104.1",
@@ -41,8 +39,5 @@
     "pg": "^8.13.0",
     "pg-hstore": "^2.3.4",
     "sequelize": "^6.37.8"
-  },
-  "devDependencies": {
-    "wrangler": "^4.87.0"
   }
 }

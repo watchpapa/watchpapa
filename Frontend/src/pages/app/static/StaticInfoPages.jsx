@@ -65,7 +65,7 @@ function ContactPage({ session }) {
     <InfoPageShell session={session} breadcrumbs={[{ label: "Contact" }]} title="Contact">
       <p>
         For general questions or feedback, email{" "}
-        <a href="mailto:support@watchpapa.tv">contact@watchpapa.tv</a>.
+        <a href="mailto:support@watchpapa.tv">XXXXXXXXXXXXXXXXX@watchpapa.tv</a>.
       </p>
       <p>
         [add contact form here]

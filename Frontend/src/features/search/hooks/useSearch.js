@@ -2,7 +2,6 @@ import { useEffect, useReducer, useRef } from "react";
 import { supabase } from "../../../lib/supabase.js";
 
 const DEBOUNCE_MS = 300;
-const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL ?? "").replace(/\/+$/, "");
 
 function reducer(state, action) {
   switch (action.type) {
@@ -36,14 +35,6 @@ function mergeRowsById(rowsA, rowsB, sortKey, ascending = false) {
     return ascending ? va - vb : vb - va;
   });
   return list;
-}
-
-function buildApiUrl(path, params) {
-  const query = new URLSearchParams(params).toString();
-  if (API_BASE_URL) {
-    return `${API_BASE_URL}${path}?${query}`;
-  }
-  return `${path}?${query}`;
 }
 
 async function searchLocalSupabase(query, perTypeLimit, showAdult) {
@@ -173,12 +164,7 @@ export function useSearch(query, { perTypeLimit = 5, backendLimit = 30, showAdul
           // backend Sequelize returns it as number, so Set.has() would fail without normalization.
           const localTmdbIds = new Set(localResults.map((r) => String(r.tmdbId)));
           fetch(
-            buildApiUrl("/api/search", {
-              q: trimmed,
-              limit: String(backendLimit),
-              localPerType: String(perTypeLimit),
-              includeAdult: String(showAdult),
-            })
+            `/api/search?q=${encodeURIComponent(trimmed)}&limit=${backendLimit}&localPerType=${perTypeLimit}&includeAdult=${showAdult}`
           )
             .then((r) => {
               if (!r.ok) throw new Error(r.status);
