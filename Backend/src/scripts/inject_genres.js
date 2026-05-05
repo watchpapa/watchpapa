@@ -115,6 +115,7 @@ function mergeAndDedupe(...genreLists) {
   return Array.from(byTmdbId.values());
 }
 
+// AIed {
 function renderProgressBar(current, total, width = 30) {
   const safeTotal = total > 0 ? total : 1;
   const ratio = Math.min(current / safeTotal, 1);
@@ -132,6 +133,7 @@ function logProgress(processed, total, inserted, updated) {
     `New ${inserted} | Updated ${updated}`;
   process.stdout.write(`\r${line}`);
 }
+// AIed }
 
 async function saveGenres(genres, transaction) {
   let inserted = 0;
