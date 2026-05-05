@@ -79,12 +79,19 @@ function validateMutationBody(body) {
 
 async function fetchTmdbJson(env, pathAndQuery) {
   if (!env.TMDB_API_KEY_SECRET) {
-    return { ok: false, status: 503, error: "Service unavailable" };
+    return { ok: false, status: 503, error: "TMDB_API_KEY_SECRET is missing" };
   }
   const url = `${TMDB_BASE}${pathAndQuery}${pathAndQuery.includes("?") ? "&" : "?"}api_key=${encodeURIComponent(env.TMDB_API_KEY_SECRET)}`;
   const response = await fetch(url);
   if (!response.ok) {
-    return { ok: false, status: response.status, error: `TMDB request failed (${response.status})` };
+    let detail = "";
+    try {
+      const payload = await response.json();
+      detail = payload?.status_message ? `: ${payload.status_message}` : "";
+    } catch {
+      detail = "";
+    }
+    return { ok: false, status: response.status, error: `TMDB request failed (${response.status})${detail}` };
   }
   return { ok: true, data: await response.json() };
 }
@@ -197,14 +204,16 @@ app.get("/api/search", async (c) => {
       fetchTmdbJson(c.env, `/search/tv?${query}`),
       fetchTmdbJson(c.env, `/search/person?${query}`),
     ]);
-    if (!movieRes.ok || !showRes.ok || !personRes.ok) {
-      return c.json({ results: [] });
+    if (!movieRes.ok && !showRes.ok && !personRes.ok) {
+      const details = [movieRes.error, showRes.error, personRes.error].filter(Boolean);
+      console.error("Search failed for all TMDB types:", details.join(" | "));
+      return c.json({ error: "Search failed", details }, 502);
     }
 
     const filterAdult = (rows) => (includeAdult ? rows : rows.filter((r) => !r.adult));
     const perType = 15;
 
-    const movies = filterAdult(movieRes.data.results ?? []).slice(0, perType).map((r) => ({
+    const movies = filterAdult(movieRes.ok ? (movieRes.data.results ?? []) : []).slice(0, perType).map((r) => ({
       type: "movie",
       localId: null,
       tmdbId: r.id,
@@ -221,7 +230,7 @@ app.get("/api/search", async (c) => {
       tmdbVoteCount: r.vote_count ?? 0,
     }));
 
-    const shows = filterAdult(showRes.data.results ?? []).slice(0, perType).map((r) => ({
+    const shows = filterAdult(showRes.ok ? (showRes.data.results ?? []) : []).slice(0, perType).map((r) => ({
       type: "show",
       localId: null,
       tmdbId: r.id,
@@ -238,7 +247,7 @@ app.get("/api/search", async (c) => {
       tmdbVoteCount: r.vote_count ?? 0,
     }));
 
-    const people = filterAdult(personRes.data.results ?? []).slice(0, perType).map((r) => ({
+    const people = filterAdult(personRes.ok ? (personRes.data.results ?? []) : []).slice(0, perType).map((r) => ({
       type: "person",
       localId: null,
       tmdbId: r.id,
@@ -249,7 +258,12 @@ app.get("/api/search", async (c) => {
       adult: r.adult ?? false,
     }));
 
-    return c.json({ results: [...movies, ...shows, ...people] });
+    const results = [...movies, ...shows, ...people];
+    const warnings = [];
+    if (!movieRes.ok) warnings.push(`movie: ${movieRes.error}`);
+    if (!showRes.ok) warnings.push(`tv: ${showRes.error}`);
+    if (!personRes.ok) warnings.push(`person: ${personRes.error}`);
+    return c.json({ results, ...(warnings.length ? { warnings } : {}) });
   } catch (error) {
     console.error("Search error:", error?.message ?? error);
     return c.json({ error: "Search failed" }, 500);
