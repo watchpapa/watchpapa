@@ -1,3 +1,5 @@
+// Used by:
+// - app.js
 import { Router } from "express";
 import { tmdbRateLimitedFetch } from "../scripts/tmdb_rate_limited_fetch.js";
 import { fastUpsertMovie, fastUpsertShow, fastUpsertPerson } from "../services/searchService.js";
@@ -13,6 +15,7 @@ const ALLOWED_TYPES = new Set(["movie", "show", "person"]);
 const ALLOWED_KEYS = new Set(["type", "tmdbId"]);
 const BASE = "https://api.themoviedb.org/3";
 
+// Find an existing local database id by tmdb_id for a table.
 async function findLocalId(table, tmdbId) {
   const [row] = await sequelize.query(
     `SELECT id FROM ${table} WHERE tmdb_id = :tmdbId AND deleted_at IS NULL LIMIT 1`,
@@ -21,9 +24,10 @@ async function findLocalId(table, tmdbId) {
   return row?.id ?? null;
 }
 
+// Resolve a movie local id by reusing or upserting a database row.
 async function resolveMovie(tmdbId) {
   const existing = await findLocalId("movie", tmdbId);
-  if (existing != null) return existing;
+  if (existing != null) return { localId: existing, wasExisting: true };
 
   const res = await tmdbRateLimitedFetch(`${BASE}/movie/${tmdbId}?api_key=${API_KEY}&language=en-US`);
   if (!res.ok) throw new Error(`TMDB movie ${tmdbId}: ${res.status}`);
@@ -42,12 +46,13 @@ async function resolveMovie(tmdbId) {
     tmdbVoteAvg: r.vote_average ?? 0,
     tmdbVoteCount: r.vote_count ?? 0,
   });
-  return row.id;
+  return { localId: row.id, wasExisting: false };
 }
 
+// Resolve a show local id by reusing or upserting a database row.
 async function resolveShow(tmdbId) {
   const existing = await findLocalId("show", tmdbId);
-  if (existing != null) return existing;
+  if (existing != null) return { localId: existing, wasExisting: true };
 
   const res = await tmdbRateLimitedFetch(`${BASE}/tv/${tmdbId}?api_key=${API_KEY}&language=en-US`);
   if (!res.ok) throw new Error(`TMDB show ${tmdbId}: ${res.status}`);
@@ -66,12 +71,13 @@ async function resolveShow(tmdbId) {
     tmdbVoteAvg: r.vote_average ?? 0,
     tmdbVoteCount: r.vote_count ?? 0,
   });
-  return row.id;
+  return { localId: row.id, wasExisting: false };
 }
 
+// Resolve a person local id by reusing or upserting a database row.
 async function resolvePerson(tmdbId) {
   const existing = await findLocalId("person", tmdbId);
-  if (existing != null) return existing;
+  if (existing != null) return { localId: existing, wasExisting: true };
 
   const res = await tmdbRateLimitedFetch(`${BASE}/person/${tmdbId}?api_key=${API_KEY}&language=en-US`);
   if (!res.ok) throw new Error(`TMDB person ${tmdbId}: ${res.status}`);
@@ -84,9 +90,10 @@ async function resolvePerson(tmdbId) {
     popularity: r.popularity ?? 0,
     adult: r.adult ?? false,
   });
-  return row.id;
+  return { localId: row.id, wasExisting: false };
 }
 
+// Validate resolve input and return the matching local database id.
 router.post("/", async (req, res) => {
   const body = req.body ?? {};
   const extraKeys = Object.keys(body).filter((k) => !ALLOWED_KEYS.has(k));
@@ -102,23 +109,36 @@ router.post("/", async (req, res) => {
 
   try {
     let localId;
-    if (type === "movie") localId = await resolveMovie(tmdbId);
-    else if (type === "show") localId = await resolveShow(tmdbId);
-    else if (type === "person") localId = await resolvePerson(tmdbId);
-    else return res.status(400).json({ error: "unknown type" });
+    let wasExisting = false;
+    if (type === "movie") {
+      const resolved = await resolveMovie(tmdbId);
+      localId = resolved.localId;
+      wasExisting = resolved.wasExisting;
+    } else if (type === "show") {
+      const resolved = await resolveShow(tmdbId);
+      localId = resolved.localId;
+      wasExisting = resolved.wasExisting;
+    } else if (type === "person") {
+      const resolved = await resolvePerson(tmdbId);
+      localId = resolved.localId;
+      wasExisting = resolved.wasExisting;
+    } else return res.status(400).json({ error: "unknown type" });
 
     res.json({ localId });
 
     if (API_KEY) {
-      if (type === "movie") {
+      if (type === "movie" && !wasExisting) {
+        // Run background database refresh for the resolved movie.
         dedupIngest(`movie:${tmdbId}`, () =>
           ingestMovie({ tmdbId, apiKey: API_KEY, forceRefreshExisting: true })
         ).catch((e) => console.warn(`bg inject movie ${tmdbId}:`, e.message));
-      } else if (type === "show") {
+      } else if (type === "show" && !wasExisting) {
+        // Run background database refresh for the resolved show.
         dedupIngest(`show:${tmdbId}`, () =>
           ingestTvShow({ tmdbTvId: tmdbId, apiKey: API_KEY, forceRefreshExisting: true })
         ).catch((e) => console.warn(`bg inject show ${tmdbId}:`, e.message));
-      } else {
+      } else if (type === "person" && !wasExisting) {
+        // Run background database refresh for the resolved person.
         dedupIngest(`person:${tmdbId}`, () =>
           ingestPerson({ tmdbId, apiKey: API_KEY, forceRefreshExisting: true })
         ).catch((e) => console.warn(`bg inject person ${tmdbId}:`, e.message));
