@@ -1,0 +1,42 @@
+name: Full TMDB Sync
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: tmdb-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      TMDB_API_KEY_SECRET: ${{ secrets.TMDB_API_KEY_SECRET }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - name: Install dependencies
+        run: npm install --omit=dev
+      - name: Compute date range (last 7 days)
+        id: dates
+        run: |
+          echo "start=$(date -d '7 days ago' +%Y-%m-%d)" >> $GITHUB_OUTPUT
+          echo "end=$(date +%Y-%m-%d)" >> $GITHUB_OUTPUT
+      - name: Refresh all changed content (movies + shows + people)
+        run: npm run seed:tmdb:changed-all-24h -- --start-date=${{ steps.dates.outputs.start }} --end-date=${{ steps.dates.outputs.end }}
+      - name: Inject 100 popular movies
+        run: npm run seed:tmdb:popular-movies-today -- --limit=100
+      - name: Inject 100 popular shows
+        run: npm run seed:tmdb:popular-shows-today -- --limit=100
+      - name: Inject 100 popular people
+        run: npm run seed:tmdb:popular-people-today -- --limit=100
+      - name: Inject 100 top rated movies
+        run: npm run seed:tmdb:top-rated-movies -- --limit=100
+      - name: Inject 100 top rated shows
+        run: npm run seed:tmdb:top-rated-shows -- --limit=100
+      - name: Update popularity scores
+        run: npm run seed:tmdb:update-popularity

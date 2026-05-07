@@ -1,0 +1,72 @@
+name: Seed One-Off
+
+on:
+  workflow_dispatch:
+    inputs:
+      script:
+        description: 'Script to run'
+        required: true
+        type: choice
+        options:
+          - genres
+          - jobs
+          - popular-movies-today
+          - popular-shows-today
+          - popular-people-today
+          - top-rated-movies
+          - top-rated-shows
+          - changed-movies-24h
+          - changed-shows-24h
+          - changed-people-24h
+          - changed-all-24h
+          - update-popularity
+          - update-popularity:movies
+          - update-popularity:shows
+          - update-popularity:people
+          - movie
+          - tv-show
+          - person
+      limit:
+        description: '--limit (for popular/top-rated scripts)'
+        required: false
+      tmdb_id:
+        description: '--id (required for movie, tv-show, person)'
+        required: false
+      force:
+        description: '--force (skip duplicate check)'
+        type: boolean
+        default: false
+      start_date:
+        description: '--start-date YYYY-MM-DD (for changed-24h scripts)'
+        required: false
+      end_date:
+        description: '--end-date YYYY-MM-DD (for changed-24h scripts)'
+        required: false
+
+concurrency:
+  group: tmdb-sync
+  cancel-in-progress: false
+
+jobs:
+  seed:
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      TMDB_API_KEY_SECRET: ${{ secrets.TMDB_API_KEY_SECRET }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - name: Install dependencies
+        run: npm install --omit=dev
+      - name: Run script
+        run: |
+          ARGS=""
+          if [ -n "${{ inputs.tmdb_id }}" ]; then ARGS="$ARGS --id=${{ inputs.tmdb_id }}"; fi
+          if [ -n "${{ inputs.limit }}" ]; then ARGS="$ARGS --limit=${{ inputs.limit }}"; fi
+          if [ "${{ inputs.force }}" = "true" ]; then ARGS="$ARGS --force"; fi
+          if [ -n "${{ inputs.start_date }}" ]; then ARGS="$ARGS --start-date=${{ inputs.start_date }}"; fi
+          if [ -n "${{ inputs.end_date }}" ]; then ARGS="$ARGS --end-date=${{ inputs.end_date }}"; fi
+          npm run seed:tmdb:${{ inputs.script }} -- $ARGS
