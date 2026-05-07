@@ -35,6 +35,7 @@ const ENTITY_CONFIG = {
 let cachedApiKey = null;
 let logWritten = false;
 
+// Read and cache the TMDB API key from environment variables.
 function getApiKey() {
   if (cachedApiKey) return cachedApiKey;
 
@@ -49,6 +50,7 @@ function getApiKey() {
   return apiKey;
 }
 
+// Persist one execution record in script_logs for observability.
 async function writeScriptLog({
   scriptName = SCRIPT_NAME,
   status,
@@ -92,6 +94,7 @@ async function writeScriptLog({
   }
 }
 
+// Build a JSON error payload for failed or partial refresh runs.
 function buildFailureErrorDetail({ scriptName, summary, failedItems, fatalError }) {
   return JSON.stringify({
     scriptName,
@@ -106,6 +109,7 @@ function buildFailureErrorDetail({ scriptName, summary, failedItems, fatalError 
   });
 }
 
+// Parse and validate a positive integer from CLI args.
 function parsePositiveInt(value, flagName) {
   const parsed = Number.parseInt(value, 10);
   if (!Number.isFinite(parsed) || parsed <= 0) {
@@ -114,6 +118,7 @@ function parsePositiveInt(value, flagName) {
   return parsed;
 }
 
+// Parse and validate CLI flags for popularity refresh scripts.
 export function parsePopularityArgs(argv, { allowEntity = true } = {}) {
   let entity = allowEntity ? DEFAULT_ENTITY : null;
   let pageSize = DEFAULT_PAGE_SIZE;
@@ -176,10 +181,12 @@ export function parsePopularityArgs(argv, { allowEntity = true } = {}) {
   return { entity, pageSize, limit, fetchConcurrency };
 }
 
+// Parse CLI args for the main multi-entity popularity script.
 function parseArgs(argv) {
   return parsePopularityArgs(argv, { allowEntity: true });
 }
 
+// Ensure required database tables exist before refresh starts.
 async function ensureTables() {
   const [movieTable] = await sequelize.query(
     `SELECT to_regclass('public.movie') AS table_name;`
@@ -208,11 +215,13 @@ async function ensureTables() {
   }
 }
 
+// Resolve the processing order for selected entity scopes.
 function getEntityOrder(entity) {
   if (entity === "all") return ["movie", "show", "person"];
   return [entity];
 }
 
+// Fetch one local database page of entity ids and tmdb ids.
 async function fetchEntityPage({ entityKey, pageSize, lastId, remainingLimit }) {
   const config = ENTITY_CONFIG[entityKey];
   const effectivePageSize =
@@ -242,6 +251,7 @@ async function fetchEntityPage({ entityKey, pageSize, lastId, remainingLimit }) 
   return rows;
 }
 
+// Fetch popularity for one TMDB entity id.
 async function fetchPopularityForTmdbId({ apiKey, entityKey, tmdbId }) {
   const config = ENTITY_CONFIG[entityKey];
   const url = new URL(`${TMDB_BASE_URL}/${config.tmdbPath}/${tmdbId}`);
@@ -276,6 +286,7 @@ async function fetchPopularityForTmdbId({ apiKey, entityKey, tmdbId }) {
   };
 }
 
+// Execute async work across items with bounded concurrency.
 async function runWithConcurrency(items, concurrency, worker) {
   const results = new Array(items.length);
   let cursor = 0;
@@ -293,18 +304,19 @@ async function runWithConcurrency(items, concurrency, worker) {
   return results;
 }
 
+// Apply popularity updates in bulk using a JSON recordset.
 async function bulkUpdatePopularity({ entityKey, updates }) {
   if (updates.length === 0) return 0;
 
   const config = ENTITY_CONFIG[entityKey];
   const updatesJson = JSON.stringify(
     updates.map((item) => ({
-      tmdbId: item.tmdbId,
+      tmdb_id: item.tmdbId,
       popularity: item.popularity,
     }))
   );
 
-  const [result] = await sequelize.query(
+  const [, metadata] = await sequelize.query(
     `
       UPDATE ${config.tableName} AS t
       SET ${config.popularityColumn} = v.popularity,
@@ -325,9 +337,10 @@ async function bulkUpdatePopularity({ entityKey, updates }) {
     }
   );
 
-  return result.rowCount ?? 0;
+  return metadata.rowCount ?? 0;
 }
 
+// Refresh popularity values for a single entity type.
 async function refreshEntityPopularity({
   apiKey,
   entityKey,
@@ -335,6 +348,7 @@ async function refreshEntityPopularity({
   limit,
   fetchConcurrency,
 }) {
+  // Track incremental progress and final counters for this entity type.
   let lastId = 0;
   let fetchedRows = 0;
   let updatedRows = 0;
@@ -344,9 +358,11 @@ async function refreshEntityPopularity({
   const failedItems = [];
 
   for (;;) {
+    // Respect optional run limit while still processing in paginated batches.
     const remainingLimit = limit == null ? null : limit - fetchedRows;
     if (remainingLimit != null && remainingLimit <= 0) break;
 
+    // Read the next page using keyset pagination (id > lastId).
     const rows = await fetchEntityPage({
       entityKey,
       pageSize,
@@ -359,6 +375,7 @@ async function refreshEntityPopularity({
     lastId = rows[rows.length - 1].id;
     fetchedRows += rows.length;
 
+    // Fan out TMDB requests with a capped concurrency to avoid API spikes.
     const fetchResults = await runWithConcurrency(
       rows,
       fetchConcurrency,
@@ -381,6 +398,7 @@ async function refreshEntityPopularity({
 
     const updates = [];
 
+    // Bucket each fetch result into updates or failure/missing counters.
     for (const item of fetchResults) {
       if (item.status === "ok") {
         updates.push({ tmdbId: item.tmdbId, popularity: item.popularity });
@@ -416,6 +434,7 @@ async function refreshEntityPopularity({
       });
     }
 
+    // Persist only successful popularity payloads for this page.
     const changed = await bulkUpdatePopularity({ entityKey, updates });
     updatedRows += changed;
 
@@ -435,6 +454,7 @@ async function refreshEntityPopularity({
   };
 }
 
+// Refresh TMDB popularity values for one or more entity groups.
 export async function updateTmdbPopularity({
   entity = DEFAULT_ENTITY,
   pageSize = DEFAULT_PAGE_SIZE,
@@ -442,10 +462,13 @@ export async function updateTmdbPopularity({
   fetchConcurrency = DEFAULT_FETCH_CONCURRENCY,
   apiKey,
 } = {}) {
+  // Resolve API key once and reuse it across all entity passes.
   const resolvedKey = apiKey ?? getApiKey();
+  // Expand "all" into an ordered list so runs are deterministic.
   const entities = getEntityOrder(entity);
 
   const perEntityResults = [];
+  // Process each entity bucket independently and keep per-entity diagnostics.
   for (const entityKey of entities) {
     const result = await refreshEntityPopularity({
       apiKey: resolvedKey,
@@ -457,6 +480,7 @@ export async function updateTmdbPopularity({
     perEntityResults.push(result);
   }
 
+  // Roll up counters for a single top-level summary payload.
   const summary = perEntityResults.reduce(
     (acc, result) => {
       acc.fetchedRows += result.fetchedRows;
@@ -475,6 +499,7 @@ export async function updateTmdbPopularity({
     }
   );
 
+  // Return both aggregate stats and detailed per-entity failure metadata.
   return {
     entity,
     pageSize,
@@ -495,24 +520,28 @@ export async function updateTmdbPopularity({
  * - scriptNamePrefix: prefix for `script_logs.script_name` (e.g. wrappers use
  *   their own prefix so logs are easy to filter).
  */
+// Run the full CLI flow for popularity refresh commands.
 export async function runPopularityCli({
   argv = process.argv.slice(2),
   fixedEntity = null,
   scriptNamePrefix = SCRIPT_NAME,
 } = {}) {
   const startedAt = new Date();
+  // Wrapper scripts can lock entity selection by setting fixedEntity.
   const parsed = parsePopularityArgs(argv, {
     allowEntity: fixedEntity == null,
   });
   const entity = fixedEntity ?? parsed.entity ?? DEFAULT_ENTITY;
   const { pageSize, limit, fetchConcurrency } = parsed;
 
+  // Include runtime args in the script log key for easier filtering/comparison.
   const scopedScriptName =
     `${scriptNamePrefix}:entity=${entity}` +
     `:pageSize=${pageSize}` +
     `:limit=${limit ?? "all"}` +
     `:fetchConcurrency=${fetchConcurrency}`;
 
+  // Handle termination signals and write a stopped log entry once.
   function handleStopSignal(signal) {
     if (logWritten) return;
     logWritten = true;
@@ -554,6 +583,7 @@ export async function runPopularityCli({
           `Failed: ${result.failed}.`
       );
 
+      // Persist success or partial-failure summary once per run.
       if (!logWritten) {
         logWritten = true;
         await writeScriptLog({
@@ -581,6 +611,7 @@ export async function runPopularityCli({
       }
       return result;
     } catch (error) {
+      // Fatal path: capture a failure log entry before bubbling error up.
       if (!logWritten) {
         logWritten = true;
         await writeScriptLog({
@@ -600,12 +631,14 @@ export async function runPopularityCli({
       throw error;
     }
   } finally {
+    // Always unregister signal handlers and close DB connections.
     process.off("SIGINT", handleStopSignal);
     process.off("SIGTERM", handleStopSignal);
     await sequelize.close();
   }
 }
 
+// Run CLI entrypoint for direct script execution.
 async function main() {
   await runPopularityCli({ argv: process.argv.slice(2) });
 }
