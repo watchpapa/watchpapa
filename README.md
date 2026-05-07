@@ -1,6 +1,6 @@
 # [watchpapa.tv](https://watchpapa.tv)
 
-watchpapa banner
+![watchpapa banner](public/readme%20assets/banner.png)
 
 > Note: The description below reflects the current MVP scope.
 
