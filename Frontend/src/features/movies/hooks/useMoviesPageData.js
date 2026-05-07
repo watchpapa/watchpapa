@@ -1,3 +1,5 @@
+// Used by:
+// - Frontend/src/pages/app/MoviesPage.jsx
 import { useCallback, useEffect, useReducer, useRef } from "react";
 import { supabase } from "../../../lib/supabase.js";
 
@@ -7,6 +9,7 @@ const MIN_GENRE_COUNT = 3;
 const MOVIE_SELECT =
   "id, title, poster_path, tmdb_popularity, movie_genre(genres(id, name))";
 
+// Apply state updates for movie data loaded from the database.
 function reducer(state, action) {
   switch (action.type) {
     case "LOADED":
@@ -56,6 +59,7 @@ function reducer(state, action) {
   }
 }
 
+// Build a stable object key for genre-based state maps.
 function genreKey(id) {
   return String(id);
 }
@@ -82,6 +86,7 @@ const initialState = {
   loadingMoreGenreId: null,
 };
 
+// Load, paginate, and follow movies for the Movies page.
 export function useMoviesPageData(session, showAdult = false) {
   const [state, dispatch] = useReducer(reducer, initialState);
   const stateRef = useRef(state);
@@ -92,8 +97,10 @@ export function useMoviesPageData(session, showAdult = false) {
   useEffect(() => {
     let cancelled = false;
 
+    // Load initial movie rows and followed ids from the database.
     async function load() {
       try {
+        // Read the first popularity page from the movie table.
         let movieQ = supabase
           .from("movie")
           .select(MOVIE_SELECT)
@@ -102,6 +109,7 @@ export function useMoviesPageData(session, showAdult = false) {
           .range(0, PAGE_SIZE - 1);
         if (!showAdultRef.current) movieQ = movieQ.eq("adult", false);
 
+        // Read current user's followed movie ids from the join table.
         const [moviesRes, followRes] = await Promise.all([
           movieQ,
           session?.user?.id
@@ -132,17 +140,21 @@ export function useMoviesPageData(session, showAdult = false) {
     return () => { cancelled = true; };
   }, [session?.user?.id, showAdult]);
 
+  // Toggle follow status and persist it to the database.
   const toggleFollow = useCallback(async (movieId) => {
     if (!session?.user?.id) return;
     const was = stateRef.current.followedIds.has(movieId);
     dispatch({ type: "TOGGLE", id: movieId });
+    // Write follow/unfollow in user_followed_movies.
     const { error } = was
       ? await supabase.from("user_followed_movies").delete().eq("profile_id", session.user.id).eq("movie_id", movieId)
       : await supabase.from("user_followed_movies").insert({ profile_id: session.user.id, movie_id: movieId });
     if (error) dispatch({ type: "TOGGLE", id: movieId });
   }, [session?.user?.id]);
 
+  // Fetch one movie page starting from a row offset.
   const appendMoviesFromOffset = useCallback(async (from) => {
+    // Fetch another popularity-ordered movie page from the database.
     let q = supabase
       .from("movie")
       .select(MOVIE_SELECT)
@@ -156,6 +168,7 @@ export function useMoviesPageData(session, showAdult = false) {
     return { rows, hasMore: rows.length >= PAGE_SIZE };
   }, []);
 
+  // Extend the global popular list by loading more database rows.
   const loadMorePopular = useCallback(async () => {
     const s = stateRef.current;
     if (s.loadingMorePopular || s.loadingMoreGenreId != null) return;
@@ -183,6 +196,7 @@ export function useMoviesPageData(session, showAdult = false) {
     }
   }, [appendMoviesFromOffset]);
 
+  // Extend one genre row by loading enough matching movies.
   const loadMoreGenre = useCallback(async (genreId) => {
     const s = stateRef.current;
     if (s.loadingMoreGenreId != null || s.loadingMorePopular) return;
@@ -225,6 +239,7 @@ export function useMoviesPageData(session, showAdult = false) {
     loadingMoreGenreId,
   } = state;
 
+  // Convert a movie row into the UI item shape.
   const toItem = useCallback(
     (row) => ({
       id: row.id,

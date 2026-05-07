@@ -1,7 +1,10 @@
+// Used by:
+// - Frontend/src/pages/app/ReleasesCalendarPage.jsx
 import { useCallback, useEffect, useReducer } from "react";
 import { supabase } from "../../../lib/supabase.js";
 import { isValidId } from "../../../lib/validate.js";
 
+// Apply state updates for calendar data loaded from the database.
 function reducer(state, action) {
   switch (action.type) {
     case "LOADED":
@@ -33,6 +36,7 @@ const initialState = {
   error: null,
 };
 
+// Load followed shows/movies and build calendar entries for a month.
 export function useCalendarData(session, year, month) {
   const [state, dispatch] = useReducer(reducer, initialState);
 
@@ -40,10 +44,12 @@ export function useCalendarData(session, year, month) {
     if (!session?.user?.id) return;
     let cancelled = false;
 
+    // Fetch followed media and episode schedules from the database.
     async function load() {
       try {
         const profileId = session.user.id;
 
+        // Read followed shows and movies for the current profile.
         const [fsRes, fmRes] = await Promise.all([
           supabase
             .from("user_followed_shows")
@@ -70,6 +76,7 @@ export function useCalendarData(session, year, month) {
         const calendarEntries = {};
 
         if (followedShowIds.size > 0) {
+          // Read episodes that air during this month from the episode table.
           const { data: episodes, error: epErr } = await supabase
             .from("episode")
             .select("id, name, air_date, runtime, episode_number, season(id, show_id, season_number, show(id, name))")
@@ -125,9 +132,11 @@ export function useCalendarData(session, year, month) {
     return () => { cancelled = true; };
   }, [session?.user?.id, year, month]);
 
+  // Remove a followed show in the database with optimistic UI update.
   const unfollowShow = useCallback(async (showId) => {
     if (!session?.user?.id || !isValidId(showId)) return;
     dispatch({ type: "TOGGLE_SHOW", id: showId });
+    // Delete the profile-show follow relation from the join table.
     const { error } = await supabase
       .from("user_followed_shows")
       .delete()
@@ -136,9 +145,11 @@ export function useCalendarData(session, year, month) {
     if (error) dispatch({ type: "TOGGLE_SHOW", id: showId });
   }, [session?.user?.id]);
 
+  // Remove a followed movie in the database with optimistic UI update.
   const unfollowMovie = useCallback(async (movieId) => {
     if (!session?.user?.id || !isValidId(movieId)) return;
     dispatch({ type: "TOGGLE_MOVIE", id: movieId });
+    // Delete the profile-movie follow relation from the join table.
     const { error } = await supabase
       .from("user_followed_movies")
       .delete()

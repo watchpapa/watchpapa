@@ -1,7 +1,10 @@
+// Used by:
+// - Frontend/src/pages/app/ShowPage.jsx
 import { useCallback, useEffect, useReducer } from "react";
 import { supabase } from "../../../lib/supabase.js";
 import { toCast, toCrew } from "../../../lib/credits.js";
 
+// Apply state updates for show data loaded from the database.
 function reducer(state, action) {
   switch (action.type) {
     case "LOADED":
@@ -26,6 +29,7 @@ const initialState = {
   error: null,
 };
 
+// Load show details, related rows, and follow state for the Show page.
 export function useShowData(rawShowId, session, showAdult = false) {
   const showId = rawShowId ? parseInt(rawShowId, 10) : null;
   const [state, dispatch] = useReducer(reducer, initialState);
@@ -34,6 +38,7 @@ export function useShowData(rawShowId, session, showAdult = false) {
     if (!showId) return;
     let cancelled = false;
 
+    // Read show details and current follow state from the database.
     async function load() {
       try {
         const [showRes, followRes] = await Promise.all([
@@ -90,6 +95,7 @@ export function useShowData(rawShowId, session, showAdult = false) {
     const wasFollowing = state.isFollowing;
     dispatch({ type: "TOGGLE_FOLLOW" });
 
+    // Write follow/unfollow in user_followed_shows.
     const { error } = wasFollowing
       ? await supabase
           .from("user_followed_shows")

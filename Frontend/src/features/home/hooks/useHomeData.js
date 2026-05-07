@@ -1,9 +1,12 @@
+// Used by:
+// - Frontend/src/pages/app/AppHomePage.jsx
 import { useCallback, useEffect, useReducer, useRef } from "react";
 import { supabase } from "../../../lib/supabase.js";
 import { isValidId } from "../../../lib/validate.js";
 
 const PAGE_SIZE = 20;
 
+// Map a movie database row into the UI shape.
 function toMovieItem(row, followedIds) {
   return {
     id: row.id,
@@ -15,6 +18,7 @@ function toMovieItem(row, followedIds) {
   };
 }
 
+// Map a show database row into the UI shape.
 function toShowItem(row, followedIds) {
   return {
     id: row.id,
@@ -26,6 +30,7 @@ function toShowItem(row, followedIds) {
   };
 }
 
+// Apply state updates for database-backed lists and follow toggles.
 function reducer(state, action) {
   switch (action.type) {
     case "LOADED":
@@ -120,6 +125,7 @@ export function useHomeData(session, showAdult = false) {
     async function load() {
       try {
         const adult = showAdultRef.current;
+        // Read top movies from the movie table.
         let movieQ = supabase
           .from("movie")
           .select("id, tmdb_id, title, tmdb_popularity, poster_path")
@@ -128,6 +134,7 @@ export function useHomeData(session, showAdult = false) {
           .range(0, PAGE_SIZE - 1);
         if (!adult) movieQ = movieQ.eq("adult", false);
 
+        // Read top shows from the show table.
         let showQ = supabase
           .from("show")
           .select("id, tmdb_id, name, tmdb_popularity, poster_path")
@@ -145,6 +152,7 @@ export function useHomeData(session, showAdult = false) {
         let followedShowIds = new Set();
 
         if (session?.user?.id) {
+          // Read current user's followed movie/show ids from join tables.
           const [fmRes, fsRes] = await Promise.all([
             supabase
               .from("user_followed_movies")
@@ -191,6 +199,7 @@ export function useHomeData(session, showAdult = false) {
       const isFollowing = state.followedMovieIds.has(movieId);
       dispatch({ type: "TOGGLE_MOVIE", id: movieId });
 
+      // Write follow/unfollow in user_followed_movies.
       const { error } = isFollowing
         ? await supabase
             .from("user_followed_movies")
@@ -212,6 +221,7 @@ export function useHomeData(session, showAdult = false) {
       const isFollowing = state.followedShowIds.has(showId);
       dispatch({ type: "TOGGLE_SHOW", id: showId });
 
+      // Write follow/unfollow in user_followed_shows.
       const { error } = isFollowing
         ? await supabase
             .from("user_followed_shows")
@@ -233,6 +243,7 @@ export function useHomeData(session, showAdult = false) {
     dispatch({ type: "SET_LOADING_MORE_MOVIES", value: true });
     const from = s.movies.length;
     try {
+      // Fetch the next movie page from the database.
       let q = supabase
         .from("movie")
         .select("id, tmdb_id, title, tmdb_popularity, poster_path")
@@ -259,6 +270,7 @@ export function useHomeData(session, showAdult = false) {
     dispatch({ type: "SET_LOADING_MORE_SHOWS", value: true });
     const from = s.shows.length;
     try {
+      // Fetch the next show page from the database.
       let q = supabase
         .from("show")
         .select("id, tmdb_id, name, tmdb_popularity, poster_path")
@@ -321,6 +333,7 @@ export function useHomeData(session, showAdult = false) {
         }
         if (movieHasMore) {
           const from = movies.length;
+          // Keep paging movie rows while building the merged popular list.
           let q = supabase
             .from("movie")
             .select("id, tmdb_id, title, tmdb_popularity, poster_path")
@@ -336,6 +349,7 @@ export function useHomeData(session, showAdult = false) {
         }
         if (showHasMore) {
           const from = shows.length;
+          // Keep paging show rows while building the merged popular list.
           let q = supabase
             .from("show")
             .select("id, tmdb_id, name, tmdb_popularity, poster_path")

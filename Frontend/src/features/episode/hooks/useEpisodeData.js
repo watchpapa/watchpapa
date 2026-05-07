@@ -1,7 +1,10 @@
+// Used by:
+// - Frontend/src/pages/app/EpisodePage.jsx
 import { useEffect, useReducer } from "react";
 import { supabase } from "../../../lib/supabase.js";
 import { toCast, toCrew } from "../../../lib/credits.js";
 
+// Apply state updates for episode data loaded from the database.
 function reducer(state, action) {
   switch (action.type) {
     case "LOADED":
@@ -24,6 +27,7 @@ const initialState = {
   error: null,
 };
 
+// Load episode, season, and show details for the Episode page.
 export function useEpisodeData(rawEpisodeId, rawSeasonId, rawShowId) {
   const episodeId = rawEpisodeId ? parseInt(rawEpisodeId, 10) : null;
   const seasonId = rawSeasonId ? parseInt(rawSeasonId, 10) : null;
@@ -34,6 +38,7 @@ export function useEpisodeData(rawEpisodeId, rawSeasonId, rawShowId) {
     if (!episodeId || !seasonId || !showId) return;
     let cancelled = false;
 
+    // Read episode, season, and show rows (with related credits/episodes).
     async function load() {
       try {
         const [epRes, seasonRes, showRes] = await Promise.all([

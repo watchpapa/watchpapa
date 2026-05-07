@@ -1,3 +1,8 @@
+// Used by:
+// - Frontend/src/features/episode/hooks/useEpisodeData.js
+// - Frontend/src/features/movie/hooks/useMovieData.js
+// - Frontend/src/features/season/hooks/useSeasonData.js
+// - Frontend/src/features/show/hooks/useShowData.js
 const DEPT_ORDER = [
   "Directing",
   "Writing",
@@ -12,6 +17,7 @@ const DEPT_ORDER = [
   "Crew",
 ];
 
+// Convert raw credit rows from database joins into cast items.
 export function toCast(rows) {
   return rows
     .filter((r) => r.person && r.job?.name === "Actor")
@@ -24,6 +30,7 @@ export function toCast(rows) {
     }));
 }
 
+// Group raw database credit rows into department/job crew sections.
 export function toCrew(rows) {
   const deptMap = new Map();
 

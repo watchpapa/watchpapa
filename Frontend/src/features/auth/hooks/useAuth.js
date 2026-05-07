@@ -1,3 +1,9 @@
+// Used by:
+// - Frontend/src/features/auth/components/RegisterForm.jsx
+// - Frontend/src/features/auth/components/LoginForm.jsx
+// - Frontend/src/features/auth/components/ForgotPasswordForm.jsx
+// - Frontend/src/features/auth/components/VerifyEmailForm.jsx
+// - Frontend/src/features/auth/components/ResetPasswordForm.jsx
 import { useCallback } from "react";
 import { supabase } from "../../../lib/supabase.js";
 

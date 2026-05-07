@@ -1,7 +1,11 @@
+// Used by:
+// - Frontend/src/pages/app/EpisodePage.jsx
+// - Frontend/src/pages/app/SeasonPage.jsx
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "../../../lib/supabase.js";
 import { isValidId } from "../../../lib/validate.js";
 
+// Load and toggle the current user's follow state for a show.
 export function useShowFollow(rawShowId, session) {
   const showId = rawShowId ? parseInt(rawShowId, 10) : null;
   const [isFollowing, setIsFollowing] = useState(false);
@@ -13,6 +17,7 @@ export function useShowFollow(rawShowId, session) {
     }
     let cancelled = false;
 
+    // Read follow state from user_followed_shows for this user/show pair.
     supabase
       .from("user_followed_shows")
       .select("id")
@@ -26,6 +31,7 @@ export function useShowFollow(rawShowId, session) {
     return () => { cancelled = true; };
   }, [showId, session?.user?.id]);
 
+  // Write follow/unfollow changes to user_followed_shows.
   const toggleFollow = useCallback(async () => {
     if (!session?.user?.id || !isValidId(showId)) return;
     const was = isFollowing;

@@ -1,3 +1,5 @@
+// Used by:
+// - Frontend/src/pages/app/ShowsPage.jsx
 import { useCallback, useEffect, useReducer, useRef } from "react";
 import { supabase } from "../../../lib/supabase.js";
 import { isValidId } from "../../../lib/validate.js";
@@ -8,6 +10,7 @@ const MIN_GENRE_COUNT = 3;
 const SHOW_SELECT =
   "id, name, poster_path, tmdb_popularity, show_genre(genres(id, name))";
 
+// Apply state updates for show data loaded from the database.
 function reducer(state, action) {
   switch (action.type) {
     case "LOADED":
@@ -57,10 +60,12 @@ function reducer(state, action) {
   }
 }
 
+// Build a stable object key for genre-based state maps.
 function genreKey(id) {
   return String(id);
 }
 
+// Return loaded shows that belong to a specific genre.
 function showsForGenre(shows, genreId) {
   const out = [];
   for (const show of shows) {
@@ -82,6 +87,7 @@ const initialState = {
   loadingMoreGenreId: null,
 };
 
+// Load, paginate, and follow shows for the Shows page.
 export function useShowsPageData(session, showAdult = false) {
   const [state, dispatch] = useReducer(reducer, initialState);
   const stateRef = useRef(state);
@@ -92,8 +98,10 @@ export function useShowsPageData(session, showAdult = false) {
   useEffect(() => {
     let cancelled = false;
 
+    // Load initial show rows and followed ids from the database.
     async function load() {
       try {
+        // Read the first popularity page from the show table.
         let showQ = supabase
           .from("show")
           .select(SHOW_SELECT)
@@ -102,6 +110,7 @@ export function useShowsPageData(session, showAdult = false) {
           .range(0, PAGE_SIZE - 1);
         if (!showAdultRef.current) showQ = showQ.eq("adult", false);
 
+        // Read current user's followed show ids from the join table.
         const [showsRes, followRes] = await Promise.all([
           showQ,
           session?.user?.id
@@ -132,17 +141,21 @@ export function useShowsPageData(session, showAdult = false) {
     return () => { cancelled = true; };
   }, [session?.user?.id, showAdult]);
 
+  // Toggle follow status and persist it to the database.
   const toggleFollow = useCallback(async (showId) => {
     if (!session?.user?.id || !isValidId(showId)) return;
     const was = stateRef.current.followedIds.has(showId);
     dispatch({ type: "TOGGLE", id: showId });
+    // Write follow/unfollow in user_followed_shows.
     const { error } = was
       ? await supabase.from("user_followed_shows").delete().eq("profile_id", session.user.id).eq("show_id", showId)
       : await supabase.from("user_followed_shows").insert({ profile_id: session.user.id, show_id: showId });
     if (error) dispatch({ type: "TOGGLE", id: showId });
   }, [session?.user?.id]);
 
+  // Fetch one show page starting from a row offset.
   const appendShowsFromOffset = useCallback(async (from) => {
+    // Fetch another popularity-ordered show page from the database.
     let q = supabase
       .from("show")
       .select(SHOW_SELECT)
@@ -156,6 +169,7 @@ export function useShowsPageData(session, showAdult = false) {
     return { rows, hasMore: rows.length >= PAGE_SIZE };
   }, []);
 
+  // Extend the global popular list by loading more database rows.
   const loadMorePopular = useCallback(async () => {
     const s = stateRef.current;
     if (s.loadingMorePopular || s.loadingMoreGenreId != null) return;
@@ -183,6 +197,7 @@ export function useShowsPageData(session, showAdult = false) {
     }
   }, [appendShowsFromOffset]);
 
+  // Extend one genre row by loading enough matching shows.
   const loadMoreGenre = useCallback(async (genreId) => {
     const s = stateRef.current;
     if (s.loadingMoreGenreId != null || s.loadingMorePopular) return;
@@ -225,6 +240,7 @@ export function useShowsPageData(session, showAdult = false) {
     loadingMoreGenreId,
   } = state;
 
+  // Convert a show row into the UI item shape.
   const toItem = useCallback(
     (row) => ({
       id: row.id,

@@ -1,8 +1,12 @@
+// Used by:
+// - Frontend/src/components/home/SearchBar.jsx
+// - Frontend/src/pages/app/SearchPage.jsx
 import { useEffect, useReducer, useRef } from "react";
 import { supabase } from "../../../lib/supabase.js";
 
 const DEBOUNCE_MS = 300;
 
+// Apply state updates for debounced search results.
 function reducer(state, action) {
   switch (action.type) {
     case "FETCHING":
@@ -20,10 +24,12 @@ function reducer(state, action) {
 
 const initialState = { results: [], isLoading: false, status: "idle", error: null };
 
+// Extract a 4-digit year string from a date value.
 function yearFrom(d) {
   return typeof d === "string" && d.length >= 4 ? d.slice(0, 4) : null;
 }
 
+// Merge result arrays by id and sort by popularity key.
 function mergeRowsById(rowsA, rowsB, sortKey, ascending = false) {
   const map = new Map();
   for (const r of [...(rowsA ?? []), ...(rowsB ?? [])]) {
@@ -37,10 +43,12 @@ function mergeRowsById(rowsA, rowsB, sortKey, ascending = false) {
   return list;
 }
 
+// Search local Supabase tables for movies, shows, and people.
 async function searchLocalSupabase(query, perTypeLimit, showAdult) {
   const escaped = query.replace(/%/g, "\\%").replace(/_/g, "\\_");
   const pattern = `%${escaped}%`;
 
+  // Apply adult filter to each table query when needed.
   const applyAdultFilter = (q) => (showAdult ? q : q.eq("adult", false));
 
   const [
@@ -133,6 +141,7 @@ async function searchLocalSupabase(query, perTypeLimit, showAdult) {
   return [...movies, ...shows, ...people];
 }
 
+// Run debounced search and merge local and backend results.
 export function useSearch(query, { perTypeLimit = 5, backendLimit = 30, showAdult = false } = {}) {
   const [state, dispatch] = useReducer(reducer, initialState);
   const timerRef = useRef(null);

@@ -1,3 +1,5 @@
+// Used by:
+// - Frontend/src/main.jsx
 import { useEffect, useState } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 import { supabase } from "./lib/supabase.js";
@@ -28,6 +30,7 @@ import {
   TermsPage,
 } from "./pages/app/static/StaticInfoPages.jsx";
 
+// Redirect signed-in users away from auth-only pages.
 function PublicOnlyRoute({ session, needsUsernameSetup, children }) {
   if (session) {
     return <Navigate to={needsUsernameSetup ? "/complete-username" : "/"} replace />;
@@ -35,6 +38,7 @@ function PublicOnlyRoute({ session, needsUsernameSetup, children }) {
   return children;
 }
 
+// Protect app routes and enforce username setup flow.
 function ProtectedRoute({
   session,
   needsUsernameSetup,
@@ -53,6 +57,7 @@ function ProtectedRoute({
   return children;
 }
 
+// Allow public routes while still handling setup redirects.
 function PublicRoute({ session, needsUsernameSetup, children }) {
   if (session && needsUsernameSetup) {
     return <Navigate to="/complete-username" replace />;
@@ -60,6 +65,7 @@ function PublicRoute({ session, needsUsernameSetup, children }) {
   return children;
 }
 
+// Boot the app shell, auth state, profile data, and route tree.
 function App() {
   const [session, setSession] = useState(null);
   const [isSessionLoading, setIsSessionLoading] = useState(true);
@@ -71,6 +77,7 @@ function App() {
   useEffect(() => {
     let isMounted = true;
 
+    // Read current auth session from Supabase Auth.
     const loadSession = async () => {
       const { data } = await supabase.auth.getSession();
       const nextSession = data.session ?? null;
@@ -82,6 +89,7 @@ function App() {
         return;
       }
 
+      // Validate user record with Supabase Auth before using session.
       const { data: userData, error: userError } = await supabase.auth.getUser();
       if (userError || !userData?.user) {
         await supabase.auth.signOut({ scope: "local" });
@@ -124,6 +132,7 @@ function App() {
     }
 
     setIsProfileLoading(true);
+    // Read profile settings from the profile table for the signed-in user.
     supabase
       .from("profile")
       .select("username, is_adult, date_of_birth, setting_display_adult_content")
@@ -151,6 +160,7 @@ function App() {
           const m = today.getMonth() - dob.getMonth();
           if (m < 0 || (m === 0 && today.getDate() < dob.getDate())) age--;
           if (age >= 18) {
+            // Persist adult eligibility update back to the profile table.
             supabase
               .from("profile")
               .update({ is_adult: true, updated_at: new Date().toISOString() })

@@ -1,7 +1,10 @@
+// Used by:
+// - Frontend/src/pages/app/MoviePage.jsx
 import { useCallback, useEffect, useReducer } from "react";
 import { supabase } from "../../../lib/supabase.js";
 import { toCast, toCrew } from "../../../lib/credits.js";
 
+// Apply state updates for movie data loaded from the database.
 function reducer(state, action) {
   switch (action.type) {
     case "LOADED":
@@ -35,6 +38,7 @@ export function useMovieData(rawMovieId, session, showAdult = false) {
 
     async function load() {
       try {
+        // Read the movie row with joined genres/credits and follow state.
         const [movieRes, followRes] = await Promise.all([
           supabase
             .from("movie")
@@ -84,6 +88,7 @@ export function useMovieData(rawMovieId, session, showAdult = false) {
     const wasFollowing = state.isFollowing;
     dispatch({ type: "TOGGLE_FOLLOW" });
 
+    // Write follow/unfollow in user_followed_movies.
     const { error } = wasFollowing
       ? await supabase
           .from("user_followed_movies")

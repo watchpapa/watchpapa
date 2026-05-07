@@ -1,6 +1,9 @@
+// Used by:
+// - Frontend/src/pages/app/PersonPage.jsx
 import { useEffect, useReducer } from "react";
 import { supabase } from "../../../lib/supabase.js";
 
+// Apply state updates for person data loaded from the database.
 function reducer(state, action) {
   switch (action.type) {
     case "LOADED":
@@ -22,6 +25,7 @@ const initialState = {
   error: null,
 };
 
+// Load person details and credits for the Person page.
 export function usePersonData(rawPersonId, showAdult = false) {
   const personId = rawPersonId ? parseInt(rawPersonId, 10) : null;
   const [state, dispatch] = useReducer(reducer, initialState);
@@ -30,6 +34,7 @@ export function usePersonData(rawPersonId, showAdult = false) {
     if (!personId) return;
     let cancelled = false;
 
+    // Read person profile, aliases, and credits from related tables.
     async function load() {
       try {
         const { data, error } = await supabase
