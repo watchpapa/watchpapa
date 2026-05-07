@@ -309,6 +309,8 @@ npm run seed:tmdb:popular-people-today
 
 For the complete list of scripts (including changed-window refresh, top-rated loaders, popularity updates, and one-off utilities), see `Documentation/scripts_to_run.md`.
 
+>All changed/popularity scripts are not yet 100% ready (current stage is mostly AIed proof of concept)
+
 ### 6) Tests
 
 ```bash
