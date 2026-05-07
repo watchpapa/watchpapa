@@ -1,18 +1,24 @@
+// Used by:
+// - Backend/src/routes/resolve.js
+// - Backend/src/routes/search.js
 import sequelize from "../db/database.js";
 import { tmdbRateLimitedFetch } from "../scripts/tmdb_rate_limited_fetch.js";
 import { sanitizeMovie, sanitizeShow, sanitizePerson } from "../lib/sanitizeTmdb.js";
 
 
+// Escape wildcard characters for safe SQL ILIKE pattern matching.
 function escapePattern(q) {
   return "%" + q.replace(/[%_]/g, "\\$&") + "%";
 }
 
+// Extract the 4-digit year from a date string.
 function yearFrom(dateStr) {
   return typeof dateStr === "string" && dateStr.length >= 4
     ? dateStr.slice(0, 4)
     : null;
 }
 
+// Search local database tables for matching movies, shows, and people.
 export async function searchLocal(query, perTypeLimit = 5, { includeAdult = false } = {}) {
   const pattern = escapePattern(query);
   const limit = perTypeLimit;
@@ -93,6 +99,7 @@ export async function searchLocal(query, perTypeLimit = 5, { includeAdult = fals
 
 const PER_TYPE = 15;
 
+// Search TMDB APIs for matching movies, shows, and people.
 export async function searchTmdb(query, apiKey, { includeAdult = false } = {}) {
   if (!apiKey) return [];
 
@@ -122,6 +129,7 @@ export async function searchTmdb(query, apiKey, { includeAdult = false } = {}) {
     return [];
   }
 
+  // Filter out adult records when the request disallows adult content.
   const filterAdult = (results) =>
     includeAdult ? results : results.filter((r) => !r.adult);
 
@@ -176,12 +184,14 @@ export async function searchTmdb(query, apiKey, { includeAdult = false } = {}) {
   return [...movies, ...shows, ...people];
 }
 
+// Merge local database matches with TMDB-only matches by tmdbId.
 export function mergeResults(localResults, tmdbResults) {
   const localTmdbIds = new Set(localResults.map((r) => r.tmdbId));
   const tmdbOnly = tmdbResults.filter((r) => !localTmdbIds.has(r.tmdbId));
   return [...localResults, ...tmdbOnly];
 }
 
+// Insert or update a movie row in the local database.
 export async function fastUpsertMovie(item) {
   const s = sanitizeMovie(item);
   const [rows] = await sequelize.query(
@@ -226,6 +236,7 @@ export async function fastUpsertMovie(item) {
   return rows[0];
 }
 
+// Insert or update a show row in the local database.
 export async function fastUpsertShow(item) {
   const s = sanitizeShow(item);
   const [rows] = await sequelize.query(
@@ -272,6 +283,7 @@ export async function fastUpsertShow(item) {
   return rows[0];
 }
 
+// Insert or update a person row in the local database.
 export async function fastUpsertPerson(item) {
   const s = sanitizePerson(item);
   const [rows] = await sequelize.query(

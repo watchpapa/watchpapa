@@ -33,6 +33,7 @@ export const FULL_TV_REFRESH_SCOPE = Object.freeze({
   episodeCredits: true,
 });
 
+// Turns a given scope object into one with clear true/false flags.
 export function normalizeTvRefreshScope(scope) {
   if (!scope) return { ...FULL_TV_REFRESH_SCOPE };
   return {
@@ -45,12 +46,14 @@ export function normalizeTvRefreshScope(scope) {
   };
 }
 
+// Returns true only when every scope flag is false (no-op refresh).
 function isAllFalseScope(scope) {
   if (!scope) return false;
   for (const v of Object.values(scope)) if (v) return false;
   return true;
 }
 
+// Returns an empty result object for skipped or unused movie ingests.
 function buildEmptyShowResult(showId, action, scope) {
   return {
     showId,
@@ -77,6 +80,7 @@ function buildEmptyShowResult(showId, action, scope) {
   };
 }
 
+// Writes run result, batch size, and runtime to the script_logs table.
 async function writeScriptLog({
   scriptName = SCRIPT_NAME,
   status,
@@ -119,6 +123,7 @@ async function writeScriptLog({
   }
 }
 
+// Returns the TMDB API key, caching it after the first read.
 function getApiKey() {
   if (cachedApiKey) return cachedApiKey;
 
@@ -133,6 +138,7 @@ function getApiKey() {
   return apiKey;
 }
 
+// Verifies all required TV show tables exist in the DB before ingesting.
 async function ensureTables() {
   const [showTable] = await sequelize.query(`
     SELECT to_regclass('public.show') AS table_name;
@@ -183,6 +189,7 @@ async function ensureTables() {
   }
 }
 
+// Fetches TV show details from TMDB by id.
 async function fetchTmdbTvShow(apiKey, tmdbTvId) {
   const url = new URL(`${TMDB_TV_URL}/${tmdbTvId}`);
   url.searchParams.set("api_key", apiKey);
@@ -211,6 +218,7 @@ async function fetchTmdbTvShow(apiKey, tmdbTvId) {
   return payload;
 }
 
+// Fetches top-level cast and crew credits for a show from TMDB.
 async function fetchTmdbTvShowCredits(apiKey, tmdbTvId) {
   const url = new URL(`${TMDB_TV_URL}/${tmdbTvId}/credits`);
   url.searchParams.set("api_key", apiKey);
@@ -237,6 +245,7 @@ async function fetchTmdbTvShowCredits(apiKey, tmdbTvId) {
   };
 }
 
+// Fetches season details from TMDB for a given show and season number.
 async function fetchTmdbSeason(apiKey, tmdbTvId, seasonNumber) {
   const url = new URL(`${TMDB_TV_URL}/${tmdbTvId}/season/${seasonNumber}`);
   url.searchParams.set("api_key", apiKey);
@@ -265,6 +274,7 @@ async function fetchTmdbSeason(apiKey, tmdbTvId, seasonNumber) {
   return payload;
 }
 
+// Fetches episode details from TMDB for a given show, season, and episode number.
 async function fetchTmdbEpisode(apiKey, tmdbTvId, seasonNumber, episodeNumber) {
   const url = new URL(
     `${TMDB_TV_URL}/${tmdbTvId}/season/${seasonNumber}/episode/${episodeNumber}`
@@ -295,6 +305,7 @@ async function fetchTmdbEpisode(apiKey, tmdbTvId, seasonNumber, episodeNumber) {
   return payload;
 }
 
+// Fetches cast, crew, and guest stars for a specific episode from TMDB.
 async function fetchTmdbEpisodeCredits(
   apiKey,
   tmdbTvId,
@@ -329,6 +340,7 @@ async function fetchTmdbEpisodeCredits(
   };
 }
 
+// Picks the first valid positive runtime value from the episode_run_time array.
 function pickEpisodeRunTime(raw) {
   if (!Array.isArray(raw)) return null;
   const firstFinite = raw.find((v) => Number.isFinite(v) && v > 0);
@@ -336,6 +348,7 @@ function pickEpisodeRunTime(raw) {
   return clampedInt(firstFinite, null, 0, 100_000);
 }
 
+// Sanitizes raw TMDB show payload into validated, DB-safe field values.
 function normalizeShowPayload(payload) {
   const tmdbId = payload.id;
   if (typeof tmdbId !== "number") {
@@ -377,6 +390,7 @@ function normalizeShowPayload(payload) {
   };
 }
 
+// Extracts sorted, unique regular season numbers; skips specials (season 0).
 function deriveRegularSeasonNumbers(seasons) {
   if (!Array.isArray(seasons)) {
     return { seasonNumbers: [], seasonsSkippedSpecial: 0 };
@@ -402,6 +416,7 @@ function deriveRegularSeasonNumbers(seasons) {
   return { seasonNumbers: regular, seasonsSkippedSpecial };
 }
 
+// Extracts sorted, unique positive episode numbers from a season payload.
 function deriveEpisodeNumbers(episodes) {
   if (!Array.isArray(episodes)) return [];
 
@@ -419,6 +434,7 @@ function deriveEpisodeNumbers(episodes) {
   return out;
 }
 
+// Sanitizes raw TMDB season payload into validated, DB-safe field values.
 function normalizeSeasonPayload(payload, showId) {
   const tmdbId = payload.id;
   if (typeof tmdbId !== "number") {
@@ -448,6 +464,7 @@ function normalizeSeasonPayload(payload, showId) {
   };
 }
 
+// Sanitizes raw TMDB episode payload into validated, DB-safe field values.
 function normalizeEpisodePayload(payload, seasonId) {
   const tmdbId = payload.id;
   if (typeof tmdbId !== "number") {
@@ -478,6 +495,7 @@ function normalizeEpisodePayload(payload, seasonId) {
   };
 }
 
+// Looks up the local show id by TMDB id, with an in-process cache.
 async function findExistingShowId(tmdbId, transaction) {
   if (existingShowIdCache.has(tmdbId)) {
     return existingShowIdCache.get(tmdbId);
@@ -502,6 +520,7 @@ async function findExistingShowId(tmdbId, transaction) {
   return showId;
 }
 
+// Looks up the local season id by show id and season number.
 async function findSeasonIdByShowAndNumber(showId, seasonNumber, transaction) {
   const [rows] = await sequelize.query(
     `
@@ -518,6 +537,7 @@ async function findSeasonIdByShowAndNumber(showId, seasonNumber, transaction) {
   return rows?.[0]?.id ?? null;
 }
 
+// Looks up the local episode id by season id and episode number.
 async function findEpisodeIdBySeasonAndNumber(seasonId, episodeNumber, transaction) {
   const [rows] = await sequelize.query(
     `
@@ -534,6 +554,7 @@ async function findEpisodeIdBySeasonAndNumber(seasonId, episodeNumber, transacti
   return rows?.[0]?.id ?? null;
 }
 
+// Inserts or updates a show row; optionally allows conflict-based updates.
 async function upsertShow(
   normalized,
   transaction,
@@ -657,6 +678,7 @@ async function upsertShow(
   };
 }
 
+// Inserts or updates a season row; returns its id and the action taken.
 async function upsertSeason(normalized, transaction) {
   const [rows] = await sequelize.query(
     `
@@ -727,6 +749,7 @@ async function upsertSeason(normalized, transaction) {
   return { seasonId, action: "unchanged" };
 }
 
+// Atomically replaces all genre links for a show (upsert kept, delete removed).
 async function replaceShowGenres(showId, tmdbGenres, transaction) {
   const validGenres = tmdbGenres.filter((g) => typeof g?.id === "number");
 
@@ -797,6 +820,7 @@ async function replaceShowGenres(showId, tmdbGenres, transaction) {
   return { linked: linkedIds.length, skipped };
 }
 
+// Inserts or updates an episode row; returns its id and the action taken.
 async function upsertEpisode(normalized, transaction) {
   const [rows] = await sequelize.query(
     `
@@ -869,10 +893,12 @@ async function upsertEpisode(normalized, transaction) {
   return { episodeId, action: "unchanged" };
 }
 
+// Delegates job id resolution to the shared resolveOrCreateJobId helper.
 async function resolveJobId(jobName, departmentName, jobCache, transaction) {
   return resolveOrCreateJobId(jobName, departmentName, jobCache, transaction);
 }
 
+// Deduplicates cast/crew entries and converts them into normalized task objects.
 function collectCreditTasks(cast, crew) {
   const tasks = [];
   const seen = new Set();
@@ -923,6 +949,7 @@ function collectCreditTasks(cast, crew) {
   return tasks;
 }
 
+// Merges episode detail and credits API sources, then deduplicates into task objects.
 function collectEpisodeCreditTasks(episodePayload, episodeCreditsPayload) {
   const detailCreditsCast = Array.isArray(episodePayload?.credits?.cast)
     ? episodePayload.credits.cast
@@ -955,6 +982,7 @@ function collectEpisodeCreditTasks(episodePayload, episodeCreditsPayload) {
   return collectCreditTasks(mergedCast, mergedCrew);
 }
 
+// Concurrently fetches TMDB person payloads for a list of ids, collecting failures.
 async function prefetchPersonPayloads(tmdbIds, apiKey, onProgress) {
   const uniqueIds = [...new Set(tmdbIds)];
   const total = uniqueIds.length;
@@ -981,6 +1009,7 @@ async function prefetchPersonPayloads(tmdbIds, apiKey, onProgress) {
   return { payloads, failures };
 }
 
+// Fetches only uncached person payloads and merges results into the shared cache.
 async function prefetchPersonPayloadsWithCache(
   tmdbIds,
   apiKey,
@@ -1003,6 +1032,7 @@ async function prefetchPersonPayloadsWithCache(
   return { payloads, failures: prefetch.failures };
 }
 
+// Inserts multiple show_credits rows in a single parameterized query.
 async function bulkInsertShowCredits(showId, rows, transaction) {
   if (rows.length === 0) return;
 
@@ -1026,6 +1056,7 @@ async function bulkInsertShowCredits(showId, rows, transaction) {
   );
 }
 
+// Inserts multiple episode_credits rows in a single parameterized query.
 async function bulkInsertEpisodeCredits(episodeId, rows, transaction) {
   if (rows.length === 0) return;
 
@@ -1049,6 +1080,7 @@ async function bulkInsertEpisodeCredits(episodeId, rows, transaction) {
   );
 }
 
+// Batch-ingests persons and links them as show credits within a transaction.
 async function processCreditsPhase({
   tasks,
   personPayloads,
@@ -1096,6 +1128,7 @@ async function processCreditsPhase({
   return { linked, skipped, personsIngested };
 }
 
+// Batch-ingests persons and links them as episode credits, reusing personIdCache across episodes.
 async function processEpisodeCreditsPhase({
   tasks,
   personPayloads,
@@ -1154,6 +1187,7 @@ async function processEpisodeCreditsPhase({
   return { linked, skipped, personsIngested };
 }
 
+// Handles show upsert and genre replacement within a single transaction.
 async function runDetailsTransaction({
   normalized,
   transaction,
@@ -1192,6 +1226,7 @@ async function runDetailsTransaction({
   return { showId, action, genresLinked: 0, genresSkipped: 0 };
 }
 
+// Clears existing show credits and re-links current ones within a transaction.
 async function runCreditsTransaction({
   showId,
   tasks,
@@ -1218,6 +1253,7 @@ async function runCreditsTransaction({
   });
 }
 
+// Upserts all seasons for a show and collects season ids needed for episode work.
 async function runSeasonsTransaction({
   showId,
   tmdbTvId,
@@ -1277,6 +1313,7 @@ async function runSeasonsTransaction({
   };
 }
 
+// Upserts all episodes and optionally their credits within a transaction.
 async function runEpisodesTransaction({
   tmdbTvId,
   workItems,
@@ -1419,6 +1456,7 @@ async function runEpisodesTransaction({
   };
 }
 
+// Builds work items only for an explicitly requested subset of episodes.
 async function buildTargetedEpisodeWorkItems({
   showId,
   tmdbTvId,
@@ -1461,6 +1499,7 @@ async function buildTargetedEpisodeWorkItems({
   return items;
 }
 
+// Builds work items for all episodes derived from each season's payload.
 function buildFullEpisodeWorkItems(seasonByNumber) {
   const items = [];
   for (const [seasonNumber, seasonState] of seasonByNumber.entries()) {
@@ -1476,6 +1515,7 @@ function buildFullEpisodeWorkItems(seasonByNumber) {
   return items;
 }
 
+// Ingests a TV show and all linked entities (genres, credits, seasons, episodes) from TMDB.
 export async function ingestTvShow({
   tmdbTvId,
   apiKey,
@@ -1485,10 +1525,12 @@ export async function ingestTvShow({
   refreshScope = null,
   targetedEpisodes = null,
 } = {}) {
+  // Guardrails: require a concrete TMDB id to ingest.
   if (typeof tmdbTvId !== "number" || !Number.isFinite(tmdbTvId)) {
     throw new Error("ingestTvShow requires a numeric `tmdbTvId`.");
   }
 
+  // Skip fast when the show already exists and caller did not request refresh.
   const existingShowId = await findExistingShowId(tmdbTvId);
   if (existingShowId && !forceRefreshExisting) {
     return buildEmptyShowResult(existingShowId, "skipped_existing", null);
@@ -1515,6 +1557,7 @@ export async function ingestTvShow({
 
   const resolvedKey = apiKey ?? getApiKey();
 
+  // Fetch base show payload (and optionally credits) up front.
   const fetchPromises = [fetchTmdbTvShow(resolvedKey, tmdbTvId)];
   const fetchCredits = effectiveScope.credits;
   if (fetchCredits) {
@@ -1543,6 +1586,7 @@ export async function ingestTvShow({
       )
     : { payloads: new Map(), failures: [] };
 
+  // Decide whether to run season and/or episode loops.
   const useTargeted =
     Array.isArray(targetedEpisodes) && targetedEpisodes.length > 0;
   const needsSeasonsLoop =
@@ -1582,6 +1626,7 @@ export async function ingestTvShow({
     episodePersonsIngested: 0,
   };
   try {
+    // Upsert core show details first so downstream links have a stable show id.
     const detailsResult = await runDetailsTransaction({
       normalized,
       transaction: tx,
@@ -1595,6 +1640,7 @@ export async function ingestTvShow({
     genresSkipped = detailsResult.genresSkipped;
 
     if (action !== "skipped_existing") {
+      // Link top-level cast/crew when credits refresh is enabled.
       if (effectiveScope.credits) {
         const creditsRes = await runCreditsTransaction({
           showId,
@@ -1610,6 +1656,7 @@ export async function ingestTvShow({
 
       let workItems = [];
       if (useTargeted) {
+        // Targeted mode only processes explicitly requested episodes.
         workItems = await buildTargetedEpisodeWorkItems({
           showId,
           tmdbTvId,
@@ -1618,6 +1665,7 @@ export async function ingestTvShow({
           transaction: tx,
         });
       } else if (needsSeasonsLoop) {
+        // Full mode refreshes seasons first, then derives episode work items.
         seasonsResult = await runSeasonsTransaction({
           showId,
           tmdbTvId,
@@ -1632,6 +1680,7 @@ export async function ingestTvShow({
       }
 
       if (needsEpisodesLoop && workItems.length > 0) {
+        // Episode ingestion includes optional per-episode credits.
         episodesResult = await runEpisodesTransaction({
           tmdbTvId,
           workItems,
@@ -1646,6 +1695,7 @@ export async function ingestTvShow({
 
     await tx.commit();
   } catch (error) {
+    // Preserve original failure even if rollback itself errors.
     try {
       await tx.rollback();
     } catch (_rollbackError) {
@@ -1660,6 +1710,7 @@ export async function ingestTvShow({
     );
   }
 
+  // Return counters used by scripts/tests to summarize ingest outcome.
   return {
     showId,
     action,
@@ -1688,6 +1739,7 @@ export async function ingestTvShow({
 
 export default ingestTvShow;
 
+// Parses --id and --force CLI arguments for the TV show ingest script.
 function parseArgs(argv) {
   let tmdbTvId = null;
   let forceRefreshExisting = false;
@@ -1719,6 +1771,7 @@ function parseArgs(argv) {
   return { tmdbTvId, forceRefreshExisting };
 }
 
+// Renders an ASCII progress bar string for terminal output.
 function renderProgressBar(current, total, width = 30) {
   const safeTotal = total > 0 ? total : 1;
   const ratio = Math.min(current / safeTotal, 1);
@@ -1728,20 +1781,25 @@ function renderProgressBar(current, total, width = 30) {
   return `[${"#".repeat(filled)}${"-".repeat(empty)}] ${percent}%`;
 }
 
+// Entry point: validates args, runs the ingest pipeline, and exits with appropriate code.
 async function main() {
+  // Track runtime and scope logs to a per-show script name.
   const startedAt = new Date();
   const { tmdbTvId, forceRefreshExisting } = parseArgs(process.argv.slice(2));
   const scopedScriptName = `${SCRIPT_NAME}:${tmdbTvId}`;
 
   try {
     try {
+      // Validate DB connectivity and required tables before any TMDB calls.
       await sequelize.authenticate();
       await ensureTables();
 
+      // Prime the terminal with an initial one-line progress state.
       process.stdout.write(
         `Ingest ${renderProgressBar(0, 1)} | TV Show ${tmdbTvId}\r`
       );
 
+      // Live progress for person prefetching done during credits ingestion.
       const onPrefetchProgress = (done, total) => {
         const bar = renderProgressBar(done, total);
         process.stdout.write(
@@ -1749,6 +1807,7 @@ async function main() {
         );
       };
 
+      // Live progress while iterating episodes (including failure count).
       const onEpisodeProgress = ({
         processed,
         total,
@@ -1766,6 +1825,7 @@ async function main() {
         );
       };
 
+      // Orchestrate the ingest pipeline (details, credits, seasons, episodes).
       const result = await ingestTvShow({
         tmdbTvId,
         onPrefetchProgress,
@@ -1773,6 +1833,7 @@ async function main() {
         forceRefreshExisting,
       });
 
+      // Build denominators for concise linked/total terminal reporting.
       const totalCredits = result.creditsLinked + result.creditsSkipped;
       const totalGenres = result.genresLinked + result.genresSkipped;
       const totalRegularSeasons =
@@ -1793,6 +1854,7 @@ async function main() {
           `EpisodePersons +${result.episodePersonsIngested}\n`
       );
 
+      // Emit a detailed summary row for logs and manual runs.
       console.log(
         `TMDB tv show sync complete. TV ${tmdbTvId} -> id=${result.showId} (${result.action}). ` +
           `Genres: linked ${result.genresLinked}, skipped ${result.genresSkipped}. ` +
@@ -1807,6 +1869,7 @@ async function main() {
           `Episode persons ingested: ${result.episodePersonsIngested}.`
       );
 
+      // Persist script execution metadata for monitoring and audits.
       await writeScriptLog({
         scriptName: scopedScriptName,
         status: "success",
@@ -1816,6 +1879,7 @@ async function main() {
         startedAt,
       });
     } catch (error) {
+      // Record failure details before bubbling the original error up.
       await writeScriptLog({
         scriptName: scopedScriptName,
         status: "failure",
@@ -1827,6 +1891,7 @@ async function main() {
       throw error;
     }
   } finally {
+    // Always close the DB connection, success or failure.
     await sequelize.close();
   }
 }

@@ -1,10 +1,12 @@
 import sequelize from "../db/database.js";
 
+// Normalize a text value by trimming it and handling non-strings safely.
 function normalizeName(value) {
   if (typeof value !== "string") return "";
   return value.trim();
 }
 
+// Find an existing department id by name or create one if it does not exist.
 export async function findOrCreateDepartmentId(rawName, transaction) {
   const name = normalizeName(rawName);
   if (!name) return null;

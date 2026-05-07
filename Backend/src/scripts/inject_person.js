@@ -23,6 +23,7 @@ export const FULL_PERSON_REFRESH_SCOPE = Object.freeze({
   aka: true,
 });
 
+// Turns a given scope object into one with clear true/false flags.
 export function normalizePersonRefreshScope(scope) {
   if (!scope) return { ...FULL_PERSON_REFRESH_SCOPE };
   return {
@@ -31,12 +32,14 @@ export function normalizePersonRefreshScope(scope) {
   };
 }
 
+// Returns true only when every person scope flag is false (no-op refresh).
 function isAllFalsePersonScope(scope) {
   if (!scope) return false;
   for (const v of Object.values(scope)) if (v) return false;
   return true;
 }
 
+// Writes run result, batch size, and runtime to the script_logs table.
 async function writeScriptLog({
   scriptName = SCRIPT_NAME,
   status,
@@ -79,6 +82,7 @@ async function writeScriptLog({
   }
 }
 
+// Returns the TMDB API key, caching it after the first read.
 function getApiKey() {
   if (cachedApiKey) return cachedApiKey;
 
@@ -93,6 +97,7 @@ function getApiKey() {
   return apiKey;
 }
 
+// Verifies person, person_aka, and department tables exist before ingesting.
 async function ensureTables() {
   const [personTable] = await sequelize.query(`
     SELECT to_regclass('public.person') AS table_name;
@@ -114,6 +119,7 @@ async function ensureTables() {
   }
 }
 
+// Fetches person details from TMDB by id.
 export async function fetchTmdbPerson(apiKey, tmdbId) {
   const url = new URL(`${TMDB_PERSON_URL}/${tmdbId}`);
   url.searchParams.set("api_key", apiKey);
@@ -142,6 +148,7 @@ export async function fetchTmdbPerson(apiKey, tmdbId) {
   return payload;
 }
 
+// Deduplicates and trims also_known_as strings into a clean list.
 function normalizeNicknames(alsoKnownAs) {
   if (!Array.isArray(alsoKnownAs)) return [];
   const seen = new Set();
@@ -157,6 +164,7 @@ function normalizeNicknames(alsoKnownAs) {
   return out;
 }
 
+// Sanitizes raw TMDB person payload into validated, DB-safe field values.
 function normalizePersonPayload(payload) {
   const tmdbId = payload.id;
   if (typeof tmdbId !== "number") {
@@ -191,6 +199,7 @@ function normalizeDepartmentName(name) {
   return strOrNull(name === "Actors" ? "Acting" : name, 200);
 }
 
+// Looks up a department id by name using an in-process cache.
 async function resolveDepartmentId(deptName, transaction) {
   const normalizedName = normalizeDepartmentName(deptName);
   if (!normalizedName) return null;
@@ -207,6 +216,7 @@ async function resolveDepartmentId(deptName, transaction) {
   return id;
 }
 
+// Looks up the local person id by TMDB id, with an in-process cache.
 async function findExistingPersonId(tmdbId, transaction) {
   if (existingPersonIdCache.has(tmdbId)) {
     return existingPersonIdCache.get(tmdbId);
@@ -231,6 +241,7 @@ async function findExistingPersonId(tmdbId, transaction) {
   return personId;
 }
 
+// Inserts a person row; on conflict falls back to the existing row's id.
 async function insertPerson(normalized, transaction) {
   const knownForDepartmentId = await resolveDepartmentId(
     normalized.knownForDepartmentName,
@@ -286,6 +297,7 @@ async function insertPerson(normalized, transaction) {
   return { personId, inserted: false };
 }
 
+// Syncs person_aka rows: inserts new, restores soft-deleted, and soft-deletes removed aliases.
 async function syncPersonAka(personId, nicknames, transaction) {
   const [existingRows] = await sequelize.query(
     `
@@ -368,6 +380,7 @@ async function syncPersonAka(personId, nicknames, transaction) {
   return { akaInserted, akaRestored, akaDeleted };
 }
 
+// Ingests a person and their aliases from TMDB, respecting refresh scope and ownership.
 export async function ingestPerson({
   tmdbId,
   transaction,
@@ -380,10 +393,12 @@ export async function ingestPerson({
     throw new Error("ingestPerson requires a numeric `tmdbId`.");
   }
 
+  // Reuse caller transaction when provided; otherwise own commit/rollback lifecycle.
   const ownsTransaction = !transaction;
   const tx = transaction ?? (await sequelize.transaction());
 
   try {
+    // Fast path: skip DB/API work when person already exists and refresh is not requested.
     const existingPersonId = await findExistingPersonId(tmdbId, tx);
     if (existingPersonId && !forceRefreshExisting) {
       if (ownsTransaction) await tx.commit();
@@ -403,6 +418,7 @@ export async function ingestPerson({
         ? normalizePersonRefreshScope(refreshScope)
         : { ...FULL_PERSON_REFRESH_SCOPE };
 
+    // Explicit no-op scope for an existing row returns immediately as unchanged.
     if (
       isExistingEntity &&
       refreshScope &&
@@ -419,6 +435,7 @@ export async function ingestPerson({
       };
     }
 
+    // Use preloaded payload when batching; otherwise fetch fresh data from TMDB.
     let payload;
     if (preloadedPayload) {
       payload = preloadedPayload;
@@ -428,6 +445,7 @@ export async function ingestPerson({
     }
     const normalized = normalizePersonPayload(payload);
 
+    // Existing row + force refresh: update requested scopes in place.
     if (existingPersonId && forceRefreshExisting) {
       if (effectiveScope.details) {
         const knownForDepartmentId = await resolveDepartmentId(
@@ -473,6 +491,7 @@ export async function ingestPerson({
       let akaInserted = 0;
       let akaRestored = 0;
       let akaDeleted = 0;
+      // AKA sync is scope-gated so callers can skip alias churn when unnecessary.
       if (effectiveScope.aka) {
         const akaResult = await syncPersonAka(
           existingPersonId,
@@ -495,6 +514,7 @@ export async function ingestPerson({
       };
     }
 
+    // Insert-first path for new people; conflict means another writer already created it.
     const insertResult = await insertPerson(normalized, tx);
     if (!insertResult.inserted) {
       if (ownsTransaction) await tx.commit();
@@ -508,6 +528,7 @@ export async function ingestPerson({
       };
     }
 
+    // New inserts always get full AKA synchronization from current TMDB payload.
     const { akaInserted, akaRestored, akaDeleted } = await syncPersonAka(
       insertResult.personId,
       normalized.alsoKnownAs,
@@ -525,6 +546,7 @@ export async function ingestPerson({
       akaDeleted,
     };
   } catch (error) {
+    // Roll back only when we opened the transaction; preserve original failure signal.
     if (ownsTransaction) {
       try {
         await tx.rollback();
@@ -538,6 +560,7 @@ export async function ingestPerson({
 
 export default ingestPerson;
 
+// Parses --id and --force CLI arguments for the person ingest script.
 function parseArgs(argv) {
   let tmdbId = null;
   let forceRefreshExisting = false;
@@ -569,6 +592,7 @@ function parseArgs(argv) {
   return { tmdbId, forceRefreshExisting };
 }
 
+// Renders an ASCII progress bar string for terminal output.
 function renderProgressBar(current, total, width = 30) {
   const safeTotal = total > 0 ? total : 1;
   const ratio = Math.min(current / safeTotal, 1);
@@ -578,30 +602,38 @@ function renderProgressBar(current, total, width = 30) {
   return `[${"#".repeat(filled)}${"-".repeat(empty)}] ${percent}%`;
 }
 
+// Entry point: validates args, runs the ingest pipeline, and exits with appropriate code.
 async function main() {
+  // Track one start timestamp for consistent script log runtime calculation.
   const startedAt = new Date();
   const { tmdbId, forceRefreshExisting } = parseArgs(process.argv.slice(2));
   const scopedScriptName = `${SCRIPT_NAME}:${tmdbId}`;
 
   try {
     try {
+      // Validate connectivity and schema prerequisites up front.
       await sequelize.authenticate();
       await ensureTables();
 
+      // Show single-item progress for this one-person ingest run.
       process.stdout.write(
         `Ingest ${renderProgressBar(0, 1)} | Person ${tmdbId}\r`
       );
 
+      // Perform person ingest with optional force-refresh behavior.
       const result = await ingestPerson({ tmdbId, forceRefreshExisting });
 
+      // Replace progress line with final action and AKA delta stats.
       process.stdout.write(
         `Ingest ${renderProgressBar(1, 1)} | Person ${tmdbId} | ${result.action} | AKAs +${result.akaInserted} restored ${result.akaRestored} -${result.akaDeleted}\n`
       );
 
+      // Emit durable completion summary for terminal logs and CI output.
       console.log(
         `TMDB person sync complete. Person ${tmdbId} -> id=${result.personId} (${result.action}). AKAs: new ${result.akaInserted}, restored ${result.akaRestored}, soft-deleted ${result.akaDeleted}.`
       );
 
+      // Record successful execution in script_logs.
       await writeScriptLog({
         scriptName: scopedScriptName,
         status: "success",
@@ -611,6 +643,7 @@ async function main() {
         startedAt,
       });
     } catch (error) {
+      // Persist failure context, then rethrow for CLI non-zero exit handling.
       await writeScriptLog({
         scriptName: scopedScriptName,
         status: "failure",
@@ -622,13 +655,17 @@ async function main() {
       throw error;
     }
   } finally {
+    // Always close DB resources, regardless of success or failure.
     await sequelize.close();
   }
 }
 
+// Batch-ingests multiple persons in one transaction and returns a tmdbId → local id map.
 export async function batchIngestPersons(tmdbIds, personPayloads, transaction) {
+  // Nothing to do when the caller gives an empty list.
   if (tmdbIds.length === 0) return new Map();
 
+  // Load already-existing people in one query so we skip duplicate inserts.
   const existRepl = {};
   tmdbIds.forEach((id, i) => { existRepl[`eid${i}`] = id; });
   const [existingRows] = await sequelize.query(
@@ -644,9 +681,11 @@ export async function batchIngestPersons(tmdbIds, personPayloads, transaction) {
     existingPersonIdCache.set(tmdbId, row.id);
   }
 
+  // Keep only the IDs that are still missing in our local database.
   const newIds = tmdbIds.filter((id) => !personIdMap.has(id));
   if (newIds.length === 0) return personIdMap;
 
+  // Normalize and sanitize payloads before building the bulk INSERT values.
   const normalizedList = [];
   for (const id of newIds) {
     const n = normalizePersonPayload(personPayloads.get(id));
@@ -654,6 +693,7 @@ export async function batchIngestPersons(tmdbIds, personPayloads, transaction) {
     normalizedList.push(n);
   }
 
+  // Build parameterized tuples for one bulk insert query.
   const insRepl = {};
   const tuples = normalizedList.map((n, i) => {
     insRepl[`t${i}`] = n.tmdbId;
@@ -670,6 +710,7 @@ export async function batchIngestPersons(tmdbIds, personPayloads, transaction) {
     return `(:t${i},:nm${i},:ad${i},:bi${i},:bd${i},:pb${i},:dd${i},:gn${i},:pp${i},:kd${i},:pf${i})`;
   });
 
+  // Insert missing people; ignore conflicts when another writer inserted first.
   const [insertedRows] = await sequelize.query(
     `INSERT INTO person (tmdb_id,name,adult,biography,birthday,place_of_birth,deathday,gender,popularity,known_for_department_id,profile_path)
      VALUES ${tuples.join(", ")}
@@ -685,6 +726,7 @@ export async function batchIngestPersons(tmdbIds, personPayloads, transaction) {
     existingPersonIdCache.set(tmdbId, row.id);
   }
 
+  // Resolve IDs for rows that were inserted concurrently by another process.
   const stillMissing = newIds.filter((id) => !personIdMap.has(id));
   if (stillMissing.length > 0) {
     const missRepl = {};
@@ -701,6 +743,7 @@ export async function batchIngestPersons(tmdbIds, personPayloads, transaction) {
     }
   }
 
+  // For newly inserted people, bulk insert their AKA nicknames.
   if (insertedRows.length > 0) {
     const akaRows = [];
     const normalizedByTmdbId = new Map(normalizedList.map((n) => [n.tmdbId, n]));
@@ -724,6 +767,7 @@ export async function batchIngestPersons(tmdbIds, personPayloads, transaction) {
     }
   }
 
+  // Return tmdb_id -> local person.id for all requested IDs.
   return personIdMap;
 }
 

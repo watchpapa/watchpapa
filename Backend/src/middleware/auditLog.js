@@ -1,6 +1,10 @@
+// Used by:
+// - app.js
 import sequelize from "../db/database.js";
 
+// Create audit middleware that records request metadata and allowed body fields.
 export function auditLog(action, allowedBodyFields) {
+  // Capture request context and write an audit row to the database.
   return (req, _res, next) => {
     const rawBody = req.body ?? {};
     const body = allowedBodyFields
@@ -18,6 +22,7 @@ export function auditLog(action, allowedBodyFields) {
     };
     console.log("[AUDIT]", JSON.stringify(entry));
 
+    // Persist audit event details to the audit_events table.
     sequelize
       .query(
         `INSERT INTO audit_events (action, user_id, email, ip, method, path, body)

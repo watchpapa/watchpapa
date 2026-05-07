@@ -14,6 +14,7 @@ const MAX_LIMIT = 500;
 let cachedApiKey = null;
 let logWritten = false;
 
+// Read and cache the TMDB API key from environment variables.
 function getApiKey() {
   if (cachedApiKey) return cachedApiKey;
 
@@ -28,6 +29,7 @@ function getApiKey() {
   return apiKey;
 }
 
+// Persist one execution record in script_logs for observability.
 async function writeScriptLog({
   scriptName = SCRIPT_NAME,
   status,
@@ -71,6 +73,7 @@ async function writeScriptLog({
   }
 }
 
+// Ensure required database tables exist before ingestion starts.
 async function ensureTables() {
   const [personTable] = await sequelize.query(`
     SELECT to_regclass('public.person') AS table_name;
@@ -87,6 +90,7 @@ async function ensureTables() {
   }
 }
 
+// Fetch a single page of popular people from TMDB.
 async function fetchPopularPeoplePage(apiKey, page) {
   const url = new URL(TMDB_POPULAR_PEOPLE_URL);
   url.searchParams.set("api_key", apiKey);
@@ -114,6 +118,7 @@ async function fetchPopularPeoplePage(apiKey, page) {
   return { results, totalPages };
 }
 
+// Collect top popular TMDB person ids up to the requested limit.
 async function fetchTopPopularPersonIds(apiKey, limit) {
   const targetPages = Math.max(1, Math.ceil(limit / TMDB_PAGE_SIZE));
   const collected = [];
@@ -139,6 +144,7 @@ async function fetchTopPopularPersonIds(apiKey, limit) {
   return collected;
 }
 
+// Query person ids that are already present in the local database.
 async function fetchExistingPersonTmdbIds(tmdbIds) {
   if (tmdbIds.length === 0) return new Set();
 
@@ -154,6 +160,7 @@ async function fetchExistingPersonTmdbIds(tmdbIds) {
   return new Set(rows.map((row) => row.tmdb_id));
 }
 
+// Build a JSON error payload for failed or partial ingestion runs.
 function buildFailureErrorDetail({ scriptName, summary, failedItems, fatalError }) {
   return JSON.stringify({
     scriptName,
@@ -168,6 +175,7 @@ function buildFailureErrorDetail({ scriptName, summary, failedItems, fatalError 
   });
 }
 
+// Parse supported CLI arguments and validate their values.
 function parseArgs(argv) {
   let limit = 20;
 
@@ -194,6 +202,7 @@ function parseArgs(argv) {
   return { limit };
 }
 
+// Ingest today's popular people while tracking insert and failure stats.
 export async function ingestPopularPeopleToday({ limit = 20, apiKey } = {}) {
   const resolvedKey = apiKey ?? getApiKey();
   const requestedIds = await fetchTopPopularPersonIds(resolvedKey, limit);
@@ -251,11 +260,13 @@ export async function ingestPopularPeopleToday({ limit = 20, apiKey } = {}) {
   };
 }
 
+// Run the script lifecycle: setup, ingest, logging, and cleanup.
 async function main() {
   const startedAt = new Date();
   const { limit } = parseArgs(process.argv.slice(2));
   const scopedScriptName = `${SCRIPT_NAME}:limit=${limit}`;
 
+  // Handle termination signals and write a stopped log entry once.
   function handleStopSignal(signal) {
     if (logWritten) return;
     logWritten = true;

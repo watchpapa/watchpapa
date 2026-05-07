@@ -30,6 +30,7 @@ export const FULL_MOVIE_REFRESH_SCOPE = Object.freeze({
   credits: true,
 });
 
+// Turns a given scope object into one with clear true/false flags.
 export function normalizeMovieRefreshScope(scope) {
   if (!scope) return { ...FULL_MOVIE_REFRESH_SCOPE };
   return {
@@ -39,12 +40,14 @@ export function normalizeMovieRefreshScope(scope) {
   };
 }
 
+// Returns true only if all scope flags are false, meaning no refresh action is needed.
 function isAllFalseScope(scope) {
   if (!scope) return false;
   for (const v of Object.values(scope)) if (v) return false;
   return true;
 }
 
+// Returns an empty result object for skipped or unused movie ingests.
 function buildEmptyMovieResult(movieId, action, scope) {
   return {
     movieId,
@@ -61,6 +64,7 @@ function buildEmptyMovieResult(movieId, action, scope) {
   };
 }
 
+// Writes run result, batch size, and runtime to the script_logs table.
 async function writeScriptLog({
   scriptName = SCRIPT_NAME,
   status,
@@ -103,6 +107,7 @@ async function writeScriptLog({
   }
 }
 
+// Returns the TMDB API key, caching it after the first read.
 function getApiKey() {
   if (cachedApiKey) return cachedApiKey;
 
@@ -117,6 +122,7 @@ function getApiKey() {
   return apiKey;
 }
 
+// Verifies all required movie tables exist in the DB before ingesting.
 async function ensureTables() {
   const [movieTable] = await sequelize.query(`
     SELECT to_regclass('public.movie') AS table_name;
@@ -151,6 +157,7 @@ async function ensureTables() {
   }
 }
 
+// Fetches movie details from TMDB by id.
 async function fetchTmdbMovie(apiKey, tmdbId) {
   const url = new URL(`${TMDB_MOVIE_URL}/${tmdbId}`);
   url.searchParams.set("api_key", apiKey);
@@ -179,6 +186,7 @@ async function fetchTmdbMovie(apiKey, tmdbId) {
   return payload;
 }
 
+// Fetches cast and crew credits for a movie from TMDB.
 async function fetchTmdbMovieCredits(apiKey, tmdbId) {
   const url = new URL(`${TMDB_MOVIE_URL}/${tmdbId}/credits`);
   url.searchParams.set("api_key", apiKey);
@@ -205,6 +213,7 @@ async function fetchTmdbMovieCredits(apiKey, tmdbId) {
   };
 }
 
+// Looks up the local movie id by TMDB id, using an in-process cache.
 async function findExistingMovieId(tmdbId, transaction) {
   if (existingMovieIdCache.has(tmdbId)) {
     return existingMovieIdCache.get(tmdbId);
@@ -229,6 +238,7 @@ async function findExistingMovieId(tmdbId, transaction) {
   return movieId;
 }
 
+// Sanitizes raw TMDB movie payload into validated, DB-safe field values.
 function normalizeMoviePayload(payload) {
   const tmdbId = payload.id;
   if (typeof tmdbId !== "number") {
@@ -267,6 +277,7 @@ function normalizeMoviePayload(payload) {
   };
 }
 
+// Inserts or updates a movie row; optionally allows conflict-based updates.
 async function upsertMovie(
   normalized,
   transaction,
@@ -373,6 +384,7 @@ async function upsertMovie(
   };
 }
 
+// Atomically replaces all genre links for a movie (upsert kept, delete removed).
 async function replaceMovieGenres(movieId, tmdbGenres, transaction) {
   const validGenres = tmdbGenres.filter((g) => typeof g?.id === "number");
 
@@ -443,10 +455,12 @@ async function replaceMovieGenres(movieId, tmdbGenres, transaction) {
   return { linked: linkedIds.length, skipped };
 }
 
+// Delegates job id resolution to the shared resolveOrCreateJobId helper.
 async function resolveJobId(jobName, departmentName, jobCache, transaction) {
   return resolveOrCreateJobId(jobName, departmentName, jobCache, transaction);
 }
 
+// Deduplicates cast/crew entries and converts them into normalized task objects.
 function collectCreditTasks(cast, crew) {
   const tasks = [];
   const seen = new Set();
@@ -497,6 +511,7 @@ function collectCreditTasks(cast, crew) {
   return tasks;
 }
 
+// Fetches TMDB person payloads in parallel and logs any failures.
 async function prefetchPersonPayloads(tmdbIds, apiKey, onProgress) {
   const uniqueIds = [...new Set(tmdbIds)];
   const total = uniqueIds.length;
@@ -523,6 +538,7 @@ async function prefetchPersonPayloads(tmdbIds, apiKey, onProgress) {
   return { payloads, failures };
 }
 
+// Inserts multiple movie_credits rows in a single parameterized query.
 async function bulkInsertMovieCredits(movieId, rows, transaction) {
   if (rows.length === 0) return;
 
@@ -546,6 +562,7 @@ async function bulkInsertMovieCredits(movieId, rows, transaction) {
   );
 }
 
+// Batch-ingests persons and links them as movie credits within a transaction.
 async function processCreditsPhase({
   tasks,
   personPayloads,
@@ -593,6 +610,7 @@ async function processCreditsPhase({
   return { linked, skipped, personsIngested };
 }
 
+// Ingests a movie and all linked entities (genres, credits, persons) from TMDB.
 export async function ingestMovie({
   tmdbId,
   apiKey,
@@ -600,10 +618,12 @@ export async function ingestMovie({
   forceRefreshExisting = false,
   refreshScope = null,
 } = {}) {
+  // Guardrails: require a concrete TMDB movie id.
   if (typeof tmdbId !== "number" || !Number.isFinite(tmdbId)) {
     throw new Error("ingestMovie requires a numeric `tmdbId`.");
   }
 
+  // Skip fast when movie already exists and no refresh is requested.
   const existingMovieId = await findExistingMovieId(tmdbId);
   if (existingMovieId && !forceRefreshExisting) {
     return buildEmptyMovieResult(existingMovieId, "skipped_existing", null);
@@ -624,6 +644,7 @@ export async function ingestMovie({
   }
 
   const resolvedKey = apiKey ?? getApiKey();
+  // Fetch movie payload (and credits when in scope) before opening transaction.
   const fetchPromises = [fetchTmdbMovie(resolvedKey, tmdbId)];
   if (effectiveScope.credits) {
     fetchPromises.push(fetchTmdbMovieCredits(resolvedKey, tmdbId));
@@ -645,6 +666,7 @@ export async function ingestMovie({
   const castIds = castTasks.map((t) => t.personTmdbId);
   const crewIds = crewTasks.map((t) => t.personTmdbId);
 
+  // Prefetch person payloads in parallel to reduce transaction work.
   const [castPrefetch, crewPrefetch] = effectiveScope.credits
     ? await Promise.all([
         prefetchPersonPayloads(
@@ -681,6 +703,7 @@ export async function ingestMovie({
   let crewSkipped = 0;
   let crewPersonsIngested = 0;
   try {
+    // Upsert details unless this is a scope-only refresh on existing entity.
     if (!isExistingEntity || effectiveScope.details) {
       const upsertResult = await upsertMovie(normalized, tx, {
         allowUpdateExisting: forceRefreshExisting,
@@ -698,6 +721,7 @@ export async function ingestMovie({
     }
 
     if (action !== "skipped_existing") {
+      // Refresh genre links only when genre scope is enabled.
       if (effectiveScope.genres) {
         const genresResult = await replaceMovieGenres(
           movieId,
@@ -709,6 +733,7 @@ export async function ingestMovie({
       }
 
       if (effectiveScope.credits) {
+        // Replace credits atomically so links never partially overlap.
         await sequelize.query(
           `
             DELETE FROM movie_credits
@@ -746,6 +771,7 @@ export async function ingestMovie({
 
     await tx.commit();
   } catch (error) {
+    // Preserve original failure even if rollback itself errors.
     try {
       await tx.rollback();
     } catch (_rollbackError) {
@@ -760,6 +786,7 @@ export async function ingestMovie({
     );
   }
 
+  // Return counters used by scripts/tests to summarize ingest outcome.
   return {
     movieId,
     action,
@@ -777,6 +804,7 @@ export async function ingestMovie({
 
 export default ingestMovie;
 
+// Parses --id and --force CLI arguments for the movie ingest script.
 function parseArgs(argv) {
   let tmdbId = null;
   let forceRefreshExisting = false;
@@ -808,6 +836,7 @@ function parseArgs(argv) {
   return { tmdbId, forceRefreshExisting };
 }
 
+// Renders an ASCII progress bar string for terminal output.
 function renderProgressBar(current, total, width = 30) {
   const safeTotal = total > 0 ? total : 1;
   const ratio = Math.min(current / safeTotal, 1);
@@ -817,20 +846,25 @@ function renderProgressBar(current, total, width = 30) {
   return `[${"#".repeat(filled)}${"-".repeat(empty)}] ${percent}%`;
 }
 
+// Entry point: validates args, runs the ingest pipeline, and exits with appropriate code.
 async function main() {
+  // Capture a stable start time so success/failure logs share one execution window.
   const startedAt = new Date();
   const { tmdbId, forceRefreshExisting } = parseArgs(process.argv.slice(2));
   const scopedScriptName = `${SCRIPT_NAME}:${tmdbId}`;
 
   try {
     try {
+      // Ensure DB connectivity and required tables before doing any ingest work.
       await sequelize.authenticate();
       await ensureTables();
 
+      // Show an initial one-item ingest progress indicator for this movie.
       process.stdout.write(
         `Ingest ${renderProgressBar(0, 1)} | Movie ${tmdbId}\r`
       );
 
+      // Stream cast/crew prefetch progress from ingestMovie into a single-line UI.
       const onPrefetchProgress = (phase, done, total) => {
         const bar = renderProgressBar(done, total);
         const label = phase === "cast" ? "Cast" : "Crew";
@@ -839,17 +873,20 @@ async function main() {
         );
       };
 
+      // Ingest the movie and all linked entities, optionally forcing a refresh.
       const result = await ingestMovie({
         tmdbId,
         onPrefetchProgress,
         forceRefreshExisting,
       });
 
+      // Aggregate counters for concise output and script-run logging.
       const totalCreditsLinked = result.castLinked + result.crewLinked;
       const totalCreditsSkipped = result.castSkipped + result.crewSkipped;
       const totalPersonsIngested =
         result.castPersonsIngested + result.crewPersonsIngested;
 
+      // Replace progress line with a final per-category ingest summary.
       process.stdout.write(
         `\rIngest ${renderProgressBar(1, 1)} | Movie ${tmdbId} | ${result.action} | ` +
           `Genres ${result.genresLinked}/${result.genresLinked + result.genresSkipped} | ` +
@@ -858,6 +895,7 @@ async function main() {
           `Persons +${totalPersonsIngested}\n`
       );
 
+      // Emit a persistent completion message for logs/CI output.
       console.log(
         `TMDB movie sync complete. Movie ${tmdbId} -> id=${result.movieId} (${result.action}). ` +
           `Genres: linked ${result.genresLinked}, skipped ${result.genresSkipped}. ` +
@@ -866,6 +904,7 @@ async function main() {
           `Persons ingested: ${totalPersonsIngested}.`
       );
 
+      // Record successful execution metadata in script logs.
       await writeScriptLog({
         scriptName: scopedScriptName,
         status: "success",
@@ -875,6 +914,7 @@ async function main() {
         startedAt,
       });
     } catch (error) {
+      // Record failure details before rethrowing so caller exit path still runs.
       await writeScriptLog({
         scriptName: scopedScriptName,
         status: "failure",
@@ -886,6 +926,7 @@ async function main() {
       throw error;
     }
   } finally {
+    // Always release the DB connection pool, regardless of outcome.
     await sequelize.close();
   }
 }

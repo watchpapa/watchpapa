@@ -8,6 +8,7 @@ dotenv.config();
 const TMDB_JOBS_URL = "https://api.themoviedb.org/3/configuration/jobs";
 const SCRIPT_NAME = "inject_jobs_and_departments";
 
+// Writes run result, batch size, and runtime to the script_logs table.
 async function writeScriptLog({
   status,
   batchSize,
@@ -49,6 +50,7 @@ async function writeScriptLog({
   }
 }
 
+// Returns the TMDB API key from env; throws if it is missing.
 function getApiKey() {
   const apiKey = process.env.TMDB_API_KEY_SECRET;
 
@@ -61,8 +63,8 @@ function getApiKey() {
   return apiKey;
 }
 
+// Verifies the department and job tables exist in the DB before any writes.
 async function ensureTable() {
-  // Validate required normalized tables exist in the current schema.
   const [departmentTable] = await sequelize.query(`
     SELECT to_regclass('public.department') AS table_name;
   `);
@@ -77,6 +79,7 @@ async function ensureTable() {
   }
 }
 
+// Fetches the TMDB configuration jobs list (departments + job names).
 async function fetchTmdbJobs(apiKey) {
   const url = new URL(TMDB_JOBS_URL);
   url.searchParams.set("api_key", apiKey);
@@ -107,6 +110,7 @@ async function fetchTmdbJobs(apiKey) {
   );
 }
 
+// Renders an ASCII progress bar string for terminal output.
 function renderProgressBar(current, total, width = 30) {
   const safeTotal = total > 0 ? total : 1;
   const ratio = Math.min(current / safeTotal, 1);
@@ -116,6 +120,7 @@ function renderProgressBar(current, total, width = 30) {
   return `[${"#".repeat(filled)}${"-".repeat(empty)}] ${percent}%`;
 }
 
+// Writes a combined department/job ingest progress line to stdout.
 function logProgress(processedDepartments, totalDepartments, processedJobs, totalJobs) {
   const overallDone = processedDepartments + processedJobs;
   const overallTotal = totalDepartments + totalJobs;
@@ -128,15 +133,18 @@ function logProgress(processedDepartments, totalDepartments, processedJobs, tota
   process.stdout.write(`\r${line}`);
 }
 
+// Maps "Actors" to "Acting" and clamps the department name to max length.
 function normalizeDepartmentName(name) {
   const clamped = strOrNull(name === "Actors" ? "Acting" : name, 200);
   return clamped;
 }
 
+// Clamps a raw job name string to the max allowed length.
 function normalizeJobName(name) {
   return strOrNull(name, 200);
 }
 
+// Upserts departments and their jobs into the DB, tracking insert counts.
 async function saveJobs(jobsByDepartment, transaction) {
   let insertedDepartments = 0;
   let insertedJobs = 0;
@@ -247,6 +255,7 @@ async function saveJobs(jobsByDepartment, transaction) {
   return { insertedDepartments, insertedJobs, totalDepartments, totalJobs };
 }
 
+// Orchestrates the full jobs/departments sync: fetch from TMDB, save, and log result.
 async function seedTmdbJobs() {
   const apiKey = getApiKey();
   const startedAt = new Date();

@@ -11,6 +11,7 @@ const SCRIPT_NAME = "inject_changed_all_24h";
 const MAX_LIMIT = 100000;
 let logWritten = false;
 
+// Persist one execution record in script_logs for observability.
 async function writeScriptLog({
   scriptName = SCRIPT_NAME,
   status,
@@ -54,6 +55,7 @@ async function writeScriptLog({
   }
 }
 
+// Ensure required database tables exist before refresh starts.
 async function ensureTables() {
   const [movieTable] = await sequelize.query(`
     SELECT to_regclass('public.movie') AS table_name;
@@ -82,6 +84,7 @@ async function ensureTables() {
   }
 }
 
+// Parse supported CLI arguments and validate their values.
 function parseArgs(argv) {
   let limit = 100000;
   let startDate;
@@ -122,24 +125,29 @@ function parseArgs(argv) {
   return { limit, startDate, endDate };
 }
 
+// Sum a numeric field across multiple result objects.
 function sumField(field, ...results) {
   return results.reduce((acc, r) => acc + (r?.[field] ?? 0), 0);
 }
 
+// Sum total refreshed entities across all entity groups.
 function sumRefreshed(...results) {
   return sumField("refreshed", ...results);
 }
 
+// Sum total failed entities across all entity groups.
 function sumFailed(...results) {
   return sumField("failed", ...results);
 }
 
+// Merge failed item arrays from all entity group results.
 function combineFailedItems(...results) {
   return results.flatMap((result) =>
     Array.isArray(result?.failedItems) ? result.failedItems : []
   );
 }
 
+// Build a JSON error payload for failed or partial refresh runs.
 export function buildFailureErrorDetail({
   scriptName,
   summary,
@@ -159,6 +167,7 @@ export function buildFailureErrorDetail({
   });
 }
 
+// Run changed-entity refresh for movies, shows, and people.
 export async function ingestChangedAll24h({ limit = 100000, apiKey, startDate, endDate } = {}) {
   const movies = await ingestChangedMovies24h({ limit, apiKey, startDate, endDate });
   const shows = await ingestChangedShows24h({ limit, apiKey, startDate, endDate });
@@ -180,11 +189,14 @@ export async function ingestChangedAll24h({ limit = 100000, apiKey, startDate, e
   };
 }
 
+// Run the script lifecycle: setup, refresh, logging, and cleanup.
 async function main() {
   const startedAt = new Date();
+  // Parse CLI options once and scope the log name to the requested limit.
   const { limit, startDate, endDate } = parseArgs(process.argv.slice(2));
   const scopedScriptName = `${SCRIPT_NAME}:limit=${limit}`;
 
+  // Handle termination signals and write a stopped log entry once.
   function handleStopSignal(signal) {
     if (logWritten) return;
     logWritten = true;
@@ -206,9 +218,11 @@ async function main() {
 
   try {
     try {
+      // Verify DB connectivity and required tables before doing any refresh work.
       await sequelize.authenticate();
       await ensureTables();
 
+      // Execute the aggregate refresh that runs movies, shows, and people.
       const result = await ingestChangedAll24h({ limit, startDate, endDate });
       console.log(
         `Changed all refresh complete (${result.startDate}..${result.endDate}). ` +
@@ -296,6 +310,7 @@ async function main() {
       throw error;
     }
   } finally {
+    // Always remove signal handlers and close the DB connection.
     process.off("SIGINT", handleStopSignal);
     process.off("SIGTERM", handleStopSignal);
     await sequelize.close();

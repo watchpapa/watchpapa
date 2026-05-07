@@ -1,3 +1,5 @@
+// Used by:
+// - index.js
 import express from "express";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -22,6 +24,7 @@ app.use(helmet());
 
 app.use(express.json({ limit: "128kb" }));
 
+// Apply CORS headers for allowed frontend origins.
 app.use((req, res, next) => {
   const origin = req.headers.origin;
   if (origin && corsAllowedOrigins.includes(origin)) {
@@ -50,6 +53,7 @@ const mutationLimiter = rateLimit({
 const perUserMutationLimiter = rateLimit({
   windowMs: 60 * 1000,
   max: 20,
+  // Build per-user rate-limit keys from auth context or IP.
   keyGenerator: (req) => req.user?.id ?? req.ip,
   standardHeaders: true,
   legacyHeaders: false,
@@ -57,21 +61,27 @@ const perUserMutationLimiter = rateLimit({
 
 app.use(globalLimiter);
 
+// Handle read search requests that query local database content.
 app.use("/api/search", searchRouter);
+// Handle authenticated inject requests that write database records.
 app.use("/api/inject", mutationLimiter, requireAuth, perUserMutationLimiter, auditLog("inject", ["type", "tmdbId"]), injectRouter);
+// Handle authenticated resolve requests that read/write database records.
 app.use("/api/resolve", mutationLimiter, requireAuth, perUserMutationLimiter, auditLog("resolve", ["type", "tmdbId"]), resolveRouter);
 
 // Health check
+// Return service health status for monitoring.
 app.get("/health", (_req, res) => {
   res.json({ status: "ok" });
 });
 
 // 404 handler
+// Return JSON 404 for unmatched routes.
 app.use((_req, res) => {
   res.status(404).json({ error: "Not found" });
 });
 
 // Error handler
+// Return JSON 500 and log server errors.
 app.use((err, _req, res, _next) => {
   if (process.env.NODE_ENV === "production") {
     console.error("[ERROR]", err.message);

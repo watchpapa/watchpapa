@@ -9,6 +9,7 @@ const TMDB_MOVIE_GENRES_URL = "https://api.themoviedb.org/3/genre/movie/list";
 const TMDB_TV_GENRES_URL = "https://api.themoviedb.org/3/genre/tv/list";
 const SCRIPT_NAME = "inject_genres";
 
+// Writes run result, batch size, and runtime to the script_logs table.
 async function writeScriptLog({
   status,
   batchSize,
@@ -50,6 +51,7 @@ async function writeScriptLog({
   }
 }
 
+// Returns the TMDB API key from env; throws if it is missing.
 function getApiKey() {
   const apiKey = process.env.TMDB_API_KEY_SECRET;
 
@@ -62,6 +64,7 @@ function getApiKey() {
   return apiKey;
 }
 
+// Verifies the genres table exists in the DB before any writes.
 async function ensureTable() {
   const [genresTable] = await sequelize.query(`
     SELECT to_regclass('public.genres') AS table_name;
@@ -72,6 +75,7 @@ async function ensureTable() {
   }
 }
 
+// Fetches the genre list (movie or TV) from a TMDB endpoint.
 async function fetchTmdbGenres(apiKey, endpoint) {
   const url = new URL(endpoint);
   url.searchParams.set("api_key", apiKey);
@@ -100,6 +104,7 @@ async function fetchTmdbGenres(apiKey, endpoint) {
   return payload.genres;
 }
 
+// Merges multiple genre lists into one, deduplicating entries by TMDB id.
 function mergeAndDedupe(...genreLists) {
   const byTmdbId = new Map();
   for (const list of genreLists) {
@@ -115,7 +120,7 @@ function mergeAndDedupe(...genreLists) {
   return Array.from(byTmdbId.values());
 }
 
-// AIed {
+// Renders an ASCII progress bar string for terminal output.
 function renderProgressBar(current, total, width = 30) {
   const safeTotal = total > 0 ? total : 1;
   const ratio = Math.min(current / safeTotal, 1);
@@ -125,6 +130,7 @@ function renderProgressBar(current, total, width = 30) {
   return `[${"#".repeat(filled)}${"-".repeat(empty)}] ${percent}%`;
 }
 
+// Writes a single-line ingest progress update to stdout.
 function logProgress(processed, total, inserted, updated) {
   const bar = renderProgressBar(processed, total);
   const line =
@@ -133,8 +139,8 @@ function logProgress(processed, total, inserted, updated) {
     `New ${inserted} | Updated ${updated}`;
   process.stdout.write(`\r${line}`);
 }
-// AIed }
 
+// Upserts each genre into the DB, counting inserts and name-only updates.
 async function saveGenres(genres, transaction) {
   let inserted = 0;
   let updated = 0;
@@ -198,6 +204,7 @@ async function saveGenres(genres, transaction) {
   return { inserted, updated, total };
 }
 
+// Orchestrates the full genre sync: fetch from TMDB, merge, save, and log result.
 async function seedTmdbGenres() {
   const apiKey = getApiKey();
   const startedAt = new Date();

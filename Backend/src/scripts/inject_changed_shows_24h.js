@@ -17,6 +17,7 @@ const MAX_LIMIT = 100000;
 let cachedApiKey = null;
 let logWritten = false;
 
+// Read and cache the TMDB API key from environment variables.
 function getApiKey() {
   if (cachedApiKey) return cachedApiKey;
 
@@ -31,6 +32,7 @@ function getApiKey() {
   return apiKey;
 }
 
+// Persist one execution record in script_logs for observability.
 async function writeScriptLog({
   scriptName = SCRIPT_NAME,
   status,
@@ -74,6 +76,7 @@ async function writeScriptLog({
   }
 }
 
+// Ensure required database tables exist before refresh starts.
 async function ensureTables() {
   const [showTable] = await sequelize.query(`
     SELECT to_regclass('public.show') AS table_name;
@@ -90,6 +93,7 @@ async function ensureTables() {
   }
 }
 
+// Parse supported CLI arguments and validate their values.
 function parseArgs(argv) {
   let limit = 100000;
   let startDate;
@@ -130,6 +134,7 @@ function parseArgs(argv) {
   return { limit, startDate, endDate };
 }
 
+// Query show ids that are already present in the local database.
 async function fetchExistingShowTmdbIds(tmdbIds) {
   if (tmdbIds.length === 0) return new Set();
 
@@ -146,6 +151,7 @@ async function fetchExistingShowTmdbIds(tmdbIds) {
   return new Set(rows.map((row) => Number(row.tmdb_id)));
 }
 
+// Build a JSON error payload for failed or partial refresh runs.
 function buildFailureErrorDetail({ scriptName, summary, failedItems, fatalError }) {
   return JSON.stringify({
     scriptName,
@@ -160,15 +166,18 @@ function buildFailureErrorDetail({ scriptName, summary, failedItems, fatalError 
   });
 }
 
+// Refresh existing shows that changed in the selected 24h window.
 export async function ingestChangedShows24h({
   limit = 100000,
   apiKey,
   startDate,
   endDate,
 } = {}) {
+  // Resolve runtime inputs once so all downstream calls share the same values.
   const resolvedKey = apiKey ?? getApiKey();
   const resolvedRange = resolve24hDateWindow({ startDate, endDate });
 
+  // Pull TMDB ids changed in the selected window, then keep only local records.
   const changedIds = await fetchChangedTvShowIds({
     apiKey: resolvedKey,
     limit,
@@ -191,6 +200,7 @@ export async function ingestChangedShows24h({
     const tmdbId = toRefresh[i];
     const prefix = `[${i + 1}/${toRefresh.length}]`;
 
+    // Re-check existence before refresh in case the row was removed mid-run.
     const raceCheck = await fetchExistingShowTmdbIds([tmdbId]);
     if (!raceCheck.has(tmdbId)) {
       console.log(`${prefix} Show ${tmdbId} no longer exists locally -> skipped`);
@@ -206,6 +216,7 @@ export async function ingestChangedShows24h({
         startDate: resolvedRange.startDate,
         endDate: resolvedRange.endDate,
       });
+      // Decide whether to do a full ingest, scoped refresh, or episode-targeted refresh.
       const classification = classifyTvChanges(changes);
 
       if (!classification.hasChanges) {
@@ -221,6 +232,7 @@ export async function ingestChangedShows24h({
         : classification.scope;
       const targetedEpisodes = classification.targetedEpisodes;
 
+      // Reuse the show ingest path, forcing updates for existing rows.
       const result = await ingestTvShow({
         tmdbTvId: tmdbId,
         apiKey: resolvedKey,
@@ -268,6 +280,7 @@ export async function ingestChangedShows24h({
   };
 }
 
+// Convert a refresh scope object into a compact log label.
 function formatScope(scope) {
   return Object.entries(scope)
     .filter(([, v]) => v)
@@ -275,11 +288,14 @@ function formatScope(scope) {
     .join(",") || "none";
 }
 
+// Run the script lifecycle: setup, refresh, logging, and cleanup.
 async function main() {
   const startedAt = new Date();
+  // Parse CLI options once and scope the log name to the requested limit.
   const { limit, startDate, endDate } = parseArgs(process.argv.slice(2));
   const scopedScriptName = `${SCRIPT_NAME}:limit=${limit}`;
 
+  // Handle termination signals and write a stopped log entry once.
   function handleStopSignal(signal) {
     if (logWritten) return;
     logWritten = true;
@@ -301,9 +317,11 @@ async function main() {
 
   try {
     try {
+      // Verify DB connectivity and required tables before doing any refresh work.
       await sequelize.authenticate();
       await ensureTables();
 
+      // Execute the changed-shows refresh for the requested date window.
       const result = await ingestChangedShows24h({ limit, startDate, endDate });
       console.log(
         `Changed shows refresh complete (${result.startDate}..${result.endDate}). ` +
@@ -363,6 +381,7 @@ async function main() {
       throw error;
     }
   } finally {
+    // Always remove signal handlers and close the DB connection.
     process.off("SIGINT", handleStopSignal);
     process.off("SIGTERM", handleStopSignal);
     await sequelize.close();
