@@ -1,12 +1,14 @@
 import { tmdbRateLimitedFetch } from "./tmdb_rate_limited_fetch.js";
 
 const TMDB_BASE_URL = "https://api.themoviedb.org/3";
-const TMDB_PAGE_SIZE = 20;
+const TMDB_PAGE_SIZE = 100;
 
+// Convert a Date object to a YYYY-MM-DD string.
 function toIsoDate(date) {
   return date.toISOString().slice(0, 10);
 }
 
+// Validate an optional date flag and return it when present.
 function parseOptionalDate(raw, flagName) {
   if (!raw) return null;
   if (!/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
@@ -15,6 +17,7 @@ function parseOptionalDate(raw, flagName) {
   return raw;
 }
 
+// Resolve a default or user-provided 24-hour date window.
 export function resolve24hDateWindow({ startDate, endDate } = {}) {
   const parsedStart = parseOptionalDate(startDate, "--start-date");
   const parsedEnd = parseOptionalDate(endDate, "--end-date");
@@ -38,6 +41,7 @@ export function resolve24hDateWindow({ startDate, endDate } = {}) {
   };
 }
 
+// Fetch one page of changed entity ids from TMDB.
 async function fetchChangesPage({
   apiKey,
   entityPath,
@@ -72,6 +76,7 @@ async function fetchChangesPage({
   };
 }
 
+// Fetch changed TMDB ids for an entity type within a date window.
 export async function fetchChangedTmdbIds({
   apiKey,
   entityPath,
@@ -113,14 +118,17 @@ export async function fetchChangedTmdbIds({
   return out;
 }
 
+// Fetch changed movie ids within a date window.
 export async function fetchChangedMovieIds(options) {
   return fetchChangedTmdbIds({ ...options, entityPath: "movie" });
 }
 
+// Fetch changed TV show ids within a date window.
 export async function fetchChangedTvShowIds(options) {
   return fetchChangedTmdbIds({ ...options, entityPath: "tv" });
 }
 
+// Fetch changed person ids within a date window.
 export async function fetchChangedPersonIds(options) {
   return fetchChangedTmdbIds({ ...options, entityPath: "person" });
 }
@@ -132,6 +140,7 @@ export async function fetchChangedPersonIds(options) {
  * Returns `{ changes }` where `changes` is the raw TMDB array of `{ key, items }`.
  * Returns an empty array on 404 (entity not found / no changes).
  */
+// Fetch raw field-level changes for a single TMDB entity.
 export async function fetchTmdbEntityChanges({
   apiKey,
   entityPath,
@@ -173,6 +182,7 @@ export async function fetchTmdbEntityChanges({
   };
 }
 
+// Extract unique change keys from a TMDB changes payload.
 export function extractChangeKeys(changes) {
   const keys = new Set();
   if (!Array.isArray(changes)) return keys;
@@ -258,6 +268,7 @@ const PERSON_KEY_CATEGORIES = Object.freeze({
   aka: new Set(["also_known_as"]),
 });
 
+// Merge all category key sets into a single lookup set.
 function unionCategorySets(categories) {
   const all = new Set();
   for (const set of Object.values(categories)) {
@@ -266,6 +277,7 @@ function unionCategorySets(categories) {
   return all;
 }
 
+// Check whether any extracted key appears in a candidate set.
 function hasAnyKey(keys, candidates) {
   for (const k of keys) {
     if (candidates.has(k)) return true;
@@ -273,6 +285,7 @@ function hasAnyKey(keys, candidates) {
   return false;
 }
 
+// Map extracted keys to a category-based refresh classification.
 function classifyKeysAgainstCategories(keys, categories) {
   const allRecognized = unionCategorySets(categories);
   const fullScope = {};
@@ -312,6 +325,7 @@ function classifyKeysAgainstCategories(keys, categories) {
  * its credits, because the user requires credits and the parent object to
  * stay in sync. We therefore collapse any detected change into a full sync.
  */
+// Classify movie changes into a safe refresh strategy.
 export function classifyMovieChanges(changes) {
   const keys = extractChangeKeys(changes);
   const base = classifyKeysAgainstCategories(keys, MOVIE_KEY_CATEGORIES);
@@ -334,6 +348,7 @@ export function classifyMovieChanges(changes) {
  * People have no associated credits in this scope (credits are always owned by
  * the movie/show side), so granular `details` / `aka` flags can stay decoupled.
  */
+// Classify person changes into a refresh scope.
 export function classifyPersonChanges(changes) {
   const keys = extractChangeKeys(changes);
   return classifyKeysAgainstCategories(keys, PERSON_KEY_CATEGORIES);
@@ -388,6 +403,7 @@ const TARGETED_EPISODES_SCOPE = Object.freeze({
  *   - `targetedEpisodes` is `null` unless the targeted-episode path applied;
  *     when applied it lists `[{ seasonNumber, episodeNumber, episodeTmdbId }]`.
  */
+// Classify TV changes into full, scoped, or targeted episode refresh.
 export function classifyTvChanges(changes) {
   const keys = extractChangeKeys(changes);
   const base = classifyKeysAgainstCategories(keys, TV_KEY_CATEGORIES);
@@ -419,6 +435,7 @@ export function classifyTvChanges(changes) {
   };
 }
 
+// Extract targeted episode coordinates when only episode-level changes exist.
 function tryExtractTargetedEpisodes(base, keys, changes) {
   if (base.fullSync) return null;
   if (!base.scope.episodes) return null;
