@@ -9,10 +9,12 @@ const SCRIPT_NAME = "update_tmdb_popularity";
 const TMDB_BASE_URL = "https://api.themoviedb.org/3";
 const ALLOWED_ENTITIES = new Set(["movie", "show", "person", "all"]);
 const DEFAULT_ENTITY = "all";
-const DEFAULT_PAGE_SIZE = 1000;
-const DEFAULT_FETCH_CONCURRENCY = 128;
+const DEFAULT_PAGE_SIZE = 500;
+const DEFAULT_FETCH_CONCURRENCY = 256;
 const MAX_PAGE_SIZE = 5000;
 const MAX_FETCH_CONCURRENCY = 512;
+const MAX_TMDB_TRANSIENT_RETRIES = 3;
+const TMDB_TRANSIENT_RETRY_BASE_DELAY_MS = 500;
 
 const ENTITY_CONFIG = {
   movie: {
@@ -34,6 +36,15 @@ const ENTITY_CONFIG = {
 
 let cachedApiKey = null;
 let logWritten = false;
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+// Retry statuses that are usually transient and recover on a later attempt.
+function isRetryableStatus(status) {
+  return status === 408 || status === 429 || status === 503 || status >= 500;
+}
 
 // Read and cache the TMDB API key from environment variables.
 function getApiKey() {
@@ -258,32 +269,60 @@ async function fetchPopularityForTmdbId({ apiKey, entityKey, tmdbId }) {
   url.searchParams.set("api_key", apiKey);
   url.searchParams.set("language", "en-US");
 
-  const response = await tmdbRateLimitedFetch(url, {
-    method: "GET",
-    headers: { accept: "application/json" },
-  });
+  // Retry the whole request a few times for transient failures.
+  for (let attempt = 0; ; attempt += 1) {
+    let response;
+    try {
+      response = await tmdbRateLimitedFetch(url, {
+        method: "GET",
+        headers: { accept: "application/json" },
+      });
+    } catch (error) {
+      if (attempt >= MAX_TMDB_TRANSIENT_RETRIES) {
+        throw error;
+      }
+      // Back off before retrying transport-level failures.
+      const backoffMs = Math.min(
+        10_000,
+        TMDB_TRANSIENT_RETRY_BASE_DELAY_MS * 2 ** attempt
+      );
+      await sleep(backoffMs);
+      continue;
+    }
 
-  if (response.status === 404) {
-    return { status: "missing", tmdbId };
+    if (response.status === 404) {
+      return { status: "missing", tmdbId };
+    }
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      const err = new Error(
+        `TMDB ${entityKey} request failed for ${tmdbId}: ${response.status} ${response.statusText} - ${errorText}`
+      );
+      err.status = response.status;
+
+      if (!isRetryableStatus(response.status) || attempt >= MAX_TMDB_TRANSIENT_RETRIES) {
+        throw err;
+      }
+
+      // Retry retryable HTTP failures with the same bounded backoff policy.
+      const backoffMs = Math.min(
+        10_000,
+        TMDB_TRANSIENT_RETRY_BASE_DELAY_MS * 2 ** attempt
+      );
+      await sleep(backoffMs);
+      continue;
+    }
+
+    const payload = await response.json();
+    const popularity = Number(payload?.popularity);
+
+    return {
+      status: Number.isFinite(popularity) ? "ok" : "missing-popularity",
+      tmdbId,
+      popularity: Number.isFinite(popularity) ? popularity : null,
+    };
   }
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    const err = new Error(
-      `TMDB ${entityKey} request failed for ${tmdbId}: ${response.status} ${response.statusText} - ${errorText}`
-    );
-    err.status = response.status;
-    throw err;
-  }
-
-  const payload = await response.json();
-  const popularity = Number(payload?.popularity);
-
-  return {
-    status: Number.isFinite(popularity) ? "ok" : "missing-popularity",
-    tmdbId,
-    popularity: Number.isFinite(popularity) ? popularity : null,
-  };
 }
 
 // Execute async work across items with bounded concurrency.
