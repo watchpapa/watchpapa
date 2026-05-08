@@ -15,6 +15,7 @@ jobs:
           host: ${{ secrets.DROPLET_HOST }}
           username: watchpapa
           key: ${{ secrets.DROPLET_SSH_KEY }}
+          request_pty: true
           script: |
             set -e
             cd /var/www/watchpapa
