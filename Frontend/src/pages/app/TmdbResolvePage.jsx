@@ -15,7 +15,7 @@ function TmdbResolvePage({ type, session }) {
       return;
     }
 
-    fetch("/api/resolve", {
+    fetch(`${import.meta.env.VITE_API_BASE_URL ?? ""}/api/resolve`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
