@@ -321,6 +321,6 @@ npm run test:injections
 
 This project was developed with AI-assisted support across brainstorming, implementation, debugging, and documentation tasks. All outputs were reviewed and adapted by the author before being included in the project.
 
-This project was **not** vibe-coded. The architecture, planning, and technical decisions were made by the author; AI was used as an assistive tool during implementation and documentation.
+This project was **not** vibe-coded. The architecture, planning, and technical decisions were made by the author; AI was used as an assistive tool during implementation, refining and documentation.
 
 Most commits were created in Cursor using the prompt "Make atomic commits"
