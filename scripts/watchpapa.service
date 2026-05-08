@@ -1,0 +1,17 @@
+[Unit]
+Description=watchpapa API server
+After=network.target
+
+[Service]
+Type=simple
+User=watchpapa
+WorkingDirectory=/var/www/watchpapa
+EnvironmentFile=/var/www/watchpapa/.env
+ExecStart=/usr/bin/node index.js
+Restart=on-failure
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
