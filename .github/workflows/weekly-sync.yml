@@ -29,8 +29,56 @@ jobs:
           echo "start=$(date -d '7 days ago' +%Y-%m-%d)" >> $GITHUB_OUTPUT
           echo "end=$(date +%Y-%m-%d)" >> $GITHUB_OUTPUT
       - name: Refresh changed movies
+        id: changed_movies
+        continue-on-error: true
         run: npm run seed:tmdb:changed-movies-24h -- --start-date=${{ steps.dates.outputs.start }} --end-date=${{ steps.dates.outputs.end }}
       - name: Refresh changed shows
+        id: changed_shows
+        continue-on-error: true
         run: npm run seed:tmdb:changed-shows-24h -- --start-date=${{ steps.dates.outputs.start }} --end-date=${{ steps.dates.outputs.end }}
       - name: Refresh changed people
+        id: changed_people
+        continue-on-error: true
         run: npm run seed:tmdb:changed-people-24h -- --start-date=${{ steps.dates.outputs.start }} --end-date=${{ steps.dates.outputs.end }}
+      - name: Build failure report
+        id: failure_report
+        if: always()
+        run: |
+          FAILED_STEPS=""
+          if [ "${{ steps.changed_movies.outcome }}" = "failure" ]; then FAILED_STEPS="$FAILED_STEPS\n- Refresh changed movies"; fi
+          if [ "${{ steps.changed_shows.outcome }}" = "failure" ]; then FAILED_STEPS="$FAILED_STEPS\n- Refresh changed shows"; fi
+          if [ "${{ steps.changed_people.outcome }}" = "failure" ]; then FAILED_STEPS="$FAILED_STEPS\n- Refresh changed people"; fi
+
+          if [ -n "$FAILED_STEPS" ]; then
+            echo "has_failures=true" >> "$GITHUB_OUTPUT"
+            {
+              echo "body<<EOF"
+              echo "Weekly TMDB Sync failed in one or more batch steps."
+              echo
+              echo "Failed steps:"
+              printf "%b\n" "$FAILED_STEPS"
+              echo
+              echo "Run URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+              echo "EOF"
+            } >> "$GITHUB_OUTPUT"
+          else
+            echo "has_failures=false" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Send email alert
+        if: always() && steps.failure_report.outputs.has_failures == 'true'
+        continue-on-error: true
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: ${{ secrets.SMTP_SERVER }}
+          server_port: ${{ secrets.SMTP_PORT != '' && secrets.SMTP_PORT || '587' }}
+          username: ${{ secrets.SMTP_USERNAME }}
+          password: ${{ secrets.SMTP_PASSWORD }}
+          subject: "[watchpapa] Weekly TMDB Sync failure"
+          to: alert@watchpapa.tv
+          from: ${{ secrets.SMTP_FROM != '' && secrets.SMTP_FROM || secrets.SMTP_USERNAME }}
+          body: ${{ steps.failure_report.outputs.body }}
+      - name: Fail workflow if any batch step failed
+        if: always() && steps.failure_report.outputs.has_failures == 'true'
+        run: |
+          echo "One or more batch steps failed. See failure report above."
+          exit 1

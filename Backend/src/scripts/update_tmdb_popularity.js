@@ -15,6 +15,7 @@ const MAX_PAGE_SIZE = 5000;
 const MAX_FETCH_CONCURRENCY = 512;
 const MAX_TMDB_TRANSIENT_RETRIES = 3;
 const TMDB_TRANSIENT_RETRY_BASE_DELAY_MS = 500;
+const MAX_MISSING_TMDB_IDS_IN_REPORT = 5000;
 
 const ENTITY_CONFIG = {
   movie: {
@@ -394,6 +395,7 @@ async function refreshEntityPopularity({
   let missingOnTmdb = 0;
   let missingPopularity = 0;
   let failed = 0;
+  const missingTmdbIds = [];
   const failedItems = [];
 
   for (;;) {
@@ -446,6 +448,9 @@ async function refreshEntityPopularity({
 
       if (item.status === "missing") {
         missingOnTmdb += 1;
+        if (missingTmdbIds.length < MAX_MISSING_TMDB_IDS_IN_REPORT) {
+          missingTmdbIds.push(item.tmdbId);
+        }
         continue;
       }
 
@@ -487,6 +492,7 @@ async function refreshEntityPopularity({
     fetchedRows,
     updatedRows,
     missingOnTmdb,
+    missingTmdbIds,
     missingPopularity,
     failed,
     failedItems,
@@ -527,6 +533,10 @@ export async function updateTmdbPopularity({
       acc.missingOnTmdb += result.missingOnTmdb;
       acc.missingPopularity += result.missingPopularity;
       acc.failed += result.failed;
+      for (const missingTmdbId of result.missingTmdbIds) {
+        if (acc.missingTmdbIds.length >= MAX_MISSING_TMDB_IDS_IN_REPORT) break;
+        acc.missingTmdbIds.push(missingTmdbId);
+      }
       return acc;
     },
     {
@@ -535,6 +545,7 @@ export async function updateTmdbPopularity({
       missingOnTmdb: 0,
       missingPopularity: 0,
       failed: 0,
+      missingTmdbIds: [],
     }
   );
 
@@ -621,6 +632,17 @@ export async function runPopularityCli({
           `TMDB 404/missing: ${result.missingOnTmdb}. Missing popularity: ${result.missingPopularity}. ` +
           `Failed: ${result.failed}.`
       );
+      if (result.missingTmdbIds.length > 0) {
+        const truncatedCount = result.missingOnTmdb - result.missingTmdbIds.length;
+        console.log(
+          `TMDB 404/missing tmdbIds (${result.missingTmdbIds.length} captured): ${result.missingTmdbIds.join(", ")}`
+        );
+        if (truncatedCount > 0) {
+          console.log(
+            `TMDB 404/missing report truncated: ${truncatedCount} additional tmdbIds were omitted from output.`
+          );
+        }
+      }
 
       // Persist success or partial-failure summary once per run.
       if (!logWritten) {
