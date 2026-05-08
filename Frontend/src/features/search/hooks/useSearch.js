@@ -173,7 +173,7 @@ export function useSearch(query, { perTypeLimit = 5, backendLimit = 30, showAdul
           // backend Sequelize returns it as number, so Set.has() would fail without normalization.
           const localTmdbIds = new Set(localResults.map((r) => String(r.tmdbId)));
           fetch(
-            `/api/search?q=${encodeURIComponent(trimmed)}&limit=${backendLimit}&localPerType=${perTypeLimit}&includeAdult=${showAdult}`
+            `${import.meta.env.VITE_API_BASE_URL ?? ""}/api/search?q=${encodeURIComponent(trimmed)}&limit=${backendLimit}&localPerType=${perTypeLimit}&includeAdult=${showAdult}`
           )
             .then((r) => {
               if (!r.ok) throw new Error(r.status);
