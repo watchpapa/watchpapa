@@ -15,7 +15,6 @@ jobs:
           host: ${{ secrets.DROPLET_HOST }}
           username: watchpapa
           key: ${{ secrets.DROPLET_SSH_KEY }}
-          request_pty: true
           script: |
             set -e
             cd /var/www/watchpapa
@@ -25,6 +24,6 @@ jobs:
 
             npm install --omit=dev
 
-            sudo systemctl restart watchpapa
+            sudo /usr/bin/systemctl restart watchpapa
             sleep 3
-            sudo systemctl is-active --quiet watchpapa && echo "OK: server is running"
+            sudo /usr/bin/systemctl is-active --quiet watchpapa && echo "OK: server is running"
