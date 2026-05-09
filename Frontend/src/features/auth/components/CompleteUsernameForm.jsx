@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import FormField from "../../../components/ui/FormField.jsx";
 import Input from "../../../components/ui/Input.jsx";
+import Toggle from "../../../components/ui/Toggle.jsx";
 import { supabase } from "../../../lib/supabase.js";
 import { validateUsername } from "../../../lib/validate.js";
 
@@ -9,14 +10,34 @@ function normalizeUsername(value) {
   return value.trim();
 }
 
+function isAdult(dateString) {
+  if (!dateString) return false;
+  const birthDate = new Date(dateString);
+  if (Number.isNaN(birthDate.getTime())) return false;
+  const today = new Date();
+  let age = today.getFullYear() - birthDate.getFullYear();
+  const m = today.getMonth() - birthDate.getMonth();
+  if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) age--;
+  return age >= 18;
+}
+
 function CompleteUsernameForm({ userId, initialUsername = "", onCompleted }) {
   const navigate = useNavigate();
   const [username, setUsername] = useState(initialUsername);
+  const [dateOfBirth, setDateOfBirth] = useState("");
+  const [showAdultContent, setShowAdultContent] = useState(false);
   const [submitError, setSubmitError] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const normalizedUsername = useMemo(() => normalizeUsername(username), [username]);
   const usernameError = validateUsername(normalizedUsername);
+  const adult = isAdult(dateOfBirth);
+
+  const onChangeDateOfBirth = (event) => {
+    const next = event.target.value;
+    setDateOfBirth(next);
+    if (!isAdult(next)) setShowAdultContent(false);
+  };
 
   const onSubmit = async (event) => {
     event.preventDefault();
@@ -27,15 +48,20 @@ function CompleteUsernameForm({ userId, initialUsername = "", onCompleted }) {
       return;
     }
 
+    if (!dateOfBirth) {
+      setSubmitError("Date of birth is required.");
+      return;
+    }
+
     setIsSubmitting(true);
     const now = new Date().toISOString();
     const { error: profileError } = await supabase.from("profile").upsert(
       {
         id: userId,
         username: normalizedUsername,
-        date_of_birth: "1900-01-01",
-        is_adult: true,
-        setting_display_adult_content: false,
+        date_of_birth: dateOfBirth,
+        is_adult: adult,
+        setting_display_adult_content: adult ? showAdultContent : false,
         updated_at: now,
       },
       { onConflict: "id" },
@@ -98,6 +124,31 @@ function CompleteUsernameForm({ userId, initialUsername = "", onCompleted }) {
           disabled={isSubmitting}
         />
       </FormField>
+
+      <FormField
+        label="date of birth"
+        htmlFor="oauth-dob"
+        labelClassName="text-[18px] sm:text-[22px]"
+      >
+        <Input
+          id="oauth-dob"
+          name="dateOfBirth"
+          type="date"
+          value={dateOfBirth}
+          onChange={onChangeDateOfBirth}
+          disabled={isSubmitting}
+        />
+      </FormField>
+
+      {adult ? (
+        <FormField
+          label="show adult content"
+          htmlFor="oauth-adult"
+          labelClassName="text-[18px] sm:text-[22px]"
+        >
+          <Toggle value={showAdultContent} onChange={setShowAdultContent} />
+        </FormField>
+      ) : null}
 
       <button
         type="submit"
