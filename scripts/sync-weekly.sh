@@ -1,30 +1,35 @@
 #!/bin/bash
+export PATH=/usr/local/bin:/usr/bin:/bin
+export HOME=/home/watchpapa
+
+LOG="/var/log/watchpapa/sync-weekly.log"
+mkdir -p /var/log/watchpapa
+
+exec >> "$LOG" 2>&1
+
 set -a
 source /var/www/watchpapa/.env
 set +a
 
 cd /var/www/watchpapa
 
-LOG="/var/log/watchpapa/sync-weekly.log"
-mkdir -p /var/log/watchpapa
-
 START=$(date -d '7 days ago' +%Y-%m-%d)
 END=$(date +%Y-%m-%d)
 
-echo "" >> "$LOG"
-echo "=== Weekly sync started: $(date -u '+%Y-%m-%d %H:%M:%S UTC') ===" >> "$LOG"
-echo "Date range: $START to $END" >> "$LOG"
+echo ""
+echo "=== Weekly sync started: $(date -u '+%Y-%m-%d %H:%M:%S UTC') ==="
+echo "Date range: $START to $END"
 
 FAILED=""
 
 run_step() {
   local name="$1"
   local cmd="$2"
-  echo "-> $name" >> "$LOG"
-  if eval "$cmd" >> "$LOG" 2>&1; then
-    echo "   OK" >> "$LOG"
+  echo "-> $name"
+  if eval "$cmd"; then
+    echo "   OK"
   else
-    echo "   FAILED" >> "$LOG"
+    echo "   FAILED"
     FAILED="$FAILED\n- $name"
   fi
 }
@@ -34,8 +39,8 @@ run_step "Refresh changed shows"  "npm run seed:tmdb:changed-shows-24h -- --star
 run_step "Refresh changed people" "npm run seed:tmdb:changed-people-24h -- --start-date=$START --end-date=$END"
 
 if [ -n "$FAILED" ]; then
-  echo "=== FAILURES ===" >> "$LOG"
-  printf "%b\n" "$FAILED" >> "$LOG"
+  echo "=== FAILURES ==="
+  printf "%b\n" "$FAILED"
 
   BODY="Weekly TMDB Sync failed in one or more steps.\n\nFailed steps:$FAILED\n\nSee log: $LOG"
   curl -s --ssl-reqd \
@@ -52,4 +57,4 @@ $(printf "%b" "$BODY")
 EOF
 fi
 
-echo "=== Weekly sync finished: $(date -u '+%Y-%m-%d %H:%M:%S UTC') ===" >> "$LOG"
+echo "=== Weekly sync finished: $(date -u '+%Y-%m-%d %H:%M:%S UTC') ==="
