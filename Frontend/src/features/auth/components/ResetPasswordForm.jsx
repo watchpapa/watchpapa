@@ -60,6 +60,7 @@ function ResetPasswordForm() {
     }
 
     setSuccess(true);
+    await supabase.auth.signOut({ scope: "local" });
     setTimeout(() => navigate("/login"), 1500);
   };
 

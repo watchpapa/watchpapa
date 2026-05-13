@@ -222,11 +222,7 @@ function App() {
       />
       <Route
         path="/reset-password"
-        element={
-          <PublicOnlyRoute session={session} needsUsernameSetup={needsUsernameSetup}>
-            <ResetPasswordPage />
-          </PublicOnlyRoute>
-        }
+        element={<ResetPasswordPage />}
       />
       <Route
         path="/complete-username"
