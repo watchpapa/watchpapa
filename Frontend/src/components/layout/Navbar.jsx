@@ -3,6 +3,7 @@ import { Link, NavLink } from "react-router-dom";
 import AuthPromptModal from "../AuthPromptModal.jsx";
 import ProfileMenu from "./ProfileMenu.jsx";
 import watchpapaBanner from "../../assets/branding/watchpapa-banner.svg";
+import { supabase } from "../../lib/supabase.js";
 
 const NAV_LINKS = [
   { label: "Popular", to: "/" },
@@ -35,6 +36,135 @@ function XIcon() {
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
       <path d="M18 6L6 18M6 6l12 12" />
     </svg>
+  );
+}
+
+function ReferralIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+      <circle cx="9" cy="7" r="4" />
+      <line x1="19" y1="8" x2="19" y2="14" />
+      <line x1="22" y1="11" x2="16" y2="11" />
+    </svg>
+  );
+}
+
+function ReferralButton({ session }) {
+  const [open, setOpen] = useState(false);
+  const [referralCode, setReferralCode] = useState(null);
+  const [copied, setCopied] = useState(false);
+  const popoverRef = useRef(null);
+  const buttonRef = useRef(null);
+
+  useEffect(() => {
+    if (!session?.user?.id) return;
+    supabase
+      .from("profile")
+      .select("referral_code")
+      .eq("id", session.user.id)
+      .maybeSingle()
+      .then(({ data }) => { if (data?.referral_code) setReferralCode(data.referral_code); });
+  }, [session?.user?.id]);
+
+  useEffect(() => {
+    function onPointerdown(e) {
+      if (
+        popoverRef.current && !popoverRef.current.contains(e.target) &&
+        buttonRef.current && !buttonRef.current.contains(e.target)
+      ) {
+        setOpen(false);
+      }
+    }
+    if (open) document.addEventListener("pointerdown", onPointerdown);
+    return () => document.removeEventListener("pointerdown", onPointerdown);
+  }, [open]);
+
+  const referralUrl = referralCode
+    ? `${window.location.origin}/register?ref=${referralCode}`
+    : null;
+
+  const handleCopy = () => {
+    if (!referralUrl) return;
+    navigator.clipboard?.writeText(referralUrl).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  };
+
+  const handleShare = () => {
+    if (!referralUrl) return;
+    navigator.share?.({ title: "Join watchpapa", url: referralUrl });
+  };
+
+  return (
+    <div className="relative hidden sm:block">
+      <button
+        ref={buttonRef}
+        onClick={() => setOpen((v) => !v)}
+        className={`flex items-center gap-2 rounded-xl border px-3 py-1.5 text-xs font-semibold transition ${
+          open
+            ? "border-[#5a5aaa] bg-[#1a1d35] text-white"
+            : "border-[#3a3a7a] bg-[#1a1d35] text-[#a0a0e8] hover:border-[#5a5aaa] hover:text-white"
+        }`}
+        aria-label="Invite friends"
+      >
+        <ReferralIcon />
+        <span className="hidden lg:inline">Invite Friends</span>
+      </button>
+
+      {open && (
+        <div
+          ref={popoverRef}
+          className="absolute right-0 top-full z-50 mt-2 w-72 rounded-2xl border border-[#2a2f5a] bg-[#0d0f1e] shadow-2xl shadow-black/60"
+        >
+          <div className="border-b border-[#1a1f3a] px-4 py-3">
+            <p className="text-sm font-bold text-white">Invite a friend</p>
+            <p className="mt-0.5 text-xs text-[#6868b8]">Share your link — you both get rewarded.</p>
+          </div>
+
+          <div className="px-4 py-3">
+            {referralUrl ? (
+              <>
+                <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-widest text-[#5050b0]">Your referral link</p>
+                <div className="flex items-center gap-1.5 rounded-xl border border-[#2a3570] bg-[#141728] px-3 py-2">
+                  <span className="min-w-0 flex-1 truncate font-mono text-[11px] text-[#a0a0e8]">
+                    {referralUrl}
+                  </span>
+                  <div className="flex shrink-0 gap-1">
+                    <button
+                      onClick={handleCopy}
+                      className="rounded-lg px-2 py-1 text-[11px] font-semibold text-[#8383e7] transition hover:bg-[#2a2d60] hover:text-white"
+                    >
+                      {copied ? "Copied!" : "Copy"}
+                    </button>
+                    {typeof navigator !== "undefined" && navigator.share && (
+                      <button
+                        onClick={handleShare}
+                        className="rounded-lg px-2 py-1 text-[11px] font-semibold text-[#8383e7] transition hover:bg-[#2a2d60] hover:text-white"
+                      >
+                        Share
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </>
+            ) : (
+              <p className="text-xs text-[#4a4a7a]">Loading your referral link…</p>
+            )}
+          </div>
+
+          <div className="border-t border-[#1a1f3a] px-4 py-3">
+            <p className="text-[11px] text-[#4a4a7a]">
+              You and your friend both unlock a plan upgrade when they join and get active.{" "}
+              <Link to="/subscription" onClick={() => setOpen(false)} className="text-[#6868b8] hover:text-[#a0a0e8]">
+                See details
+              </Link>
+            </p>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -92,8 +222,10 @@ function Navbar({ session }) {
             <img src={watchpapaBanner} alt="watchpapa" className="h-9 drop-shadow-md" />
           </Link>
 
-          {/* Right: calendar + auth */}
+          {/* Right: invite + calendar + auth */}
           <div className="flex items-center gap-2 sm:gap-3">
+            {session && <ReferralButton session={session} />}
+
             {session ? (
               <Link
                 to="/calendar"
