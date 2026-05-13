@@ -10,6 +10,14 @@ const MIN_GENRE_COUNT = 3;
 const SHOW_SELECT =
   "id, name, poster_path, tmdb_popularity, show_genre(genres(id, name))";
 
+const CS_SHOW_SELECT = "id, name, poster_path, tmdb_popularity, first_air_date, in_production";
+
+function formatReleaseLabel(dateStr) {
+  if (!dateStr) return null;
+  const d = new Date(dateStr + "T00:00:00");
+  return d.toLocaleDateString("en-US", { month: "short", year: "numeric" });
+}
+
 // Apply state updates for show data loaded from the database.
 function reducer(state, action) {
   switch (action.type) {
@@ -81,6 +89,7 @@ function showsForGenre(shows, genreId) {
 
 const initialState = {
   shows: [],
+  comingSoonShows: [],
   followedIds: new Set(),
   isLoading: true,
   error: null,
@@ -106,6 +115,8 @@ export function useShowsPageData(session, showAdult = false) {
     // Load initial show rows and followed ids from the database.
     async function load() {
       try {
+        const today = new Date().toISOString().slice(0, 10);
+
         // Read the first popularity page from the show table.
         let showQ = supabase
           .from("show")
@@ -115,15 +126,27 @@ export function useShowsPageData(session, showAdult = false) {
           .range(0, PAGE_SIZE - 1);
         if (!showAdultRef.current) showQ = showQ.eq("adult", false);
 
+        // Read shows still in production or not yet premiered.
+        let csShowQ = supabase
+          .from("show")
+          .select(CS_SHOW_SELECT)
+          .is("deleted_at", null)
+          .or(`in_production.eq.true,first_air_date.gt.${today}`)
+          .order("tmdb_popularity", { ascending: false })
+          .range(0, PAGE_SIZE - 1);
+        if (!showAdultRef.current) csShowQ = csShowQ.eq("adult", false);
+
         // Read current user's followed show ids from the join table.
-        const [showsRes, followRes] = await Promise.all([
+        const [showsRes, followRes, csShowsRes] = await Promise.all([
           showQ,
           session?.user?.id
             ? supabase.from("user_followed_shows").select("show_id").eq("profile_id", session.user.id)
             : Promise.resolve({ data: [] }),
+          csShowQ,
         ]);
 
         if (showsRes.error) throw showsRes.error;
+        if (csShowsRes.error) throw csShowsRes.error;
         if (cancelled) return;
 
         const rows = showsRes.data ?? [];
@@ -131,6 +154,7 @@ export function useShowsPageData(session, showAdult = false) {
           type: "LOADED",
           payload: {
             shows: rows,
+            comingSoonShows: csShowsRes.data ?? [],
             followedIds: new Set((followRes.data ?? []).map((r) => r.show_id)),
             showHasMore: rows.length >= PAGE_SIZE,
             popularDisplayCount: PAGE_SIZE,
@@ -241,6 +265,7 @@ export function useShowsPageData(session, showAdult = false) {
 
   const {
     shows,
+    comingSoonShows,
     followedIds,
     isLoading,
     error,
@@ -264,6 +289,12 @@ export function useShowsPageData(session, showAdult = false) {
     }),
     [followedIds, toggleFollow],
   );
+
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const comingSoonItems = comingSoonShows.map((row) => ({
+    ...toItem(row),
+    releaseLabel: row.first_air_date > todayStr ? formatReleaseLabel(row.first_air_date) : "Airing",
+  }));
 
   const popular = shows.slice(0, popularDisplayCount).map(toItem);
   const hasMorePopular = popularDisplayCount < shows.length || showHasMore;
@@ -299,6 +330,7 @@ export function useShowsPageData(session, showAdult = false) {
 
   return {
     popular,
+    comingSoonItems,
     byGenre,
     isLoading,
     error,

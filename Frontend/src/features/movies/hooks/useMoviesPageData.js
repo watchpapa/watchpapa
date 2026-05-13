@@ -9,6 +9,14 @@ const MIN_GENRE_COUNT = 3;
 const MOVIE_SELECT =
   "id, title, poster_path, tmdb_popularity, movie_genre(genres(id, name))";
 
+const CS_MOVIE_SELECT = "id, title, poster_path, tmdb_popularity, release_date";
+
+function formatReleaseLabel(dateStr) {
+  if (!dateStr) return null;
+  const d = new Date(dateStr + "T00:00:00");
+  return d.toLocaleDateString("en-US", { month: "short", year: "numeric" });
+}
+
 // Apply state updates for movie data loaded from the database.
 function reducer(state, action) {
   switch (action.type) {
@@ -80,6 +88,7 @@ function moviesForGenre(movies, genreId) {
 
 const initialState = {
   movies: [],
+  comingSoonMovies: [],
   followedIds: new Set(),
   isLoading: true,
   error: null,
@@ -105,6 +114,8 @@ export function useMoviesPageData(session, showAdult = false) {
     // Load initial movie rows and followed ids from the database.
     async function load() {
       try {
+        const today = new Date().toISOString().slice(0, 10);
+
         // Read the first popularity page from the movie table.
         let movieQ = supabase
           .from("movie")
@@ -114,15 +125,27 @@ export function useMoviesPageData(session, showAdult = false) {
           .range(0, PAGE_SIZE - 1);
         if (!showAdultRef.current) movieQ = movieQ.eq("adult", false);
 
+        // Read unreleased movies (release date in future).
+        let csMovieQ = supabase
+          .from("movie")
+          .select(CS_MOVIE_SELECT)
+          .is("deleted_at", null)
+          .gt("release_date", today)
+          .order("tmdb_popularity", { ascending: false })
+          .range(0, PAGE_SIZE - 1);
+        if (!showAdultRef.current) csMovieQ = csMovieQ.eq("adult", false);
+
         // Read current user's followed movie ids from the join table.
-        const [moviesRes, followRes] = await Promise.all([
+        const [moviesRes, followRes, csMoviesRes] = await Promise.all([
           movieQ,
           session?.user?.id
             ? supabase.from("user_followed_movies").select("movie_id").eq("profile_id", session.user.id)
             : Promise.resolve({ data: [] }),
+          csMovieQ,
         ]);
 
         if (moviesRes.error) throw moviesRes.error;
+        if (csMoviesRes.error) throw csMoviesRes.error;
         if (cancelled) return;
 
         const rows = moviesRes.data ?? [];
@@ -130,6 +153,7 @@ export function useMoviesPageData(session, showAdult = false) {
           type: "LOADED",
           payload: {
             movies: rows,
+            comingSoonMovies: csMoviesRes.data ?? [],
             followedIds: new Set((followRes.data ?? []).map((r) => r.movie_id)),
             movieHasMore: rows.length >= PAGE_SIZE,
             popularDisplayCount: PAGE_SIZE,
@@ -240,6 +264,7 @@ export function useMoviesPageData(session, showAdult = false) {
 
   const {
     movies,
+    comingSoonMovies,
     followedIds,
     isLoading,
     error,
@@ -263,6 +288,11 @@ export function useMoviesPageData(session, showAdult = false) {
     }),
     [followedIds, toggleFollow],
   );
+
+  const comingSoonItems = comingSoonMovies.map((row) => ({
+    ...toItem(row),
+    releaseLabel: formatReleaseLabel(row.release_date),
+  }));
 
   const popular = movies.slice(0, popularDisplayCount).map(toItem);
   const hasMorePopular = popularDisplayCount < movies.length || movieHasMore;
@@ -298,6 +328,7 @@ export function useMoviesPageData(session, showAdult = false) {
 
   return {
     popular,
+    comingSoonItems,
     byGenre,
     isLoading,
     error,

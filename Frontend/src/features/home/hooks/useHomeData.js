@@ -30,6 +30,12 @@ function toShowItem(row, followedIds) {
   };
 }
 
+function formatReleaseLabel(dateStr) {
+  if (!dateStr) return null;
+  const d = new Date(dateStr + "T00:00:00");
+  return d.toLocaleDateString("en-US", { month: "short", year: "numeric" });
+}
+
 // Apply state updates for database-backed lists and follow toggles.
 function reducer(state, action) {
   switch (action.type) {
@@ -98,6 +104,8 @@ function reducer(state, action) {
 const initialState = {
   movies: [],
   shows: [],
+  comingSoonMovies: [],
+  comingSoonShows: [],
   followedMovieIds: new Set(),
   followedShowIds: new Set(),
   isLoading: true,
@@ -130,6 +138,8 @@ export function useHomeData(session, showAdult = false) {
     async function load() {
       try {
         const adult = showAdultRef.current;
+        const today = new Date().toISOString().slice(0, 10);
+
         // Read top movies from the movie table.
         let movieQ = supabase
           .from("movie")
@@ -148,10 +158,32 @@ export function useHomeData(session, showAdult = false) {
           .range(0, PAGE_SIZE - 1);
         if (!adult) showQ = showQ.eq("adult", false);
 
-        const [moviesRes, showsRes] = await Promise.all([movieQ, showQ]);
+        // Read unreleased movies (release date in future).
+        let csMovieQ = supabase
+          .from("movie")
+          .select("id, tmdb_id, title, tmdb_popularity, poster_path, release_date")
+          .is("deleted_at", null)
+          .gt("release_date", today)
+          .order("tmdb_popularity", { ascending: false })
+          .range(0, PAGE_SIZE - 1);
+        if (!adult) csMovieQ = csMovieQ.eq("adult", false);
+
+        // Read shows still in production or not yet premiered.
+        let csShowQ = supabase
+          .from("show")
+          .select("id, tmdb_id, name, tmdb_popularity, poster_path, first_air_date, in_production")
+          .is("deleted_at", null)
+          .or(`in_production.eq.true,first_air_date.gt.${today}`)
+          .order("tmdb_popularity", { ascending: false })
+          .range(0, PAGE_SIZE - 1);
+        if (!adult) csShowQ = csShowQ.eq("adult", false);
+
+        const [moviesRes, showsRes, csMoviesRes, csShowsRes] = await Promise.all([movieQ, showQ, csMovieQ, csShowQ]);
 
         if (moviesRes.error) throw moviesRes.error;
         if (showsRes.error) throw showsRes.error;
+        if (csMoviesRes.error) throw csMoviesRes.error;
+        if (csShowsRes.error) throw csShowsRes.error;
 
         let followedMovieIds = new Set();
         let followedShowIds = new Set();
@@ -181,6 +213,8 @@ export function useHomeData(session, showAdult = false) {
             payload: {
               movies: movieRows,
               shows: showRows,
+              comingSoonMovies: csMoviesRes.data ?? [],
+              comingSoonShows: csShowsRes.data ?? [],
               followedMovieIds,
               followedShowIds,
               movieHasMore: movieRows.length >= PAGE_SIZE,
@@ -389,6 +423,8 @@ export function useHomeData(session, showAdult = false) {
   const {
     movies,
     shows,
+    comingSoonMovies,
+    comingSoonShows,
     followedMovieIds,
     followedShowIds,
     isLoading,
@@ -412,6 +448,20 @@ export function useHomeData(session, showAdult = false) {
     onFollowToggle: () => toggleShowFollow(s.id),
   }));
 
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const comingSoonItems = [
+    ...comingSoonMovies.map((m) => ({
+      ...toMovieItem(m, followedMovieIds),
+      releaseLabel: formatReleaseLabel(m.release_date),
+      onFollowToggle: () => toggleMovieFollow(m.id),
+    })),
+    ...comingSoonShows.map((s) => ({
+      ...toShowItem(s, followedShowIds),
+      releaseLabel: s.first_air_date > todayStr ? formatReleaseLabel(s.first_air_date) : "Airing",
+      onFollowToggle: () => toggleShowFollow(s.id),
+    })),
+  ].sort((a, b) => b.tmdbPopularity - a.tmdbPopularity);
+
   const mergedPopular = mergePopularItems(movies, shows, followedMovieIds, followedShowIds);
   const popular = mergedPopular.slice(0, popularDisplayCount).map((item) => ({
     ...item,
@@ -429,6 +479,7 @@ export function useHomeData(session, showAdult = false) {
 
   return {
     popular,
+    comingSoonItems,
     movieItems,
     showItems,
     isLoading,

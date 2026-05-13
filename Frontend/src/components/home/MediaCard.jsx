@@ -20,7 +20,7 @@ function MinusIcon() {
   );
 }
 
-function MediaCard({ id, type, title, posterPath, isFollowing = false, onFollowToggle, isAuthenticated, customTo }) {
+function MediaCard({ id, type, title, posterPath, isFollowing = false, onFollowToggle, isAuthenticated, customTo, releaseLabel }) {
   const imgSrc = posterPath ? `${TMDB_IMG}${posterPath}` : null;
   const to = customTo ?? (type === "movie" ? `/movies/${id}` : `/shows/${id}`);
   const [hovering, setHovering] = useState(false);
@@ -64,6 +64,10 @@ function MediaCard({ id, type, title, posterPath, isFollowing = false, onFollowT
       <p className="text-center text-xs font-semibold leading-tight text-white line-clamp-2 min-h-[2.5em]">
         {title}
       </p>
+
+      {releaseLabel && (
+        <p className="text-center text-[10px] font-medium -mt-1 text-[#7eb8f7]">{releaseLabel}</p>
+      )}
 
       <button
         onClick={handleFollow}

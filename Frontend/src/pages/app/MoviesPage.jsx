@@ -26,6 +26,7 @@ function MoviesPage({ session, showAdult }) {
   const [search, setSearch] = useState("");
   const {
     popular,
+    comingSoonItems,
     byGenre,
     isLoading,
     error,
@@ -61,6 +62,16 @@ function MoviesPage({ session, showAdult }) {
               onLoadMore={loadMorePopular}
               isLoadingMore={loadingMorePopular}
             />
+            {comingSoonItems.length > 0 && (
+              <MediaRow
+                title="Coming Soon"
+                items={comingSoonItems}
+                session={session}
+                hasMore={false}
+                onLoadMore={null}
+                isLoadingMore={false}
+              />
+            )}
             {byGenre.map(({ genreId, genreName, items, hasMore, onLoadMore, isLoadingMore }) => (
               <MediaRow
                 key={genreId}

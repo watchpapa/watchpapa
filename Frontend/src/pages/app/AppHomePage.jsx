@@ -26,6 +26,7 @@ function AppHomePage({ session, showAdult }) {
   const [search, setSearch] = useState("");
   const {
     popular,
+    comingSoonItems,
     movieItems,
     showItems,
     isLoading,
@@ -50,6 +51,13 @@ function AppHomePage({ session, showAdult }) {
       hasMore: hasMorePopular,
       onLoadMore: loadMorePopular,
       isLoadingMore: loadingMorePopular,
+    },
+    {
+      title: "Coming Soon",
+      items: comingSoonItems,
+      hasMore: false,
+      onLoadMore: null,
+      isLoadingMore: false,
     },
     {
       title: "Movies",
@@ -86,17 +94,19 @@ function AppHomePage({ session, showAdult }) {
             <SkeletonRow />
           </>
         ) : (
-          sections.map(({ title, items, hasMore, onLoadMore, isLoadingMore }) => (
-            <MediaRow
-              key={title}
-              title={title}
-              items={items}
-              session={session}
-              hasMore={hasMore}
-              onLoadMore={onLoadMore}
-              isLoadingMore={isLoadingMore}
-            />
-          ))
+          sections
+            .filter(({ items }) => items.length > 0)
+            .map(({ title, items, hasMore, onLoadMore, isLoadingMore }) => (
+              <MediaRow
+                key={title}
+                title={title}
+                items={items}
+                session={session}
+                hasMore={hasMore}
+                onLoadMore={onLoadMore}
+                isLoadingMore={isLoadingMore}
+              />
+            ))
         )}
       </div>
     </AppLayout>
