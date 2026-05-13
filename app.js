@@ -8,7 +8,11 @@ import rateLimit, { ipKeyGenerator } from "express-rate-limit";
 import searchRouter from "./Backend/src/routes/search.js";
 import injectRouter from "./Backend/src/routes/inject.js";
 import resolveRouter from "./Backend/src/routes/resolve.js";
+import referralRouter from "./Backend/src/routes/referral.js";
+import rewardsRouter from "./Backend/src/routes/rewards.js";
+import adminRewardCodesRouter from "./Backend/src/routes/admin/rewardCodes.js";
 import { requireAuth } from "./Backend/src/middleware/requireAuth.js";
+import { requireAdmin } from "./Backend/src/middleware/requireAdmin.js";
 import { auditLog } from "./Backend/src/middleware/auditLog.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -29,8 +33,9 @@ app.use((req, res, next) => {
   const origin = req.headers.origin;
   if (origin && corsAllowedOrigins.includes(origin)) {
     res.setHeader("Access-Control-Allow-Origin", origin);
-    res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+    res.setHeader("Access-Control-Allow-Methods", "GET, POST, PATCH, OPTIONS");
     res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+    res.setHeader("Access-Control-Expose-Headers", "Content-Disposition");
   }
   if (req.method === "OPTIONS") return res.sendStatus(204);
   next();
@@ -46,6 +51,13 @@ const globalLimiter = rateLimit({
 const mutationLimiter = rateLimit({
   windowMs: 60 * 1000,
   max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const adminLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 10,
   standardHeaders: true,
   legacyHeaders: false,
 });
@@ -67,6 +79,12 @@ app.use("/api/search", searchRouter);
 app.use("/api/inject", mutationLimiter, requireAuth, perUserMutationLimiter, auditLog("inject", ["type", "tmdbId"]), injectRouter);
 // Handle authenticated resolve requests that read/write database records.
 app.use("/api/resolve", mutationLimiter, requireAuth, perUserMutationLimiter, auditLog("resolve", ["type", "tmdbId"]), resolveRouter);
+// Handle referral code usage (user-facing mutation).
+app.use("/api/referral", mutationLimiter, requireAuth, perUserMutationLimiter, auditLog("referral", ["code"]), referralRouter);
+// Handle reward code claims (user-facing mutation).
+app.use("/api/rewards", mutationLimiter, requireAuth, perUserMutationLimiter, auditLog("rewards", ["code"]), rewardsRouter);
+// Admin routes — tighter rate limit, admin role required.
+app.use("/api/admin/reward-codes", adminLimiter, requireAuth, requireAdmin, adminRewardCodesRouter);
 
 // Health check
 // Return service health status for monitoring.
