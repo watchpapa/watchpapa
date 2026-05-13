@@ -23,6 +23,17 @@ function CalendarIcon() {
   );
 }
 
+function ReferralIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+      <circle cx="9" cy="7" r="4" />
+      <line x1="19" y1="8" x2="19" y2="14" />
+      <line x1="22" y1="11" x2="16" y2="11" />
+    </svg>
+  );
+}
+
 function MenuIcon() {
   return (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
@@ -39,33 +50,11 @@ function XIcon() {
   );
 }
 
-function ReferralIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
-      <circle cx="9" cy="7" r="4" />
-      <line x1="19" y1="8" x2="19" y2="14" />
-      <line x1="22" y1="11" x2="16" y2="11" />
-    </svg>
-  );
-}
-
-function ReferralButton({ session }) {
+function ReferralButton({ referralCode }) {
   const [open, setOpen] = useState(false);
-  const [referralCode, setReferralCode] = useState(null);
   const [copied, setCopied] = useState(false);
   const popoverRef = useRef(null);
   const buttonRef = useRef(null);
-
-  useEffect(() => {
-    if (!session?.user?.id) return;
-    supabase
-      .from("profile")
-      .select("referral_code")
-      .eq("id", session.user.id)
-      .maybeSingle()
-      .then(({ data }) => { if (data?.referral_code) setReferralCode(data.referral_code); });
-  }, [session?.user?.id]);
 
   useEffect(() => {
     function onPointerdown(e) {
@@ -116,7 +105,7 @@ function ReferralButton({ session }) {
       {open && (
         <div
           ref={popoverRef}
-          className="absolute right-0 top-full z-50 mt-2 w-72 rounded-2xl border border-[#2a2f5a] bg-[#0d0f1e] shadow-2xl shadow-black/60"
+          className="absolute right-0 top-full z-50 mt-2 w-72 max-w-[calc(100vw-1rem)] rounded-2xl border border-[#2a2f5a] bg-[#0d0f1e] shadow-2xl shadow-black/60"
         >
           <div className="border-b border-[#1a1f3a] px-4 py-3">
             <p className="text-sm font-bold text-white">Invite a friend</p>
@@ -168,10 +157,72 @@ function ReferralButton({ session }) {
   );
 }
 
+function MobileInviteRow({ referralCode, onClose }) {
+  const [copied, setCopied] = useState(false);
+  const referralUrl = referralCode
+    ? `${window.location.origin}/register?ref=${referralCode}`
+    : null;
+
+  const handleCopy = () => {
+    if (!referralUrl) return;
+    navigator.clipboard?.writeText(referralUrl).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  };
+
+  const handleShare = () => {
+    if (!referralUrl) return;
+    navigator.share?.({ title: "Join watchpapa", url: referralUrl });
+    onClose();
+  };
+
+  if (!referralUrl) return null;
+
+  return (
+    <div className="border-b border-[#1a1f3a] py-3">
+      <p className="mb-2 flex items-center gap-2 text-sm font-semibold text-[#8888c8]">
+        <ReferralIcon />
+        Invite Friends
+      </p>
+      <div className="flex items-center gap-1.5 rounded-xl border border-[#2a3570] bg-[#0d0f1e] px-3 py-2">
+        <span className="min-w-0 flex-1 truncate font-mono text-[11px] text-[#a0a0e8]">{referralUrl}</span>
+        <div className="flex shrink-0 gap-1">
+          <button
+            onClick={handleCopy}
+            className="rounded-lg px-2 py-1 text-[11px] font-semibold text-[#8383e7] transition hover:bg-[#2a2d60]"
+          >
+            {copied ? "Copied!" : "Copy"}
+          </button>
+          {typeof navigator !== "undefined" && navigator.share && (
+            <button
+              onClick={handleShare}
+              className="rounded-lg px-2 py-1 text-[11px] font-semibold text-[#8383e7] transition hover:bg-[#2a2d60]"
+            >
+              Share
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function Navbar({ session }) {
   const [showAuthPrompt, setShowAuthPrompt] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [referralCode, setReferralCode] = useState(null);
   const headerRef = useRef(null);
+
+  useEffect(() => {
+    if (!session?.user?.id) return;
+    supabase
+      .from("profile")
+      .select("referral_code")
+      .eq("id", session.user.id)
+      .maybeSingle()
+      .then(({ data }) => { if (data?.referral_code) setReferralCode(data.referral_code); });
+  }, [session?.user?.id]);
 
   useEffect(() => {
     function onPointerdown(e) {
@@ -224,7 +275,7 @@ function Navbar({ session }) {
 
           {/* Right: invite + calendar + auth */}
           <div className="flex items-center gap-2 sm:gap-3">
-            {session && <ReferralButton session={session} />}
+            {session && <ReferralButton referralCode={referralCode} />}
 
             {session ? (
               <Link
@@ -232,8 +283,8 @@ function Navbar({ session }) {
                 className="hidden items-center gap-2 rounded-xl border border-[#3a3a7a] bg-[#1a1d35] px-3 py-1.5 text-xs font-semibold text-[#a0a0e8] transition hover:border-[#5a5aaa] hover:text-white sm:flex"
               >
                 <CalendarIcon />
-                <span className="hidden lg:inline">Your Releases Calendar</span>
-                <span className="inline lg:hidden">Calendar</span>
+                <span className="hidden lg:inline">Releases Radar</span>
+                <span className="inline lg:hidden">Radar</span>
               </Link>
             ) : (
               <button
@@ -241,8 +292,8 @@ function Navbar({ session }) {
                 className="hidden items-center gap-2 rounded-xl border border-[#3a3a7a] bg-[#1a1d35] px-3 py-1.5 text-xs font-semibold text-[#a0a0e8] transition hover:border-[#5a5aaa] hover:text-white sm:flex"
               >
                 <CalendarIcon />
-                <span className="hidden lg:inline">Your Releases Calendar</span>
-                <span className="inline lg:hidden">Calendar</span>
+                <span className="hidden lg:inline">Releases Radar</span>
+                <span className="inline lg:hidden">Radar</span>
               </button>
             )}
 
@@ -269,7 +320,20 @@ function Navbar({ session }) {
 
         {/* Mobile dropdown */}
         {mobileOpen && (
-          <div className="border-t border-[#1a1f3a] px-5 pb-2 sm:hidden">
+          <div className="border-t border-[#1a1f3a] px-5 pb-3 sm:hidden">
+            {/* Calendar first */}
+            {session ? (
+              <Link
+                to="/calendar"
+                onClick={() => setMobileOpen(false)}
+                className="flex items-center gap-2 border-b border-[#1a1f3a] py-3 text-sm font-semibold text-[#8888c8] transition hover:text-white"
+              >
+                <CalendarIcon />
+                Releases Radar
+              </Link>
+            ) : null}
+
+            {/* Nav links */}
             {NAV_LINKS.map(({ label, to }) => (
               <NavLink
                 key={label}
@@ -285,16 +349,11 @@ function Navbar({ session }) {
                 {label}
               </NavLink>
             ))}
-            {session ? (
-              <Link
-                to="/calendar"
-                onClick={() => setMobileOpen(false)}
-                className="flex items-center gap-2 py-3 text-sm font-semibold text-[#8888c8] transition hover:text-white"
-              >
-                <CalendarIcon />
-                Your Releases Calendar
-              </Link>
-            ) : null}
+
+            {/* Invite Friends inline */}
+            {session && (
+              <MobileInviteRow referralCode={referralCode} onClose={() => setMobileOpen(false)} />
+            )}
           </div>
         )}
       </header>
