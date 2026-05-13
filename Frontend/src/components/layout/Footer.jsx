@@ -1,39 +1,58 @@
 import { Link } from "react-router-dom";
-import { footerLinks, TMDB_ATTRIBUTION_URL } from "../../lib/constants.js";
+import { TMDB_ATTRIBUTION_URL } from "../../lib/constants.js";
 import tmdbLogo from "../../assets/branding/tmdb-blue-short.svg";
+import watchpapaLogo from "../../assets/branding/watchpapa-banner.svg";
+
+const ALL_LINKS = [
+  { label: "About", to: "/about" },
+  { label: "Help", to: "/help" },
+  { label: "Contact", to: "/contact" },
+  { label: "Privacy", to: "/privacy" },
+  { label: "Terms", to: "/terms" },
+];
 
 function Footer() {
   return (
-    <footer className="border-t border-[#1b1e30] bg-gradient-to-b from-[#0c0f1a] to-[#0a0c14] px-4 py-3 lg:px-[4.05%] lg:py-2">
-      <ul className="mx-auto mb-2 flex max-w-[1588px] flex-wrap items-center justify-center gap-x-6 gap-y-2 text-[15px] font-semibold tracking-[0.01em] text-[#7a7ae7] sm:text-[17px] lg:mb-1 lg:flex-nowrap lg:justify-between lg:gap-0 lg:text-[21px]">
-        {footerLinks.map((item) => (
-          <li key={item.to}>
+    <footer className="border-t border-[#1b1e30] bg-[#0a0c14] px-4 py-4 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-[1588px] space-y-3">
+
+        {/* Top row: logo + links */}
+        <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
+          <Link to="/" className="mr-2 shrink-0">
+            <img src={watchpapaLogo} alt="watchpapa" className="h-5 w-auto" />
+          </Link>
+          {ALL_LINKS.map((link) => (
             <Link
-              to={item.to}
-              className="rounded px-1 py-0.5 transition hover:text-[#a3a3ff] hover:underline hover:decoration-[#6f6fdc]/70 hover:underline-offset-4"
+              key={link.to}
+              to={link.to}
+              className="text-xs text-[#5a5a7a] transition hover:text-[#a0a0c8]"
             >
-              {item.label}
+              {link.label}
             </Link>
-          </li>
-        ))}
-      </ul>
-      <p className="text-center text-[11px] font-medium leading-tight text-[#5c5f75] sm:text-xs lg:text-[14px]">
-        Copyright &copy; 2026 watchpapa.tv. All rights reserved. Film and shows data
-        from{" "}
-        <a
-          href={TMDB_ATTRIBUTION_URL}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="ml-1 inline-block align-[-1px] opacity-90 transition hover:opacity-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#6f6fdc]"
-        >
-          <img
-            src={tmdbLogo}
-            alt="The Movie Database (TMDB)"
-            className="inline-block h-[11px] w-auto lg:h-[13px]"
-          />
-        </a>
-        .
-      </p>
+          ))}
+        </div>
+
+        {/* Bottom row: copyright + TMDB */}
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+          <p className="text-[11px] text-[#2e3048]">
+            &copy; 2026 watchpapa.tv
+          </p>
+          <span className="text-[11px] text-[#1e2035]">&mdash;</span>
+          <a
+            href={TMDB_ATTRIBUTION_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 opacity-40 transition hover:opacity-70"
+            aria-label="Film and TV data provided by The Movie Database"
+          >
+            <span className="text-[10px] font-medium uppercase tracking-widest text-[#5c5f75]">
+              Data by
+            </span>
+            <img src={tmdbLogo} alt="TMDB" className="h-[9px] w-auto" />
+          </a>
+        </div>
+
+      </div>
     </footer>
   );
 }
