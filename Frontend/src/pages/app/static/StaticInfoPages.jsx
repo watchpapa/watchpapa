@@ -1,4 +1,7 @@
+import ContentPanel from "../../../components/detail/ContentPanel.jsx";
 import InfoPageShell from "../../../components/static/InfoPageShell.jsx";
+
+/* ─── About ─────────────────────────────────────────────── */
 
 function AboutPage({ session }) {
   return (
@@ -6,79 +9,288 @@ function AboutPage({ session }) {
       session={session}
       breadcrumbs={[{ label: "About" }]}
       title="About watchpapa"
+      lead="A streamlined dashboard for discovering and tracking the films, shows, and talent that matter to you."
     >
+      <h2>What we do</h2>
       <p>
-        watchpapa helps you browse movies and TV shows, explore people and credits, and keep an eye on
-        upcoming releases. This site is a work in progress; we improve it based on how people actually
-        use it.
+        watchpapa pulls real-time metadata from{" "}
+        <a href="https://www.themoviedb.org/" target="_blank" rel="noopener noreferrer">
+          The Movie Database (TMDB)
+        </a>{" "}
+        and organises it into a fast, browsable interface. Search popular titles, dive into cast and
+        crew pages, follow upcoming releases on the calendar, and keep everything in one place.
       </p>
+
+      <h2>Core features</h2>
+      <ul>
+        <li>Browse popular movies, TV shows, and people updated daily.</li>
+        <li>Full detail pages with cast, crew, episode guides, and plot overviews.</li>
+        <li>Release calendar for domestic and international premiere dates.</li>
+        <li>Real-time search with instant filtering — no page reloads.</li>
+        <li>Signed-in accounts to save preferences across devices.</li>
+      </ul>
+
+      <h2>Data & attribution</h2>
       <p>
-        Film and TV metadata and images are provided by{" "}
+        All film and television metadata, imagery, and cast information is supplied by{" "}
         <a href="https://www.themoviedb.org/" target="_blank" rel="noopener noreferrer">
           The Movie Database (TMDB)
         </a>
-        . watchpapa is not endorsed or certified by TMDB.
+        . watchpapa is not endorsed, certified, or otherwise approved by TMDB. If you spot an
+        inaccuracy in a title, cast list, or release date, the fastest fix is to update it directly
+        on{" "}
+        <a href="https://www.themoviedb.org/" target="_blank" rel="noopener noreferrer">
+          themoviedb.org
+        </a>{" "}
+        — changes propagate to watchpapa automatically.
+      </p>
+
+      <h2>Roadmap</h2>
+      <p>
+        watchpapa is actively developed. We build in the direction of how people actually explore
+        film and TV, so feedback is taken seriously. Head to the{" "}
+        <a href="/contact">Contact page</a> to share ideas or report issues.
       </p>
     </InfoPageShell>
   );
 }
+
+/* ─── Help ───────────────────────────────────────────────── */
 
 function HelpPage({ session }) {
   return (
-    <InfoPageShell session={session} breadcrumbs={[{ label: "Help" }]} title="Help">
-      <h2>Browsing</h2>
+    <InfoPageShell
+      session={session}
+      breadcrumbs={[{ label: "Help" }]}
+      title="Help"
+      lead="Quick answers to common questions about using watchpapa."
+    >
+      <h2>Discovery</h2>
       <p>
-        Use the navigation links for Popular, Movies, Shows, and People. On the home page you can
-        search to filter what you see in each row.
+        The top navigation gives you quick access to <strong>Popular</strong>,{" "}
+        <strong>Movies</strong>, <strong>Shows</strong>, and <strong>People</strong>. On the home
+        screen, use the search bar to filter results in real-time as you type — no submit needed.
       </p>
+
       <h2>Detail pages</h2>
       <p>
-        Open a movie or show to read the overview, see cast, and follow links to seasons and episodes
-        for series. Person pages list known credits so you can jump to titles they worked on.
+        Click any title card to open its detail page. From there you can read the plot overview,
+        browse the cast and crew, and — for TV series — step through episode guides by season.
+        Clicking a person&apos;s name opens their full filmography.
       </p>
-      <h2>Calendar</h2>
+
+      <h2>Release calendar</h2>
       <p>
-        The releases calendar summarizes upcoming dates so you can plan what to watch next. Dates
-        depend on the data TMDB has for each region and title.
+        The calendar lists upcoming theatrical and streaming premieres. Release dates are synced
+        with TMDB&apos;s regional data, so you may see different dates depending on territory. If a
+        date looks wrong, it is likely not yet updated on TMDB.
       </p>
-      <h2>Account</h2>
+
+      <h2>Accounts</h2>
       <p>
-        Sign in to access features that require an account. If you forgot your password, use the link
-        on the login screen to reset it.
+        Sign in to save your preferences across sessions and devices. If you are locked out, use
+        the <strong>Forgot password</strong> link on the sign-in page — a reset link will be sent
+        to your registered email address within a few minutes.
+      </p>
+
+      <h2>Reporting a problem</h2>
+      <p>
+        Found a bug or something that looks broken? Use the <a href="/contact">Contact page</a> to
+        send us a report. Please include the URL of the affected page and a brief description of
+        what you expected versus what happened.
       </p>
     </InfoPageShell>
   );
 }
+
+/* ─── Terms ──────────────────────────────────────────────── */
 
 function TermsPage({ session }) {
   return (
-    <InfoPageShell session={session} breadcrumbs={[{ label: "Terms" }]} title="Terms of use">
+    <InfoPageShell
+      session={session}
+      breadcrumbs={[{ label: "Terms" }]}
+      title="Terms of Use"
+      lead="Please read these terms carefully before using watchpapa."
+    >
+      <h2>Acceptance</h2>
       <p>
-        By using watchpapa you agree to the <a href="https://www.themoviedb.org/terms-of-use" target="_blank" rel="noopener noreferrer">TMDB Terms of Use</a> and <a href="https://www.themoviedb.org/privacy-policy" target="_blank" rel="noopener noreferrer">TMDB Privacy Policy</a>.
+        By accessing or using watchpapa (&ldquo;the Service&rdquo;), you confirm that you are at
+        least 13 years old and agree to be bound by these Terms of Use. If you do not agree, do
+        not use the Service.
+      </p>
+
+      <h2>Third-party data</h2>
+      <p>
+        Film and television content, imagery, and metadata are provided by{" "}
+        <a href="https://www.themoviedb.org/terms-of-use" target="_blank" rel="noopener noreferrer">
+          The Movie Database (TMDB)
+        </a>
+        . Your use of that data is also subject to TMDB&apos;s own Terms of Use. watchpapa is not
+        affiliated with or endorsed by TMDB.
+      </p>
+
+      <h2>Acceptable use</h2>
+      <p>You agree not to:</p>
+      <ul>
+        <li>Scrape or bulk-download content from the Service in an automated manner.</li>
+        <li>Attempt to gain unauthorised access to any part of the platform.</li>
+        <li>Use the Service for any unlawful purpose or in violation of applicable law.</li>
+        <li>Misrepresent your identity or impersonate another person or organisation.</li>
+      </ul>
+
+      <h2>Accounts</h2>
+      <p>
+        You are responsible for maintaining the confidentiality of your account credentials. You
+        must notify us immediately at <a href="mailto:support@watchpapa.tv">support@watchpapa.tv</a>{" "}
+        if you suspect unauthorised access to your account.
+      </p>
+
+      <h2>Modifications</h2>
+      <p>
+        We reserve the right to update these Terms at any time. Continued use of the Service after
+        changes are posted constitutes acceptance of the revised Terms. The date of the most recent
+        revision is shown below.
+      </p>
+
+      <h2>Disclaimer</h2>
+      <p>
+        The Service is provided &ldquo;as is&rdquo; without warranties of any kind, express or
+        implied. We do not guarantee uninterrupted availability or the accuracy of third-party
+        metadata.
+      </p>
+
+      <p className="muted">
+        Last updated: <time dateTime="2026-05-13">13 May 2026</time>
       </p>
     </InfoPageShell>
   );
 }
+
+/* ─── Contact ────────────────────────────────────────────── */
 
 function ContactPage({ session }) {
   return (
-    <InfoPageShell session={session} breadcrumbs={[{ label: "Contact" }]} title="Contact">
+    <InfoPageShell
+      session={session}
+      breadcrumbs={[{ label: "Contact" }]}
+      title="Get in touch"
+      lead="Bug report, feature idea, or just want to say hello — we read everything."
+    >
+      <ContentPanel label="Email us">
+        <p className="text-sm text-[#8080a8]">
+          The fastest way to reach the team is by email.
+        </p>
+        <a
+          href="mailto:support@watchpapa.tv"
+          className="mt-3 inline-block break-all text-xl font-semibold tracking-tight text-white !no-underline underline-offset-[5px] transition hover:text-[#e4e4ff] hover:!underline sm:text-2xl"
+        >
+          support@watchpapa.tv
+        </a>
+      </ContentPanel>
+
+      <div className="flex gap-4 rounded-2xl border border-[#1a1f3a] bg-[#0f1225] p-5 sm:gap-5 sm:p-6">
+        <div
+          className="w-0.5 shrink-0 self-stretch rounded-full bg-gradient-to-b from-[#6f6fdc] to-[#4a4a9e]"
+          aria-hidden
+        />
+        <div className="min-w-0 flex-1">
+          <p className="text-xs font-semibold uppercase tracking-[0.1em] text-[#8383e7]">
+            Before you write
+          </p>
+          <p className="mt-2 text-sm leading-relaxed text-[#8888b0]">
+            If a release date, cast member, or poster looks wrong, it is usually a short sync lag
+            from TMDB. You can help the whole community by correcting it directly on{" "}
+            <a href="https://www.themoviedb.org/" target="_blank" rel="noopener noreferrer">
+              themoviedb.org
+            </a>{" "}
+            — changes propagate to watchpapa automatically.
+          </p>
+        </div>
+      </div>
+
+      <h2>Other channels</h2>
       <p>
-        For general questions or feedback, email{" "}
-        <a href="mailto:support@watchpapa.tv">XXXXXXXXXXXXXXXXX@watchpapa.tv</a>.
-      </p>
-      <p>
-        [add contact form here]
+        Follow company updates and announcements on{" "}
+        <a
+          href="https://www.linkedin.com/company/watchpapa"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          watchpapa on LinkedIn
+        </a>
+        .
       </p>
     </InfoPageShell>
   );
 }
 
+/* ─── Privacy ────────────────────────────────────────────── */
+
 function PrivacyPage({ session }) {
   return (
-    <InfoPageShell session={session} breadcrumbs={[{ label: "Privacy" }]} title="Privacy">
+    <InfoPageShell
+      session={session}
+      breadcrumbs={[{ label: "Privacy" }]}
+      title="Privacy Policy"
+      lead="We collect as little data as possible and never sell it."
+    >
+      <h2>What we collect</h2>
       <p>
-        [add privacy policy here]
+        When you create an account we store your <strong>email address</strong>, a securely hashed
+        password, and your <strong>date of birth</strong> (used to personalise age-appropriate
+        content). We also collect lightweight, anonymised usage analytics (page
+        views and feature interactions) to understand how the product is used. We do not collect
+        names, addresses, or payment information.
+      </p>
+
+      <h2>How it is used</h2>
+      <ul>
+        <li>Your email is used for authentication and, if you opt in, product updates.</li>
+        <li>Analytics data is used only to improve the Service.</li>
+        <li>We do not build advertising profiles or sell data to third parties.</li>
+      </ul>
+
+      <h2>Third-party services</h2>
+      <p>
+        watchpapa fetches media content from{" "}
+        <a href="https://www.themoviedb.org/" target="_blank" rel="noopener noreferrer">
+          TMDB
+        </a>
+        . Your watchpapa account data is <strong>not</strong> shared with TMDB. We use{" "}
+        <a href="https://supabase.com/" target="_blank" rel="noopener noreferrer">
+          Supabase
+        </a>{" "}
+        to store account data; all data is stored in the EU and subject to their{" "}
+        <a href="https://supabase.com/privacy" target="_blank" rel="noopener noreferrer">
+          Privacy Policy
+        </a>
+        .
+      </p>
+
+      <h2>Cookies</h2>
+      <p>
+        We use <strong>essential cookies only</strong> — to keep you signed in and to remember
+        filter preferences across sessions. We do not use tracking or advertising cookies.
+      </p>
+
+      <h2>Data retention & your rights</h2>
+      <p>
+        You may delete your account and all associated data at any time from your account settings.
+        On deletion, your personal data is permanently removed within 30 days. You may also request
+        a copy of your data or ask us to correct inaccuracies by emailing{" "}
+        <a href="mailto:support@watchpapa.tv">support@watchpapa.tv</a>.
+      </p>
+
+      <h2>Changes</h2>
+      <p>
+        We may update this policy at any time. When we do, we will revise the date below. We
+        recommend checking this page periodically. We cannot guarantee that change notifications
+        will be delivered by email.
+      </p>
+
+      <p className="muted">
+        Last updated: <time dateTime="2026-05-13">13 May 2026</time>
       </p>
     </InfoPageShell>
   );
