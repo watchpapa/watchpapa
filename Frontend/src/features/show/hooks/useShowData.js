@@ -13,6 +13,10 @@ function reducer(state, action) {
       return { ...state, isLoading: false, error: action.error };
     case "TOGGLE_FOLLOW":
       return { ...state, isFollowing: !state.isFollowing };
+    case "FOLLOW_LIMIT":
+      return { ...state, isFollowing: false, followLimitError: action.message };
+    case "CLEAR_FOLLOW_LIMIT":
+      return { ...state, followLimitError: null };
     default:
       return state;
   }
@@ -25,6 +29,7 @@ const initialState = {
   cast: [],
   crew: [],
   isFollowing: false,
+  followLimitError: null,
   isLoading: true,
   error: null,
 };
@@ -106,8 +111,14 @@ export function useShowData(rawShowId, session, showAdult = false) {
           .from("user_followed_shows")
           .insert({ profile_id: session.user.id, show_id: showId });
 
-    if (error) dispatch({ type: "TOGGLE_FOLLOW" });
+    if (error) {
+      if (error.message?.includes("FOLLOW_LIMIT_REACHED")) {
+        dispatch({ type: "FOLLOW_LIMIT", message: error.message.replace("FOLLOW_LIMIT_REACHED: ", "") });
+      } else {
+        dispatch({ type: "TOGGLE_FOLLOW" });
+      }
+    }
   }, [showId, session?.user?.id, state.isFollowing]);
 
-  return { ...state, toggleFollow };
+  return { ...state, toggleFollow, clearFollowLimitError: () => dispatch({ type: "CLEAR_FOLLOW_LIMIT" }) };
 }

@@ -3,6 +3,7 @@ import AppLayout from "../../layouts/AppLayout.jsx";
 import MediaRow from "../../components/home/MediaRow.jsx";
 import SearchBar from "../../components/home/SearchBar.jsx";
 import { useMoviesPageData } from "../../features/movies/hooks/useMoviesPageData.js";
+import UpgradePromptToast from "../../components/subscription/UpgradePromptToast.jsx";
 
 function SkeletonRow() {
   return (
@@ -28,6 +29,8 @@ function MoviesPage({ session, showAdult }) {
     byGenre,
     isLoading,
     error,
+    followLimitError,
+    clearFollowLimitError,
     hasMorePopular,
     loadMorePopular,
     loadingMorePopular,
@@ -35,6 +38,7 @@ function MoviesPage({ session, showAdult }) {
 
   return (
     <AppLayout session={session}>
+      {followLimitError && <UpgradePromptToast message={followLimitError} onDismiss={clearFollowLimitError} session={session} />}
       <div className="mx-auto max-w-[1600px] space-y-8">
         <SearchBar value={search} onChange={(e) => setSearch(e.target.value)} />
         {error && (

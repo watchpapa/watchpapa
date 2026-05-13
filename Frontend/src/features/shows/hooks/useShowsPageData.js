@@ -55,6 +55,10 @@ function reducer(state, action) {
       next.has(action.id) ? next.delete(action.id) : next.add(action.id);
       return { ...state, followedIds: next };
     }
+    case "FOLLOW_LIMIT":
+      return { ...state, followLimitError: action.message };
+    case "CLEAR_FOLLOW_LIMIT":
+      return { ...state, followLimitError: null };
     default:
       return state;
   }
@@ -80,6 +84,7 @@ const initialState = {
   followedIds: new Set(),
   isLoading: true,
   error: null,
+  followLimitError: null,
   showHasMore: true,
   popularDisplayCount: PAGE_SIZE,
   genreRowLimits: {},
@@ -150,7 +155,13 @@ export function useShowsPageData(session, showAdult = false) {
     const { error } = was
       ? await supabase.from("user_followed_shows").delete().eq("profile_id", session.user.id).eq("show_id", showId)
       : await supabase.from("user_followed_shows").insert({ profile_id: session.user.id, show_id: showId });
-    if (error) dispatch({ type: "TOGGLE", id: showId });
+    if (error) {
+      if (error.message?.includes("FOLLOW_LIMIT_REACHED")) {
+        dispatch({ type: "FOLLOW_LIMIT", message: error.message.replace("FOLLOW_LIMIT_REACHED: ", "") });
+      } else {
+        dispatch({ type: "TOGGLE", id: showId });
+      }
+    }
   }, [session?.user?.id]);
 
   // Fetch one show page starting from a row offset.
@@ -233,6 +244,7 @@ export function useShowsPageData(session, showAdult = false) {
     followedIds,
     isLoading,
     error,
+    followLimitError,
     showHasMore,
     popularDisplayCount,
     genreRowLimits,
@@ -290,6 +302,8 @@ export function useShowsPageData(session, showAdult = false) {
     byGenre,
     isLoading,
     error,
+    followLimitError,
+    clearFollowLimitError: () => dispatch({ type: "CLEAR_FOLLOW_LIMIT" }),
     hasMorePopular,
     loadMorePopular,
     loadingMorePopular,

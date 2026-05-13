@@ -11,6 +11,7 @@ import CrewSection from "../../components/detail/CrewSection.jsx";
 import AuthPromptModal from "../../components/AuthPromptModal.jsx";
 import { useShowData } from "../../features/show/hooks/useShowData.js";
 import InjectingBanner from "../../components/detail/InjectingBanner.jsx";
+import UpgradePromptToast from "../../components/subscription/UpgradePromptToast.jsx";
 
 const TMDB_IMG = "https://image.tmdb.org/t/p/w185";
 
@@ -58,7 +59,7 @@ function ShowPage({ session, showAdult }) {
   const { id } = useParams();
   const [showAllSeasons, setShowAllSeasons] = useState(false);
   const [showAuthPrompt, setShowAuthPrompt] = useState(false);
-  const { show, genres, seasons, cast, crew, isFollowing, isLoading, error, toggleFollow } = useShowData(id, session, showAdult);
+  const { show, genres, seasons, cast, crew, isFollowing, followLimitError, clearFollowLimitError, isLoading, error, toggleFollow } = useShowData(id, session, showAdult);
   const handleFollow = session ? toggleFollow : () => setShowAuthPrompt(true);
 
   const breadcrumbs = show ? [{ label: "Shows", to: "/shows" }, { label: show.name }] : undefined;
@@ -85,6 +86,7 @@ function ShowPage({ session, showAdult }) {
   return (
     <AppLayout session={session} breadcrumbs={breadcrumbs}>
       {showAuthPrompt && <AuthPromptModal onClose={() => setShowAuthPrompt(false)} />}
+      {followLimitError && <UpgradePromptToast message={followLimitError} onDismiss={clearFollowLimitError} session={session} />}
       <div className="mb-6"><InjectingBanner type="show" id={id} /></div>
       <DetailPageLayout
         title={show.name}

@@ -3,6 +3,7 @@ import AppLayout from "../../layouts/AppLayout.jsx";
 import SearchBar from "../../components/home/SearchBar.jsx";
 import MediaRow from "../../components/home/MediaRow.jsx";
 import { useHomeData } from "../../features/home/hooks/useHomeData.js";
+import UpgradePromptToast from "../../components/subscription/UpgradePromptToast.jsx";
 
 function SkeletonRow() {
   return (
@@ -29,6 +30,8 @@ function AppHomePage({ session, showAdult }) {
     showItems,
     isLoading,
     error,
+    followLimitError,
+    clearFollowLimitError,
     hasMorePopular,
     hasMoreMovies,
     hasMoreShows,
@@ -66,6 +69,7 @@ function AppHomePage({ session, showAdult }) {
 
   return (
     <AppLayout session={session}>
+      {followLimitError && <UpgradePromptToast message={followLimitError} onDismiss={clearFollowLimitError} session={session} />}
       <div className="mx-auto max-w-[1600px] space-y-8">
         <SearchBar value={search} onChange={(e) => setSearch(e.target.value)} />
 

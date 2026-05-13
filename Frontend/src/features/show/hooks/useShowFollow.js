@@ -9,6 +9,7 @@ import { isValidId } from "../../../lib/validate.js";
 export function useShowFollow(rawShowId, session) {
   const showId = rawShowId ? parseInt(rawShowId, 10) : null;
   const [isFollowing, setIsFollowing] = useState(false);
+  const [followLimitError, setFollowLimitError] = useState(null);
 
   useEffect(() => {
     if (!showId || !session?.user?.id) {
@@ -36,6 +37,7 @@ export function useShowFollow(rawShowId, session) {
     if (!session?.user?.id || !isValidId(showId)) return;
     const was = isFollowing;
     setIsFollowing(!was);
+    setFollowLimitError(null);
 
     const { error } = was
       ? await supabase
@@ -47,8 +49,13 @@ export function useShowFollow(rawShowId, session) {
           .from("user_followed_shows")
           .insert({ profile_id: session.user.id, show_id: showId });
 
-    if (error) setIsFollowing(was);
+    if (error) {
+      setIsFollowing(was);
+      if (error.message?.includes("FOLLOW_LIMIT_REACHED")) {
+        setFollowLimitError(error.message.replace("FOLLOW_LIMIT_REACHED: ", ""));
+      }
+    }
   }, [showId, session?.user?.id, isFollowing]);
 
-  return { isFollowing, toggleFollow };
+  return { isFollowing, toggleFollow, followLimitError, clearFollowLimitError: () => setFollowLimitError(null) };
 }

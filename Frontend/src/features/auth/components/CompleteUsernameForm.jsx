@@ -6,6 +6,8 @@ import Toggle from "../../../components/ui/Toggle.jsx";
 import { supabase } from "../../../lib/supabase.js";
 import { validateUsername } from "../../../lib/validate.js";
 
+const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "";
+
 function normalizeUsername(value) {
   return value.trim();
 }
@@ -88,6 +90,20 @@ function CompleteUsernameForm({ userId, initialUsername = "", onCompleted }) {
     if (authError) {
       setSubmitError(authError.message ?? "Username saved in profile, but auth metadata update failed.");
       return;
+    }
+
+    // Apply pending referral code from registration URL param (?ref=CODE).
+    const pendingCode = sessionStorage.getItem("pendingReferralCode");
+    if (pendingCode) {
+      sessionStorage.removeItem("pendingReferralCode");
+      const { data: { session: s } } = await supabase.auth.getSession();
+      const token = s?.access_token;
+      if (token) {
+        fetch(`${API_BASE}/api/referral/use/${encodeURIComponent(pendingCode)}`, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}` },
+        }).catch(() => {});
+      }
     }
 
     onCompleted?.(normalizedUsername);

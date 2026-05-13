@@ -22,6 +22,11 @@ import PersonPage from "./pages/app/PersonPage.jsx";
 import TmdbResolvePage from "./pages/app/TmdbResolvePage.jsx";
 import CookieConsentBanner from "./components/ui/CookieConsentBanner.jsx";
 import ReleasesCalendarPage from "./pages/app/ReleasesCalendarPage.jsx";
+import SubscriptionPage from "./pages/app/SubscriptionPage.jsx";
+import SettingsPage from "./pages/app/SettingsPage.jsx";
+import AdminPage from "./pages/admin/AdminPage.jsx";
+import RewardCodesPage from "./pages/admin/RewardCodesPage.jsx";
+import AdminRoute from "./components/auth/AdminRoute.jsx";
 import {
   AboutPage,
   ContactPage,
@@ -395,6 +400,33 @@ function App() {
           </PublicRoute>
         }
       />
+      <Route
+        path="/subscription"
+        element={
+          <PublicRoute session={session} needsUsernameSetup={needsUsernameSetup}>
+            <SubscriptionPage session={session} />
+          </PublicRoute>
+        }
+      />
+      <Route
+        path="/settings"
+        element={
+          <ProtectedRoute session={session} needsUsernameSetup={needsUsernameSetup}>
+            <SettingsPage session={session} />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin"
+        element={
+          <AdminRoute session={session}>
+            <AdminPage session={session} />
+          </AdminRoute>
+        }
+      >
+        <Route index element={<RewardCodesPage />} />
+        <Route path="reward-codes" element={<RewardCodesPage />} />
+      </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
     </>

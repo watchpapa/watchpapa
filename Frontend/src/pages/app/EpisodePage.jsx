@@ -11,6 +11,7 @@ import AuthPromptModal from "../../components/AuthPromptModal.jsx";
 import SkeletonDetailPage from "../../components/detail/SkeletonDetailPage.jsx";
 import { useEpisodeData } from "../../features/episode/hooks/useEpisodeData.js";
 import { useShowFollow } from "../../features/show/hooks/useShowFollow.js";
+import UpgradePromptToast from "../../components/subscription/UpgradePromptToast.jsx";
 
 const TMDB_IMG = "https://image.tmdb.org/t/p/w185";
 
@@ -51,7 +52,7 @@ function EpisodePage({ session }) {
   const { id: showId, seasonId, episodeId } = useParams();
   const [showAuthPrompt, setShowAuthPrompt] = useState(false);
   const { episode, season, show, siblings, cast, crew, isLoading, error } = useEpisodeData(episodeId, seasonId, showId);
-  const { isFollowing, toggleFollow } = useShowFollow(showId, session);
+  const { isFollowing, toggleFollow, followLimitError, clearFollowLimitError } = useShowFollow(showId, session);
   const handleFollow = session ? toggleFollow : () => setShowAuthPrompt(true);
 
   const breadcrumbs = episode && season && show ? [
@@ -76,6 +77,7 @@ function EpisodePage({ session }) {
   return (
     <AppLayout session={session} breadcrumbs={breadcrumbs}>
       {showAuthPrompt && <AuthPromptModal onClose={() => setShowAuthPrompt(false)} />}
+      {followLimitError && <UpgradePromptToast message={followLimitError} onDismiss={clearFollowLimitError} session={session} />}
       <DetailPageLayout
         title={episode.name}
         followButton={<FollowButton isFollowing={isFollowing} onToggle={handleFollow} />}

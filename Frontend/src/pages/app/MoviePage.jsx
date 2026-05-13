@@ -11,6 +11,7 @@ import CrewSection from "../../components/detail/CrewSection.jsx";
 import AuthPromptModal from "../../components/AuthPromptModal.jsx";
 import { useMovieData } from "../../features/movie/hooks/useMovieData.js";
 import InjectingBanner from "../../components/detail/InjectingBanner.jsx";
+import UpgradePromptToast from "../../components/subscription/UpgradePromptToast.jsx";
 
 function fmt(val, fallback = "—") {
   return val ?? fallback;
@@ -36,7 +37,7 @@ function fmtRuntime(val) {
 function MoviePage({ session, showAdult }) {
   const { id } = useParams();
   const [showAuthPrompt, setShowAuthPrompt] = useState(false);
-  const { movie, genres, cast, crew, isFollowing, isLoading, error, toggleFollow } = useMovieData(id, session, showAdult);
+  const { movie, genres, cast, crew, isFollowing, followLimitError, clearFollowLimitError, isLoading, error, toggleFollow } = useMovieData(id, session, showAdult);
   const handleFollow = session ? toggleFollow : () => setShowAuthPrompt(true);
 
   const breadcrumbs = movie ? [{ label: "Movies", to: "/movies" }, { label: movie.title }] : undefined;
@@ -65,6 +66,7 @@ function MoviePage({ session, showAdult }) {
   return (
     <AppLayout session={session} breadcrumbs={breadcrumbs}>
       {showAuthPrompt && <AuthPromptModal onClose={() => setShowAuthPrompt(false)} />}
+      {followLimitError && <UpgradePromptToast message={followLimitError} onDismiss={clearFollowLimitError} session={session} />}
       <div className="mb-6"><InjectingBanner type="movie" id={id} /></div>
       <DetailPageLayout
         title={movie.title}

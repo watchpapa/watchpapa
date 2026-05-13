@@ -86,6 +86,10 @@ function reducer(state, action) {
       next.has(action.id) ? next.delete(action.id) : next.add(action.id);
       return { ...state, followedShowIds: next };
     }
+    case "FOLLOW_LIMIT":
+      return { ...state, followLimitError: action.message };
+    case "CLEAR_FOLLOW_LIMIT":
+      return { ...state, followLimitError: null };
     default:
       return state;
   }
@@ -98,6 +102,7 @@ const initialState = {
   followedShowIds: new Set(),
   isLoading: true,
   error: null,
+  followLimitError: null,
   movieHasMore: true,
   showHasMore: true,
   popularDisplayCount: PAGE_SIZE,
@@ -210,7 +215,13 @@ export function useHomeData(session, showAdult = false) {
             .from("user_followed_movies")
             .insert({ profile_id: session.user.id, movie_id: movieId });
 
-      if (error) dispatch({ type: "TOGGLE_MOVIE", id: movieId });
+      if (error) {
+        if (error.message?.includes("FOLLOW_LIMIT_REACHED")) {
+          dispatch({ type: "FOLLOW_LIMIT", message: error.message.replace("FOLLOW_LIMIT_REACHED: ", "") });
+        } else {
+          dispatch({ type: "TOGGLE_MOVIE", id: movieId });
+        }
+      }
     },
     [session?.user?.id, state.followedMovieIds],
   );
@@ -232,7 +243,13 @@ export function useHomeData(session, showAdult = false) {
             .from("user_followed_shows")
             .insert({ profile_id: session.user.id, show_id: showId });
 
-      if (error) dispatch({ type: "TOGGLE_SHOW", id: showId });
+      if (error) {
+        if (error.message?.includes("FOLLOW_LIMIT_REACHED")) {
+          dispatch({ type: "FOLLOW_LIMIT", message: error.message.replace("FOLLOW_LIMIT_REACHED: ", "") });
+        } else {
+          dispatch({ type: "TOGGLE_SHOW", id: showId });
+        }
+      }
     },
     [session?.user?.id, state.followedShowIds],
   );
@@ -376,6 +393,7 @@ export function useHomeData(session, showAdult = false) {
     followedShowIds,
     isLoading,
     error,
+    followLimitError,
     movieHasMore,
     showHasMore,
     popularDisplayCount,
@@ -415,6 +433,8 @@ export function useHomeData(session, showAdult = false) {
     showItems,
     isLoading,
     error,
+    followLimitError,
+    clearFollowLimitError: () => dispatch({ type: "CLEAR_FOLLOW_LIMIT" }),
     hasMoreMovies,
     hasMoreShows,
     hasMorePopular,

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import FormField from "../../../components/ui/FormField.jsx";
 import Input from "../../../components/ui/Input.jsx";
 import Toggle from "../../../components/ui/Toggle.jsx";
@@ -93,6 +93,7 @@ function validate(state) {
 
 function RegisterForm() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { signUp, signInWithOAuth } = useAuth();
 
   const [formState, setFormState] = useState(initialState);
@@ -161,6 +162,12 @@ function RegisterForm() {
         setSubmitError(error.message ?? "Failed to create account.");
       }
       return;
+    }
+
+    // Persist referral code so CompleteUsernameForm can apply it after profile creation.
+    const refCode = searchParams.get("ref");
+    if (refCode) {
+      sessionStorage.setItem("pendingReferralCode", refCode.toUpperCase());
     }
 
     // Confirmations off: session returned immediately

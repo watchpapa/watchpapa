@@ -3,6 +3,16 @@
   to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
+@keyframes fadeSlideUp {
+  from { opacity: 0; transform: translate(-50%, 12px); }
+  to { opacity: 1; transform: translate(-50%, 0); }
+}
+
+@keyframes fadeScaleIn {
+  from { opacity: 0; transform: translate(-50%, -50%) scale(0.94); }
+  to   { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+}
+
 :root {
   --text: #6b6375;
   --text-h: #08060d;

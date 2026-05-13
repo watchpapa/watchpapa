@@ -13,6 +13,10 @@ function reducer(state, action) {
       return { ...state, isLoading: false, error: action.error };
     case "TOGGLE_FOLLOW":
       return { ...state, isFollowing: !state.isFollowing };
+    case "FOLLOW_LIMIT":
+      return { ...state, isFollowing: false, followLimitError: action.message };
+    case "CLEAR_FOLLOW_LIMIT":
+      return { ...state, followLimitError: null };
     default:
       return state;
   }
@@ -24,6 +28,7 @@ const initialState = {
   cast: [],
   crew: [],
   isFollowing: false,
+  followLimitError: null,
   isLoading: true,
   error: null,
 };
@@ -99,8 +104,18 @@ export function useMovieData(rawMovieId, session, showAdult = false) {
           .from("user_followed_movies")
           .insert({ profile_id: session.user.id, movie_id: movieId });
 
-    if (error) dispatch({ type: "TOGGLE_FOLLOW" });
+    if (error) {
+      if (error.message?.includes("FOLLOW_LIMIT_REACHED")) {
+        dispatch({ type: "FOLLOW_LIMIT", message: error.message.replace("FOLLOW_LIMIT_REACHED: ", "") });
+      } else {
+        dispatch({ type: "TOGGLE_FOLLOW" });
+      }
+    }
   }, [movieId, session?.user?.id, state.isFollowing]);
 
-  return { ...state, toggleFollow };
+  return {
+    ...state,
+    toggleFollow,
+    clearFollowLimitError: () => dispatch({ type: "CLEAR_FOLLOW_LIMIT" }),
+  };
 }
