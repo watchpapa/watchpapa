@@ -40,6 +40,9 @@ function MediaCard({ id, type, title, posterPath, isFollowing = false, onFollowT
       {showAuthPrompt && <AuthPromptModal onClose={() => setShowAuthPrompt(false)} />}
 
       <Link to={to} className="relative overflow-hidden rounded-2xl border border-[#2a3570] bg-[#12163a] aspect-[2/3] block">
+        <span className="absolute top-2 left-2 z-10 rounded px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-widest" style={{ background: "rgba(10,12,35,0.82)", color: type === "movie" ? "#e8c04a" : "#7eb8f7" }}>
+          {type === "movie" ? "Movie" : "Show"}
+        </span>
         {imgSrc ? (
           <img
             src={imgSrc}
