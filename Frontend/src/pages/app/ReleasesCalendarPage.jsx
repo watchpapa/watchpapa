@@ -3,7 +3,17 @@ import { Link } from "react-router-dom";
 
 const TMDB_IMG = "https://image.tmdb.org/t/p/w92";
 import AppLayout from "../../layouts/AppLayout.jsx";
+import ManageFollowsModal from "../../features/calendar/components/ManageFollowsModal.jsx";
 import { useCalendarData } from "../../features/calendar/hooks/useCalendarData.js";
+import { useSubscription } from "../../features/subscription/hooks/useSubscription.js";
+
+const TIER_LIMITS = {
+  free:     { type: "separate", shows: 3, movies: 1 },
+  premium:  { type: "combined", total: 10 },
+  pro:      { type: "separate", shows: 100, movies: 100 },
+  pro_plus: { type: "separate", shows: 100, movies: 100 },
+  god:      { type: "unlimited" },
+};
 
 const MONTH_NAMES = ["January", "February", "March", "April", "May", "June",
   "July", "August", "September", "October", "November", "December"];
@@ -150,70 +160,144 @@ function SidebarSection({ label, items, renderItem }) {
   );
 }
 
-function FollowedSidebar({ shows, movies, unfollowShow, unfollowMovie }) {
+function FollowCounter({ showCount, movieCount, tier }) {
+  const limits = TIER_LIMITS[tier] ?? TIER_LIMITS.free;
+  if (limits.type === "unlimited") return null;
+
+  if (limits.type === "combined") {
+    const used = showCount + movieCount;
+    const total = limits.total;
+    const pct = Math.min(100, Math.round((used / total) * 100));
+    const nearLimit = used >= total * 0.8;
+    return (
+      <div className="mb-4 space-y-1.5">
+        <div className="flex items-center justify-between text-[11px]">
+          <span className="text-[#5a5a78]">Combined follows</span>
+          <span className={`font-bold tabular-nums ${nearLimit ? "text-amber-400" : "text-[#8383e7]"}`}>
+            {used}<span className="font-normal text-[#3a3a6a]">/{total}</span>
+          </span>
+        </div>
+        <div className="h-1 w-full overflow-hidden rounded-full bg-[#1a1f3a]">
+          <div
+            className={`h-full rounded-full transition-all ${nearLimit ? "bg-amber-500" : "bg-[#6868b8]"}`}
+            style={{ width: `${pct}%` }}
+          />
+        </div>
+      </div>
+    );
+  }
+
+  const showPct = Math.min(100, Math.round((showCount / limits.shows) * 100));
+  const moviePct = Math.min(100, Math.round((movieCount / limits.movies) * 100));
+  const showNear = showCount >= limits.shows * 0.8;
+  const movieNear = movieCount >= limits.movies * 0.8;
+
+  return (
+    <div className="mb-4 space-y-2">
+      <div className="space-y-1">
+        <div className="flex items-center justify-between text-[11px]">
+          <span className="text-[#5a5a78]">Shows</span>
+          <span className={`font-bold tabular-nums ${showNear ? "text-amber-400" : "text-[#8383e7]"}`}>
+            {showCount}<span className="font-normal text-[#3a3a6a]">/{limits.shows}</span>
+          </span>
+        </div>
+        <div className="h-1 w-full overflow-hidden rounded-full bg-[#1a1f3a]">
+          <div className={`h-full rounded-full transition-all ${showNear ? "bg-amber-500" : "bg-[#6868b8]"}`} style={{ width: `${showPct}%` }} />
+        </div>
+      </div>
+      <div className="space-y-1">
+        <div className="flex items-center justify-between text-[11px]">
+          <span className="text-[#5a5a78]">Movies</span>
+          <span className={`font-bold tabular-nums ${movieNear ? "text-amber-400" : "text-[#e0c0e8]"}`}>
+            {movieCount}<span className="font-normal text-[#3a3a6a]">/{limits.movies}</span>
+          </span>
+        </div>
+        <div className="h-1 w-full overflow-hidden rounded-full bg-[#1a1f3a]">
+          <div className={`h-full rounded-full transition-all ${movieNear ? "bg-amber-500" : "bg-[#9060a0]"}`} style={{ width: `${moviePct}%` }} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function FollowedSidebar({ shows, movies, unfollowShow, unfollowMovie, tier, onManageClick }) {
   const empty = shows.length === 0 && movies.length === 0;
   return (
     <aside className="order-2 w-full md:order-1 md:w-[230px] md:flex-shrink-0 lg:w-[250px]">
-      <div className="rounded-2xl border border-[#1a1f3a] bg-[#141728] p-4">
-        <h2 className="mb-4 text-sm font-extrabold text-[#8383e7]">Followed</h2>
+      <div className="flex flex-col rounded-2xl border border-[#1a1f3a] bg-[#141728] p-4">
+        <h2 className="mb-3 shrink-0 text-sm font-extrabold text-[#8383e7]">Followed</h2>
+        <div className="shrink-0">
+          <FollowCounter showCount={shows.length} movieCount={movies.length} tier={tier} />
+        </div>
+        <button
+          type="button"
+          onClick={onManageClick}
+          className="mt-3 w-full rounded-xl border border-[#3a3a7a] bg-[#1a1d35] py-2 text-xs font-bold text-[#a0a0e8] transition hover:border-[#6060b0] hover:text-white"
+        >
+          Manage follows…
+        </button>
         {empty ? (
-          <p className="text-xs text-[#4a4a7a]">Nothing followed yet.</p>
+          <p className="mt-3 text-xs text-[#4a4a7a]">Nothing followed yet.</p>
         ) : (
-          <div className="space-y-4">
-            <SidebarSection
-              label="Shows"
-              items={shows}
-              renderItem={(show) => (
-                <li key={show.id} className="flex items-center gap-2 text-xs">
-                  <Link to={`/shows/${show.id}`} className="flex items-center gap-2 min-w-0 flex-1 transition hover:opacity-80">
-                    <div className="h-10 w-7 flex-shrink-0 overflow-hidden rounded border border-[#2a3570] bg-[#12163a]">
-                      {show.poster_path ? (
-                        <img src={`${TMDB_IMG}${show.poster_path}`} alt={show.name} className="h-full w-full object-cover" loading="lazy" />
-                      ) : (
-                        <div className="flex h-full w-full items-center justify-center text-[#3a3a7a]">
-                          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="2" y="6" width="20" height="14" rx="2" /></svg>
-                        </div>
-                      )}
-                    </div>
-                    <span className="truncate font-semibold text-[#c0c0e8]">{show.name}</span>
-                  </Link>
-                  <button
-                    onClick={() => unfollowShow(show.id)}
-                    className="flex-shrink-0 rounded-full border border-[#3a3a7a] bg-[#1a1d35] p-1 text-[#6868b8] transition hover:border-red-400 hover:text-red-300"
-                    title="Unfollow"
-                  >
-                    <MinusIcon />
-                  </button>
-                </li>
-              )}
-            />
-            <SidebarSection
-              label="Movies"
-              items={movies}
-              renderItem={(movie) => (
-                <li key={movie.id} className="flex items-center gap-2 text-xs">
-                  <Link to={`/movies/${movie.id}`} className="flex items-center gap-2 min-w-0 flex-1 transition hover:opacity-80">
-                    <div className="h-10 w-7 flex-shrink-0 overflow-hidden rounded border border-[#2a3570] bg-[#12163a]">
-                      {movie.poster_path ? (
-                        <img src={`${TMDB_IMG}${movie.poster_path}`} alt={movie.title} className="h-full w-full object-cover" loading="lazy" />
-                      ) : (
-                        <div className="flex h-full w-full items-center justify-center text-[#3a3a7a]">
-                          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="2" y="6" width="20" height="14" rx="2" /></svg>
-                        </div>
-                      )}
-                    </div>
-                    <span className="truncate font-semibold text-[#e0c0e8]">{movie.title}</span>
-                  </Link>
-                  <button
-                    onClick={() => unfollowMovie(movie.id)}
-                    className="flex-shrink-0 rounded-full border border-[#3a3a7a] bg-[#1a1d35] p-1 text-[#6868b8] transition hover:border-red-400 hover:text-red-300"
-                    title="Unfollow"
-                  >
-                    <MinusIcon />
-                  </button>
-                </li>
-              )}
-            />
+          <div className="mt-3 max-h-[min(70dvh,32rem)] min-h-0 overflow-y-auto overscroll-y-contain pr-1 md:max-h-[min(78dvh,36rem)]">
+            <div className="space-y-4">
+              <SidebarSection
+                label="Shows"
+                items={shows}
+                renderItem={(show) => (
+                  <li key={show.id} className="flex items-center gap-2 text-xs">
+                    <Link to={`/shows/${show.id}`} className="flex min-w-0 flex-1 items-center gap-2 transition hover:opacity-80">
+                      <div className="h-10 w-7 flex-shrink-0 overflow-hidden rounded border border-[#2a3570] bg-[#12163a]">
+                        {show.poster_path ? (
+                          <img src={`${TMDB_IMG}${show.poster_path}`} alt={show.name} className="h-full w-full object-cover" loading="lazy" />
+                        ) : (
+                          <div className="flex h-full w-full items-center justify-center text-[#3a3a7a]">
+                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="2" y="6" width="20" height="14" rx="2" /></svg>
+                          </div>
+                        )}
+                      </div>
+                      <span className="truncate font-semibold text-[#c0c0e8]">{show.name}</span>
+                    </Link>
+                    <button
+                      type="button"
+                      onClick={() => unfollowShow(show.id)}
+                      className="flex-shrink-0 rounded-full border border-[#3a3a7a] bg-[#1a1d35] p-1 text-[#6868b8] transition hover:border-red-400 hover:text-red-300"
+                      title="Unfollow"
+                    >
+                      <MinusIcon />
+                    </button>
+                  </li>
+                )}
+              />
+              <SidebarSection
+                label="Movies"
+                items={movies}
+                renderItem={(movie) => (
+                  <li key={movie.id} className="flex items-center gap-2 text-xs">
+                    <Link to={`/movies/${movie.id}`} className="flex min-w-0 flex-1 items-center gap-2 transition hover:opacity-80">
+                      <div className="h-10 w-7 flex-shrink-0 overflow-hidden rounded border border-[#2a3570] bg-[#12163a]">
+                        {movie.poster_path ? (
+                          <img src={`${TMDB_IMG}${movie.poster_path}`} alt={movie.title} className="h-full w-full object-cover" loading="lazy" />
+                        ) : (
+                          <div className="flex h-full w-full items-center justify-center text-[#3a3a7a]">
+                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="2" y="6" width="20" height="14" rx="2" /></svg>
+                          </div>
+                        )}
+                      </div>
+                      <span className="truncate font-semibold text-[#e0c0e8]">{movie.title}</span>
+                    </Link>
+                    <button
+                      type="button"
+                      onClick={() => unfollowMovie(movie.id)}
+                      className="flex-shrink-0 rounded-full border border-[#3a3a7a] bg-[#1a1d35] p-1 text-[#6868b8] transition hover:border-red-400 hover:text-red-300"
+                      title="Unfollow"
+                    >
+                      <MinusIcon />
+                    </button>
+                  </li>
+                )}
+              />
+            </div>
           </div>
         )}
       </div>
@@ -225,8 +309,10 @@ function ReleasesCalendarPage({ session }) {
   const now = new Date();
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth() + 1);
+  const [manageFollowsOpen, setManageFollowsOpen] = useState(false);
 
   const { visibleShows, visibleMovies, calendarEntries, isLoading, unfollowShow, unfollowMovie } = useCalendarData(session, year, month);
+  const { tier } = useSubscription(session);
 
   const isCurrentMonth = year === now.getFullYear() && month === now.getMonth() + 1;
 
@@ -280,16 +366,28 @@ function ReleasesCalendarPage({ session }) {
 
   return (
     <AppLayout session={session}>
-      <div className="mx-auto flex w-full max-w-[1400px] flex-col gap-5 md:flex-row md:items-start">
-        {/* Followed sidebar — left column on md+, below on mobile */}
-        <FollowedSidebar
+      {manageFollowsOpen && (
+        <ManageFollowsModal
+          open={manageFollowsOpen}
+          onClose={() => setManageFollowsOpen(false)}
           shows={visibleShows}
           movies={visibleMovies}
           unfollowShow={unfollowShow}
           unfollowMovie={unfollowMovie}
         />
+      )}
+      <div className="mx-auto flex w-full max-w-[1400px] flex-col gap-5 md:flex-row md:items-start">
+        {/* Followed sidebar — left column on md+, below on mobile; list scrolls inside card */}
+        <FollowedSidebar
+          shows={visibleShows}
+          movies={visibleMovies}
+          unfollowShow={unfollowShow}
+          unfollowMovie={unfollowMovie}
+          tier={tier}
+          onManageClick={() => setManageFollowsOpen(true)}
+        />
 
-        {/* Calendar main */}
+        {/* Calendar main — page scroll height follows calendar (columns align to start) */}
         <div className="order-1 min-w-0 flex-1 rounded-2xl border border-[#1a1f3a] bg-[#141728] p-3 sm:p-4 md:order-2 md:p-5">
           {monthNav}
 
