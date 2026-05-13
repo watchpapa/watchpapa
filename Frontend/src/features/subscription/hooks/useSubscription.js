@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { supabase } from "../../../lib/supabase.js";
 
 const TIER_LABELS = {
@@ -17,6 +17,13 @@ const TIER_LIMITS = {
   god:     { shows: null, movies: null, combined: null },
 };
 
+function deriveTier(sub) {
+  if (!sub) return "free";
+  if (sub.tier === "god") return "god";
+  if (!sub.expires_at || new Date(sub.expires_at) > new Date()) return sub.tier;
+  return sub.is_early_adopter ? "premium" : "free";
+}
+
 export function useSubscription(session) {
   const [data, setData] = useState({
     tier: "free",
@@ -29,46 +36,69 @@ export function useSubscription(session) {
     isLoading: true,
   });
 
+  const uid = session?.user?.id ?? null;
+  const mountedRef = useRef(true);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => { mountedRef.current = false; };
+  }, []);
+
   const load = useCallback(async () => {
-    if (!session?.user?.id) {
+    if (!uid) {
       setData((d) => ({ ...d, isLoading: false }));
       return;
     }
 
-    const uid = session.user.id;
-
-    const [profileRes, subRes, referralRes, tierRes] = await Promise.all([
-      supabase.from("profile").select("referral_code").eq("id", uid).maybeSingle(),
-      supabase.from("user_subscriptions")
+    // Fetch subscription data first — it's the most important for tier display.
+    let sub = null;
+    try {
+      const { data: subData, error: subErr } = await supabase
+        .from("user_subscriptions")
         .select("tier, expires_at, is_early_adopter")
         .eq("profile_id", uid)
-        .maybeSingle(),
-      supabase.from("referrals")
-        .select("login_day_count")
-        .eq("referred_id", uid)
-        .eq("status", "pending")
-        .maybeSingle(),
-      supabase.rpc("get_effective_tier", { p_profile_id: uid }),
-    ]);
+        .maybeSingle();
+      if (!subErr) sub = subData;
+    } catch (_) {}
 
-    const tier = tierRes.data ?? "free";
+    const tier = deriveTier(sub);
 
-    setData({
-      tier,
-      tierLabel: TIER_LABELS[tier] ?? tier,
-      limits: TIER_LIMITS[tier] ?? TIER_LIMITS.free,
-      referralCode: profileRes.data?.referral_code ?? null,
-      isEarlyAdopter: subRes.data?.is_early_adopter ?? false,
-      expiresAt: subRes.data?.expires_at ?? null,
-      loginDayCount: referralRes.data?.login_day_count ?? 0,
-      isLoading: false,
-    });
-
-    // Fire record_login_day once per session load — safe to call on every load.
-    if (referralRes.data) {
-      supabase.rpc("record_login_day", { p_profile_id: uid }).then(() => {});
+    if (mountedRef.current) {
+      setData((d) => ({
+        ...d,
+        tier,
+        tierLabel: TIER_LABELS[tier] ?? tier,
+        limits: TIER_LIMITS[tier] ?? TIER_LIMITS.free,
+        isEarlyAdopter: sub?.is_early_adopter ?? false,
+        expiresAt: sub?.expires_at ?? null,
+        isLoading: false,
+      }));
     }
-  }, [session?.user?.id]);
+
+    // Load referral code and login tracking separately — don't block tier display.
+    try {
+      const [profileRes, referralRes] = await Promise.all([
+        supabase.from("profile").select("referral_code").eq("id", uid).maybeSingle(),
+        supabase.from("referrals")
+          .select("login_day_count")
+          .eq("referred_id", uid)
+          .eq("status", "pending")
+          .maybeSingle(),
+      ]);
+
+      if (mountedRef.current) {
+        setData((d) => ({
+          ...d,
+          referralCode: profileRes.data?.referral_code ?? d.referralCode,
+          loginDayCount: referralRes.data?.login_day_count ?? d.loginDayCount,
+        }));
+      }
+
+      if (referralRes.data) {
+        supabase.rpc("record_login_day", { p_profile_id: uid }).then(() => {});
+      }
+    } catch (_) {}
+  }, [uid]);
 
   useEffect(() => {
     load();
