@@ -16,7 +16,7 @@ DECLARE
 BEGIN
   LOOP
     v_code := upper(
-      translate(encode(gen_random_bytes(6), 'base64'), '+/=', '')
+      translate(encode(extensions.gen_random_bytes(6), 'base64'), '+/=', '')
     );
     v_code := substring(v_code FROM 1 FOR 8);
     EXIT WHEN NOT EXISTS (
@@ -90,7 +90,7 @@ BEGIN
     v_attempt := 0;
     LOOP
       v_code := upper(
-        translate(encode(gen_random_bytes(6), 'base64'), '+/=', '')
+        translate(encode(extensions.gen_random_bytes(6), 'base64'), '+/=', '')
       );
       v_code := substring(v_code FROM 1 FOR 8);
       EXIT WHEN NOT EXISTS (
