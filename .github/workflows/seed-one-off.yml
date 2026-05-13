@@ -49,7 +49,7 @@ concurrency:
 
 jobs:
   seed:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     env:
       DATABASE_URL: ${{ secrets.DATABASE_URL }}
       TMDB_API_KEY_SECRET: ${{ secrets.TMDB_API_KEY_SECRET }}
