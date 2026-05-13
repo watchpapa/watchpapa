@@ -4,6 +4,7 @@ import FormField from "../../../components/ui/FormField.jsx";
 import Input from "../../../components/ui/Input.jsx";
 import Toggle from "../../../components/ui/Toggle.jsx";
 import { useAuth } from "../hooks/useAuth.js";
+import { normalizeDateInput } from "../../../lib/validate.js";
 
 const initialState = {
   email: "",
@@ -107,7 +108,8 @@ function RegisterForm() {
     formState.repeatPassword === formState.password;
 
   const onChangeField = (fieldName) => (event) => {
-    const nextValue = event.target.value;
+    const raw = event.target.value;
+    const nextValue = fieldName === "dateOfBirth" ? normalizeDateInput(raw) : raw;
     setFormState((current) => {
       const nextState = {
         ...current,

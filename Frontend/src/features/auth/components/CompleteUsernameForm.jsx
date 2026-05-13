@@ -4,7 +4,7 @@ import FormField from "../../../components/ui/FormField.jsx";
 import Input from "../../../components/ui/Input.jsx";
 import Toggle from "../../../components/ui/Toggle.jsx";
 import { supabase } from "../../../lib/supabase.js";
-import { validateUsername } from "../../../lib/validate.js";
+import { validateUsername, normalizeDateInput } from "../../../lib/validate.js";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "";
 
@@ -36,7 +36,7 @@ function CompleteUsernameForm({ userId, initialUsername = "", onCompleted }) {
   const adult = isAdult(dateOfBirth);
 
   const onChangeDateOfBirth = (event) => {
-    const next = event.target.value;
+    const next = normalizeDateInput(event.target.value);
     setDateOfBirth(next);
     if (!isAdult(next)) setShowAdultContent(false);
   };
