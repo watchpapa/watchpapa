@@ -25,6 +25,7 @@ function MediaRow({ title, items, session, onLoadMore, hasMore = false, isLoadin
   const scrollRef = useRef(null);
   const loadMoreTimerRef = useRef(null);
   const loadMoreTriggeredRef = useRef(false);
+  const prevItemCountRef = useRef(items.length);
   const [showLeftArrow, setShowLeftArrow] = useState(false);
   const [showRightArrow, setShowRightArrow] = useState(true);
 
@@ -63,6 +64,21 @@ function MediaRow({ title, items, session, onLoadMore, hasMore = false, isLoadin
     ro.observe(el);
     return () => ro.disconnect();
   }, [updateArrowVisibility]);
+
+  useLayoutEffect(() => {
+    const prev = prevItemCountRef.current;
+    prevItemCountRef.current = items.length;
+    if (items.length > prev && prev > 0) {
+      const el = scrollRef.current;
+      if (!el) return;
+      // Scroll to just inside SCROLL_EDGE of the new right end so the next
+      // button press immediately detects atEnd and triggers load more.
+      const target = el.scrollWidth - el.clientWidth - SCROLL_EDGE + 1;
+      if (target > el.scrollLeft) {
+        el.scrollTo({ left: target, behavior: "smooth" });
+      }
+    }
+  }, [items.length]);
 
   const clearLoadMoreDebounce = () => {
     if (loadMoreTimerRef.current != null) {
@@ -119,8 +135,7 @@ function MediaRow({ title, items, session, onLoadMore, hasMore = false, isLoadin
   const scrollRight = () => {
     const el = scrollRef.current;
     if (!el) return;
-    const atEnd =
-      el.scrollLeft + el.clientWidth >= el.scrollWidth - SCROLL_EDGE;
+    const atEnd = el.scrollLeft + el.clientWidth >= el.scrollWidth - SCROLL_EDGE;
     if (atEnd && hasMore && onLoadMore) {
       onLoadMore();
       return;
