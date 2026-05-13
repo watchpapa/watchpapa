@@ -53,19 +53,23 @@ export function useCalendarData(session, year, month) {
         const [fsRes, fmRes] = await Promise.all([
           supabase
             .from("user_followed_shows")
-            .select("show_id, show(id, name, poster_path)")
+            .select("show_id, created_at, show(id, name, poster_path, first_air_date, last_air_date)")
             .eq("profile_id", profileId),
           supabase
             .from("user_followed_movies")
-            .select("movie_id, movie(id, title, poster_path, release_date)")
+            .select("movie_id, created_at, movie(id, title, poster_path, release_date)")
             .eq("profile_id", profileId),
         ]);
 
         if (fsRes.error) throw fsRes.error;
         if (fmRes.error) throw fmRes.error;
 
-        const followedShows = (fsRes.data ?? []).map((r) => r.show).filter(Boolean);
-        const followedMovies = (fmRes.data ?? []).map((r) => r.movie).filter(Boolean);
+        const followedShows = (fsRes.data ?? [])
+          .map((r) => (r.show ? { ...r.show, followed_at: r.created_at } : null))
+          .filter(Boolean);
+        const followedMovies = (fmRes.data ?? [])
+          .map((r) => (r.movie ? { ...r.movie, followed_at: r.created_at } : null))
+          .filter(Boolean);
         const followedShowIds = new Set(followedShows.map((s) => s.id));
         const followedMovieIds = new Set(followedMovies.map((m) => m.id));
 
