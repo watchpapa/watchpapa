@@ -9,9 +9,9 @@ function DetailPageLayout({ title, followButton, sidebarTop, sidebarBottom, chil
         {followButton && <div className="flex-shrink-0">{followButton}</div>}
       </div>
 
-      {/* Mobile compact: small poster + key info side by side (hidden on lg+) */}
+      {/* Mobile compact: small poster + key info stay pinned under navbar while scrolling panels below */}
       {hasSidebar && (
-        <div className="mb-4 flex gap-3 lg:hidden">
+        <div className="sticky top-14 z-10 mb-4 flex gap-3 border-b border-[#1a1f3a] bg-[#111320] py-3 lg:hidden">
           {sidebarTop && (
             <div className="w-[80px] flex-shrink-0 sm:w-[100px]">
               {sidebarTop}
@@ -27,14 +27,16 @@ function DetailPageLayout({ title, followButton, sidebarTop, sidebarBottom, chil
 
       {/* Main layout */}
       <div className="flex gap-6">
-        {/* Desktop sidebar (lg+) */}
-        <aside className="hidden w-[220px] flex-shrink-0 flex-col gap-4 lg:flex">
-          {sidebarTop}
-          {sidebarBottom && (
-            <div className="rounded-2xl border border-[#1a1f3a] bg-[#0d0f1e] p-4">
-              {sidebarBottom}
-            </div>
-          )}
+        {/* Desktop sidebar (lg+): poster + summary stick while main column scrolls */}
+        <aside className="hidden w-[220px] flex-shrink-0 lg:block">
+          <div className="sticky top-16 flex flex-col gap-4">
+            {sidebarTop}
+            {sidebarBottom && (
+              <div className="rounded-2xl border border-[#1a1f3a] bg-[#0d0f1e] p-4">
+                {sidebarBottom}
+              </div>
+            )}
+          </div>
         </aside>
 
         <div className="min-w-0 flex-1 space-y-4">
