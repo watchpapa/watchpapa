@@ -2,8 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { supabase } from "../../lib/supabase.js";
 
-const POLL_INTERVAL_MS = 15_000;
-const MAX_POLLS = 60; // 5 minutes
+const POLL_INTERVAL_MS = 5_000;
+const MAX_POLLS = 180; // 5 minutes
 
 async function isInjectionDone(type, id) {
   if (type === "movie") {
