@@ -223,8 +223,8 @@ function FollowCounter({ showCount, movieCount, tier }) {
 function FollowedSidebar({ shows, movies, unfollowShow, unfollowMovie, tier, onManageClick }) {
   const empty = shows.length === 0 && movies.length === 0;
   return (
-    <aside className="order-2 w-full md:order-1 md:w-[230px] md:flex-shrink-0 lg:w-[250px]">
-      <div className="flex flex-col rounded-2xl border border-[#1a1f3a] bg-[#141728] p-4">
+    <aside className="order-2 flex w-full flex-col md:order-1 md:w-[230px] md:flex-shrink-0 lg:w-[250px]">
+      <div className="flex h-full flex-col rounded-2xl border border-[#1a1f3a] bg-[#141728] p-4">
         <h2 className="mb-3 shrink-0 text-sm font-extrabold text-[#8383e7]">Followed</h2>
         <div className="shrink-0">
           <FollowCounter showCount={shows.length} movieCount={movies.length} tier={tier} />
@@ -239,7 +239,7 @@ function FollowedSidebar({ shows, movies, unfollowShow, unfollowMovie, tier, onM
         {empty ? (
           <p className="mt-3 text-xs text-[#4a4a7a]">Nothing followed yet.</p>
         ) : (
-          <div className="mt-3 max-h-[min(70dvh,32rem)] min-h-0 overflow-y-auto overscroll-y-contain pr-1 md:max-h-[min(78dvh,36rem)]">
+          <div className="mt-3 min-h-0 flex-1 overflow-y-auto overscroll-y-contain pr-1">
             <div className="space-y-4">
               <SidebarSection
                 label="Shows"
@@ -376,7 +376,7 @@ function ReleasesCalendarPage({ session }) {
           unfollowMovie={unfollowMovie}
         />
       )}
-      <div className="mx-auto flex w-full max-w-[1400px] flex-col gap-5 md:flex-row md:items-start">
+      <div className="mx-auto flex w-full max-w-[1400px] flex-col gap-5 md:flex-row md:items-stretch">
         {/* Followed sidebar — left column on md+, below on mobile; list scrolls inside card */}
         <FollowedSidebar
           shows={visibleShows}
