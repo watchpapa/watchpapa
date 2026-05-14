@@ -6,6 +6,7 @@ import { fileURLToPath } from "url";
 import helmet from "helmet";
 import rateLimit, { ipKeyGenerator } from "express-rate-limit";
 import searchRouter from "./Backend/src/routes/search.js";
+import postersRouter from "./Backend/src/routes/posters.js";
 import injectRouter from "./Backend/src/routes/inject.js";
 import resolveRouter from "./Backend/src/routes/resolve.js";
 import referralRouter from "./Backend/src/routes/referral.js";
@@ -78,6 +79,8 @@ const perUserMutationLimiter = rateLimit({
 
 app.use(globalLimiter);
 
+// Public poster paths for the auth page background.
+app.use("/api/posters", postersRouter);
 // Handle read search requests that query local database content.
 app.use("/api/search", searchRouter);
 // Handle authenticated inject requests that write database records.
