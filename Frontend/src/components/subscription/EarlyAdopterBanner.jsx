@@ -2,7 +2,8 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { supabase } from "../../lib/supabase.js";
 
-const STORAGE_KEY = "watchpapa:ea_banner_dismissed";
+const BANNER_KEY = "early_adopter";
+const STORAGE_KEY = `watchpapa:banner_dismissed:${BANNER_KEY}`;
 
 function StarIcon() {
   return (
@@ -17,21 +18,35 @@ function EarlyAdopterBanner({ session }) {
 
   useEffect(() => {
     if (!session?.user?.id) return;
+    // Local cache: skip the DB round-trip if already dismissed on this device.
     if (localStorage.getItem(STORAGE_KEY)) return;
 
-    supabase
-      .from("user_subscriptions")
-      .select("is_early_adopter")
-      .eq("profile_id", session.user.id)
-      .maybeSingle()
-      .then(({ data }) => {
-        if (data?.is_early_adopter) setVisible(true);
-      });
+    Promise.all([
+      supabase
+        .from("user_subscriptions")
+        .select("is_early_adopter")
+        .eq("profile_id", session.user.id)
+        .maybeSingle(),
+      supabase
+        .from("user_banner_dismissals")
+        .select("banner_key")
+        .eq("profile_id", session.user.id)
+        .eq("banner_key", BANNER_KEY)
+        .maybeSingle(),
+    ]).then(([{ data: sub }, { data: dismissal }]) => {
+      if (dismissal) {
+        // Sync local cache so future loads on this device skip the query.
+        localStorage.setItem(STORAGE_KEY, "1");
+      } else if (sub?.is_early_adopter) {
+        setVisible(true);
+      }
+    });
   }, [session?.user?.id]);
 
   const dismiss = () => {
     localStorage.setItem(STORAGE_KEY, "1");
     setVisible(false);
+    supabase.rpc("dismiss_banner", { p_banner_key: BANNER_KEY }).then(() => {});
   };
 
   if (!visible) return null;
