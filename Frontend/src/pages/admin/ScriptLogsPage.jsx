@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { useScriptLogs } from "../../features/admin/hooks/useScriptLogs.js";
 
 const STATUS_COLORS = {
@@ -22,6 +22,70 @@ function fmt(seconds) {
   return `${(seconds / 60).toFixed(1)}m`;
 }
 
+function Field({ label, value, mono, danger }) {
+  if (value == null || value === "") return null;
+  return (
+    <div>
+      <p className="mb-1 text-[10px] uppercase tracking-wider text-[#4a4a8a]">{label}</p>
+      <p className={`text-sm break-all ${mono ? "font-mono" : ""} ${danger ? "text-rose-400" : "text-[#c0c0e0]"}`}>
+        {value}
+      </p>
+    </div>
+  );
+}
+
+function DetailModal({ log, onClose }) {
+  useEffect(() => {
+    function onKey(e) { if (e.key === "Escape") onClose(); }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-2xl rounded-2xl border border-[#2a3570] bg-[#0e1128] p-6 shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="mb-5 flex items-start justify-between gap-3">
+          <div>
+            <p className="text-base font-semibold text-white">{log.script_name}</p>
+            <div className="mt-1.5 flex items-center gap-2">
+              <StatusBadge status={log.status} />
+              <span className="text-xs text-[#5a5a78]">{new Date(log.started_at).toLocaleString()}</span>
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            className="shrink-0 rounded-lg p-1 text-[#4a4a8a] transition hover:bg-[#1a1f3a] hover:text-white"
+          >
+            ✕
+          </button>
+        </div>
+
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <Field label="Batch Size" value={log.batch_size != null ? String(log.batch_size) : null} />
+            <Field label="Runtime"    value={fmt(log.runtime)} />
+            <Field label="Started"    value={log.started_at ? new Date(log.started_at).toLocaleString() : null} />
+            <Field label="Finished"   value={log.finished_at ? new Date(log.finished_at).toLocaleString() : null} />
+          </div>
+
+          {(log.error_code || log.error_detail) && (
+            <div className="rounded-xl border border-rose-800/40 bg-rose-900/10 p-4 space-y-3">
+              <Field label="Error Code"   value={log.error_code}   mono danger />
+              <Field label="Error Detail" value={log.error_detail} mono danger />
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function ScriptLogsPage() {
   const { logs, total, scriptNames, loading, error, fetch } = useScriptLogs();
   const [page, setPage] = useState(1);
@@ -29,6 +93,7 @@ function ScriptLogsPage() {
 
   const [filters, setFilters] = useState({ script: "", status: "" });
   const [applied, setApplied] = useState({ script: "", status: "" });
+  const [selected, setSelected] = useState(null);
 
   useEffect(() => { fetch({ page: 1, limit }); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -48,9 +113,11 @@ function ScriptLogsPage() {
 
   return (
     <div>
+      {selected && <DetailModal log={selected} onClose={() => setSelected(null)} />}
+
       <div className="mb-6">
         <h1 className="text-lg font-semibold text-white">Script Logs</h1>
-        <p className="mt-0.5 text-xs text-[#6868b8]">TMDB ingestion and maintenance script run history</p>
+        <p className="mt-0.5 text-xs text-[#6868b8]">TMDB ingestion and maintenance script run history · click a row for details</p>
       </div>
 
       <form onSubmit={handleSearch} className="mb-5 flex flex-wrap gap-2">
@@ -124,7 +191,11 @@ function ScriptLogsPage() {
               </tr>
             ) : (
               logs.map((log) => (
-                <tr key={log.id} className="border-b border-[#1a1f3a] last:border-0 hover:bg-[#111530]">
+                <tr
+                  key={log.id}
+                  onClick={() => setSelected(log)}
+                  className="cursor-pointer border-b border-[#1a1f3a] last:border-0 hover:bg-[#111530]"
+                >
                   <td className="px-4 py-2.5 text-xs tabular-nums text-[#6868b8] whitespace-nowrap">
                     {new Date(log.started_at).toLocaleString()}
                   </td>
@@ -140,10 +211,8 @@ function ScriptLogsPage() {
                   <td className="px-4 py-2.5 text-xs tabular-nums text-[#6868b8]">
                     {fmt(log.runtime)}
                   </td>
-                  <td className="px-4 py-2.5 text-xs text-rose-400 max-w-[200px] truncate" title={log.error_detail ?? ""}>
-                    {log.error_code
-                      ? `${log.error_code}${log.error_detail ? ": " + log.error_detail : ""}`
-                      : "—"}
+                  <td className="px-4 py-2.5 text-xs text-rose-400 max-w-[200px] truncate">
+                    {log.error_code ?? "—"}
                   </td>
                 </tr>
               ))
