@@ -63,28 +63,27 @@ function SettingsPage({ session }) {
   // Adult toggle
   const [adultBusy, setAdultBusy] = useState(false);
 
-  // Referral
-  const [referralInput, setReferralInput] = useState("");
-  const [referralError, setReferralError] = useState(null);
-  const [referralSaving, setReferralSaving] = useState(false);
-  const [referralSuccess, setReferralSuccess] = useState(false);
-
   // Reward
   const [rewardInput, setRewardInput] = useState("");
   const [rewardError, setRewardError] = useState(null);
   const [rewardSaving, setRewardSaving] = useState(false);
   const [rewardSuccess, setRewardSuccess] = useState(null);
 
+  // Copy referral
+  const [copiedCode, setCopiedCode] = useState(false);
+  const [copiedLink, setCopiedLink] = useState(false);
+
   // Delete
   const [deleteConfirm, setDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState(null);
+  const [showDeletedModal, setShowDeletedModal] = useState(false);
 
   const load = useCallback(async () => {
     if (!uid) return;
     setLoading(true);
     const [profileRes, tierRes, subRes] = await Promise.all([
-      supabase.from("profile").select("username, is_adult, setting_display_adult_content, referral_code").eq("id", uid).maybeSingle(),
+      supabase.from("profile").select("username, is_adult, setting_display_adult_content, referral_code, username_changed_at").eq("id", uid).maybeSingle(),
       supabase.rpc("get_effective_tier", { p_profile_id: uid }),
       supabase.from("user_subscriptions").select("is_early_adopter, expires_at").eq("profile_id", uid).maybeSingle(),
     ]);
@@ -131,26 +130,6 @@ function SettingsPage({ session }) {
     setUsernameError(null);
   };
 
-  const handleUseReferral = async () => {
-    const code = referralInput.trim().toUpperCase();
-    if (!code) { setReferralError("Please enter a referral code."); return; }
-    setReferralError(null);
-    setReferralSaving(true);
-    const token = await getToken();
-    try {
-      const res = await fetch(`${API_BASE}/api/referral/use/${encodeURIComponent(code)}`, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const body = await res.json().catch(() => ({}));
-      if (!res.ok) setReferralError(body.error ?? "Failed to apply referral code.");
-      else setReferralSuccess(true);
-    } catch {
-      setReferralError("Network error. Please try again.");
-    }
-    setReferralSaving(false);
-  };
-
   const handleClaimReward = async () => {
     const code = rewardInput.trim().toUpperCase();
     if (!code) { setRewardError("Please enter a reward code."); return; }
@@ -181,8 +160,8 @@ function SettingsPage({ session }) {
       setDeleteError(error.message ?? "Failed to delete account.");
       return;
     }
-    await supabase.auth.signOut();
-    navigate("/login", { replace: true });
+    setDeleting(false);
+    setShowDeletedModal(true);
   };
 
   if (loading) {
@@ -231,17 +210,35 @@ function SettingsPage({ session }) {
                   </button>
                 </div>
               </div>
-            ) : (
-              <div className="flex items-center justify-end gap-3">
-                <span className="text-sm text-[#b0b0d4]">{profile?.username ?? "—"}</span>
-                <button
-                  onClick={() => { setNewUsername(profile?.username ?? ""); setEditingUsername(true); }}
-                  className="text-xs text-[#6868b8] underline transition hover:text-white"
-                >
-                  Change
-                </button>
-              </div>
-            )}
+            ) : (() => {
+              const changedAt = profile?.username_changed_at ? new Date(profile.username_changed_at) : null;
+              const nextChangeDate = changedAt ? new Date(changedAt.getTime() + 90 * 24 * 60 * 60 * 1000) : null;
+              const canChange = !nextChangeDate || new Date() >= nextChangeDate;
+              return (
+                <div className="flex flex-col items-end gap-1">
+                  <div className="flex items-center gap-3">
+                    <span className="text-sm text-[#b0b0d4]">{profile?.username ?? "—"}</span>
+                    {canChange ? (
+                      <button
+                        onClick={() => { setNewUsername(profile?.username ?? ""); setEditingUsername(true); }}
+                        className="text-xs text-[#6868b8] underline transition hover:text-white"
+                      >
+                        Change
+                      </button>
+                    ) : (
+                      <span className="text-xs text-[#5a5a78]">Locked</span>
+                    )}
+                  </div>
+                  {canChange ? (
+                    <p className="text-[11px] text-[#5a5a78]">Can be changed once every 90 days.</p>
+                  ) : (
+                    <p className="text-[11px] text-[#5a5a78]">
+                      Next change available {nextChangeDate.toLocaleDateString()}
+                    </p>
+                  )}
+                </div>
+              );
+            })()}
           </Row>
         </Section>
 
@@ -280,45 +277,34 @@ function SettingsPage({ session }) {
 
           <Row label="Your referral code">
             {profile?.referral_code ? (
-              <div className="flex items-center justify-end gap-2">
+              <div className="flex flex-col items-end gap-1.5">
                 <span className="font-mono text-sm font-semibold text-[#b0b0d4]">{profile.referral_code}</span>
-                <button
-                  onClick={() => navigator.clipboard?.writeText(profile.referral_code)}
-                  className="text-xs text-[#6868b8] underline transition hover:text-white"
-                >
-                  Copy
-                </button>
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => {
+                      navigator.clipboard?.writeText(profile.referral_code);
+                      setCopiedCode(true);
+                      setTimeout(() => setCopiedCode(false), 2000);
+                    }}
+                    className="text-xs transition hover:text-white underline text-[#6868b8]"
+                  >
+                    {copiedCode ? <span className="text-emerald-400 no-underline">Copied!</span> : "Copy code"}
+                  </button>
+                  <button
+                    onClick={() => {
+                      const link = `${window.location.origin}/register?ref=${profile.referral_code}`;
+                      navigator.clipboard?.writeText(link);
+                      setCopiedLink(true);
+                      setTimeout(() => setCopiedLink(false), 2000);
+                    }}
+                    className="text-xs transition hover:text-white underline text-[#6868b8]"
+                  >
+                    {copiedLink ? <span className="text-emerald-400 no-underline">Copied!</span> : "Copy link"}
+                  </button>
+                </div>
               </div>
             ) : (
               <span className="text-sm text-[#5a5a78]">—</span>
-            )}
-          </Row>
-
-          <Row label="Use a referral code">
-            {referralSuccess ? (
-              <p className="text-xs font-semibold text-emerald-400">Applied! Rewards unlock once your friend completes the verification steps.</p>
-            ) : (
-              <div className="flex flex-col items-end gap-2">
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={referralInput}
-                    onChange={(e) => setReferralInput(e.target.value.toUpperCase())}
-                    onKeyDown={(e) => e.key === "Enter" && handleUseReferral()}
-                    placeholder="ENTER CODE"
-                    className="w-36 rounded-xl border border-[#2a3570] bg-[#12163a] px-3 py-1.5 text-sm font-mono text-white placeholder-[#4a4a8a] outline-none focus:border-[#6868b8] transition"
-                    disabled={referralSaving}
-                  />
-                  <button
-                    onClick={handleUseReferral}
-                    disabled={referralSaving}
-                    className="rounded-xl border border-[#3a3a7a] bg-[#1a1d35] px-3 py-1.5 text-xs font-semibold text-[#a0a0e8] transition hover:border-[#5a5aaa] hover:text-white disabled:opacity-50"
-                  >
-                    {referralSaving ? "Applying…" : "Apply"}
-                  </button>
-                </div>
-                {referralError && <p className="text-xs text-red-400">{referralError}</p>}
-              </div>
             )}
           </Row>
 
@@ -379,7 +365,7 @@ function SettingsPage({ session }) {
               </div>
             ) : (
               <button
-                onClick={() => setDeleteConfirm(true)}
+                onClick={() => { setDeleteConfirm(true); setDeleteError(null); }}
                 className="text-xs font-semibold text-red-500 underline transition hover:text-red-400"
               >
                 Delete my account
@@ -388,6 +374,29 @@ function SettingsPage({ session }) {
           </Row>
         </Section>
       </div>
+
+      {showDeletedModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
+          <div className="w-full max-w-sm rounded-2xl border border-[#2a2d60] bg-[#0d0f1e] p-6 shadow-2xl">
+            <h2 className="mb-2 text-lg font-extrabold text-white">Account deleted</h2>
+            <p className="mb-1 text-sm text-[#8888c8]">
+              Your account has been successfully deleted.
+            </p>
+            <p className="mb-6 text-sm text-[#5a5a78]">
+              Your remaining data will be permanently removed within 30 days.
+            </p>
+            <button
+              onClick={async () => {
+                await supabase.auth.signOut();
+                navigate("/login", { replace: true });
+              }}
+              className="w-full rounded-xl border border-[#5050b0] bg-[#2a2d60] py-2.5 text-sm font-bold text-white transition hover:bg-[#3a3d80]"
+            >
+              OK
+            </button>
+          </div>
+        </div>
+      )}
     </AppLayout>
   );
 }
