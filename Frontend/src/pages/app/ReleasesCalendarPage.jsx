@@ -220,11 +220,27 @@ function FollowCounter({ showCount, movieCount, tier }) {
   );
 }
 
-function FollowedSidebar({ shows, movies, unfollowShow, unfollowMovie, tier, onManageClick }) {
+function PosterThumb({ src, alt, isMovie }) {
+  return (
+    <div className="h-10 w-7 flex-shrink-0 overflow-hidden rounded border border-[#2a3570] bg-[#12163a]">
+      {src ? (
+        <img src={`${TMDB_IMG}${src}`} alt={alt} className="h-full w-full object-cover" loading="lazy" />
+      ) : (
+        <div className="flex h-full w-full items-center justify-center text-[#3a3a7a]">
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+            {isMovie ? <><path d="M2 8h20M2 16h20M8 4v16M16 4v16" /><rect x="2" y="4" width="20" height="16" rx="2" /></> : <rect x="2" y="6" width="20" height="14" rx="2" />}
+          </svg>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function FollowedSidebar({ shows, movies, onUnfollowShow, onUnfollowMovie, tier, onManageClick, pendingUnfollows, onUndo }) {
   const empty = shows.length === 0 && movies.length === 0;
   return (
-    <aside className="order-2 flex w-full flex-col md:order-1 md:w-[230px] md:flex-shrink-0 lg:w-[250px]">
-      <div className="flex h-full flex-col rounded-2xl border border-[#1a1f3a] bg-[#141728] p-4">
+    <aside className="order-2 flex w-full flex-col md:order-1 md:w-[230px] md:flex-shrink-0 md:sticky md:top-[4.5rem] md:self-start lg:w-[250px]">
+      <div className="flex flex-col rounded-2xl border border-[#1a1f3a] bg-[#141728] p-4 overflow-hidden max-h-[55vh] md:max-h-[calc(100vh-5.5rem)]">
         <h2 className="mb-3 shrink-0 text-sm font-extrabold text-[#8383e7]">Followed</h2>
         <div className="shrink-0">
           <FollowCounter showCount={shows.length} movieCount={movies.length} tier={tier} />
@@ -232,9 +248,9 @@ function FollowedSidebar({ shows, movies, unfollowShow, unfollowMovie, tier, onM
         <button
           type="button"
           onClick={onManageClick}
-          className="mt-3 w-full rounded-xl border border-[#3a3a7a] bg-[#1a1d35] py-2 text-xs font-bold text-[#a0a0e8] transition hover:border-[#6060b0] hover:text-white"
+          className="shrink-0 mt-1 w-full rounded-xl border border-[#3a3a7a] bg-[#1a1d35] py-2 text-xs font-bold text-[#a0a0e8] transition hover:border-[#6060b0] hover:text-white"
         >
-          Manage follows…
+          Manage follows
         </button>
         {empty ? (
           <p className="mt-3 text-xs text-[#4a4a7a]">Nothing followed yet.</p>
@@ -244,58 +260,70 @@ function FollowedSidebar({ shows, movies, unfollowShow, unfollowMovie, tier, onM
               <SidebarSection
                 label="Shows"
                 items={shows}
-                renderItem={(show) => (
-                  <li key={show.id} className="flex items-center gap-2 text-xs">
-                    <Link to={`/shows/${show.id}`} className="flex min-w-0 flex-1 items-center gap-2 transition hover:opacity-80">
-                      <div className="h-10 w-7 flex-shrink-0 overflow-hidden rounded border border-[#2a3570] bg-[#12163a]">
-                        {show.poster_path ? (
-                          <img src={`${TMDB_IMG}${show.poster_path}`} alt={show.name} className="h-full w-full object-cover" loading="lazy" />
-                        ) : (
-                          <div className="flex h-full w-full items-center justify-center text-[#3a3a7a]">
-                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="2" y="6" width="20" height="14" rx="2" /></svg>
-                          </div>
-                        )}
-                      </div>
-                      <span className="truncate font-semibold text-[#c0c0e8]">{show.name}</span>
-                    </Link>
-                    <button
-                      type="button"
-                      onClick={() => unfollowShow(show.id)}
-                      className="flex-shrink-0 rounded-full border border-[#3a3a7a] bg-[#1a1d35] p-1 text-[#6868b8] transition hover:border-red-400 hover:text-red-300"
-                      title="Unfollow"
-                    >
-                      <MinusIcon />
-                    </button>
-                  </li>
-                )}
+                renderItem={(show) => {
+                  const key = `show-${show.id}`;
+                  const pending = pendingUnfollows.has(key);
+                  return (
+                    <li key={show.id} className={`flex items-center gap-2 text-xs transition-opacity ${pending ? "opacity-50" : ""}`}>
+                      <Link to={`/shows/${show.id}`} className="flex min-w-0 flex-1 items-center gap-2 transition hover:opacity-80">
+                        <PosterThumb src={show.poster_path} alt={show.name} isMovie={false} />
+                        <span className="truncate font-semibold text-[#c0c0e8]">{show.name}</span>
+                      </Link>
+                      {pending ? (
+                        <button
+                          type="button"
+                          onClick={() => onUndo("show", show.id)}
+                          className="flex-shrink-0 rounded-full border border-[#5a5aaa] bg-[#1a1d35] px-2 py-0.5 text-[10px] font-bold text-[#a0a0e8] transition hover:border-[#8888c8] hover:text-white"
+                        >
+                          Undo
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => onUnfollowShow(show.id)}
+                          className="flex-shrink-0 rounded-full border border-[#3a3a7a] bg-[#1a1d35] p-1 text-[#6868b8] transition hover:border-red-400 hover:text-red-300"
+                          title="Unfollow"
+                        >
+                          <MinusIcon />
+                        </button>
+                      )}
+                    </li>
+                  );
+                }}
               />
               <SidebarSection
                 label="Movies"
                 items={movies}
-                renderItem={(movie) => (
-                  <li key={movie.id} className="flex items-center gap-2 text-xs">
-                    <Link to={`/movies/${movie.id}`} className="flex min-w-0 flex-1 items-center gap-2 transition hover:opacity-80">
-                      <div className="h-10 w-7 flex-shrink-0 overflow-hidden rounded border border-[#2a3570] bg-[#12163a]">
-                        {movie.poster_path ? (
-                          <img src={`${TMDB_IMG}${movie.poster_path}`} alt={movie.title} className="h-full w-full object-cover" loading="lazy" />
-                        ) : (
-                          <div className="flex h-full w-full items-center justify-center text-[#3a3a7a]">
-                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="2" y="6" width="20" height="14" rx="2" /></svg>
-                          </div>
-                        )}
-                      </div>
-                      <span className="truncate font-semibold text-[#e0c0e8]">{movie.title}</span>
-                    </Link>
-                    <button
-                      type="button"
-                      onClick={() => unfollowMovie(movie.id)}
-                      className="flex-shrink-0 rounded-full border border-[#3a3a7a] bg-[#1a1d35] p-1 text-[#6868b8] transition hover:border-red-400 hover:text-red-300"
-                      title="Unfollow"
-                    >
-                      <MinusIcon />
-                    </button>
-                  </li>
-                )}
+                renderItem={(movie) => {
+                  const key = `movie-${movie.id}`;
+                  const pending = pendingUnfollows.has(key);
+                  return (
+                    <li key={movie.id} className={`flex items-center gap-2 text-xs transition-opacity ${pending ? "opacity-50" : ""}`}>
+                      <Link to={`/movies/${movie.id}`} className="flex min-w-0 flex-1 items-center gap-2 transition hover:opacity-80">
+                        <PosterThumb src={movie.poster_path} alt={movie.title} isMovie={true} />
+                        <span className="truncate font-semibold text-[#e0c0e8]">{movie.title}</span>
+                      </Link>
+                      {pending ? (
+                        <button
+                          type="button"
+                          onClick={() => onUndo("movie", movie.id)}
+                          className="flex-shrink-0 rounded-full border border-[#5a5aaa] bg-[#1a1d35] px-2 py-0.5 text-[10px] font-bold text-[#a0a0e8] transition hover:border-[#8888c8] hover:text-white"
+                        >
+                          Undo
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => onUnfollowMovie(movie.id)}
+                          className="flex-shrink-0 rounded-full border border-[#3a3a7a] bg-[#1a1d35] p-1 text-[#6868b8] transition hover:border-red-400 hover:text-red-300"
+                          title="Unfollow"
+                        >
+                          <MinusIcon />
+                        </button>
+                      )}
+                    </li>
+                  );
+                }}
               />
             </div>
           </div>
@@ -305,63 +333,37 @@ function FollowedSidebar({ shows, movies, unfollowShow, unfollowMovie, tier, onM
   );
 }
 
-function UndoToast({ queue, onUndo }) {
-  if (queue.length === 0) return null;
-  return (
-    <div className="fixed bottom-4 right-4 z-50 flex flex-col gap-2">
-      {queue.map((item) => (
-        <div
-          key={item.key}
-          className="flex items-center gap-3 rounded-xl border border-[#3a3a7a] bg-[#1a1d35] px-4 py-3 shadow-xl"
-        >
-          <span className="text-sm text-[#c0c0e8]">
-            Unfollowed <span className="font-bold text-white">{item.name}</span>
-          </span>
-          <button
-            type="button"
-            onClick={() => onUndo(item.key, item.type, item.id)}
-            className="rounded-lg border border-[#5a5ab0] bg-[#2a2d60] px-3 py-1 text-xs font-bold text-[#a0a0e8] transition hover:border-[#8888c8] hover:text-white"
-          >
-            Undo
-          </button>
-        </div>
-      ))}
-    </div>
-  );
-}
 
 function ReleasesCalendarPage({ session }) {
   const now = new Date();
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth() + 1);
   const [manageFollowsOpen, setManageFollowsOpen] = useState(false);
-  const [undoQueue, setUndoQueue] = useState([]);
+  const [pendingUnfollows, setPendingUnfollows] = useState(new Map());
   const undoTimers = useRef({});
 
-  const { visibleShows, visibleMovies, calendarEntries, isLoading, unfollowShow, unfollowMovie, refollowShow, refollowMovie } = useCalendarData(session, year, month);
+  const { visibleShows, visibleMovies, calendarEntries, isLoading, unfollowShow, unfollowMovie } = useCalendarData(session, year, month);
   const { tier } = useSubscription(session);
 
   const isCurrentMonth = year === now.getFullYear() && month === now.getMonth() + 1;
 
-  function handleSidebarUnfollow(type, id, name) {
-    if (type === "show") unfollowShow(id);
-    else unfollowMovie(id);
-
+  function handleSidebarUnfollow(type, id) {
     const key = `${type}-${id}`;
     clearTimeout(undoTimers.current[key]);
+    setPendingUnfollows((m) => new Map(m).set(key, { type, id }));
     undoTimers.current[key] = setTimeout(() => {
-      setUndoQueue((q) => q.filter((item) => item.key !== key));
+      setPendingUnfollows((m) => { const n = new Map(m); n.delete(key); return n; });
       delete undoTimers.current[key];
+      if (type === "show") unfollowShow(id);
+      else unfollowMovie(id);
     }, 5000);
-    setUndoQueue((q) => [...q.filter((item) => item.key !== key), { key, type, id, name }]);
   }
 
-  function handleUndo(key, type, id) {
+  function handleUndo(type, id) {
+    const key = `${type}-${id}`;
     clearTimeout(undoTimers.current[key]);
     delete undoTimers.current[key];
-    setUndoQueue((q) => q.filter((item) => item.key !== key));
-    if (type === "show") refollowShow(id);
-    else refollowMovie(id);
+    setPendingUnfollows((m) => { const n = new Map(m); n.delete(key); return n; });
   }
 
   function prevMonth() {
@@ -414,7 +416,6 @@ function ReleasesCalendarPage({ session }) {
 
   return (
     <AppLayout session={session}>
-      <UndoToast queue={undoQueue} onUndo={handleUndo} />
       {manageFollowsOpen && (
         <ManageFollowsModal
           open={manageFollowsOpen}
@@ -425,19 +426,15 @@ function ReleasesCalendarPage({ session }) {
           unfollowMovie={unfollowMovie}
         />
       )}
-      <div className="mx-auto flex w-full max-w-[1400px] flex-col gap-5 md:flex-row md:items-stretch">
+      <div className="mx-auto flex w-full max-w-[1400px] flex-col gap-5 md:flex-row md:items-start">
         {/* Followed sidebar — left column on md+, below on mobile; list scrolls inside card */}
         <FollowedSidebar
           shows={visibleShows}
           movies={visibleMovies}
-          unfollowShow={(id) => {
-            const show = visibleShows.find((s) => s.id === id);
-            handleSidebarUnfollow("show", id, show?.name ?? "show");
-          }}
-          unfollowMovie={(id) => {
-            const movie = visibleMovies.find((m) => m.id === id);
-            handleSidebarUnfollow("movie", id, movie?.title ?? "movie");
-          }}
+          onUnfollowShow={(id) => handleSidebarUnfollow("show", id)}
+          onUnfollowMovie={(id) => handleSidebarUnfollow("movie", id)}
+          pendingUnfollows={pendingUnfollows}
+          onUndo={handleUndo}
           tier={tier}
           onManageClick={() => setManageFollowsOpen(true)}
         />
