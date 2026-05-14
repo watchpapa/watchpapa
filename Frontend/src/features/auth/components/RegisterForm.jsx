@@ -6,6 +6,8 @@ import Toggle from "../../../components/ui/Toggle.jsx";
 import { useAuth } from "../hooks/useAuth.js";
 import { normalizeDateInput } from "../../../lib/validate.js";
 
+const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "";
+
 const initialState = {
   email: "",
   username: "",
@@ -98,6 +100,7 @@ function RegisterForm() {
   const { signUp, signInWithOAuth } = useAuth();
 
   const [formState, setFormState] = useState(initialState);
+  const [referralCode, setReferralCode] = useState(() => searchParams.get("ref")?.toUpperCase() ?? "");
   const [errors, setErrors] = useState({});
   const [submitError, setSubmitError] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -166,16 +169,23 @@ function RegisterForm() {
       return;
     }
 
-    // Persist referral code so CompleteUsernameForm can apply it after profile creation.
-    const refCode = searchParams.get("ref");
-    if (refCode) {
-      sessionStorage.setItem("pendingReferralCode", refCode.toUpperCase());
-    }
+    const finalRefCode = referralCode.trim().toUpperCase() || null;
 
-    // Confirmations off: session returned immediately
+    // Confirmations off: session returned immediately — apply referral now.
     if (data?.session) {
+      if (finalRefCode) {
+        fetch(`${API_BASE}/api/referral/use/${encodeURIComponent(finalRefCode)}`, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${data.session.access_token}` },
+        }).catch(() => {});
+      }
       navigate("/", { replace: true });
       return;
+    }
+
+    // Email confirmation required — persist code for VerifyEmailForm to apply after OTP.
+    if (finalRefCode) {
+      sessionStorage.setItem("pendingReferralCode", finalRefCode);
     }
 
     // With email confirmation, `user` may be null (GoTrue obfuscation); still send user to verify flow
@@ -328,6 +338,19 @@ function RegisterForm() {
             <Toggle value={formState.showAdultContent} onChange={onChangeAdultContent} />
           </FormField>
         ) : null}
+      </div>
+
+      <div className="mt-[10px]">
+        <FormField label="referral code (optional)" htmlFor="referralCode" labelClassName="text-[18px] sm:text-[22px]">
+          <Input
+            id="referralCode"
+            name="referralCode"
+            type="text"
+            placeholder="ENTER CODE"
+            value={referralCode}
+            onChange={(e) => setReferralCode(e.target.value.toUpperCase())}
+          />
+        </FormField>
       </div>
 
       {submitError ? (

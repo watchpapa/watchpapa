@@ -5,6 +5,8 @@ import Input from "../../../components/ui/Input.jsx";
 import OtpInput from "../../../components/ui/OtpInput.jsx";
 import { useAuth } from "../hooks/useAuth.js";
 
+const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "";
+
 function VerifyEmailForm() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -65,6 +67,14 @@ function VerifyEmailForm() {
     }
 
     if (data?.session) {
+      const pendingCode = sessionStorage.getItem("pendingReferralCode");
+      if (pendingCode) {
+        sessionStorage.removeItem("pendingReferralCode");
+        fetch(`${API_BASE}/api/referral/use/${encodeURIComponent(pendingCode)}`, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${data.session.access_token}` },
+        }).catch(() => {});
+      }
       navigate("/");
       return;
     }
