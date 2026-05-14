@@ -22,7 +22,7 @@ function SubscriptionPage({ session }) {
           </thead>
           <tbody className="divide-y divide-[#1a1f3a]">
             <tr>
-              <td className="px-4 py-3 font-semibold text-[#8080a8]">Free</td>
+              <td className="px-4 py-3 font-semibold text-green-400">Free</td>
               <td className="px-4 py-3 text-[#b0b0d4]">3</td>
               <td className="px-4 py-3 text-[#b0b0d4]">1</td>
               <td className="px-4 py-3 text-[#8080a8]">Yes</td>
@@ -33,16 +33,16 @@ function SubscriptionPage({ session }) {
               <td className="px-4 py-3 text-[#8080a8]">Yes</td>
             </tr>
             <tr>
-              <td className="px-4 py-3 font-semibold text-[#9b9bf0]">Pro</td>
+              <td className="px-4 py-3 font-semibold text-sky-400">Pro</td>
               <td className="px-4 py-3 text-[#b0b0d4]">100</td>
               <td className="px-4 py-3 text-[#b0b0d4]">100</td>
               <td className="px-4 py-3 text-[#8080a8]">Yes</td>
             </tr>
             <tr>
-              <td className="px-4 py-3 font-semibold text-emerald-400">Pro+</td>
+              <td className="px-4 py-3 font-semibold text-violet-400">Pro+</td>
               <td className="px-4 py-3 text-[#b0b0d4]">100</td>
               <td className="px-4 py-3 text-[#b0b0d4]">100</td>
-              <td className="px-4 py-3 text-emerald-400 font-semibold">No ads</td>
+              <td className="px-4 py-3 font-semibold text-violet-400">No ads</td>
             </tr>
           </tbody>
         </table>
@@ -82,14 +82,14 @@ function SubscriptionPage({ session }) {
               <td className="px-4 py-3 text-[#b0b0d4]">
                 Fewer than 5,000 Early Adopters so far — pool still has open seats
               </td>
-              <td className="px-4 py-3 font-semibold text-[#9b9bf0]">Pro — 30 days</td>
-              <td className="px-4 py-3 font-semibold text-[#9b9bf0]">Pro — 30 days</td>
+              <td className="px-4 py-3 font-semibold text-sky-400">Pro — 30 days</td>
+              <td className="px-4 py-3 font-semibold text-sky-400">Pro — 30 days</td>
             </tr>
             <tr>
               <td className="px-4 py-3 text-[#b0b0d4]">
                 All 5,000 Early Adopter seats are taken, and <strong className="text-white">you</strong> are an Early Adopter
               </td>
-              <td className="px-4 py-3 font-semibold text-[#9b9bf0]">Pro — 30 days</td>
+              <td className="px-4 py-3 font-semibold text-sky-400">Pro — 30 days</td>
               <td className="px-4 py-3 font-semibold text-amber-400">Premium — 30 days</td>
             </tr>
             <tr>

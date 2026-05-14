@@ -8,10 +8,10 @@ import Toggle from "../../components/ui/Toggle.jsx";
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "";
 
 const TIER_COLORS = {
-  free:     "text-[#6868b8]",
+  free:     "text-green-400",
   premium:  "text-amber-400",
-  pro:      "text-[#9b9bf0]",
-  pro_plus: "text-emerald-400",
+  pro:      "text-sky-400",
+  pro_plus: "text-violet-400",
   god:      "text-rose-400",
 };
 

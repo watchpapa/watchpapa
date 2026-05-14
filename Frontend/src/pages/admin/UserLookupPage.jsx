@@ -4,10 +4,10 @@ import { useUserLookup } from "../../features/admin/hooks/useUserLookup.js";
 const TIERS = ["premium", "pro", "pro_plus"];
 const TIER_LABEL = { premium: "Premium", pro: "Pro", pro_plus: "Pro+" };
 const TIER_COLORS = {
-  free:     "bg-[#1a1f3a] text-[#6868b8] border-[#2a3570]",
-  premium:  "bg-indigo-900/40 text-indigo-400 border-indigo-700/50",
-  pro:      "bg-violet-900/40 text-violet-400 border-violet-700/50",
-  pro_plus: "bg-purple-900/40 text-purple-400 border-purple-700/50",
+  free:     "bg-green-900/40 text-green-400 border-green-700/50",
+  premium:  "bg-amber-900/40 text-amber-400 border-amber-700/50",
+  pro:      "bg-sky-900/40 text-sky-400 border-sky-700/50",
+  pro_plus: "bg-violet-900/40 text-violet-400 border-violet-700/50",
   god:      "bg-rose-900/40 text-rose-400 border-rose-800/40",
 };
 

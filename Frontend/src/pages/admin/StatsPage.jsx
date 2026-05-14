@@ -3,10 +3,10 @@ import { useTierStats } from "../../features/admin/hooks/useTierStats.js";
 const TIER_ORDER = ["free", "premium", "pro", "pro_plus", "god"];
 const TIER_LABEL = { free: "Free", premium: "Premium", pro: "Pro", pro_plus: "Pro+", god: "God" };
 const TIER_COLOR = {
-  free:      { bar: "bg-[#2a3570]",    text: "text-[#6868b8]" },
-  premium:   { bar: "bg-indigo-500",   text: "text-indigo-400" },
-  pro:       { bar: "bg-violet-500",   text: "text-violet-400" },
-  pro_plus:  { bar: "bg-purple-500",   text: "text-purple-400" },
+  free:      { bar: "bg-green-600",    text: "text-green-400" },
+  premium:   { bar: "bg-amber-500",    text: "text-amber-400" },
+  pro:       { bar: "bg-sky-500",      text: "text-sky-400" },
+  pro_plus:  { bar: "bg-violet-500",   text: "text-violet-400" },
   god:       { bar: "bg-rose-500",     text: "text-rose-400" },
 };
 
