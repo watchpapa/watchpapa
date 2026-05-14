@@ -105,7 +105,7 @@ function ReferralButton({ referralCode }) {
       {open && (
         <div
           ref={popoverRef}
-          className="absolute right-0 top-full z-50 mt-2 w-72 max-w-[calc(100vw-1rem)] rounded-2xl border border-[#2a2f5a] bg-[#0d0f1e] shadow-2xl shadow-black/60"
+          className="absolute right-0 top-full z-50 mt-2 w-72 max-w-[calc(100vw-1rem)] rounded-2xl border border-[#2a2f5a] bg-[#0d0f1e] shadow-2xl shadow-black/60 animate-[fadeSlideDown_0.15s_ease-out]"
         >
           <div className="border-b border-[#1a1f3a] px-4 py-3">
             <p className="text-sm font-bold text-white">Invite a friend</p>
@@ -320,7 +320,7 @@ function Navbar({ session }) {
 
         {/* Mobile dropdown */}
         {mobileOpen && (
-          <div className="border-t border-[#1a1f3a] px-5 pb-3 sm:hidden">
+          <div className="border-t border-[#1a1f3a] px-5 pb-3 sm:hidden animate-[slideDown_0.18s_ease-out]">
             {/* Calendar first */}
             {session ? (
               <Link

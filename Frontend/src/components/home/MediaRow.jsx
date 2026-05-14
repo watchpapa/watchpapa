@@ -25,7 +25,7 @@ function MediaRow({ title, items, session, onLoadMore, hasMore = false, isLoadin
   const scrollRef = useRef(null);
   const loadMoreTimerRef = useRef(null);
   const loadMoreTriggeredRef = useRef(false);
-  const prevItemCountRef = useRef(items.length);
+
   const [showLeftArrow, setShowLeftArrow] = useState(false);
   const [showRightArrow, setShowRightArrow] = useState(true);
 
@@ -65,20 +65,6 @@ function MediaRow({ title, items, session, onLoadMore, hasMore = false, isLoadin
     return () => ro.disconnect();
   }, [updateArrowVisibility]);
 
-  useLayoutEffect(() => {
-    const prev = prevItemCountRef.current;
-    prevItemCountRef.current = items.length;
-    if (items.length > prev && prev > 0) {
-      const el = scrollRef.current;
-      if (!el) return;
-      // Scroll to just inside SCROLL_EDGE of the new right end so the next
-      // button press immediately detects atEnd and triggers load more.
-      const target = el.scrollWidth - el.clientWidth - SCROLL_EDGE + 1;
-      if (target > el.scrollLeft) {
-        el.scrollTo({ left: target, behavior: "smooth" });
-      }
-    }
-  }, [items.length]);
 
   const clearLoadMoreDebounce = () => {
     if (loadMoreTimerRef.current != null) {
@@ -159,7 +145,7 @@ function MediaRow({ title, items, session, onLoadMore, hasMore = false, isLoadin
           onClick={scrollLeft}
           aria-label="Scroll left"
           disabled={!showLeftArrow}
-          className={`mr-3 hidden h-10 w-10 flex-shrink-0 items-center justify-center rounded-full border border-[#2a3570] bg-[#141728] text-[#8888c8] transition hover:border-[#5050a0] hover:text-white disabled:pointer-events-none disabled:opacity-0 md:flex ${showLeftArrow ? "" : "invisible"}`}
+          className={`mr-3 hidden h-10 w-10 flex-shrink-0 items-center justify-center rounded-full border border-[#2a3570] bg-[#141728] text-[#8888c8] transition active:scale-95 hover:border-[#5050a0] hover:text-white disabled:pointer-events-none disabled:opacity-0 md:flex ${showLeftArrow ? "" : "invisible"}`}
         >
           <ChevronLeft />
         </button>
@@ -179,7 +165,7 @@ function MediaRow({ title, items, session, onLoadMore, hasMore = false, isLoadin
           onClick={scrollRight}
           aria-label={hasMore ? "Scroll right or load more" : "Scroll right"}
           disabled={!showRightArrow || isLoadingMore}
-          className={`ml-3 hidden h-10 w-10 flex-shrink-0 items-center justify-center rounded-full border border-[#2a3570] bg-[#141728] text-[#8888c8] transition hover:border-[#5050a0] hover:text-white disabled:pointer-events-none md:flex ${!showRightArrow ? "invisible" : isLoadingMore ? "opacity-70" : ""}`}
+          className={`ml-3 hidden h-10 w-10 flex-shrink-0 items-center justify-center rounded-full border border-[#2a3570] bg-[#141728] text-[#8888c8] transition active:scale-95 hover:border-[#5050a0] hover:text-white disabled:pointer-events-none md:flex ${!showRightArrow ? "invisible" : isLoadingMore ? "opacity-70" : ""}`}
         >
           {isLoadingMore ? (
             <span className="h-4 w-4 animate-spin rounded-full border-2 border-[#8888c8] border-t-transparent" aria-hidden />

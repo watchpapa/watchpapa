@@ -33,12 +33,17 @@ function MediaCard({ id, type, title, posterPath, isFollowing = false, onFollowT
   const to = customTo ?? (type === "movie" ? `/movies/${id}` : `/shows/${id}`);
   const [hovering, setHovering] = useState(false);
   const [showAuthPrompt, setShowAuthPrompt] = useState(false);
+  const [justFollowed, setJustFollowed] = useState(false);
 
   function handleFollow(e) {
     e.preventDefault();
     if (!isAuthenticated) {
       setShowAuthPrompt(true);
     } else {
+      if (!isFollowing) {
+        setJustFollowed(true);
+        setTimeout(() => setJustFollowed(false), 400);
+      }
       onFollowToggle?.();
     }
   }
@@ -47,7 +52,7 @@ function MediaCard({ id, type, title, posterPath, isFollowing = false, onFollowT
     <article className="flex w-[130px] flex-shrink-0 flex-col gap-2 sm:w-[150px]">
       {showAuthPrompt && <AuthPromptModal onClose={() => setShowAuthPrompt(false)} />}
 
-      <Link to={to} className="relative overflow-hidden rounded-2xl border border-[#2a3570] bg-[#12163a] aspect-[2/3] block">
+      <Link to={to} className="relative overflow-hidden rounded-2xl border border-[#2a3570] bg-[#12163a] aspect-[2/3] block group">
         <span className="absolute top-2 left-2 z-10 rounded px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-widest" style={{ background: "rgba(10,12,35,0.82)", color: type === "movie" ? "#e8c04a" : "#7eb8f7" }}>
           {type === "movie" ? "Movie" : "Show"}
         </span>
@@ -55,11 +60,11 @@ function MediaCard({ id, type, title, posterPath, isFollowing = false, onFollowT
           <img
             src={imgSrc}
             alt={title}
-            className="h-full w-full object-cover"
+            className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-110"
             loading="lazy"
           />
         ) : (
-          <div className="flex h-full w-full flex-col items-center justify-center gap-2 bg-gradient-to-b from-[#181d40] to-[#0e1128] px-3">
+          <div className="flex h-full w-full flex-col items-center justify-center gap-2 bg-gradient-to-b from-[#181d40] to-[#0e1128] px-3 transition-[filter] duration-300 group-hover:brightness-110">
             <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#3a3a7a" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
               <rect x="2" y="6" width="20" height="14" rx="2" />
               <path d="M8 6V4M16 6V4M2 10h20" />
@@ -81,7 +86,9 @@ function MediaCard({ id, type, title, posterPath, isFollowing = false, onFollowT
         onClick={handleFollow}
         onMouseEnter={() => setHovering(true)}
         onMouseLeave={() => setHovering(false)}
-        className={`mx-auto flex min-w-[5.5rem] items-center justify-center gap-1 rounded-full border px-3 py-0.5 text-[11px] font-bold transition ${
+        className={`mx-auto flex min-w-[5.5rem] items-center justify-center gap-1 rounded-full border px-3 py-0.5 text-[11px] font-bold transition active:scale-95 ${
+          justFollowed ? "animate-[followPop_0.4s_ease-out]" : ""
+        } ${
           isFollowing
             ? hovering
               ? "border-red-500 bg-red-900/30 text-red-400"

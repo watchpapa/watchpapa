@@ -96,16 +96,23 @@ function AppHomePage({ session, showAdult }) {
         ) : (
           sections
             .filter(({ items }) => items.length > 0)
-            .map(({ title, items, hasMore, onLoadMore, isLoadingMore }) => (
-              <MediaRow
+            .map(({ title, items, hasMore, onLoadMore, isLoadingMore }, index) => (
+              <div
                 key={title}
-                title={title}
-                items={items}
-                session={session}
-                hasMore={hasMore}
-                onLoadMore={onLoadMore}
-                isLoadingMore={isLoadingMore}
-              />
+                style={{
+                  animation: "fadeInUp 0.35s ease-out both",
+                  animationDelay: `${index * 0.08}s`,
+                }}
+              >
+                <MediaRow
+                  title={title}
+                  items={items}
+                  session={session}
+                  hasMore={hasMore}
+                  onLoadMore={onLoadMore}
+                  isLoadingMore={isLoadingMore}
+                />
+              </div>
             ))
         )}
       </div>
