@@ -40,7 +40,7 @@ router.get("/search", async (req, res) => {
      FROM auth.users au
      LEFT JOIN public.profile p ON p.id = au.id
      LEFT JOIN public.user_subscriptions us ON us.profile_id = au.id
-     WHERE au.email ILIKE :query
+     WHERE (au.email ILIKE :query OR p.username ILIKE :query)
        AND p.deleted_at IS NULL
      ORDER BY au.created_at DESC
      LIMIT 20`,

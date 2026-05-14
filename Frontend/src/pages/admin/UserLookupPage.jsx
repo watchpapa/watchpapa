@@ -135,13 +135,13 @@ function UserLookupPage() {
     <div>
       <div className="mb-6">
         <h1 className="text-lg font-semibold text-white">User Lookup</h1>
-        <p className="mt-0.5 text-xs text-[#6868b8]">Search by email · grant tiers manually</p>
+        <p className="mt-0.5 text-xs text-[#6868b8]">Search by email or username · grant tiers manually</p>
       </div>
 
       <form onSubmit={handleSubmit} className="mb-5 flex gap-2">
         <input
           type="text"
-          placeholder="Email or partial email…"
+          placeholder="Email or username…"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           className="min-w-0 flex-1 rounded-xl border border-[#2a3570] bg-[#12163a] px-3 py-2 text-sm text-white outline-none placeholder-[#4a4a8a] focus:border-[#6868b8]"
