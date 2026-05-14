@@ -11,6 +11,11 @@ import resolveRouter from "./Backend/src/routes/resolve.js";
 import referralRouter from "./Backend/src/routes/referral.js";
 import rewardsRouter from "./Backend/src/routes/rewards.js";
 import adminRewardCodesRouter from "./Backend/src/routes/admin/rewardCodes.js";
+import adminStatsRouter from "./Backend/src/routes/admin/stats.js";
+import adminUsersRouter from "./Backend/src/routes/admin/users.js";
+import adminReferralsRouter from "./Backend/src/routes/admin/referrals.js";
+import adminAuditLogRouter from "./Backend/src/routes/admin/auditLog.js";
+import adminScriptLogsRouter from "./Backend/src/routes/admin/scriptLogs.js";
 import { requireAuth } from "./Backend/src/middleware/requireAuth.js";
 import { requireAdmin } from "./Backend/src/middleware/requireAdmin.js";
 import { auditLog } from "./Backend/src/middleware/auditLog.js";
@@ -57,7 +62,7 @@ const mutationLimiter = rateLimit({
 
 const adminLimiter = rateLimit({
   windowMs: 60 * 1000,
-  max: 10,
+  max: 120,
   standardHeaders: true,
   legacyHeaders: false,
 });
@@ -85,6 +90,11 @@ app.use("/api/referral", mutationLimiter, requireAuth, perUserMutationLimiter, a
 app.use("/api/rewards", mutationLimiter, requireAuth, perUserMutationLimiter, auditLog("rewards", ["code"]), rewardsRouter);
 // Admin routes — tighter rate limit, admin role required.
 app.use("/api/admin/reward-codes", adminLimiter, requireAuth, requireAdmin, adminRewardCodesRouter);
+app.use("/api/admin/stats", adminLimiter, requireAuth, requireAdmin, adminStatsRouter);
+app.use("/api/admin/users", adminLimiter, requireAuth, requireAdmin, adminUsersRouter);
+app.use("/api/admin/referrals", adminLimiter, requireAuth, requireAdmin, adminReferralsRouter);
+app.use("/api/admin/audit-log", adminLimiter, requireAuth, requireAdmin, adminAuditLogRouter);
+app.use("/api/admin/script-logs", adminLimiter, requireAuth, requireAdmin, adminScriptLogsRouter);
 
 // Health check
 // Return service health status for monitoring.
