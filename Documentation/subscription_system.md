@@ -145,6 +145,31 @@ A secondary guard (`guard_profile_columns`) raises `PERMISSION_DENIED` if `role`
 | `reward_codes` | Admin-created promo codes |
 | `reward_code_claims` | One claim per user per code (UNIQUE prevents double-claiming) |
 | `system_settings` | Admin key-value store; `payments_enabled_at` is the payments gate |
+| `user_banner_dismissals` | One row per user per banner; persists dismissal across browsers/devices |
+
+---
+
+## Banner Dismissal System
+
+### `user_banner_dismissals`
+
+Generic store for tracking which banners a user has permanently dismissed. Keyed by `(profile_id, banner_key)` so any new banner can be added without schema changes.
+
+```
+profile_id   UUID         FK → profile.id (CASCADE DELETE)
+banner_key   TEXT         Identifier for the banner (e.g. 'early_adopter')
+dismissed_at TIMESTAMPTZ  When the user dismissed it
+```
+
+**RLS**: authenticated users can `SELECT` their own rows only. No direct writes — all inserts go through `dismiss_banner()`.
+
+### `dismiss_banner(p_banner_key TEXT)`
+
+SECURITY DEFINER function. Inserts `(auth.uid(), p_banner_key)` into `user_banner_dismissals`. Idempotent — `ON CONFLICT DO NOTHING` means calling it twice is safe.
+
+**Frontend caching**: `localStorage` (`watchpapa:banner_dismissed:<key>`) acts as a local cache to skip the DB round-trip on subsequent loads in the same browser. The banner component seeds the cache if it finds the DB record already set.
+
+**Adding a new banner**: define a `BANNER_KEY` constant in the component, query `user_banner_dismissals` for it on load, call `supabase.rpc('dismiss_banner', { p_banner_key: BANNER_KEY })` on dismiss. No migration needed.
 
 ---
 
@@ -158,3 +183,5 @@ A secondary guard (`guard_profile_columns`) raises `PERMISSION_DENIED` if `role`
 6. `008_referral_rewards.sql` — reward automation triggers
 7. `009_subscription_rls.sql` — RLS policies
 8. `010_protect_sensitive_columns.sql` — REVOKE + guard trigger (always last)
+9. `011_username_change_limit.sql` — username change cooldown
+10. `012_ea_banner_dismissed.sql` — `user_banner_dismissals` table + `dismiss_banner()` function
