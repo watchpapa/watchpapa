@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { useAuditLog } from "../../features/admin/hooks/useAuditLog.js";
 
 const ACTIONS = ["inject", "resolve", "referral", "rewards", "follow_movie", "unfollow_movie", "follow_show", "unfollow_show"];
@@ -23,6 +23,72 @@ function ActionBadge({ action }) {
   );
 }
 
+function Field({ label, value, mono }) {
+  if (value == null || value === "") return null;
+  return (
+    <div>
+      <p className="mb-1 text-[10px] uppercase tracking-wider text-[#4a4a8a]">{label}</p>
+      <p className={`text-sm text-[#c0c0e0] break-all ${mono ? "font-mono" : ""}`}>{value}</p>
+    </div>
+  );
+}
+
+function DetailModal({ ev, onClose }) {
+  useEffect(() => {
+    function onKey(e) { if (e.key === "Escape") onClose(); }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  const bodyStr = ev.body
+    ? (typeof ev.body === "string" ? ev.body : JSON.stringify(ev.body, null, 2))
+    : null;
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-2xl rounded-2xl border border-[#2a3570] bg-[#0e1128] p-6 shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="mb-5 flex items-start justify-between gap-3">
+          <div>
+            <ActionBadge action={ev.action} />
+            <p className="mt-2 text-xs text-[#5a5a78]">{new Date(ev.created_at).toLocaleString()}</p>
+          </div>
+          <button
+            onClick={onClose}
+            className="shrink-0 rounded-lg p-1 text-[#4a4a8a] transition hover:bg-[#1a1f3a] hover:text-white"
+          >
+            ✕
+          </button>
+        </div>
+
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <Field label="Email"    value={ev.email} />
+            <Field label="Username" value={ev.username ? `@${ev.username}` : null} />
+            <Field label="IP"       value={ev.ip} mono />
+            <Field label="Method" value={ev.method} />
+            <Field label="Path"   value={ev.path} mono />
+          </div>
+          <Field label="User ID" value={ev.user_id} mono />
+          {bodyStr && bodyStr !== "{}" && bodyStr !== "null" && (
+            <div>
+              <p className="mb-1 text-[10px] uppercase tracking-wider text-[#4a4a8a]">Body</p>
+              <pre className="rounded-xl border border-[#1e244a] bg-[#12163a] p-3 text-xs text-[#c0c0e0] whitespace-pre-wrap break-all">
+                {bodyStr}
+              </pre>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function AuditLogPage() {
   const { events, total, loading, error, fetch } = useAuditLog();
   const [page, setPage] = useState(1);
@@ -30,13 +96,9 @@ function AuditLogPage() {
 
   const [filters, setFilters] = useState({ action: "", email: "", from: "", to: "" });
   const [applied, setApplied] = useState({ action: "", email: "", from: "", to: "" });
+  const [selected, setSelected] = useState(null);
 
-  const reload = useCallback(
-    (p = page, f = applied) => fetch({ page: p, limit, ...f }),
-    [fetch, page, applied]
-  );
-
-  useEffect(() => { reload(1, applied); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { fetch({ page: 1, limit }); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   function handleSearch(e) {
     e.preventDefault();
@@ -54,12 +116,13 @@ function AuditLogPage() {
 
   return (
     <div>
+      {selected && <DetailModal ev={selected} onClose={() => setSelected(null)} />}
+
       <div className="mb-6">
         <h1 className="text-lg font-semibold text-white">Audit Log</h1>
-        <p className="mt-0.5 text-xs text-[#6868b8]">All tracked user and system actions</p>
+        <p className="mt-0.5 text-xs text-[#6868b8]">All tracked user and system actions · click a row for details</p>
       </div>
 
-      {/* Filters */}
       <form onSubmit={handleSearch} className="mb-5 flex flex-wrap gap-2">
         <select
           value={filters.action}
@@ -122,7 +185,7 @@ function AuditLogPage() {
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-[#1e244a]">
-              {["Time", "Action", "Email", "Method", "Path", "IP"].map((h) => (
+              {["Time", "Action", "Email", "Username", "Method", "Path", "IP"].map((h) => (
                 <th key={h} className="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-widest text-[#4a4a8a]">
                   {h}
                 </th>
@@ -132,22 +195,29 @@ function AuditLogPage() {
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan={6} className="px-4 py-8 text-center text-sm text-[#6868b8]">Loading…</td>
+                <td colSpan={7} className="px-4 py-8 text-center text-sm text-[#6868b8]">Loading…</td>
               </tr>
             ) : events.length === 0 ? (
               <tr>
-                <td colSpan={6} className="px-4 py-8 text-center text-sm text-[#4a4a8a]">No events found.</td>
+                <td colSpan={7} className="px-4 py-8 text-center text-sm text-[#4a4a8a]">No events found.</td>
               </tr>
             ) : (
               events.map((ev) => (
-                <tr key={ev.id} className="border-b border-[#1a1f3a] last:border-0 hover:bg-[#111530]">
+                <tr
+                  key={ev.id}
+                  onClick={() => setSelected(ev)}
+                  className="cursor-pointer border-b border-[#1a1f3a] last:border-0 hover:bg-[#111530]"
+                >
                   <td className="px-4 py-2.5 text-xs tabular-nums text-[#6868b8] whitespace-nowrap">
                     {new Date(ev.created_at).toLocaleString()}
                   </td>
                   <td className="px-4 py-2.5">
                     <ActionBadge action={ev.action} />
                   </td>
-                  <td className="px-4 py-2.5 text-xs text-[#8080a8] max-w-[180px] truncate">{ev.email ?? "—"}</td>
+                  <td className="px-4 py-2.5 text-xs text-[#8080a8] max-w-[160px] truncate">{ev.email ?? "—"}</td>
+                  <td className="px-4 py-2.5 text-xs text-[#6868b8] max-w-[120px] truncate">
+                    {ev.username ? `@${ev.username}` : "—"}
+                  </td>
                   <td className="px-4 py-2.5 text-xs text-[#6868b8]">{ev.method}</td>
                   <td className="px-4 py-2.5 text-xs text-[#6868b8] max-w-[160px] truncate">{ev.path}</td>
                   <td className="px-4 py-2.5 text-xs text-[#4a4a8a]">{ev.ip}</td>
@@ -158,7 +228,6 @@ function AuditLogPage() {
         </table>
       </div>
 
-      {/* Pagination */}
       <div className="mt-4 flex items-center justify-between text-xs text-[#6868b8]">
         <span>{total.toLocaleString()} events</span>
         <div className="flex items-center gap-2">
@@ -169,9 +238,7 @@ function AuditLogPage() {
           >
             ← Prev
           </button>
-          <span className="text-[#4a4a8a]">
-            {page} / {totalPages}
-          </span>
+          <span className="text-[#4a4a8a]">{page} / {totalPages}</span>
           <button
             onClick={() => handlePage(page + 1)}
             disabled={page >= totalPages || loading}

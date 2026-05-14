@@ -24,19 +24,19 @@ router.get("/", async (req, res) => {
   const replacements = { limit, offset };
 
   if (action && ALLOWED_ACTIONS.has(action)) {
-    conditions.push("action = :action");
+    conditions.push("ae.action = :action");
     replacements.action = action;
   }
   if (email.length >= 2) {
-    conditions.push("email ILIKE :email");
+    conditions.push("ae.email ILIKE :email");
     replacements.email = `%${email}%`;
   }
   if (from) {
-    conditions.push("created_at >= :from");
+    conditions.push("ae.created_at >= :from");
     replacements.from = from;
   }
   if (to) {
-    conditions.push("created_at <= :to");
+    conditions.push("ae.created_at <= :to");
     replacements.to = to;
   }
 
@@ -44,14 +44,17 @@ router.get("/", async (req, res) => {
 
   const [events, countResult] = await Promise.all([
     sequelize.query(
-      `SELECT id, created_at, action, user_id, email, ip, method, path, body
-       FROM audit_events ${where}
-       ORDER BY created_at DESC
+      `SELECT ae.id, ae.created_at, ae.action, ae.user_id, ae.email,
+              p.username, ae.ip, ae.method, ae.path, ae.body
+       FROM audit_events ae
+       LEFT JOIN public.profile p ON p.id = ae.user_id
+       ${where}
+       ORDER BY ae.created_at DESC
        LIMIT :limit OFFSET :offset`,
       { replacements, type: QueryTypes.SELECT }
     ),
     sequelize.query(
-      `SELECT COUNT(*) AS total FROM audit_events ${where}`,
+      `SELECT COUNT(*) AS total FROM audit_events ae LEFT JOIN public.profile p ON p.id = ae.user_id ${where}`,
       { replacements, type: QueryTypes.SELECT }
     ),
   ]);
