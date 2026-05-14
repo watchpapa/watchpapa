@@ -13,6 +13,11 @@
   to   { opacity: 1; transform: translate(-50%, -50%) scale(1); }
 }
 
+@keyframes authFormIn {
+  from { opacity: 0; transform: translateY(22px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
 @media (prefers-reduced-motion: no-preference) {
   @keyframes fadeInUp {
     from { opacity: 0; transform: translateY(16px); }
