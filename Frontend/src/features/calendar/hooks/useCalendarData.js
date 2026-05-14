@@ -162,8 +162,40 @@ export function useCalendarData(session, year, month) {
     if (error) dispatch({ type: "TOGGLE_MOVIE", id: movieId });
   }, [session?.user?.id]);
 
+  // Re-follow a show that was previously unfollowed (used by undo).
+  const refollowShow = useCallback(async (showId) => {
+    if (!session?.user?.id || !isValidId(showId)) return;
+    dispatch({ type: "TOGGLE_SHOW", id: showId });
+    const { error } = await supabase
+      .from("user_followed_shows")
+      .insert({ profile_id: session.user.id, show_id: showId });
+    if (error) dispatch({ type: "TOGGLE_SHOW", id: showId });
+  }, [session?.user?.id]);
+
+  // Re-follow a movie that was previously unfollowed (used by undo).
+  const refollowMovie = useCallback(async (movieId) => {
+    if (!session?.user?.id || !isValidId(movieId)) return;
+    dispatch({ type: "TOGGLE_MOVIE", id: movieId });
+    const { error } = await supabase
+      .from("user_followed_movies")
+      .insert({ profile_id: session.user.id, movie_id: movieId });
+    if (error) dispatch({ type: "TOGGLE_MOVIE", id: movieId });
+  }, [session?.user?.id]);
+
   const visibleShows = state.followedShows.filter((s) => state.followedShowIds.has(s.id));
   const visibleMovies = state.followedMovies.filter((m) => state.followedMovieIds.has(m.id));
 
-  return { ...state, visibleShows, visibleMovies, unfollowShow, unfollowMovie };
+  // Derive calendar entries filtered by current followed IDs so the calendar
+  // updates immediately when a show or movie is unfollowed or re-followed.
+  const calendarEntries = {};
+  for (const [date, entries] of Object.entries(state.calendarEntries)) {
+    const filtered = entries.filter((e) => {
+      if (e.type === "episode") return state.followedShowIds.has(e.showId);
+      if (e.type === "movie") return state.followedMovieIds.has(e.movieId);
+      return true;
+    });
+    if (filtered.length > 0) calendarEntries[date] = filtered;
+  }
+
+  return { ...state, calendarEntries, visibleShows, visibleMovies, unfollowShow, unfollowMovie, refollowShow, refollowMovie };
 }

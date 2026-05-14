@@ -20,6 +20,14 @@ function MinusIcon() {
   );
 }
 
+function CheckIcon() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="20 6 9 17 4 12" />
+    </svg>
+  );
+}
+
 function MediaCard({ id, type, title, posterPath, isFollowing = false, onFollowToggle, isAuthenticated, customTo, releaseLabel }) {
   const imgSrc = posterPath ? `${TMDB_IMG}${posterPath}` : null;
   const to = customTo ?? (type === "movie" ? `/movies/${id}` : `/shows/${id}`);
@@ -76,13 +84,13 @@ function MediaCard({ id, type, title, posterPath, isFollowing = false, onFollowT
         className={`mx-auto flex min-w-[5.5rem] items-center justify-center gap-1 rounded-full border px-3 py-0.5 text-[11px] font-bold transition ${
           isFollowing
             ? hovering
-              ? "border-red-500 bg-[#2d1a1a] text-red-400"
-              : "border-[#5050b0] bg-[#2a2d60] text-[#a0a0e8]"
+              ? "border-red-500 bg-red-900/30 text-red-400"
+              : "border-green-600 bg-green-900/40 text-green-400"
             : "border-[#3a3a7a] bg-[#1a1d35] text-[#8888c8] hover:border-[#6060b0] hover:text-white"
         }`}
       >
         {isFollowing ? (
-          hovering ? <><MinusIcon /> Unfollow</> : "Followed"
+          hovering ? <><MinusIcon /> Unfollow</> : <><CheckIcon /> Followed</>
         ) : (
           <><PlusIcon /> Follow</>
         )}

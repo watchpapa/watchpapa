@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Link } from "react-router-dom";
 
 const TMDB_IMG = "https://image.tmdb.org/t/p/w92";
@@ -305,16 +305,64 @@ function FollowedSidebar({ shows, movies, unfollowShow, unfollowMovie, tier, onM
   );
 }
 
+function UndoToast({ queue, onUndo }) {
+  if (queue.length === 0) return null;
+  return (
+    <div className="fixed bottom-4 right-4 z-50 flex flex-col gap-2">
+      {queue.map((item) => (
+        <div
+          key={item.key}
+          className="flex items-center gap-3 rounded-xl border border-[#3a3a7a] bg-[#1a1d35] px-4 py-3 shadow-xl"
+        >
+          <span className="text-sm text-[#c0c0e8]">
+            Unfollowed <span className="font-bold text-white">{item.name}</span>
+          </span>
+          <button
+            type="button"
+            onClick={() => onUndo(item.key, item.type, item.id)}
+            className="rounded-lg border border-[#5a5ab0] bg-[#2a2d60] px-3 py-1 text-xs font-bold text-[#a0a0e8] transition hover:border-[#8888c8] hover:text-white"
+          >
+            Undo
+          </button>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function ReleasesCalendarPage({ session }) {
   const now = new Date();
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth() + 1);
   const [manageFollowsOpen, setManageFollowsOpen] = useState(false);
+  const [undoQueue, setUndoQueue] = useState([]);
+  const undoTimers = useRef({});
 
-  const { visibleShows, visibleMovies, calendarEntries, isLoading, unfollowShow, unfollowMovie } = useCalendarData(session, year, month);
+  const { visibleShows, visibleMovies, calendarEntries, isLoading, unfollowShow, unfollowMovie, refollowShow, refollowMovie } = useCalendarData(session, year, month);
   const { tier } = useSubscription(session);
 
   const isCurrentMonth = year === now.getFullYear() && month === now.getMonth() + 1;
+
+  function handleSidebarUnfollow(type, id, name) {
+    if (type === "show") unfollowShow(id);
+    else unfollowMovie(id);
+
+    const key = `${type}-${id}`;
+    clearTimeout(undoTimers.current[key]);
+    undoTimers.current[key] = setTimeout(() => {
+      setUndoQueue((q) => q.filter((item) => item.key !== key));
+      delete undoTimers.current[key];
+    }, 5000);
+    setUndoQueue((q) => [...q.filter((item) => item.key !== key), { key, type, id, name }]);
+  }
+
+  function handleUndo(key, type, id) {
+    clearTimeout(undoTimers.current[key]);
+    delete undoTimers.current[key];
+    setUndoQueue((q) => q.filter((item) => item.key !== key));
+    if (type === "show") refollowShow(id);
+    else refollowMovie(id);
+  }
 
   function prevMonth() {
     if (month === 1) { setMonth(12); setYear((y) => y - 1); }
@@ -366,6 +414,7 @@ function ReleasesCalendarPage({ session }) {
 
   return (
     <AppLayout session={session}>
+      <UndoToast queue={undoQueue} onUndo={handleUndo} />
       {manageFollowsOpen && (
         <ManageFollowsModal
           open={manageFollowsOpen}
@@ -381,8 +430,14 @@ function ReleasesCalendarPage({ session }) {
         <FollowedSidebar
           shows={visibleShows}
           movies={visibleMovies}
-          unfollowShow={unfollowShow}
-          unfollowMovie={unfollowMovie}
+          unfollowShow={(id) => {
+            const show = visibleShows.find((s) => s.id === id);
+            handleSidebarUnfollow("show", id, show?.name ?? "show");
+          }}
+          unfollowMovie={(id) => {
+            const movie = visibleMovies.find((m) => m.id === id);
+            handleSidebarUnfollow("movie", id, movie?.title ?? "movie");
+          }}
           tier={tier}
           onManageClick={() => setManageFollowsOpen(true)}
         />
