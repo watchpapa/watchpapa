@@ -55,6 +55,18 @@ function lifecycleLabel(item) {
   return "Date TBD";
 }
 
+function showStatusInfo(status) {
+  if (!status) return null;
+  const s = status.toLowerCase();
+  if (s.includes("return")) return { text: "Returning Series", color: "text-green-400" };
+  if (s.includes("ended")) return { text: "Ended", color: "text-[#8888c8]" };
+  if (s.includes("cancel")) return { text: "Cancelled", color: "text-red-400" };
+  if (s.includes("production")) return { text: "In Production", color: "text-amber-400" };
+  if (s.includes("pilot")) return { text: "Pilot", color: "text-amber-400" };
+  if (s.includes("plan")) return { text: "Planned", color: "text-[#8888c8]" };
+  return { text: status, color: "text-[#8888c8]" };
+}
+
 function compareStr(a, b) {
   if (a == null && b == null) return 0;
   if (a == null) return 1;
@@ -131,13 +143,13 @@ function ManageFollowsModal({
       role="presentation"
     >
       <div
-        className="flex h-[min(92dvh,720px)] w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-[#2a3570] bg-[#0d0f1e] shadow-2xl"
+        className="flex h-[min(92dvh,820px)] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-[#2a3570] bg-[#0d0f1e] shadow-2xl"
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
         aria-labelledby="manage-follows-title"
       >
-        <div className="flex shrink-0 items-start justify-between gap-3 border-b border-[#1a1f3a] px-4 py-3 sm:px-5">
+        <div className="flex shrink-0 items-start justify-between gap-3 border-b border-[#1a1f3a] px-5 py-4 sm:px-6">
           <div>
             <h2 id="manage-follows-title" className="text-lg font-extrabold text-white">
               Manage follows
@@ -153,7 +165,7 @@ function ManageFollowsModal({
           </button>
         </div>
 
-        <div className="flex shrink-0 flex-wrap gap-2 border-b border-[#1a1f3a] bg-[#0a0c14] px-4 py-3 sm:px-5">
+        <div className="flex shrink-0 flex-wrap gap-2 border-b border-[#1a1f3a] bg-[#0a0c14] px-5 py-3 sm:px-6">
           {[
             { id: "all", label: "All" },
             { id: "show", label: "Shows" },
@@ -174,7 +186,7 @@ function ManageFollowsModal({
           ))}
         </div>
 
-        <div className="shrink-0 px-4 py-2 sm:px-5">
+        <div className="shrink-0 px-5 py-3 sm:px-6">
           <label className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-[#5050b0]">Sort by</label>
           <select
             value={sort}
@@ -189,7 +201,7 @@ function ManageFollowsModal({
           </select>
         </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-2 py-2 sm:px-3">
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-3 py-3 sm:px-4">
           {sortedRows.length === 0 ? (
             <p className="py-8 text-center text-sm text-[#4a4a7a]">Nothing in this filter.</p>
           ) : (
@@ -202,17 +214,19 @@ function ManageFollowsModal({
                 const rel = isMovie ? r.release_date : r.first_air_date;
                 const relLabel = isMovie ? "Release" : "First aired";
 
+                const statusInfo = !isMovie ? showStatusInfo(r.status) : null;
+
                 return (
                   <li
                     key={`${item.kind}-${r.id}`}
-                    className="flex items-center gap-3 rounded-xl border border-[#1a1f3a] bg-[#141728] p-2.5 sm:p-3"
+                    className="flex items-center gap-4 rounded-xl border border-[#1a1f3a] bg-[#141728] p-3 sm:p-4"
                   >
-                    <div className="h-12 w-8 flex-shrink-0 overflow-hidden rounded border border-[#2a3570] bg-[#12163a] sm:h-14 sm:w-10">
+                    <div className="h-14 w-10 flex-shrink-0 overflow-hidden rounded-lg border border-[#2a3570] bg-[#12163a] sm:h-16 sm:w-11">
                       {r.poster_path ? (
                         <img src={`${TMDB_IMG}${r.poster_path}`} alt="" className="h-full w-full object-cover" loading="lazy" />
                       ) : (
                         <div className="flex h-full w-full items-center justify-center text-[#3a3a7a]">
-                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
                             <rect x="2" y="6" width="20" height="14" rx="2" />
                           </svg>
                         </div>
@@ -221,33 +235,45 @@ function ManageFollowsModal({
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-1.5">
                         <span
-                          className={`rounded px-1.5 py-0.5 text-[9px] font-bold uppercase ${
-                            isMovie ? "bg-[#2a1520] text-[#e8a0b0]" : "bg-[#151a2a] text-[#a0a8e8]"
-                          }`}
+                          className="rounded px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-widest"
+                          style={{ background: "rgba(10,12,35,0.9)", color: isMovie ? "#e8c04a" : "#7eb8f7" }}
                         >
                           {isMovie ? "Movie" : "Show"}
                         </span>
-                        <span className="rounded bg-[#1a1d30] px-1.5 py-0.5 text-[9px] font-semibold text-[#6a6a9a]">
-                          {lifecycleLabel(item)}
-                        </span>
+                        {isMovie && (
+                          <span className="rounded bg-[#1a1d30] px-1.5 py-0.5 text-[9px] font-semibold text-[#6a6a9a]">
+                            {lifecycleLabel(item)}
+                          </span>
+                        )}
+                        {statusInfo && (
+                          <span className={`text-[10px] font-semibold ${statusInfo.color}`}>
+                            {statusInfo.text}
+                          </span>
+                        )}
                       </div>
-                      <p className="mt-0.5 truncate text-sm font-bold text-white">{title}</p>
-                      <p className="text-[11px] text-[#6868b8]">
-                        {relLabel}: {fmtDate(rel)} · Added {fmtDate(r.followed_at)}
+                      <p className="mt-1 truncate text-sm font-bold text-white">{title}</p>
+                      <p className="mt-0.5 text-xs text-[#6868b8]">
+                        {isMovie ? (
+                          <>Release: {fmtDate(rel)}</>
+                        ) : (
+                          <>Last ep: {fmtDate(r.last_air_date)}</>
+                        )}
+                        <span className="mx-1 text-[#3a3a6a]">·</span>
+                        Added {fmtDate(r.followed_at)}
                       </p>
                     </div>
-                    <div className="flex flex-shrink-0 flex-col gap-1.5 sm:flex-row sm:items-center">
+                    <div className="flex flex-shrink-0 flex-col gap-2 sm:flex-row sm:items-center">
                       <Link
                         to={to}
                         onClick={onClose}
-                        className="whitespace-nowrap rounded-lg border border-[#3a3a7a] bg-[#1a1d35] px-2 py-1 text-center text-[11px] font-bold text-[#a0a0e8] transition hover:border-[#6060b0] hover:text-white"
+                        className="whitespace-nowrap rounded-lg border border-[#3a3a7a] bg-[#1a1d35] px-3 py-1.5 text-center text-xs font-bold text-[#a0a0e8] transition hover:border-[#6060b0] hover:text-white"
                       >
                         View
                       </Link>
                       <button
                         type="button"
                         onClick={() => (isMovie ? unfollowMovie(r.id) : unfollowShow(r.id))}
-                        className="whitespace-nowrap rounded-lg border border-[#5a3030] bg-[#2a1518] px-2 py-1 text-[11px] font-bold text-red-300 transition hover:bg-[#3a2028]"
+                        className="whitespace-nowrap rounded-lg border border-[#5a3030] bg-[#2a1518] px-3 py-1.5 text-xs font-bold text-red-300 transition hover:bg-[#3a2028]"
                       >
                         Remove
                       </button>

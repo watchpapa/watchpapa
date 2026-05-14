@@ -53,7 +53,7 @@ export function useCalendarData(session, year, month) {
         const [fsRes, fmRes] = await Promise.all([
           supabase
             .from("user_followed_shows")
-            .select("show_id, created_at, show(id, name, poster_path, first_air_date, last_air_date)")
+            .select("show_id, created_at, show(id, name, poster_path, first_air_date, last_air_date, status)")
             .eq("profile_id", profileId),
           supabase
             .from("user_followed_movies")
