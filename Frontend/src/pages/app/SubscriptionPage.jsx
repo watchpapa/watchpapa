@@ -65,23 +65,37 @@ function SubscriptionPage({ session }) {
       </p>
 
       <h3>What you both get</h3>
+      <p className="muted text-sm">
+        Rewards depend on how many <strong>Early Adopter</strong> accounts exist (cap 5,000), not on whether you are on Free, Premium, or Pro today.
+      </p>
       <div className="overflow-x-auto rounded-xl border border-[#1a1f3a]">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-[#1a1f3a] text-[11px] uppercase tracking-widest text-[#5a5a78]">
-              <th className="px-4 py-3 text-left">Your plan</th>
+              <th className="px-4 py-3 text-left">Situation</th>
               <th className="px-4 py-3 text-left">You get</th>
               <th className="px-4 py-3 text-left">Your friend gets</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-[#1a1f3a]">
             <tr>
-              <td className="px-4 py-3 text-[#b0b0d4]">Any</td>
+              <td className="px-4 py-3 text-[#b0b0d4]">
+                Fewer than 5,000 Early Adopters so far — pool still has open seats
+              </td>
               <td className="px-4 py-3 font-semibold text-[#9b9bf0]">Pro — 30 days</td>
               <td className="px-4 py-3 font-semibold text-[#9b9bf0]">Pro — 30 days</td>
             </tr>
             <tr>
-              <td className="px-4 py-3 text-[#b0b0d4]">Any (once slots fill up)</td>
+              <td className="px-4 py-3 text-[#b0b0d4]">
+                All 5,000 Early Adopter seats are taken, and <strong className="text-white">you</strong> are an Early Adopter
+              </td>
+              <td className="px-4 py-3 font-semibold text-[#9b9bf0]">Pro — 30 days</td>
+              <td className="px-4 py-3 font-semibold text-amber-400">Premium — 30 days</td>
+            </tr>
+            <tr>
+              <td className="px-4 py-3 text-[#b0b0d4]">
+                All 5,000 Early Adopter seats are taken, and <strong className="text-white">you</strong> are not an Early Adopter
+              </td>
               <td className="px-4 py-3 font-semibold text-amber-400">Premium — 30 days</td>
               <td className="px-4 py-3 font-semibold text-amber-400">Premium — 30 days</td>
             </tr>
