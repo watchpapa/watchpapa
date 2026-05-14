@@ -67,13 +67,21 @@ function VerifyEmailForm() {
     }
 
     if (data?.session) {
-      const pendingCode = sessionStorage.getItem("pendingReferralCode");
+      const pendingCode = sessionStorage.getItem("pendingPromoCode");
       if (pendingCode) {
-        sessionStorage.removeItem("pendingReferralCode");
-        fetch(`${API_BASE}/api/referral/use/${encodeURIComponent(pendingCode)}`, {
+        sessionStorage.removeItem("pendingPromoCode");
+        const token = data.session.access_token;
+        const res = await fetch(`${API_BASE}/api/referral/use/${encodeURIComponent(pendingCode)}`, {
           method: "POST",
-          headers: { Authorization: `Bearer ${data.session.access_token}` },
-        }).catch(() => {});
+          headers: { Authorization: `Bearer ${token}` },
+        }).catch(() => null);
+        if (res && !res.ok && res.status === 404) {
+          fetch(`${API_BASE}/api/rewards/claim`, {
+            method: "POST",
+            headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+            body: JSON.stringify({ code: pendingCode }),
+          }).catch(() => {});
+        }
       }
       navigate("/");
       return;

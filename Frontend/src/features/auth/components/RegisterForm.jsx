@@ -2,7 +2,6 @@ import { useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import FormField from "../../../components/ui/FormField.jsx";
 import Input from "../../../components/ui/Input.jsx";
-import Toggle from "../../../components/ui/Toggle.jsx";
 import { useAuth } from "../hooks/useAuth.js";
 import { normalizeDateInput } from "../../../lib/validate.js";
 
@@ -14,25 +13,8 @@ const initialState = {
   password: "",
   repeatPassword: "",
   dateOfBirth: "",
-  showAdultContent: false,
 };
 
-function isAdult(dateString) {
-  if (!dateString) return false;
-  const birthDate = new Date(dateString);
-  if (Number.isNaN(birthDate.getTime())) return false;
-
-  const today = new Date();
-  let age = today.getFullYear() - birthDate.getFullYear();
-  const monthDiff = today.getMonth() - birthDate.getMonth();
-  const dayDiff = today.getDate() - birthDate.getDate();
-
-  if (monthDiff < 0 || (monthDiff === 0 && dayDiff < 0)) {
-    age -= 1;
-  }
-
-  return age >= 18;
-}
 
 function getPasswordPolicyStatus(pw) {
   return {
@@ -100,11 +82,10 @@ function RegisterForm() {
   const { signUp, signInWithOAuth } = useAuth();
 
   const [formState, setFormState] = useState(initialState);
-  const [referralCode, setReferralCode] = useState(() => searchParams.get("ref")?.toUpperCase() ?? "");
+  const [promoCode, setPromoCode] = useState(() => searchParams.get("ref")?.toUpperCase() ?? "");
   const [errors, setErrors] = useState({});
   const [submitError, setSubmitError] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const isAdultUser = isAdult(formState.dateOfBirth);
   const passwordPolicy = getPasswordPolicyStatus(formState.password);
   const repeatPasswordMatches =
     formState.repeatPassword.length > 0 &&
@@ -113,22 +94,7 @@ function RegisterForm() {
   const onChangeField = (fieldName) => (event) => {
     const raw = event.target.value;
     const nextValue = fieldName === "dateOfBirth" ? normalizeDateInput(raw) : raw;
-    setFormState((current) => {
-      const nextState = {
-        ...current,
-        [fieldName]: nextValue,
-      };
-
-      if (fieldName === "dateOfBirth" && !isAdult(nextValue)) {
-        nextState.showAdultContent = false;
-      }
-
-      return nextState;
-    });
-  };
-
-  const onChangeAdultContent = (next) => {
-    setFormState((current) => ({ ...current, showAdultContent: next }));
+    setFormState((current) => ({ ...current, [fieldName]: nextValue }));
   };
 
   const onSubmit = async (event) => {
@@ -149,7 +115,7 @@ function RegisterForm() {
       metadata: {
         username: formState.username.trim(),
         date_of_birth: formState.dateOfBirth,
-        show_adult_content: formState.showAdultContent,
+        show_adult_content: false,
       },
     });
     setIsSubmitting(false);
@@ -169,23 +135,34 @@ function RegisterForm() {
       return;
     }
 
-    const finalRefCode = referralCode.trim().toUpperCase() || null;
+    const finalPromoCode = promoCode.trim().toUpperCase() || null;
 
-    // Confirmations off: session returned immediately — apply referral now.
+    // Confirmations off: session returned immediately — apply code now.
     if (data?.session) {
-      if (finalRefCode) {
-        fetch(`${API_BASE}/api/referral/use/${encodeURIComponent(finalRefCode)}`, {
+      if (finalPromoCode) {
+        const token = data.session.access_token;
+        fetch(`${API_BASE}/api/referral/use/${encodeURIComponent(finalPromoCode)}`, {
           method: "POST",
-          headers: { Authorization: `Bearer ${data.session.access_token}` },
-        }).catch(() => {});
+          headers: { Authorization: `Bearer ${token}` },
+        })
+          .then((res) => {
+            if (!res.ok && res.status === 404) {
+              fetch(`${API_BASE}/api/rewards/claim`, {
+                method: "POST",
+                headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+                body: JSON.stringify({ code: finalPromoCode }),
+              }).catch(() => {});
+            }
+          })
+          .catch(() => {});
       }
       navigate("/", { replace: true });
       return;
     }
 
     // Email confirmation required — persist code for VerifyEmailForm to apply after OTP.
-    if (finalRefCode) {
-      sessionStorage.setItem("pendingReferralCode", finalRefCode);
+    if (finalPromoCode) {
+      sessionStorage.setItem("pendingPromoCode", finalPromoCode);
     }
 
     // With email confirmation, `user` may be null (GoTrue obfuscation); still send user to verify flow
@@ -207,13 +184,13 @@ function RegisterForm() {
   return (
     <form
       onSubmit={onSubmit}
-      className="w-full max-w-[980px] rounded-[18px] border-[0.833px] border-[#6f6fdc] bg-gradient-to-b from-[rgba(12,16,66,0.2)] to-[rgba(20,27,95,0.2)] px-[clamp(12px,2.2vw,26px)] pb-[12px] pt-[10px] shadow-[0_3.333px_3.333px_rgba(0,0,0,0.25)]"
+      className="w-full max-w-[980px] rounded-[18px] border-[0.833px] border-[#6f6fdc] bg-gradient-to-b from-[rgba(8,11,46,0.82)] to-[rgba(14,19,66,0.88)] px-[clamp(24px,4vw,56px)] pb-[20px] pt-[16px] shadow-[0_3.333px_3.333px_rgba(0,0,0,0.25)] backdrop-blur-[12px]"
     >
       <h1 className="mb-[12px] text-center text-[24px] font-extrabold leading-none text-[#8383e7] sm:text-[30px]">
         Register
       </h1>
 
-      <div className="grid grid-cols-1 gap-x-[clamp(12px,2vw,24px)] gap-y-[10px] md:grid-cols-2">
+      <div className="grid grid-cols-1 gap-x-[clamp(20px,3vw,40px)] gap-y-[18px] md:grid-cols-2">
         <FormField label="email" htmlFor="email" error={errors.email} labelClassName="text-[18px] sm:text-[22px]">
           <Input
             id="email"
@@ -263,18 +240,11 @@ function RegisterForm() {
                 { met: passwordPolicy.lower, label: "One lowercase letter" },
                 { met: passwordPolicy.upper, label: "One uppercase letter" },
                 { met: passwordPolicy.digit, label: "One digit" },
-                {
-                  met: passwordPolicy.symbol,
-                  label: "One symbol (!@#$% etc.)",
-                },
+                { met: passwordPolicy.symbol, label: "One symbol (!@#$% etc.)" },
               ].map(({ met, label }) => (
                 <li
                   key={label}
-                  className={
-                    met
-                      ? "text-emerald-400/95"
-                      : "text-[#a0a0f7]/75"
-                  }
+                  className={met ? "text-emerald-400/95" : "text-[#a0a0f7]/75"}
                 >
                   <span aria-hidden>{met ? "✓ " : "○ "}</span>
                   {label}
@@ -282,22 +252,6 @@ function RegisterForm() {
               ))}
             </ul>
           </div>
-        </FormField>
-
-        <FormField
-          label="date of birth"
-          htmlFor="dateOfBirth"
-          error={errors.dateOfBirth}
-          labelClassName="text-[18px] sm:text-[22px]"
-        >
-          <Input
-            id="dateOfBirth"
-            name="dateOfBirth"
-            type="date"
-            value={formState.dateOfBirth}
-            onChange={onChangeField("dateOfBirth")}
-            aria-invalid={Boolean(errors.dateOfBirth)}
-          />
         </FormField>
 
         <FormField
@@ -329,26 +283,30 @@ function RegisterForm() {
           </div>
         </FormField>
 
-        {isAdultUser ? (
-          <FormField
-            label="show adult content"
-            htmlFor="showAdultContent"
-            labelClassName="text-[18px] sm:text-[22px]"
-          >
-            <Toggle value={formState.showAdultContent} onChange={onChangeAdultContent} />
-          </FormField>
-        ) : null}
-      </div>
-
-      <div className="mt-[10px]">
-        <FormField label="referral code (optional)" htmlFor="referralCode" labelClassName="text-[18px] sm:text-[22px]">
+        <FormField
+          label="date of birth"
+          htmlFor="dateOfBirth"
+          error={errors.dateOfBirth}
+          labelClassName="text-[18px] sm:text-[22px]"
+        >
           <Input
-            id="referralCode"
-            name="referralCode"
+            id="dateOfBirth"
+            name="dateOfBirth"
+            type="date"
+            value={formState.dateOfBirth}
+            onChange={onChangeField("dateOfBirth")}
+            aria-invalid={Boolean(errors.dateOfBirth)}
+          />
+        </FormField>
+
+        <FormField label={<>referral or gift code <span className="text-[#a0a0f7]/50">(optional)</span></>} htmlFor="promoCode" labelClassName="text-[18px] sm:text-[22px]">
+          <Input
+            id="promoCode"
+            name="promoCode"
             type="text"
             placeholder="ENTER CODE"
-            value={referralCode}
-            onChange={(e) => setReferralCode(e.target.value.toUpperCase())}
+            value={promoCode}
+            onChange={(e) => setPromoCode(e.target.value.toUpperCase())}
           />
         </FormField>
       </div>
@@ -379,6 +337,12 @@ function RegisterForm() {
           onClick={onOAuth("google")}
           className="inline-flex w-full max-w-[360px] items-center justify-center gap-[10px] rounded-[14px] border-[0.833px] border-[#8383e7] bg-gradient-to-b from-[rgba(12,16,66,0.5)] to-[rgba(20,27,95,0.5)] px-4 py-2 text-[14px] font-extrabold text-[#8383e7] shadow-[0_3.333px_3.333px_rgba(0,0,0,0.25)] transition hover:text-[#a0a0f7]"
         >
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" className="h-[18px] w-[18px] shrink-0" aria-hidden>
+            <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+            <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+            <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+            <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+          </svg>
           Continue with Google
         </button>
         <button
@@ -386,6 +350,9 @@ function RegisterForm() {
           onClick={onOAuth("github")}
           className="inline-flex w-full max-w-[360px] items-center justify-center gap-[10px] rounded-[14px] border-[0.833px] border-[#8383e7] bg-gradient-to-b from-[rgba(12,16,66,0.5)] to-[rgba(20,27,95,0.5)] px-4 py-2 text-[14px] font-extrabold text-[#8383e7] shadow-[0_3.333px_3.333px_rgba(0,0,0,0.25)] transition hover:text-[#a0a0f7]"
         >
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" className="h-[18px] w-[18px] shrink-0 fill-current" aria-hidden>
+            <path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/>
+          </svg>
           Continue with GitHub
         </button>
       </div>

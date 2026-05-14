@@ -92,17 +92,24 @@ function CompleteUsernameForm({ userId, initialUsername = "", onCompleted }) {
       return;
     }
 
-    // Apply pending referral code from registration URL param (?ref=CODE).
-    const pendingCode = sessionStorage.getItem("pendingReferralCode");
+    // Apply pending referral or gift code from registration.
+    const pendingCode = sessionStorage.getItem("pendingPromoCode");
     if (pendingCode) {
-      sessionStorage.removeItem("pendingReferralCode");
+      sessionStorage.removeItem("pendingPromoCode");
       const { data: { session: s } } = await supabase.auth.getSession();
       const token = s?.access_token;
       if (token) {
-        fetch(`${API_BASE}/api/referral/use/${encodeURIComponent(pendingCode)}`, {
+        const res = await fetch(`${API_BASE}/api/referral/use/${encodeURIComponent(pendingCode)}`, {
           method: "POST",
           headers: { Authorization: `Bearer ${token}` },
-        }).catch(() => {});
+        }).catch(() => null);
+        if (res && !res.ok && res.status === 404) {
+          fetch(`${API_BASE}/api/rewards/claim`, {
+            method: "POST",
+            headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+            body: JSON.stringify({ code: pendingCode }),
+          }).catch(() => {});
+        }
       }
     }
 
