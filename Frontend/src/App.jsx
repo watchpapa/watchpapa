@@ -26,6 +26,12 @@ import SubscriptionPage from "./pages/app/SubscriptionPage.jsx";
 import SettingsPage from "./pages/app/SettingsPage.jsx";
 import AdminPage from "./pages/admin/AdminPage.jsx";
 import RewardCodesPage from "./pages/admin/RewardCodesPage.jsx";
+import EarlyAdoptersPage from "./pages/admin/EarlyAdoptersPage.jsx";
+import StatsPage from "./pages/admin/StatsPage.jsx";
+import UserLookupPage from "./pages/admin/UserLookupPage.jsx";
+import ReferralLeaderboardPage from "./pages/admin/ReferralLeaderboardPage.jsx";
+import AuditLogPage from "./pages/admin/AuditLogPage.jsx";
+import ScriptLogsPage from "./pages/admin/ScriptLogsPage.jsx";
 import AdminRoute from "./components/auth/AdminRoute.jsx";
 import {
   AboutPage,
@@ -420,8 +426,13 @@ function App() {
           </AdminRoute>
         }
       >
-        <Route index element={<RewardCodesPage />} />
+        <Route index element={<StatsPage />} />
         <Route path="reward-codes" element={<RewardCodesPage />} />
+        <Route path="early-adopters" element={<EarlyAdoptersPage />} />
+        <Route path="users" element={<UserLookupPage />} />
+        <Route path="referrals" element={<ReferralLeaderboardPage />} />
+        <Route path="audit-log" element={<AuditLogPage />} />
+        <Route path="script-logs" element={<ScriptLogsPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
