@@ -34,8 +34,30 @@ const NAV = [
 function AdminPage({ session }) {
   return (
     <AppLayout session={session} breadcrumbs={[{ label: "Admin", to: "/admin" }]}>
-      <div className="flex gap-8">
-        <nav className="w-44 shrink-0 space-y-5">
+      <div className="flex flex-col gap-4 sm:flex-row sm:gap-8">
+
+        {/* Mobile: horizontal scrollable tab strip */}
+        <nav className="flex overflow-x-auto gap-1 pb-1 sm:hidden">
+          {NAV.flatMap(({ links }) => links).map(({ to, label, end }) => (
+            <NavLink
+              key={to}
+              to={to}
+              end={end}
+              className={({ isActive }) =>
+                `shrink-0 rounded-xl px-3 py-2 text-sm transition whitespace-nowrap ${
+                  isActive
+                    ? "bg-[#141728] font-semibold text-white"
+                    : "text-[#8080a8] hover:bg-[#141728] hover:text-white"
+                }`
+              }
+            >
+              {label}
+            </NavLink>
+          ))}
+        </nav>
+
+        {/* Desktop: vertical sidebar */}
+        <nav className="hidden sm:block w-44 shrink-0 space-y-5">
           {NAV.map(({ section, links }) => (
             <div key={section}>
               <p className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-[#4a4a8a]">
@@ -63,6 +85,7 @@ function AdminPage({ session }) {
             </div>
           ))}
         </nav>
+
         <main className="min-w-0 flex-1">
           <Outlet />
         </main>

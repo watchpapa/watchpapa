@@ -67,7 +67,7 @@ function DetailModal({ ev, onClose }) {
         </div>
 
         <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Field label="Email"    value={ev.email} />
             <Field label="Username" value={ev.username ? `@${ev.username}` : null} />
             <Field label="IP"       value={ev.ip} mono />
@@ -123,7 +123,7 @@ function AuditLogPage() {
         <p className="mt-0.5 text-xs text-[#6868b8]">All tracked user and system actions · click a row for details</p>
       </div>
 
-      <form onSubmit={handleSearch} className="mb-5 flex flex-wrap gap-2">
+      <form onSubmit={handleSearch} className="mb-5 flex flex-wrap gap-2 items-end">
         <select
           value={filters.action}
           onChange={(e) => setFilters((f) => ({ ...f, action: e.target.value }))}
@@ -181,8 +181,8 @@ function AuditLogPage() {
         </div>
       )}
 
-      <div className="rounded-2xl border border-[#1e244a] bg-[#0e1128] overflow-hidden">
-        <table className="w-full text-sm">
+      <div className="rounded-2xl border border-[#1e244a] bg-[#0e1128] overflow-x-auto">
+        <table className="w-full text-sm min-w-[640px]">
           <thead>
             <tr className="border-b border-[#1e244a]">
               {["Time", "Action", "Email", "Username", "Method", "Path", "IP"].map((h) => (

@@ -297,21 +297,21 @@ function RewardCodesPage() {
 
       {/* Codes table */}
       <section>
-        <div className="mb-3 flex items-center justify-between">
-          <div className="flex gap-1">
+        <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-wrap gap-1">
             {STATUS_TABS.map((s) => (
               <button key={s} onClick={() => { setStatusFilter(s); setPage(1); }} className={`rounded-lg px-3 py-1 text-xs font-semibold transition capitalize ${statusFilter === s ? "bg-[#141728] text-white" : "text-[#6868b8] hover:text-white"}`}>
                 {s}
               </button>
             ))}
           </div>
-          <button onClick={() => exportCsv(statusFilter)} className="text-xs text-[#9b9bf0] underline hover:text-white transition">Export CSV</button>
+          <button onClick={() => exportCsv(statusFilter)} className="self-start text-xs text-[#9b9bf0] underline hover:text-white transition sm:self-auto">Export CSV</button>
         </div>
 
         {error && <p className="mb-2 text-sm text-red-400">{error}</p>}
 
         <div className="overflow-x-auto rounded-2xl border border-[#1a1f3a]">
-          <table className="w-full text-sm">
+          <table className="w-full text-sm min-w-[720px]">
             <thead>
               <tr className="border-b border-[#1a1f3a] text-[10px] uppercase tracking-wider text-[#5a5a78]">
                 {["Code", "Tier", "Duration", "Uses", "Expiry", "Status", "Created", "Actions"].map((h) => (

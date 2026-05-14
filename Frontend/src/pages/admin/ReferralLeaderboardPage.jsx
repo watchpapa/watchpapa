@@ -45,8 +45,8 @@ function ReferralLeaderboardPage() {
             <SummaryCard label="Expired"  value={data.summary.expired.toLocaleString()}  color="text-[#5a5a78]" />
           </div>
 
-          <div className="rounded-2xl border border-[#1e244a] bg-[#0e1128] overflow-hidden">
-            <table className="w-full text-sm">
+          <div className="rounded-2xl border border-[#1e244a] bg-[#0e1128] overflow-x-auto">
+            <table className="w-full text-sm min-w-[420px]">
               <thead>
                 <tr className="border-b border-[#1e244a]">
                   {["#", "User", "Total", "Rewarded", "Pending", "Expired"].map((h) => (

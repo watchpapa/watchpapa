@@ -67,7 +67,7 @@ function DetailModal({ log, onClose }) {
         </div>
 
         <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-2">
             <Field label="Batch Size" value={log.batch_size != null ? String(log.batch_size) : null} />
             <Field label="Runtime"    value={fmt(log.runtime)} />
             <Field label="Started"    value={log.started_at ? new Date(log.started_at).toLocaleString() : null} />
@@ -169,8 +169,8 @@ function ScriptLogsPage() {
         </div>
       )}
 
-      <div className="rounded-2xl border border-[#1e244a] bg-[#0e1128] overflow-hidden">
-        <table className="w-full text-sm">
+      <div className="rounded-2xl border border-[#1e244a] bg-[#0e1128] overflow-x-auto">
+        <table className="w-full text-sm min-w-[540px]">
           <thead>
             <tr className="border-b border-[#1e244a]">
               {["Started", "Script", "Status", "Batch", "Runtime", "Error"].map((h) => (
