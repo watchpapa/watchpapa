@@ -286,6 +286,7 @@ export function useShowsPageData(session, showAdult = false) {
       posterPath: row.poster_path ?? null,
       isFollowing: followedIds.has(row.id),
       onFollowToggle: () => toggleFollow(row.id),
+      genreIds: (row.show_genre ?? []).map((sg) => sg.genres?.id).filter(Boolean),
     }),
     [followedIds, toggleFollow],
   );

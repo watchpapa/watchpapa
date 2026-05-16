@@ -1,7 +1,7 @@
 // Used by:
 // - Frontend/src/main.jsx
 import { useEffect, useState } from "react";
-import { Navigate, Route, Routes } from "react-router-dom";
+import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { supabase } from "./lib/supabase.js";
 import ForgotPasswordPage from "./pages/auth/ForgotPasswordPage.jsx";
 import LoginPage from "./pages/auth/LoginPage.jsx";
@@ -33,6 +33,8 @@ import ReferralLeaderboardPage from "./pages/admin/ReferralLeaderboardPage.jsx";
 import AuditLogPage from "./pages/admin/AuditLogPage.jsx";
 import ScriptLogsPage from "./pages/admin/ScriptLogsPage.jsx";
 import AdminRoute from "./components/auth/AdminRoute.jsx";
+import AnalyticsPage from "./pages/admin/AnalyticsPage.jsx";
+import { trackPresence, trackPageView } from "./lib/analytics.js";
 import {
   AboutPage,
   ContactPage,
@@ -185,6 +187,18 @@ function App() {
       isMounted = false;
     };
   }, [session?.user?.id]);
+
+  // Record hourly presence bucket for authenticated users (DAU/WAU/MAU).
+  useEffect(() => {
+    if (!session?.user?.id) return;
+    trackPresence();
+  }, [session?.user?.id]);
+
+  // Record page view on every route change.
+  const location = useLocation();
+  useEffect(() => {
+    trackPageView(location.pathname);
+  }, [location.pathname]);
 
   if (isSessionLoading || (session && isProfileLoading)) {
     return null;

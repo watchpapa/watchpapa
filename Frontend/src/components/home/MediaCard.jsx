@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import AuthPromptModal from "../AuthPromptModal.jsx";
+import { trackContentClick } from "../../lib/analytics.js";
 
 const TMDB_IMG = "https://image.tmdb.org/t/p/w300";
 
@@ -28,7 +29,7 @@ function CheckIcon() {
   );
 }
 
-function MediaCard({ id, type, title, posterPath, isFollowing = false, onFollowToggle, isAuthenticated, customTo, releaseLabel }) {
+function MediaCard({ id, type, title, posterPath, isFollowing = false, onFollowToggle, isAuthenticated, customTo, releaseLabel, genreIds = [], trackSource = "browse" }) {
   const imgSrc = posterPath ? `${TMDB_IMG}${posterPath}` : null;
   const to = customTo ?? (type === "movie" ? `/movies/${id}` : `/shows/${id}`);
   const [hovering, setHovering] = useState(false);
@@ -52,7 +53,7 @@ function MediaCard({ id, type, title, posterPath, isFollowing = false, onFollowT
     <article className="flex w-[130px] flex-shrink-0 flex-col gap-2 sm:w-[150px]">
       {showAuthPrompt && <AuthPromptModal onClose={() => setShowAuthPrompt(false)} />}
 
-      <Link to={to} className="relative overflow-hidden rounded-2xl border border-[#2a3570] bg-[#12163a] aspect-[2/3] block group">
+      <Link to={to} onClick={() => trackContentClick(type, id, genreIds, trackSource)} className="relative overflow-hidden rounded-2xl border border-[#2a3570] bg-[#12163a] aspect-[2/3] block group">
         <span className="absolute top-2 left-2 z-10 rounded px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-widest" style={{ background: "rgba(10,12,35,0.82)", color: type === "movie" ? "#e8c04a" : "#7eb8f7" }}>
           {type === "movie" ? "Movie" : "Show"}
         </span>

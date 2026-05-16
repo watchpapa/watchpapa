@@ -285,6 +285,7 @@ export function useMoviesPageData(session, showAdult = false) {
       posterPath: row.poster_path ?? null,
       isFollowing: followedIds.has(row.id),
       onFollowToggle: () => toggleFollow(row.id),
+      genreIds: (row.movie_genre ?? []).map((mg) => mg.genres?.id).filter(Boolean),
     }),
     [followedIds, toggleFollow],
   );

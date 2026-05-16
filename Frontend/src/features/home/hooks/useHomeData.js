@@ -15,6 +15,7 @@ function toMovieItem(row, followedIds) {
     posterPath: row.poster_path ?? null,
     tmdbPopularity: row.tmdb_popularity,
     isFollowing: followedIds.has(row.id),
+    genreIds: (row.movie_genre ?? []).map((g) => g.genres_id),
   };
 }
 
@@ -27,6 +28,7 @@ function toShowItem(row, followedIds) {
     posterPath: row.poster_path ?? null,
     tmdbPopularity: row.tmdb_popularity,
     isFollowing: followedIds.has(row.id),
+    genreIds: (row.show_genre ?? []).map((g) => g.genres_id),
   };
 }
 
@@ -143,7 +145,7 @@ export function useHomeData(session, showAdult = false) {
         // Read top movies from the movie table.
         let movieQ = supabase
           .from("movie")
-          .select("id, tmdb_id, title, tmdb_popularity, poster_path")
+          .select("id, tmdb_id, title, tmdb_popularity, poster_path, movie_genre(genres_id)")
           .is("deleted_at", null)
           .order("tmdb_popularity", { ascending: false })
           .range(0, PAGE_SIZE - 1);
@@ -152,7 +154,7 @@ export function useHomeData(session, showAdult = false) {
         // Read top shows from the show table.
         let showQ = supabase
           .from("show")
-          .select("id, tmdb_id, name, tmdb_popularity, poster_path")
+          .select("id, tmdb_id, name, tmdb_popularity, poster_path, show_genre(genres_id)")
           .is("deleted_at", null)
           .order("tmdb_popularity", { ascending: false })
           .range(0, PAGE_SIZE - 1);
@@ -297,7 +299,7 @@ export function useHomeData(session, showAdult = false) {
       // Fetch the next movie page from the database.
       let q = supabase
         .from("movie")
-        .select("id, tmdb_id, title, tmdb_popularity, poster_path")
+        .select("id, tmdb_id, title, tmdb_popularity, poster_path, movie_genre(genres_id)")
         .is("deleted_at", null)
         .order("tmdb_popularity", { ascending: false })
         .range(from, from + PAGE_SIZE - 1);
@@ -324,7 +326,7 @@ export function useHomeData(session, showAdult = false) {
       // Fetch the next show page from the database.
       let q = supabase
         .from("show")
-        .select("id, tmdb_id, name, tmdb_popularity, poster_path")
+        .select("id, tmdb_id, name, tmdb_popularity, poster_path, show_genre(genres_id)")
         .is("deleted_at", null)
         .order("tmdb_popularity", { ascending: false })
         .range(from, from + PAGE_SIZE - 1);
@@ -387,7 +389,7 @@ export function useHomeData(session, showAdult = false) {
           // Keep paging movie rows while building the merged popular list.
           let q = supabase
             .from("movie")
-            .select("id, tmdb_id, title, tmdb_popularity, poster_path")
+            .select("id, tmdb_id, title, tmdb_popularity, poster_path, movie_genre(genres_id)")
             .is("deleted_at", null)
             .order("tmdb_popularity", { ascending: false })
             .range(from, from + PAGE_SIZE - 1);
@@ -403,7 +405,7 @@ export function useHomeData(session, showAdult = false) {
           // Keep paging show rows while building the merged popular list.
           let q = supabase
             .from("show")
-            .select("id, tmdb_id, name, tmdb_popularity, poster_path")
+            .select("id, tmdb_id, name, tmdb_popularity, poster_path, show_genre(genres_id)")
             .is("deleted_at", null)
             .order("tmdb_popularity", { ascending: false })
             .range(from, from + PAGE_SIZE - 1);
