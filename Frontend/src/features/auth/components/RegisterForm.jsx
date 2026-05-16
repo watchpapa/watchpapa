@@ -91,6 +91,8 @@ function RegisterForm() {
   const [errors, setErrors] = useState({});
   const [submitError, setSubmitError] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showRepeatPassword, setShowRepeatPassword] = useState(false);
   const passwordPolicy = getPasswordPolicyStatus(formState.password);
   const repeatPasswordMatches =
     formState.repeatPassword.length > 0 &&
@@ -100,6 +102,13 @@ function RegisterForm() {
     const raw = event.target.type === "checkbox" ? event.target.checked : event.target.value;
     const nextValue = fieldName === "dateOfBirth" ? normalizeDateInput(raw) : raw;
     setFormState((current) => ({ ...current, [fieldName]: nextValue }));
+    setErrors((current) => {
+      if (!current[fieldName] && !(fieldName === "password" && current.repeatPassword)) return current;
+      const next = { ...current };
+      delete next[fieldName];
+      if (fieldName === "password") delete next.repeatPassword;
+      return next;
+    });
   };
 
   const onSubmit = async (event) => {
@@ -224,17 +233,32 @@ function RegisterForm() {
 
         <FormField label="password" htmlFor="password" error={errors.password} labelClassName="text-[18px] sm:text-[22px]">
           <div className="space-y-[4px]">
-            <Input
-              id="password"
-              name="password"
-              type="password"
-              autoComplete="new-password"
-              placeholder="************"
-              value={formState.password}
-              onChange={onChangeField("password")}
-              aria-invalid={Boolean(errors.password)}
-              aria-describedby="password-requirements"
-            />
+            <div className="relative">
+              <Input
+                id="password"
+                name="password"
+                type={showPassword ? "text" : "password"}
+                autoComplete="new-password"
+                placeholder="************"
+                value={formState.password}
+                onChange={onChangeField("password")}
+                aria-invalid={Boolean(errors.password)}
+                aria-describedby="password-requirements"
+                className="pr-[44px]"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((v) => !v)}
+                aria-label={showPassword ? "Hide password" : "Show password"}
+                className="absolute right-[12px] top-1/2 -translate-y-1/2 text-[#6f6fdc] transition hover:text-[#a0a0f7]"
+              >
+                {showPassword ? (
+                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+                ) : (
+                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                )}
+              </button>
+            </div>
             <ul
               id="password-requirements"
               className="list-none space-y-[3px] text-[11px] font-semibold leading-snug transition-colors"
@@ -266,17 +290,32 @@ function RegisterForm() {
           labelClassName="text-[18px] sm:text-[22px]"
         >
           <div className="space-y-[4px]">
-            <Input
-              id="repeatPassword"
-              name="repeatPassword"
-              type="password"
-              autoComplete="new-password"
-              placeholder="************"
-              value={formState.repeatPassword}
-              onChange={onChangeField("repeatPassword")}
-              aria-invalid={Boolean(errors.repeatPassword)}
-              aria-describedby="repeat-password-hint"
-            />
+            <div className="relative">
+              <Input
+                id="repeatPassword"
+                name="repeatPassword"
+                type={showRepeatPassword ? "text" : "password"}
+                autoComplete="new-password"
+                placeholder="************"
+                value={formState.repeatPassword}
+                onChange={onChangeField("repeatPassword")}
+                aria-invalid={Boolean(errors.repeatPassword)}
+                aria-describedby="repeat-password-hint"
+                className="pr-[44px]"
+              />
+              <button
+                type="button"
+                onClick={() => setShowRepeatPassword((v) => !v)}
+                aria-label={showRepeatPassword ? "Hide password" : "Show password"}
+                className="absolute right-[12px] top-1/2 -translate-y-1/2 text-[#6f6fdc] transition hover:text-[#a0a0f7]"
+              >
+                {showRepeatPassword ? (
+                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+                ) : (
+                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                )}
+              </button>
+            </div>
             <p
               id="repeat-password-hint"
               className={`text-[11px] font-semibold leading-snug transition-colors ${repeatPasswordMatches ? "text-emerald-400/95" : "text-[#a0a0f7]/75"}`}
