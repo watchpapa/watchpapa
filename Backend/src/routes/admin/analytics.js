@@ -75,9 +75,7 @@ router.get("/pages-per-session", async (_req, res) => {
       `WITH eligible AS (
          SELECT pv.profile_id, pv.visited_at
          FROM public.analytics_page_views pv
-         LEFT JOIN public.profile p ON p.id = pv.profile_id
          WHERE pv.visited_at >= now() - INTERVAL '30 days'
-           AND (p.role IS NULL OR p.role <> 4)
            AND NOT EXISTS (
              SELECT 1 FROM public.analytics_tracking_exclusions e
              WHERE e.profile_id = pv.profile_id
@@ -330,8 +328,7 @@ router.get("/unfollow-rate", async (_req, res) => {
 });
 
 // GET /api/admin/analytics/exclusions
-// Returns manual exclusions + all admins (role=4) marked as auto-excluded.
-// Admins already in the manual exclusions table are shown only once (as manual).
+// Returns manually excluded users only.
 router.get("/exclusions", async (_req, res) => {
   try {
     const rows = await sequelize.query(
@@ -341,30 +338,12 @@ router.get("/exclusions", async (_req, res) => {
          p.username,
          e.excluded_at,
          e.note,
-         ep.username AS excluded_by_username,
-         false        AS is_auto
+         ep.username AS excluded_by_username
        FROM public.analytics_tracking_exclusions e
        JOIN auth.users au ON au.id = e.profile_id
        JOIN public.profile p ON p.id = e.profile_id
        LEFT JOIN public.profile ep ON ep.id = e.excluded_by
-
-       UNION ALL
-
-       SELECT
-         p.id         AS profile_id,
-         au.email,
-         p.username,
-         NULL         AS excluded_at,
-         'Admin — auto-excluded' AS note,
-         NULL         AS excluded_by_username,
-         true         AS is_auto
-       FROM public.profile p
-       JOIN auth.users au ON au.id = p.id
-       WHERE p.role = 4
-         AND p.deleted_at IS NULL
-         AND p.id NOT IN (SELECT profile_id FROM public.analytics_tracking_exclusions)
-
-       ORDER BY is_auto ASC, excluded_at DESC NULLS LAST`,
+       ORDER BY e.excluded_at DESC`,
       { type: QueryTypes.SELECT }
     );
     res.json(rows);

@@ -196,7 +196,6 @@ function ExclusionsManager({ exclusions, onAdd, onRemove }) {
                 <tr className="border-b border-[#1e244a] text-left text-[#4a4a8a]">
                   <th className="px-3 py-2 font-medium">Username</th>
                   <th className="px-3 py-2 font-medium">Email</th>
-                  <th className="px-3 py-2 font-medium">Type</th>
                   <th className="px-3 py-2 font-medium">Excluded</th>
                   <th className="px-3 py-2 font-medium">By</th>
                   <th className="px-3 py-2 font-medium">Note</th>
@@ -205,34 +204,21 @@ function ExclusionsManager({ exclusions, onAdd, onRemove }) {
               </thead>
               <tbody className="divide-y divide-[#1e244a]">
                 {exclusions.map((ex) => (
-                  <tr key={ex.profile_id} className={`hover:bg-[#0c1022] ${ex.is_auto ? "opacity-70" : ""}`}>
+                  <tr key={ex.profile_id} className="hover:bg-[#0c1022]">
                     <td className="px-3 py-2 font-medium text-white">{ex.username ?? "—"}</td>
                     <td className="px-3 py-2 text-[#6868b8]">{ex.email ?? "—"}</td>
-                    <td className="px-3 py-2">
-                      {ex.is_auto ? (
-                        <span className="rounded px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-widest bg-violet-900/40 text-violet-400 border border-violet-700/30">
-                          Admin
-                        </span>
-                      ) : (
-                        <span className="rounded px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-widest bg-[#1a1f3a] text-[#6868b8] border border-[#2a3570]">
-                          Manual
-                        </span>
-                      )}
-                    </td>
                     <td className="px-3 py-2 text-[#6868b8] whitespace-nowrap">
-                      {ex.excluded_at ? new Date(ex.excluded_at).toLocaleDateString() : "—"}
+                      {new Date(ex.excluded_at).toLocaleDateString()}
                     </td>
                     <td className="px-3 py-2 text-[#6868b8]">{ex.excluded_by_username ?? "—"}</td>
                     <td className="px-3 py-2 text-[#6868b8]">{ex.note ?? "—"}</td>
                     <td className="px-3 py-2 text-right">
-                      {!ex.is_auto && (
-                        <button
-                          onClick={() => onRemove(ex.profile_id)}
-                          className="text-red-400 hover:text-red-300 transition text-[11px]"
-                        >
-                          Remove
-                        </button>
-                      )}
+                      <button
+                        onClick={() => onRemove(ex.profile_id)}
+                        className="text-red-400 hover:text-red-300 transition text-[11px]"
+                      >
+                        Remove
+                      </button>
                     </td>
                   </tr>
                 ))}
@@ -241,9 +227,7 @@ function ExclusionsManager({ exclusions, onAdd, onRemove }) {
           </div>
         </div>
       ) : (
-        <p className="text-xs text-[#4a4a8a]">
-          No exclusions yet. Admins (role 4) are automatically excluded from session stats.
-        </p>
+        <p className="text-xs text-[#4a4a8a]">No exclusions yet.</p>
       )}
     </div>
   );
@@ -524,7 +508,7 @@ function AnalyticsPage() {
           </Section>
 
           {/* ── Tracking exclusions ─────────────────────────────── */}
-          <Section title="Tracking exclusions" sub="Users excluded from page-view session stats. Find profile UUIDs via User Lookup.">
+          <Section title="Tracking exclusions" sub="Users excluded from all analytics tracking. Search by email to add anyone, including admins.">
             <ExclusionsManager
               exclusions={exclusions}
               onAdd={addExclusion}
