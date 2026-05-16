@@ -13,6 +13,7 @@ const initialState = {
   password: "",
   repeatPassword: "",
   dateOfBirth: "",
+  acceptedTerms: false,
 };
 
 
@@ -73,6 +74,10 @@ function validate(state) {
     errors.dateOfBirth = "Date of birth is required.";
   }
 
+  if (!state.acceptedTerms) {
+    errors.acceptedTerms = "You must accept the Terms and Conditions to continue.";
+  }
+
   return errors;
 }
 
@@ -92,7 +97,7 @@ function RegisterForm() {
     formState.repeatPassword === formState.password;
 
   const onChangeField = (fieldName) => (event) => {
-    const raw = event.target.value;
+    const raw = event.target.type === "checkbox" ? event.target.checked : event.target.value;
     const nextValue = fieldName === "dateOfBirth" ? normalizeDateInput(raw) : raw;
     setFormState((current) => ({ ...current, [fieldName]: nextValue }));
   };
@@ -309,6 +314,43 @@ function RegisterForm() {
             onChange={(e) => setPromoCode(e.target.value.toUpperCase())}
           />
         </FormField>
+      </div>
+
+      <div className="mt-[14px] flex flex-col gap-[4px]">
+        <label className="flex cursor-pointer items-start gap-[10px]">
+          <input
+            id="acceptedTerms"
+            name="acceptedTerms"
+            type="checkbox"
+            checked={formState.acceptedTerms}
+            onChange={onChangeField("acceptedTerms")}
+            aria-invalid={Boolean(errors.acceptedTerms)}
+            className="mt-[3px] h-[16px] w-[16px] shrink-0 cursor-pointer accent-[#8383e7]"
+          />
+          <span className="text-[13px] font-semibold leading-snug text-[#a0a0f7]">
+            I agree to the{" "}
+            <Link
+              to="/terms"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline transition hover:text-white"
+            >
+              Terms and Conditions
+            </Link>{" "}
+            and{" "}
+            <Link
+              to="/privacy"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline transition hover:text-white"
+            >
+              Privacy Policy
+            </Link>
+          </span>
+        </label>
+        {errors.acceptedTerms ? (
+          <p className="text-[11px] font-semibold text-pink-300">{errors.acceptedTerms}</p>
+        ) : null}
       </div>
 
       {submitError ? (
