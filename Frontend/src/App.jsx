@@ -441,6 +441,7 @@ function App() {
         }
       >
         <Route index element={<StatsPage />} />
+        <Route path="analytics" element={<AnalyticsPage />} />
         <Route path="reward-codes" element={<RewardCodesPage />} />
         <Route path="early-adopters" element={<EarlyAdoptersPage />} />
         <Route path="users" element={<UserLookupPage />} />
