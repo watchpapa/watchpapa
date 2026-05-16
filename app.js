@@ -17,6 +17,7 @@ import adminUsersRouter from "./Backend/src/routes/admin/users.js";
 import adminReferralsRouter from "./Backend/src/routes/admin/referrals.js";
 import adminAuditLogRouter from "./Backend/src/routes/admin/auditLog.js";
 import adminScriptLogsRouter from "./Backend/src/routes/admin/scriptLogs.js";
+import adminAnalyticsRouter from "./Backend/src/routes/admin/analytics.js";
 import { requireAuth } from "./Backend/src/middleware/requireAuth.js";
 import { requireAdmin } from "./Backend/src/middleware/requireAdmin.js";
 import { auditLog } from "./Backend/src/middleware/auditLog.js";
@@ -98,6 +99,7 @@ app.use("/api/admin/users", adminLimiter, requireAuth, requireAdmin, adminUsersR
 app.use("/api/admin/referrals", adminLimiter, requireAuth, requireAdmin, adminReferralsRouter);
 app.use("/api/admin/audit-log", adminLimiter, requireAuth, requireAdmin, adminAuditLogRouter);
 app.use("/api/admin/script-logs", adminLimiter, requireAuth, requireAdmin, adminScriptLogsRouter);
+app.use("/api/admin/analytics", adminLimiter, requireAuth, requireAdmin, adminAnalyticsRouter);
 
 // Health check
 // Return service health status for monitoring.
