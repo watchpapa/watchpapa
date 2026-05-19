@@ -3,18 +3,16 @@ set -a
 source /var/www/watchpapa/.env
 set +a
 
-SMTP_PORT="${SMTP_PORT:-587}"
-SMTP_FROM="${SMTP_FROM:-$SMTP_USERNAME}"
-TO="alert@watchpapa.tv"
 HOSTNAME=$(hostname)
 BOOT_TIME=$(uptime -s)
-SUBJECT="[watchpapa] Server rebooted: $HOSTNAME"
-BODY="Server $HOSTNAME restarted.\n\nBoot time: $BOOT_TIME\nUptime: $(uptime -p)"
 
-curl --silent \
-  --url "smtps://$SMTP_SERVER:$SMTP_PORT" \
-  --user "$SMTP_USERNAME:$SMTP_PASSWORD" \
-  --mail-from "$SMTP_FROM" \
-  --mail-rcpt "$TO" \
-  --upload-file <(printf "From: %s\r\nTo: %s\r\nSubject: %s\r\n\r\n%b\r\n" \
-    "$SMTP_FROM" "$TO" "$SUBJECT" "$BODY")
+curl --silent --fail \
+  --url "https://api.resend.com/emails" \
+  -H "Authorization: Bearer $SMTP_PASSWORD" \
+  -H "Content-Type: application/json" \
+  -d "{
+    \"from\": \"wpp-workflows@watchpapa.tv\",
+    \"to\": [\"alert@watchpapa.tv\"],
+    \"subject\": \"[watchpapa] Server rebooted: $HOSTNAME\",
+    \"text\": \"Server $HOSTNAME restarted.\n\nBoot time: $BOOT_TIME\nUptime: $(uptime -p)\"
+  }"
