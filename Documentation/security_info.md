@@ -102,28 +102,28 @@
 
 ---
 
-**T1** — 🎭 Spoofing — JWT replay
+**T1** (application) — 🎭 Spoofing — JWT replay
 
 - ✅ **Prevention:** Server-side JWT verification via Supabase admin client in requireAuth on every protected request
 - ⚠️ **Known gap:** No server-side revocation — stolen token remains valid until natural expiry; accepted trade-off: localStorage is required for cross-tab session sharing
 
 ---
 
-**T2** — 🔧 Tampering — malformed inject/resolve body
+**T2** (application) — 🔧 Tampering — malformed inject/resolve body
 
 - ✅ **Prevention:** Type enum check (movie|show|person), integer range validation (1–9,999,999), unknown-field rejection (extra keys return 400)
 - ⚠️ **Known gap:** None
 
 ---
 
-**T3** — 📜 Repudiation — user denies inject/resolve request
+**T3** (application) — 📜 Repudiation — user denies inject/resolve request
 
 - ✅ **Prevention:** Audit middleware writes userId, email, IP, timestamp, method, path, and allowlisted body to both stdout and the append-only audit_events DB table on every mutation
 - ⚠️ **Known gap:** None
 
 ---
 
-**T4** — 👁️ Information disclosure — stack traces in error responses
+**T4** (application) — 👁️ Information disclosure — stack traces in error responses
 
 - ✅ **Prevention:** Global Express error handler always returns { error: "Internal server error" }; in production only err.message is logged to stdout, never the full stack
 - ⚠️ **Known gap:** None
@@ -134,35 +134,35 @@
 
 ---
 
-**T5** — ⛔ Denial of service — inject queue exhaustion
+**T5** (application) — ⛔ Denial of service — inject queue exhaustion
 
 - ✅ **Prevention:** IP-based rate limit (20 req/min) plus per-user rate limit (20 req/min keyed by req.user.id) applied after auth; dedup queue prevents duplicate concurrent jobs for the same entity
 - ⚠️ **Known gap:** Both limiters are in-process — multi-instance deployments share no counter (problem for horizontal scaling); no circuit breaker if TMDB is unresponsive and stalls workers
 
 ---
 
-**T6** — 🔑 Elevation of privilege — accessing another user's follows
+**T6** (application) — 🔑 Elevation of privilege — accessing another user's follows
 
 - ✅ **Prevention:** RLS enforces profile_id = auth.uid() on user_followed_movies and user_followed_shows; isValidId guard on all follow/unfollow IDs before any write is attempted
 - ⚠️ **Known gap:** Entirely reliant on correct RLS configuration
 
 ---
 
-**T7** — 🎭 Spoofing — forging another user's profile_id
+**T7** (application) — 🎭 Spoofing — forging another user's profile_id
 
 - ✅ **Prevention:** RLS profile_id = auth.uid() — Supabase Auth guarantees auth.uid() matches the authenticated user; the anon key cannot forge another user's JWT
 - ⚠️ **Known gap:** If an RLS policy is missing or misconfigured on any table, there is no backend enforcement layer as a fallback
 
 ---
 
-**T8** — 🔑 Elevation of privilege — RLS misconfiguration
+**T8** (application) — 🔑 Elevation of privilege — RLS misconfiguration
 
 - ✅ **Prevention:** RLS enabled on all user-facing tables; all write policies scoped to auth.uid();
 - ⚠️ **Known gap:** A new table added without RLS would be openly accessible with just the anon key (new tables must be added to the tests)
 
 ---
 
-**T9** — 👁️ Information disclosure — anon key in frontend bundle
+**T9** (application) — 👁️ Information disclosure — anon key in frontend bundle
 
 - ✅ **Prevention:** RLS enabled on all user-facing tables; all write policies scoped to auth.uid()
 - ⚠️ **Known gap:** A new table added without RLS would be openly accessible with just the anon key
@@ -173,28 +173,28 @@
 
 ---
 
-**T10** — 🔧 Tampering — malicious TMDB response data
+**T10** (application) — 🔧 Tampering — malicious TMDB response data
 
 - ✅ **Prevention:** sanitizeTmdb.js enforces type, length , ISO date format, ISO language code format, strict-boolean coercion, and numeric range clamping on every TMDB-sourced field.
 - ⚠️ **Known gap:** Check exact TMDB charter limits to make it even stricter
 
 ---
 
-**T11** — 👁️ Information disclosure — TMDB API key in logs
+**T11** (application) — 👁️ Information disclosure — TMDB API key in logs
 
 - ✅ **Prevention:** maskApiKey() in tmdbRateLimitedFetch rewrites any network error message, replacing api_key=... with api_key=[REDACTED] before it reaches stdout
 - ⚠️ **Known gap:** Masking applies only inside tmdbRateLimitedFetch; any code that logs a TMDB URL outside that function would not be masked
 
 ---
 
-**T12** — ⛔ Denial of service — TMDB rate limit exceeded
+**T12** (application) — ⛔ Denial of service — TMDB rate limit exceeded
 
 - ✅ **Prevention:** Per-process sliding window limiter (35 req/s); 429/503 responses trigger exponential backoff with up to 8 retries, honouring Retry-After headers
 - ⚠️ **Known gap:** Counter lives in process memory — multiple backend instances would collectively exceed TMDB's limit; exact TMDB API limit is unknown its between 40-60 req/s per IP
 
 ---
 
-**T13** — 🎭 Spoofing — TMDB response spoofed via MITM
+**T13** (network) — 🎭 Spoofing — TMDB response spoofed via MITM
 
 - ✅ **Prevention:** TMDB fetches use HTTPS; TLS rejectUnauthorized: true on all DB connections
 - ⚠️ **Known gap:** Compromised CA (Certificate Authority) or successful DNS poisoning can still succeed despite TLS; requires infrastructure-level fix like stronger DNS protection
@@ -205,21 +205,21 @@
 
 ---
 
-**T14** — 👁️ Information disclosure — audit log captured by untrusted aggregator
+**T14** (application) — 👁️ Information disclosure — audit log captured by untrusted aggregator
 
 - ✅ **Prevention:** Audit body restricted to allowlisted fields only (type, tmdbId); no request payload PII beyond userId/email/IP which are inherently required for a useful audit trail
 - ⚠️ **Known gap:** userId, email, and IP are necessarily present in every audit entry - **fix:** encrypt log trasnportation/storage, restrict access (Supabase Dashboard)
 
 ---
 
-**T15** — 📜 Repudiation — stdout logs not append-only
+**T15** (application) — 📜 Repudiation — stdout logs not append-only
 
 - ✅ **Prevention:** Audit middleware persists every entry to the audit_events table in Supabase — RLS-protected, no UPDATE/DELETE policies, REVOKE on PUBLIC; table is live
 - ⚠️ **Known gap:** None
 
 ---
 
-**T16** — 👁️ Information disclosure — env key leak via error response
+**T16** (application) — 👁️ Information disclosure — env key leak via error response
 
 - ✅ **Prevention:** Keys stored in environment variables only; production error handler logs err.message only; all responses return only { error: "Internal server error" }; no debug or env introspection endpoints exist
 - ⚠️ **Known gap:** None within the codebase; infrastructure - ToBeConfigured
@@ -230,7 +230,7 @@
 
 ---
 
-**T17** — 👁️ Information disclosure — XSS reads JWT
+**T17** (application) — 👁️ Information disclosure — XSS reads JWT
 
 - ✅ **Prevention:** helmet() security headers; CORS restricted to known origins; parameterized SQL prevents stored XSS via DB; cookie consent banner implemented — JWT stored in localStorage only when user explicitly accepts cookies, otherwise sessionStorage (token does not survive tab close); consent-aware Supabase storage adapter (Frontend/src/lib/supabase.js) and migration helper in Frontend/src/lib/cookieConsent.js migrate sb-* keys between storages on accept/decline
 - ⚠️ **Known gap:** localStorage is still JS-readable if XSS occurs while the user has accepted cookies; HttpOnly cookies would be fully immune but require backend session management; no explicit CSP policy defined beyond helmet defaults
@@ -241,7 +241,7 @@
 
 ---
 
-**T18** — 📜 Repudiation — direct follow/unfollow writes (F15) bypass auditLog.js
+**T18** (application) — 📜 Repudiation — direct follow/unfollow writes (F15) bypass auditLog.js
 
 - ✅ **Prevention:** Postgres trigger `audit_user_follow_change()` writes a row to `audit_events` with `auth.uid()` as `user_id`, the followed entity id in `body`, and method/path mirroring the API audit shape
 - ⚠️ **Known gap:** user_id is the canonical identifier for repudiation purposes (still thinking how to track it better)
