@@ -11,8 +11,8 @@ BOOT_TIME=$(uptime -s)
 SUBJECT="[watchpapa] Server rebooted: $HOSTNAME"
 BODY="Server $HOSTNAME restarted.\n\nBoot time: $BOOT_TIME\nUptime: $(uptime -p)"
 
-curl --silent --ssl-reqd \
-  --url "smtp://$SMTP_SERVER:$SMTP_PORT" \
+curl --silent \
+  --url "smtps://$SMTP_SERVER:$SMTP_PORT" \
   --user "$SMTP_USERNAME:$SMTP_PASSWORD" \
   --mail-from "$SMTP_FROM" \
   --mail-rcpt "$TO" \
