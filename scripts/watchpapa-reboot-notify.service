@@ -1,0 +1,12 @@
+[Unit]
+Description=Send email notification on server reboot
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=watchpapa
+ExecStart=/bin/bash /var/www/watchpapa/scripts/reboot-notify.sh
+
+[Install]
+WantedBy=multi-user.target

@@ -42,7 +42,7 @@ jobs:
       - name: Update popularity scores
         id: update_popularity
         continue-on-error: true
-        run: npm run seed:tmdb:update-popularity
+        run: npm run seed:tmdb:update-popularity -- --fetch-concurrency=35
       - name: Build failure report
         id: failure_report
         if: always()
