@@ -23,6 +23,40 @@ router.get("/early-adopters", async (_req, res) => {
   });
 });
 
+// GET /api/admin/stats/early-adopters/list — paginated list of early adopter accounts
+router.get("/early-adopters/list", async (req, res) => {
+  const page = Math.max(1, parseInt(req.query.page) || 1);
+  const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 50));
+  const offset = (page - 1) * limit;
+
+  const [list, countResult] = await Promise.all([
+    sequelize.query(
+      `SELECT
+         au.id,
+         au.email,
+         au.created_at,
+         p.username
+       FROM public.user_subscriptions us
+       JOIN public.profile p ON p.id = us.profile_id
+       JOIN auth.users au ON au.id = us.profile_id
+       WHERE us.is_early_adopter = true
+         AND p.deleted_at IS NULL
+       ORDER BY au.created_at ASC
+       LIMIT :limit OFFSET :offset`,
+      { replacements: { limit, offset }, type: QueryTypes.SELECT }
+    ),
+    sequelize.query(
+      `SELECT COUNT(*) AS total
+       FROM public.user_subscriptions us
+       JOIN public.profile p ON p.id = us.profile_id
+       WHERE us.is_early_adopter = true AND p.deleted_at IS NULL`,
+      { type: QueryTypes.SELECT }
+    ),
+  ]);
+
+  res.json({ list, total: parseInt(countResult[0].total, 10), page, limit });
+});
+
 // GET /api/admin/stats/tiers
 router.get("/tiers", async (_req, res) => {
   const rows = await sequelize.query(
