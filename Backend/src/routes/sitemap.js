@@ -17,6 +17,20 @@ function getClient() {
   return supabase;
 }
 
+const cache = new Map();
+const CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
+
+function getCached(key) {
+  const entry = cache.get(key);
+  if (!entry) return null;
+  if (Date.now() - entry.ts > CACHE_TTL_MS) { cache.delete(key); return null; }
+  return entry.xml;
+}
+
+function setCached(key, xml) {
+  cache.set(key, { xml, ts: Date.now() });
+}
+
 async function fetchAllRows(table, updatedCol, popularityCol) {
   const db = getClient();
   const rows = [];
@@ -104,12 +118,16 @@ export function sitemapStaticHandler(_req, res) {
 }
 
 export async function sitemapMoviesHandler(_req, res) {
+  const cached = getCached("movies");
+  if (cached) return sendXml(res, cached);
   try {
     const rows = await fetchAllRows("movie", "updated_at", "tmdb_popularity");
     const entries = rows.map((r) =>
       urlEntry(`${BASE_URL}/movies/${r.slug}`, r.updated_at, "monthly", "0.6")
     );
-    sendXml(res, buildUrlset(entries));
+    const xml = buildUrlset(entries);
+    setCached("movies", xml);
+    sendXml(res, xml);
   } catch (err) {
     console.error("Sitemap movies failed:", err.message);
     res.status(500).send("Sitemap generation failed");
@@ -117,12 +135,16 @@ export async function sitemapMoviesHandler(_req, res) {
 }
 
 export async function sitemapShowsHandler(_req, res) {
+  const cached = getCached("shows");
+  if (cached) return sendXml(res, cached);
   try {
     const rows = await fetchAllRows("show", "updated_at", "tmdb_popularity");
     const entries = rows.map((r) =>
       urlEntry(`${BASE_URL}/shows/${r.slug}`, r.updated_at, "weekly", "0.7")
     );
-    sendXml(res, buildUrlset(entries));
+    const xml = buildUrlset(entries);
+    setCached("shows", xml);
+    sendXml(res, xml);
   } catch (err) {
     console.error("Sitemap shows failed:", err.message);
     res.status(500).send("Sitemap generation failed");
@@ -130,12 +152,16 @@ export async function sitemapShowsHandler(_req, res) {
 }
 
 export async function sitemapPeopleHandler(_req, res) {
+  const cached = getCached("people");
+  if (cached) return sendXml(res, cached);
   try {
     const rows = await fetchAllRows("person", "updated_at", "popularity");
     const entries = rows.map((r) =>
       urlEntry(`${BASE_URL}/people/${r.slug}`, r.updated_at, "monthly", "0.5")
     );
-    sendXml(res, buildUrlset(entries));
+    const xml = buildUrlset(entries);
+    setCached("people", xml);
+    sendXml(res, xml);
   } catch (err) {
     console.error("Sitemap people failed:", err.message);
     res.status(500).send("Sitemap generation failed");
