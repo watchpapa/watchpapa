@@ -1,0 +1,22 @@
+# watchpapa
+
+> watchpapa is a free media discovery platform for browsing films, TV shows, and talent. Powered by TMDB metadata. Not a streaming service — a discovery and tracking tool.
+
+## Content
+
+- [Home](https://watchpapa.tv/) — Popular and trending films, TV shows, and people
+- [Movies](https://watchpapa.tv/movies) — Film catalogue with cast, crew, and metadata
+- [Shows](https://watchpapa.tv/shows) — TV series catalogue with seasons and episodes
+- [People](https://watchpapa.tv/people) — Actors, directors, writers, and crew members
+- [Releases Calendar](https://watchpapa.tv/calendar) — Upcoming movie and TV release dates
+- [Updates](https://watchpapa.tv/updates) — Platform news and feature announcements
+- [About](https://watchpapa.tv/about) — About watchpapa
+- [Help](https://watchpapa.tv/help) — FAQ and usage guide
+- [Subscription Plans](https://watchpapa.tv/subscription) — Tier information
+- [Privacy Policy](https://watchpapa.tv/privacy)
+- [Terms of Use](https://watchpapa.tv/terms)
+- [Contact](https://watchpapa.tv/contact)
+
+## Data Attribution
+
+Content metadata is sourced from TMDB (The Movie Database) under their API terms of use. Streaming availability data is sourced from third-party APIs.
