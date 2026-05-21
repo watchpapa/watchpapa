@@ -16,7 +16,7 @@ function getClient() {
   return supabase;
 }
 
-async function fetchAllIds(table, idCol, updatedCol) {
+async function fetchAllIds(table, idCol, updatedCol, popularityCol) {
   const db = getClient();
   const rows = [];
   let from = 0;
@@ -26,7 +26,7 @@ async function fetchAllIds(table, idCol, updatedCol) {
       .from(table)
       .select(`${idCol}, ${updatedCol}`)
       .is("deleted_at", null)
-      .order("tmdb_popularity", { ascending: false, nullsLast: true })
+      .order(popularityCol, { ascending: false, nullsLast: true })
       .range(from, from + PAGE_SIZE - 1);
 
     if (error) throw error;
@@ -67,9 +67,9 @@ const STATIC_URLS = [
 export async function sitemapHandler(_req, res) {
   try {
     const [movies, shows, people] = await Promise.all([
-      fetchAllIds("movie", "id", "updated_at"),
-      fetchAllIds("show", "id", "updated_at"),
-      fetchAllIds("person", "id", "updated_at"),
+      fetchAllIds("movie", "id", "updated_at", "tmdb_popularity"),
+      fetchAllIds("show", "id", "updated_at", "tmdb_popularity"),
+      fetchAllIds("person", "id", "updated_at", "popularity"),
     ]);
 
     const staticEntries = STATIC_URLS.map(({ path, changefreq, priority }) =>
