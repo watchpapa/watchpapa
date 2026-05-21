@@ -33,30 +33,30 @@ const initialState = {
   error: null,
 };
 
-export function useMovieData(rawMovieId, session, showAdult = false) {
-  const movieId = rawMovieId ? parseInt(rawMovieId, 10) : null;
+export function useMovieData(slugOrId, session, showAdult = false) {
+  const isNumericId = slugOrId ? /^\d+$/.test(slugOrId) : false;
   const [state, dispatch] = useReducer(reducer, initialState);
 
   useEffect(() => {
-    if (!movieId) return;
+    if (!slugOrId) return;
     let cancelled = false;
 
     async function load() {
       try {
         // Read the movie row with joined genres/credits and follow state.
+        const movieQuery = supabase
+          .from("movie")
+          .select(`*, movie_genre(genres(*)), movie_credits(title, person(id, name, profile_path, slug), job(name, department(name)))`)
+          .is("deleted_at", null)
+          .single();
+
         const [movieRes, followRes] = await Promise.all([
-          supabase
-            .from("movie")
-            .select(`*, movie_genre(genres(*)), movie_credits(title, person(id, name, profile_path), job(name, department(name)))`)
-            .eq("id", movieId)
-            .is("deleted_at", null)
-            .single(),
+          isNumericId ? movieQuery.eq("id", Number(slugOrId)) : movieQuery.eq("slug", slugOrId),
           session?.user?.id
             ? supabase
                 .from("user_followed_movies")
                 .select("id")
                 .eq("profile_id", session.user.id)
-                .eq("movie_id", movieId)
                 .maybeSingle()
             : Promise.resolve({ data: null }),
         ]);
@@ -65,6 +65,19 @@ export function useMovieData(rawMovieId, session, showAdult = false) {
         if (cancelled) return;
 
         const row = movieRes.data;
+
+        // Fix the follow query — we need movie id for the eq filter, get it from row
+        let isFollowing = false;
+        if (session?.user?.id) {
+          const { data: fData } = await supabase
+            .from("user_followed_movies")
+            .select("id")
+            .eq("profile_id", session.user.id)
+            .eq("movie_id", row.id)
+            .maybeSingle();
+          isFollowing = !!fData;
+        }
+
         if (!showAdult && row.adult) {
           dispatch({ type: "ERROR", error: "This content is restricted." });
           return;
@@ -76,7 +89,7 @@ export function useMovieData(rawMovieId, session, showAdult = false) {
             genres: row.movie_genre?.map((g) => g.genres).filter(Boolean) ?? [],
             cast: toCast(row.movie_credits ?? []),
             crew: toCrew(row.movie_credits ?? []),
-            isFollowing: !!followRes.data,
+            isFollowing,
           },
         });
       } catch (err) {
@@ -86,10 +99,11 @@ export function useMovieData(rawMovieId, session, showAdult = false) {
 
     load();
     return () => { cancelled = true; };
-  }, [movieId, session?.user?.id, showAdult]);
+  }, [slugOrId, session?.user?.id, showAdult]);
 
   const toggleFollow = useCallback(async () => {
-    if (!session?.user?.id) return;
+    if (!session?.user?.id || !state.movie?.id) return;
+    const movieId = state.movie.id;
     const wasFollowing = state.isFollowing;
     dispatch({ type: "TOGGLE_FOLLOW" });
 
@@ -111,7 +125,7 @@ export function useMovieData(rawMovieId, session, showAdult = false) {
         dispatch({ type: "TOGGLE_FOLLOW" });
       }
     }
-  }, [movieId, session?.user?.id, state.isFollowing]);
+  }, [state.movie?.id, session?.user?.id, state.isFollowing]);
 
   return {
     ...state,
