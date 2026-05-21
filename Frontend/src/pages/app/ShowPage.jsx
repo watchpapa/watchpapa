@@ -12,8 +12,10 @@ import AuthPromptModal from "../../components/AuthPromptModal.jsx";
 import { useShowData } from "../../features/show/hooks/useShowData.js";
 import InjectingBanner from "../../components/detail/InjectingBanner.jsx";
 import UpgradePromptToast from "../../components/subscription/UpgradePromptToast.jsx";
+import { PageHead } from "../../components/ui/PageHead.jsx";
 
 const TMDB_IMG = "https://image.tmdb.org/t/p/w185";
+const TMDB_IMG_BASE = "https://image.tmdb.org/t/p/";
 
 function fmt(val, fallback = "—") {
   return val ?? fallback;
@@ -68,6 +70,30 @@ function ShowPage({ session, showAdult }) {
   if (error) return <AppLayout session={session}><p className="text-center text-red-400 mt-12">{error}</p></AppLayout>;
   if (!show) return null;
 
+  const firstYear = show.first_air_date ? new Date(show.first_air_date).getFullYear() : null;
+  const lastYear = show.last_air_date ? new Date(show.last_air_date).getFullYear() : null;
+  const yearRange = firstYear
+    ? (show.status === "Ended" && lastYear && lastYear !== firstYear ? `${firstYear}–${lastYear}` : `${firstYear}–`)
+    : null;
+  const ogImage = show.backdrop_path
+    ? `${TMDB_IMG_BASE}w1280${show.backdrop_path}`
+    : show.poster_path
+      ? `${TMDB_IMG_BASE}w500${show.poster_path}`
+      : null;
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "TVSeries",
+    name: show.name,
+    ...(show.overview && { description: show.overview }),
+    ...(show.first_air_date && { datePublished: show.first_air_date }),
+    ...(show.status === "Ended" && show.last_air_date && { endDate: show.last_air_date }),
+    ...(show.poster_path && { image: `${TMDB_IMG_BASE}w500${show.poster_path}` }),
+    ...(show.number_of_seasons && { numberOfSeasons: show.number_of_seasons }),
+    ...(show.number_of_episodes && { numberOfEpisodes: show.number_of_episodes }),
+    ...(genres.length > 0 && { genre: genres.map(g => g.name) }),
+    identifier: { "@type": "PropertyValue", name: "TMDB ID", value: String(show.tmdb_id) },
+  };
+
   const details = [
     ["Episode runtime", show.episode_run_time ? `${show.episode_run_time}m` : "—"],
     ["Status", fmt(show.status)],
@@ -85,6 +111,14 @@ function ShowPage({ session, showAdult }) {
 
   return (
     <AppLayout session={session} breadcrumbs={breadcrumbs}>
+      <PageHead
+        title={yearRange ? `${show.name} (${yearRange})` : show.name}
+        description={show.overview?.slice(0, 155) || `Discover ${show.name} on watchpapa.`}
+        image={ogImage}
+        path={`/shows/${id}`}
+        type="video.tv_show"
+        jsonLd={jsonLd}
+      />
       {showAuthPrompt && <AuthPromptModal onClose={() => setShowAuthPrompt(false)} />}
       {followLimitError && <UpgradePromptToast message={followLimitError} onDismiss={clearFollowLimitError} session={session} />}
       <div className="mb-6"><InjectingBanner type="show" id={id} /></div>

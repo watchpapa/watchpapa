@@ -5,6 +5,7 @@ import ContentPanel from "../../components/detail/ContentPanel.jsx";
 import SkeletonDetailPage from "../../components/detail/SkeletonDetailPage.jsx";
 import { usePersonData } from "../../features/person/hooks/usePersonData.js";
 import InjectingBanner from "../../components/detail/InjectingBanner.jsx";
+import { PageHead } from "../../components/ui/PageHead.jsx";
 
 const TMDB_IMG_PROFILE = "https://image.tmdb.org/t/p/w342";
 const TMDB_IMG_POSTER = "https://image.tmdb.org/t/p/w185";
@@ -75,11 +76,31 @@ function PersonPage({ session, showAdult }) {
   if (error) return <AppLayout session={session}><p className="text-center text-red-400 mt-12">{error}</p></AppLayout>;
   if (!person) return null;
 
+  const personOgImage = person.profile_path ? `${TMDB_IMG_PROFILE}${person.profile_path}` : null;
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "Person",
+    name: person.name,
+    ...(person.biography && { description: person.biography.slice(0, 500) }),
+    ...(person.profile_path && { image: `${TMDB_IMG_PROFILE}${person.profile_path}` }),
+    ...(person.birthday && { birthDate: person.birthday }),
+    ...(person.place_of_birth && { birthPlace: { "@type": "Place", name: person.place_of_birth } }),
+    ...(knownForDepartment && { jobTitle: knownForDepartment }),
+    identifier: { "@type": "PropertyValue", name: "TMDB ID", value: String(person.tmdb_id) },
+  };
+
   const allCredits = [...movieCredits, ...showCredits];
   const uniqueCredits = Array.from(new Map(allCredits.map((c) => [c.id, c])).values());
 
   return (
     <AppLayout session={session} breadcrumbs={breadcrumbs}>
+      <PageHead
+        title={person.name}
+        description={person.biography ? person.biography.slice(0, 155) : `Discover ${person.name}'s filmography on watchpapa.`}
+        image={personOgImage}
+        path={`/people/${id}`}
+        jsonLd={jsonLd}
+      />
       <div className="mb-6"><InjectingBanner type="person" id={id} /></div>
       <DetailPageLayout
         title={person.name}

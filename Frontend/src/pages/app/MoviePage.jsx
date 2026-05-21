@@ -12,6 +12,9 @@ import AuthPromptModal from "../../components/AuthPromptModal.jsx";
 import { useMovieData } from "../../features/movie/hooks/useMovieData.js";
 import InjectingBanner from "../../components/detail/InjectingBanner.jsx";
 import UpgradePromptToast from "../../components/subscription/UpgradePromptToast.jsx";
+import { PageHead } from "../../components/ui/PageHead.jsx";
+
+const TMDB_IMG_BASE = "https://image.tmdb.org/t/p/";
 
 function fmt(val, fallback = "—") {
   return val ?? fallback;
@@ -46,6 +49,27 @@ function MoviePage({ session, showAdult }) {
   if (error) return <AppLayout session={session}><p className="text-center text-red-400 mt-12">{error}</p></AppLayout>;
   if (!movie) return null;
 
+  const year = movie.release_date ? new Date(movie.release_date).getFullYear() : null;
+  const ogImage = movie.backdrop_path
+    ? `${TMDB_IMG_BASE}w1280${movie.backdrop_path}`
+    : movie.poster_path
+      ? `${TMDB_IMG_BASE}w500${movie.poster_path}`
+      : null;
+  const directorPeople = crew.find(c => c.department === "Directing")?.jobs.find(j => j.job === "Director")?.people ?? [];
+  const director = directorPeople[0];
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "Movie",
+    name: movie.title,
+    ...(movie.overview && { description: movie.overview }),
+    ...(movie.release_date && { datePublished: movie.release_date }),
+    ...(movie.poster_path && { image: `${TMDB_IMG_BASE}w500${movie.poster_path}` }),
+    ...(movie.runtime && { duration: `PT${movie.runtime}M` }),
+    ...(genres.length > 0 && { genre: genres.map(g => g.name) }),
+    ...(director && { director: { "@type": "Person", name: director.name } }),
+    identifier: { "@type": "PropertyValue", name: "TMDB ID", value: String(movie.tmdb_id) },
+  };
+
   const details = [
     ["Release date", fmtDate(movie.release_date)],
     ["Original title", fmt(movie.original_title)],
@@ -65,6 +89,14 @@ function MoviePage({ session, showAdult }) {
 
   return (
     <AppLayout session={session} breadcrumbs={breadcrumbs}>
+      <PageHead
+        title={year ? `${movie.title} (${year})` : movie.title}
+        description={movie.overview?.slice(0, 155) || `Discover ${movie.title} on watchpapa.`}
+        image={ogImage}
+        path={`/movies/${id}`}
+        type="video.movie"
+        jsonLd={jsonLd}
+      />
       {showAuthPrompt && <AuthPromptModal onClose={() => setShowAuthPrompt(false)} />}
       {followLimitError && <UpgradePromptToast message={followLimitError} onDismiss={clearFollowLimitError} session={session} />}
       <div className="mb-6"><InjectingBanner type="movie" id={id} /></div>

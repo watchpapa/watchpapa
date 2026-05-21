@@ -12,6 +12,7 @@ import SkeletonDetailPage from "../../components/detail/SkeletonDetailPage.jsx";
 import { useSeasonData } from "../../features/season/hooks/useSeasonData.js";
 import { useShowFollow } from "../../features/show/hooks/useShowFollow.js";
 import UpgradePromptToast from "../../components/subscription/UpgradePromptToast.jsx";
+import { PageHead } from "../../components/ui/PageHead.jsx";
 
 const TMDB_IMG = "https://image.tmdb.org/t/p/w185";
 
@@ -76,6 +77,11 @@ function SeasonPage({ session }) {
 
   return (
     <AppLayout session={session} breadcrumbs={breadcrumbs}>
+      <PageHead
+        title={`${show.name} — ${season.name}`}
+        description={season.overview?.slice(0, 155) || `Season ${season.season_number} of ${show.name} on watchpapa.`}
+        path={`/shows/${showId}/seasons/${seasonId}`}
+      />
       {showAuthPrompt && <AuthPromptModal onClose={() => setShowAuthPrompt(false)} />}
       {followLimitError && <UpgradePromptToast message={followLimitError} onDismiss={clearFollowLimitError} session={session} />}
       <DetailPageLayout

@@ -12,6 +12,7 @@ import SkeletonDetailPage from "../../components/detail/SkeletonDetailPage.jsx";
 import { useEpisodeData } from "../../features/episode/hooks/useEpisodeData.js";
 import { useShowFollow } from "../../features/show/hooks/useShowFollow.js";
 import UpgradePromptToast from "../../components/subscription/UpgradePromptToast.jsx";
+import { PageHead } from "../../components/ui/PageHead.jsx";
 
 const TMDB_IMG = "https://image.tmdb.org/t/p/w185";
 
@@ -66,6 +67,17 @@ function EpisodePage({ session }) {
   if (error) return <AppLayout session={session}><p className="text-center text-red-400 mt-12">{error}</p></AppLayout>;
   if (!episode || !season || !show) return null;
 
+  const episodeJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "TVEpisode",
+    name: episode.name,
+    episodeNumber: episode.episode_number,
+    partOfSeason: { "@type": "TVSeason", seasonNumber: season.season_number },
+    partOfSeries: { "@type": "TVSeries", name: show.name },
+    ...(episode.overview && { description: episode.overview }),
+    ...(episode.air_date && { datePublished: episode.air_date }),
+  };
+
   const totalEps = (season.episode?.length ?? 0);
 
   const details = [
@@ -76,6 +88,12 @@ function EpisodePage({ session }) {
 
   return (
     <AppLayout session={session} breadcrumbs={breadcrumbs}>
+      <PageHead
+        title={`${show.name} S${String(season.season_number).padStart(2, "0")}E${String(episode.episode_number).padStart(2, "0")} — ${episode.name}`}
+        description={episode.overview?.slice(0, 155) || `${episode.name} · ${show.name}`}
+        path={`/shows/${showId}/seasons/${seasonId}/episodes/${episodeId}`}
+        jsonLd={episodeJsonLd}
+      />
       {showAuthPrompt && <AuthPromptModal onClose={() => setShowAuthPrompt(false)} />}
       {followLimitError && <UpgradePromptToast message={followLimitError} onDismiss={clearFollowLimitError} session={session} />}
       <DetailPageLayout
