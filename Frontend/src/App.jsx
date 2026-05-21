@@ -21,6 +21,7 @@ import EpisodePage from "./pages/app/EpisodePage.jsx";
 import PersonPage from "./pages/app/PersonPage.jsx";
 import TmdbResolvePage from "./pages/app/TmdbResolvePage.jsx";
 import CookieConsentBanner from "./components/ui/CookieConsentBanner.jsx";
+import ReportBugButton from "./components/ui/ReportBugButton.jsx";
 import ReleasesCalendarPage from "./pages/app/ReleasesCalendarPage.jsx";
 import SubscriptionPage from "./pages/app/SubscriptionPage.jsx";
 import SettingsPage from "./pages/app/SettingsPage.jsx";
@@ -207,6 +208,7 @@ function App() {
   return (
     <>
     <CookieConsentBanner />
+    <ReportBugButton />
     <Routes>
       <Route
         path="/login"
