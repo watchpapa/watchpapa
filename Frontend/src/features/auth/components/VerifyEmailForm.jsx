@@ -1,33 +1,56 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import FormField from "../../../components/ui/FormField.jsx";
-import Input from "../../../components/ui/Input.jsx";
 import OtpInput from "../../../components/ui/OtpInput.jsx";
 import { useAuth } from "../hooks/useAuth.js";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "";
+const RESEND_COOLDOWN = 30;
 
 function VerifyEmailForm() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { verifyOtp, resendOtp } = useAuth();
 
-  const [email, setEmail] = useState(() => searchParams.get("email") ?? "");
+  const email = searchParams.get("email") ?? "";
   const [code, setCode] = useState("");
   const [errors, setErrors] = useState({});
   const [submitError, setSubmitError] = useState(null);
   const [info, setInfo] = useState(null);
   const [isVerifying, setIsVerifying] = useState(false);
   const [isResending, setIsResending] = useState(false);
+  const [cooldown, setCooldown] = useState(RESEND_COOLDOWN);
+  const intervalRef = useRef(null);
+
+  useEffect(() => {
+    intervalRef.current = setInterval(() => {
+      setCooldown((prev) => {
+        if (prev <= 1) {
+          clearInterval(intervalRef.current);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(intervalRef.current);
+  }, []);
+
+  const startCooldown = () => {
+    clearInterval(intervalRef.current);
+    setCooldown(RESEND_COOLDOWN);
+    intervalRef.current = setInterval(() => {
+      setCooldown((prev) => {
+        if (prev <= 1) {
+          clearInterval(intervalRef.current);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  };
 
   const onResend = async () => {
     setSubmitError(null);
     setInfo(null);
-
-    if (!email.trim()) {
-      setErrors({ email: "Enter your email first." });
-      return;
-    }
 
     setIsResending(true);
     const { error } = await resendOtp({ email: email.trim(), type: "signup" });
@@ -39,6 +62,7 @@ function VerifyEmailForm() {
     }
 
     setInfo("Verification code sent. Check your email.");
+    startCooldown();
   };
 
   const onVerify = async (event) => {
@@ -47,7 +71,6 @@ function VerifyEmailForm() {
     setInfo(null);
 
     const nextErrors = {};
-    if (!email.trim()) nextErrors.email = "Email is required.";
     if (code.length !== 6) nextErrors.code = "Enter the full 6-digit code.";
     setErrors(nextErrors);
 
@@ -93,35 +116,33 @@ function VerifyEmailForm() {
   return (
     <form
       onSubmit={onVerify}
-      className="w-full max-w-[1040px] rounded-[18px] border-[0.833px] border-[#6f6fdc] bg-gradient-to-b from-[rgba(12,16,66,0.2)] to-[rgba(20,27,95,0.2)] px-[clamp(14px,2.5vw,32px)] pb-[18px] pt-[13px] shadow-[0_3.333px_3.333px_rgba(0,0,0,0.25)]"
+      className="w-full max-w-[1040px] rounded-[18px] border-[0.833px] border-[#6f6fdc] bg-gradient-to-b from-[rgba(8,11,46,0.82)] to-[rgba(14,19,66,0.88)] px-[clamp(14px,2.5vw,32px)] pb-[18px] pt-[13px] shadow-[0_3.333px_3.333px_rgba(0,0,0,0.25)] backdrop-blur-[12px]"
     >
       <h1 className="mb-[20px] text-center text-[26px] font-extrabold leading-none text-[#8383e7] sm:text-[34px]">
         Verify email
       </h1>
 
       <div className="mx-auto w-full max-w-[528px]">
-        <FormField label="email" htmlFor="verify-email" error={errors.email} labelClassName="text-[18px] sm:text-[22px]">
-          <Input
-            id="verify-email"
-            name="email"
-            type="email"
-            autoComplete="email"
-            placeholder="example@watchpapa.tv"
-            value={email}
-            onChange={(event) => setEmail(event.target.value)}
-            aria-invalid={Boolean(errors.email)}
-          />
-        </FormField>
+        <p className="mb-[6px] text-[16px] font-extrabold text-[#8383e7] sm:text-[18px]">
+          Email sent to:
+        </p>
+        <p className="rounded-[10px] border border-[#6f6fdc] bg-[rgba(255,255,255,0.05)] px-4 py-3 text-[15px] font-semibold text-[#c0c0f8] break-all">
+          {email || "—"}
+        </p>
       </div>
 
       <div className="mt-[14px] flex justify-center">
         <button
           type="button"
           onClick={onResend}
-          disabled={isResending}
+          disabled={isResending || cooldown > 0}
           className="inline-flex w-full max-w-[405px] items-center justify-center rounded-[24px] border-[0.5px] border-[#8383e7] bg-gradient-to-b from-[rgba(12,16,66,0.5)] to-[rgba(20,27,95,0.5)] px-4 py-3 text-[16px] font-extrabold text-[#8383e7] shadow-[0_3.333px_3.333px_rgba(0,0,0,0.25)] transition hover:text-[#a0a0f7] disabled:cursor-not-allowed disabled:opacity-60"
         >
-          {isResending ? "Sending..." : "Send verification code to my email"}
+          {isResending
+            ? "Sending..."
+            : cooldown > 0
+            ? `Resend verification code (${cooldown}s)`
+            : "Resend verification code"}
         </button>
       </div>
 

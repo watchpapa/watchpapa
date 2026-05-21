@@ -73,7 +73,7 @@ function ForgotPasswordForm() {
   return (
     <form
       onSubmit={onSubmit}
-      className="w-full max-w-[520px] rounded-[18px] border-[0.833px] border-[#6f6fdc] bg-gradient-to-b from-[rgba(12,16,66,0.2)] to-[rgba(20,27,95,0.2)] px-[clamp(14px,2vw,28px)] pb-[16px] pt-[13px] shadow-[0_3.333px_3.333px_rgba(0,0,0,0.25)]"
+      className="w-full max-w-[520px] rounded-[18px] border-[0.833px] border-[#6f6fdc] bg-gradient-to-b from-[rgba(8,11,46,0.82)] to-[rgba(14,19,66,0.88)] px-[clamp(14px,2vw,28px)] pb-[16px] pt-[13px] shadow-[0_3.333px_3.333px_rgba(0,0,0,0.25)] backdrop-blur-[12px]"
     >
       <h1 className="mb-[14px] text-center text-[26px] font-extrabold leading-none text-[#8383e7] sm:text-[34px]">
         Forgot password
