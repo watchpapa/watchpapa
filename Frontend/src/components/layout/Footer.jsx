@@ -5,6 +5,7 @@ import watchpapaLogo from "../../assets/branding/watchpapa-banner.svg";
 
 const ALL_LINKS = [
   { label: "About", to: "/about" },
+  { label: "Updates", to: "/updates" },
   { label: "Plans", to: "/subscription" },
   { label: "Help", to: "/help" },
   { label: "Contact", to: "/contact" },
