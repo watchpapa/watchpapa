@@ -3,6 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 const supabaseUrl = process.env.SUPABASE_URL;
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const BASE_URL = "https://watchpapa.tv";
+const API_URL = "https://api.watchpapa.tv";
 const PAGE_SIZE = 1000;
 
 let supabase = null;
@@ -34,7 +35,7 @@ async function fetchAllIds(table, idCol, updatedCol, popularityCol) {
     rows.push(...data);
     if (data.length < PAGE_SIZE) break;
     from += PAGE_SIZE;
-    if (rows.length >= 50000) break;
+    if (rows.length >= 49000) break;
   }
 
   return rows;
@@ -47,6 +48,22 @@ function urlEntry(loc, lastmod, changefreq, priority) {
     <changefreq>${changefreq}</changefreq>
     <priority>${priority}</priority>
   </url>`;
+}
+
+function buildUrlset(entries) {
+  return [
+    `<?xml version="1.0" encoding="UTF-8"?>`,
+    `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">`,
+    ...entries,
+    `</urlset>`,
+  ].join("\n");
+}
+
+function sendXml(res, xml) {
+  res
+    .set("Content-Type", "application/xml; charset=utf-8")
+    .set("Cache-Control", "public, max-age=3600")
+    .send(xml);
 }
 
 const STATIC_URLS = [
@@ -64,44 +81,62 @@ const STATIC_URLS = [
   { path: "/privacy", changefreq: "monthly", priority: "0.3" },
 ];
 
-export async function sitemapHandler(_req, res) {
+// Sitemap index — lists all child sitemaps
+export function sitemapIndexHandler(_req, res) {
+  const xml = [
+    `<?xml version="1.0" encoding="UTF-8"?>`,
+    `<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">`,
+    `  <sitemap><loc>${BASE_URL}/sitemap-static.xml</loc></sitemap>`,
+    `  <sitemap><loc>${BASE_URL}/sitemap-movies.xml</loc></sitemap>`,
+    `  <sitemap><loc>${BASE_URL}/sitemap-shows.xml</loc></sitemap>`,
+    `  <sitemap><loc>${BASE_URL}/sitemap-people.xml</loc></sitemap>`,
+    `</sitemapindex>`,
+  ].join("\n");
+  sendXml(res, xml);
+}
+
+export function sitemapStaticHandler(_req, res) {
+  const entries = STATIC_URLS.map(({ path, changefreq, priority }) =>
+    urlEntry(`${BASE_URL}${path}`, null, changefreq, priority)
+  );
+  sendXml(res, buildUrlset(entries));
+}
+
+export async function sitemapMoviesHandler(_req, res) {
   try {
-    const [movies, shows, people] = await Promise.all([
-      fetchAllIds("movie", "id", "updated_at", "tmdb_popularity"),
-      fetchAllIds("show", "id", "updated_at", "tmdb_popularity"),
-      fetchAllIds("person", "id", "updated_at", "popularity"),
-    ]);
-
-    const staticEntries = STATIC_URLS.map(({ path, changefreq, priority }) =>
-      urlEntry(`${BASE_URL}${path}`, null, changefreq, priority)
-    );
-
-    const movieEntries = movies.map((r) =>
+    const rows = await fetchAllIds("movie", "id", "updated_at", "tmdb_popularity");
+    const entries = rows.map((r) =>
       urlEntry(`${BASE_URL}/movies/${r.id}`, r.updated_at, "monthly", "0.6")
     );
-    const showEntries = shows.map((r) =>
+    sendXml(res, buildUrlset(entries));
+  } catch (err) {
+    console.error("Sitemap movies failed:", err.message);
+    res.status(500).send("Sitemap generation failed");
+  }
+}
+
+export async function sitemapShowsHandler(_req, res) {
+  try {
+    const rows = await fetchAllIds("show", "id", "updated_at", "tmdb_popularity");
+    const entries = rows.map((r) =>
       urlEntry(`${BASE_URL}/shows/${r.id}`, r.updated_at, "weekly", "0.7")
     );
-    const personEntries = people.map((r) =>
+    sendXml(res, buildUrlset(entries));
+  } catch (err) {
+    console.error("Sitemap shows failed:", err.message);
+    res.status(500).send("Sitemap generation failed");
+  }
+}
+
+export async function sitemapPeopleHandler(_req, res) {
+  try {
+    const rows = await fetchAllIds("person", "id", "updated_at", "popularity");
+    const entries = rows.map((r) =>
       urlEntry(`${BASE_URL}/people/${r.id}`, r.updated_at, "monthly", "0.5")
     );
-
-    const xml = [
-      `<?xml version="1.0" encoding="UTF-8"?>`,
-      `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">`,
-      ...staticEntries,
-      ...movieEntries,
-      ...showEntries,
-      ...personEntries,
-      `</urlset>`,
-    ].join("\n");
-
-    res
-      .set("Content-Type", "application/xml; charset=utf-8")
-      .set("Cache-Control", "public, max-age=3600")
-      .send(xml);
+    sendXml(res, buildUrlset(entries));
   } catch (err) {
-    console.error("Sitemap generation failed:", err.message);
+    console.error("Sitemap people failed:", err.message);
     res.status(500).send("Sitemap generation failed");
   }
 }

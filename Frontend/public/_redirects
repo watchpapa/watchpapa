@@ -1,2 +1,6 @@
 /sitemap.xml https://api.watchpapa.tv/sitemap.xml 301
+/sitemap-static.xml https://api.watchpapa.tv/sitemap-static.xml 301
+/sitemap-movies.xml https://api.watchpapa.tv/sitemap-movies.xml 301
+/sitemap-shows.xml https://api.watchpapa.tv/sitemap-shows.xml 301
+/sitemap-people.xml https://api.watchpapa.tv/sitemap-people.xml 301
 /api/* https://api.watchpapa.tv/api/:splat 200
