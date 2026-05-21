@@ -17,7 +17,7 @@ function getClient() {
   return supabase;
 }
 
-async function fetchAllIds(table, idCol, updatedCol, popularityCol) {
+async function fetchAllRows(table, updatedCol, popularityCol) {
   const db = getClient();
   const rows = [];
   let from = 0;
@@ -25,8 +25,9 @@ async function fetchAllIds(table, idCol, updatedCol, popularityCol) {
   while (true) {
     const { data, error } = await db
       .from(table)
-      .select(`${idCol}, ${updatedCol}`)
+      .select(`slug, ${updatedCol}`)
       .is("deleted_at", null)
+      .not("slug", "is", null)
       .order(popularityCol, { ascending: false, nullsLast: true })
       .range(from, from + PAGE_SIZE - 1);
 
@@ -104,9 +105,9 @@ export function sitemapStaticHandler(_req, res) {
 
 export async function sitemapMoviesHandler(_req, res) {
   try {
-    const rows = await fetchAllIds("movie", "id", "updated_at", "tmdb_popularity");
+    const rows = await fetchAllRows("movie", "updated_at", "tmdb_popularity");
     const entries = rows.map((r) =>
-      urlEntry(`${BASE_URL}/movies/${r.id}`, r.updated_at, "monthly", "0.6")
+      urlEntry(`${BASE_URL}/movies/${r.slug}`, r.updated_at, "monthly", "0.6")
     );
     sendXml(res, buildUrlset(entries));
   } catch (err) {
@@ -117,9 +118,9 @@ export async function sitemapMoviesHandler(_req, res) {
 
 export async function sitemapShowsHandler(_req, res) {
   try {
-    const rows = await fetchAllIds("show", "id", "updated_at", "tmdb_popularity");
+    const rows = await fetchAllRows("show", "updated_at", "tmdb_popularity");
     const entries = rows.map((r) =>
-      urlEntry(`${BASE_URL}/shows/${r.id}`, r.updated_at, "weekly", "0.7")
+      urlEntry(`${BASE_URL}/shows/${r.slug}`, r.updated_at, "weekly", "0.7")
     );
     sendXml(res, buildUrlset(entries));
   } catch (err) {
@@ -130,9 +131,9 @@ export async function sitemapShowsHandler(_req, res) {
 
 export async function sitemapPeopleHandler(_req, res) {
   try {
-    const rows = await fetchAllIds("person", "id", "updated_at", "popularity");
+    const rows = await fetchAllRows("person", "updated_at", "popularity");
     const entries = rows.map((r) =>
-      urlEntry(`${BASE_URL}/people/${r.id}`, r.updated_at, "monthly", "0.5")
+      urlEntry(`${BASE_URL}/people/${r.slug}`, r.updated_at, "monthly", "0.5")
     );
     sendXml(res, buildUrlset(entries));
   } catch (err) {
