@@ -25,8 +25,10 @@ import ReportBugButton from "./components/ui/ReportBugButton.jsx";
 import ReleasesCalendarPage from "./pages/app/ReleasesCalendarPage.jsx";
 import SubscriptionPage from "./pages/app/SubscriptionPage.jsx";
 import SettingsPage from "./pages/app/SettingsPage.jsx";
+import UpdatesPage from "./pages/app/UpdatesPage.jsx";
 import AdminPage from "./pages/admin/AdminPage.jsx";
 import RewardCodesPage from "./pages/admin/RewardCodesPage.jsx";
+import AnnouncementsPage from "./pages/admin/AnnouncementsPage.jsx";
 import EarlyAdoptersPage from "./pages/admin/EarlyAdoptersPage.jsx";
 import StatsPage from "./pages/admin/StatsPage.jsx";
 import UserLookupPage from "./pages/admin/UserLookupPage.jsx";
@@ -35,6 +37,7 @@ import AuditLogPage from "./pages/admin/AuditLogPage.jsx";
 import ScriptLogsPage from "./pages/admin/ScriptLogsPage.jsx";
 import AdminRoute from "./components/auth/AdminRoute.jsx";
 import AnalyticsPage from "./pages/admin/AnalyticsPage.jsx";
+import StaffPage from "./pages/admin/StaffPage.jsx";
 import { trackPresence, trackPageView } from "./lib/analytics.js";
 import {
   AboutPage,
@@ -419,6 +422,14 @@ function App() {
         }
       />
       <Route
+        path="/updates"
+        element={
+          <PublicRoute session={session} needsUsernameSetup={needsUsernameSetup}>
+            <UpdatesPage session={session} />
+          </PublicRoute>
+        }
+      />
+      <Route
         path="/subscription"
         element={
           <PublicRoute session={session} needsUsernameSetup={needsUsernameSetup}>
@@ -450,6 +461,8 @@ function App() {
         <Route path="referrals" element={<ReferralLeaderboardPage />} />
         <Route path="audit-log" element={<AuditLogPage />} />
         <Route path="script-logs" element={<ScriptLogsPage />} />
+        <Route path="announcements" element={<AnnouncementsPage />} />
+        <Route path="staff" element={<StaffPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

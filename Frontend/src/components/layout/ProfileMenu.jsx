@@ -19,6 +19,7 @@ function ProfileMenu({ session }) {
   const [open, setOpen] = useState(false);
   const [tier, setTier] = useState("free");
   const [isEarlyAdopter, setIsEarlyAdopter] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   const usernameForInitials = (session?.user?.user_metadata?.username ?? session?.user?.email ?? "").trim();
   const initials = (usernameForInitials[0] ?? "?").toUpperCase();
@@ -30,10 +31,12 @@ function ProfileMenu({ session }) {
     Promise.all([
       supabase.rpc("get_effective_tier", { p_profile_id: session.user.id }),
       supabase.from("user_subscriptions").select("is_early_adopter").eq("profile_id", session.user.id).maybeSingle(),
-    ]).then(([tierRes, subRes]) => {
+      supabase.from("profile").select("role").eq("id", session.user.id).single(),
+    ]).then(([tierRes, subRes, profileRes]) => {
       if (!active) return;
       setTier(tierRes.data ?? "free");
       setIsEarlyAdopter(subRes.data?.is_early_adopter ?? false);
+      setIsAdmin(profileRes.data?.role === 4);
     });
     return () => { active = false; };
   }, [open, session?.user?.id]);
@@ -82,6 +85,16 @@ function ProfileMenu({ session }) {
           </div>
 
           <div className="p-2 space-y-0.5">
+            {isAdmin && (
+              <Link
+                to="/admin"
+                onClick={() => setOpen(false)}
+                className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm text-[#8383e7] transition hover:bg-[#141728] hover:text-[#a0a0f7]"
+              >
+                <AdminIcon />
+                Admin panel
+              </Link>
+            )}
             <Link
               to="/settings"
               onClick={() => setOpen(false)}
@@ -101,6 +114,14 @@ function ProfileMenu({ session }) {
         </div>
       )}
     </div>
+  );
+}
+
+function AdminIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+    </svg>
   );
 }
 

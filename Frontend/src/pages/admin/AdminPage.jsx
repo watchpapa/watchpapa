@@ -15,12 +15,19 @@ const NAV = [
     links: [
       { to: "/admin/users",        label: "User Lookup" },
       { to: "/admin/referrals",    label: "Referrals" },
+      { to: "/admin/staff",        label: "Staff" },
     ],
   },
   {
     section: "Codes",
     links: [
       { to: "/admin/reward-codes", label: "Reward Codes" },
+    ],
+  },
+  {
+    section: "Content",
+    links: [
+      { to: "/admin/announcements", label: "Announcements" },
     ],
   },
   {

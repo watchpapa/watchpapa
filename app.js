@@ -18,6 +18,8 @@ import adminReferralsRouter from "./Backend/src/routes/admin/referrals.js";
 import adminAuditLogRouter from "./Backend/src/routes/admin/auditLog.js";
 import adminScriptLogsRouter from "./Backend/src/routes/admin/scriptLogs.js";
 import adminAnalyticsRouter from "./Backend/src/routes/admin/analytics.js";
+import announcementsRouter from "./Backend/src/routes/announcements.js";
+import adminAnnouncementsRouter from "./Backend/src/routes/admin/announcements.js";
 import { requireAuth } from "./Backend/src/middleware/requireAuth.js";
 import { requireAdmin } from "./Backend/src/middleware/requireAdmin.js";
 import { auditLog } from "./Backend/src/middleware/auditLog.js";
@@ -40,7 +42,7 @@ app.use((req, res, next) => {
   const origin = req.headers.origin;
   if (origin && corsAllowedOrigins.includes(origin)) {
     res.setHeader("Access-Control-Allow-Origin", origin);
-    res.setHeader("Access-Control-Allow-Methods", "GET, POST, PATCH, OPTIONS");
+    res.setHeader("Access-Control-Allow-Methods", "GET, POST, PATCH, PUT, DELETE, OPTIONS");
     res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
     res.setHeader("Access-Control-Expose-Headers", "Content-Disposition");
   }
@@ -68,6 +70,10 @@ const adminLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
 });
+
+// Only apply a limiter to non-GET requests (read-only routes share the global limit).
+const mutationOnly = (limiter) => (req, res, next) =>
+  req.method === "GET" ? next() : limiter(req, res, next);
 
 const perUserMutationLimiter = rateLimit({
   windowMs: 60 * 1000,
@@ -100,6 +106,9 @@ app.use("/api/admin/referrals", adminLimiter, requireAuth, requireAdmin, adminRe
 app.use("/api/admin/audit-log", adminLimiter, requireAuth, requireAdmin, adminAuditLogRouter);
 app.use("/api/admin/script-logs", adminLimiter, requireAuth, requireAdmin, adminScriptLogsRouter);
 app.use("/api/admin/analytics", adminLimiter, requireAuth, requireAdmin, adminAnalyticsRouter);
+// Public GET (global limit only), editor-only POST/PATCH (mutation limit + auth inside router).
+app.use("/api/announcements", mutationOnly(mutationLimiter), announcementsRouter);
+app.use("/api/admin/announcements", adminLimiter, requireAuth, requireAdmin, adminAnnouncementsRouter);
 
 // Health check
 // Return service health status for monitoring.
