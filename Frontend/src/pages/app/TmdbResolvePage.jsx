@@ -25,11 +25,11 @@ function TmdbResolvePage({ type, session }) {
     })
       .then((r) => r.json())
       .then((data) => {
-        if (!data.localId) { setError("Could not load this content. Please try again."); return; }
+        if (!data.slug) { setError("Could not load this content. Please try again."); return; }
         const path =
-          type === "movie" ? `/movies/${data.localId}` :
-          type === "show"  ? `/shows/${data.localId}`  :
-                             `/people/${data.localId}`;
+          type === "movie" ? `/movies/${data.slug}` :
+          type === "show"  ? `/shows/${data.slug}`  :
+                             `/people/${data.slug}`;
         navigate(path, { replace: true, state: { injecting: true } });
       })
       .catch(() => setError("Could not load this content. Please try again."));

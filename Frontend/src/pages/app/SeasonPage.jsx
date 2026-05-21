@@ -24,12 +24,12 @@ function fmtDate(val) {
 }
 
 
-function EpisodeRow({ episode, showId, seasonId }) {
+function EpisodeRow({ episode, showSlug, seasonNumber }) {
   const imgSrc = episode.poster_path ? `${TMDB_IMG}${episode.poster_path}` : null;
 
   return (
     <Link
-      to={`/shows/${showId}/seasons/${seasonId}/episodes/${episode.id}`}
+      to={`/shows/${showSlug}/seasons/${seasonNumber}/episodes/${episode.episode_number}`}
       className="flex items-center gap-3 rounded-xl border border-[#1a1f3a] bg-[#0d0f1e] p-3 transition hover:border-[#3a3a7a] hover:bg-[#141728]"
     >
       <div className="h-14 w-24 flex-shrink-0 overflow-hidden rounded-lg border border-[#2a3570] bg-[#12163a]">
@@ -53,15 +53,15 @@ function EpisodeRow({ episode, showId, seasonId }) {
 }
 
 function SeasonPage({ session }) {
-  const { id: showId, seasonId } = useParams();
+  const { slug: showSlug, seasonNumber } = useParams();
   const [showAuthPrompt, setShowAuthPrompt] = useState(false);
-  const { season, show, episodes, cast, crew, isLoading, error } = useSeasonData(seasonId, showId);
-  const { isFollowing, toggleFollow, followLimitError, clearFollowLimitError } = useShowFollow(showId, session);
+  const { season, show, episodes, cast, crew, isLoading, error } = useSeasonData(showSlug, seasonNumber);
+  const { isFollowing, toggleFollow, followLimitError, clearFollowLimitError } = useShowFollow(show?.id, session);
   const handleFollow = session ? toggleFollow : () => setShowAuthPrompt(true);
 
   const breadcrumbs = season && show ? [
     { label: "Shows", to: "/shows" },
-    { label: show.name, to: `/shows/${showId}` },
+    { label: show.name, to: `/shows/${show.slug ?? showSlug}` },
     { label: season.name },
   ] : undefined;
 
@@ -80,7 +80,7 @@ function SeasonPage({ session }) {
       <PageHead
         title={`${show.name} — ${season.name}`}
         description={season.overview?.slice(0, 155) || `Season ${season.season_number} of ${show.name} on watchpapa.`}
-        path={`/shows/${showId}/seasons/${seasonId}`}
+        path={`/shows/${show.slug ?? showSlug}/seasons/${season.season_number}`}
       />
       {showAuthPrompt && <AuthPromptModal onClose={() => setShowAuthPrompt(false)} />}
       {followLimitError && <UpgradePromptToast message={followLimitError} onDismiss={clearFollowLimitError} session={session} />}
@@ -118,7 +118,7 @@ function SeasonPage({ session }) {
           <ContentPanel label="Episodes">
             <div className="space-y-2">
               {episodes.map((ep) => (
-                <EpisodeRow key={ep.id} episode={ep} showId={showId} seasonId={seasonId} />
+                <EpisodeRow key={ep.id} episode={ep} showSlug={show.slug ?? showSlug} seasonNumber={season.season_number} />
               ))}
             </div>
           </ContentPanel>

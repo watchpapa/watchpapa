@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import AppLayout from "../../layouts/AppLayout.jsx";
 import DetailPageLayout from "../../components/detail/DetailPageLayout.jsx";
 import SkeletonDetailPage from "../../components/detail/SkeletonDetailPage.jsx";
@@ -27,13 +27,13 @@ function fmtDate(val) {
 }
 
 
-function SeasonCard({ season, showId }) {
+function SeasonCard({ season, showSlug }) {
   const episodeCount = season.episode?.length ?? 0;
   const imgSrc = season.poster_path ? `${TMDB_IMG}${season.poster_path}` : null;
 
   return (
     <Link
-      to={`/shows/${showId}/seasons/${season.id}`}
+      to={`/shows/${showSlug}/seasons/${season.season_number}`}
       className="flex items-center gap-3 rounded-xl border border-[#1a1f3a] bg-[#0d0f1e] p-3 transition hover:border-[#3a3a7a] hover:bg-[#141728]"
     >
       <div className="h-16 w-11 flex-shrink-0 overflow-hidden rounded-lg border border-[#2a3570] bg-[#12163a]">
@@ -58,11 +58,19 @@ function SeasonCard({ season, showId }) {
 }
 
 function ShowPage({ session, showAdult }) {
-  const { id } = useParams();
+  const { slug } = useParams();
+  const navigate = useNavigate();
   const [showAllSeasons, setShowAllSeasons] = useState(false);
   const [showAuthPrompt, setShowAuthPrompt] = useState(false);
-  const { show, genres, seasons, cast, crew, isFollowing, followLimitError, clearFollowLimitError, isLoading, error, toggleFollow } = useShowData(id, session, showAdult);
+  const { show, genres, seasons, cast, crew, isFollowing, followLimitError, clearFollowLimitError, isLoading, error, toggleFollow } = useShowData(slug, session, showAdult);
   const handleFollow = session ? toggleFollow : () => setShowAuthPrompt(true);
+
+  // Redirect numeric IDs to slug URLs.
+  useEffect(() => {
+    if (show?.slug && /^\d+$/.test(slug) && show.slug !== slug) {
+      navigate(`/shows/${show.slug}`, { replace: true });
+    }
+  }, [show?.slug, slug, navigate]);
 
   const breadcrumbs = show ? [{ label: "Shows", to: "/shows" }, { label: show.name }] : undefined;
 
@@ -115,13 +123,13 @@ function ShowPage({ session, showAdult }) {
         title={yearRange ? `${show.name} (${yearRange})` : show.name}
         description={show.overview?.slice(0, 155) || `Discover ${show.name} on watchpapa.`}
         image={ogImage}
-        path={`/shows/${id}`}
+        path={`/shows/${show.slug ?? slug}`}
         type="video.tv_show"
         jsonLd={jsonLd}
       />
       {showAuthPrompt && <AuthPromptModal onClose={() => setShowAuthPrompt(false)} />}
       {followLimitError && <UpgradePromptToast message={followLimitError} onDismiss={clearFollowLimitError} session={session} />}
-      <div className="mb-6"><InjectingBanner type="show" id={id} /></div>
+      <div className="mb-6"><InjectingBanner type="show" id={show.id} /></div>
       <DetailPageLayout
         title={show.name}
         followButton={<FollowButton isFollowing={isFollowing} onToggle={handleFollow} />}
@@ -166,7 +174,7 @@ function ShowPage({ session, showAdult }) {
         {seasons.length > 0 && (
           <ContentPanel label="Seasons and Episodes">
             <div className="space-y-2">
-              {visibleSeasons.map((s) => <SeasonCard key={s.id} season={s} showId={id} />)}
+              {visibleSeasons.map((s) => <SeasonCard key={s.id} season={s} showSlug={show.slug ?? slug} />)}
             </div>
             {seasons.length > 5 && (
               <button

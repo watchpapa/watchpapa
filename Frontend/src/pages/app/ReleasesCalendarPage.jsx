@@ -66,9 +66,10 @@ function CalendarEntry({ entry }) {
     const code = entry.seasonNumber != null
       ? `S${entry.seasonNumber}E${entry.episodeNumber}`
       : `E${entry.episodeNumber}`;
+    const showKey = entry.showSlug ?? entry.showId;
     return (
       <Link
-        to={`/shows/${entry.showId}/seasons/${entry.seasonId}/episodes/${entry.id}`}
+        to={`/shows/${showKey}/seasons/${entry.seasonNumber}/episodes/${entry.episodeNumber}`}
         className="block truncate rounded px-1 py-0.5 text-[10px] font-medium leading-tight text-[#c0c0e8] transition hover:bg-[#2a2d60] hover:text-white"
         title={`${entry.showName}: ${entry.name}`}
       >
@@ -78,7 +79,7 @@ function CalendarEntry({ entry }) {
   }
   return (
     <Link
-      to={`/movies/${entry.movieId}`}
+      to={`/movies/${entry.movieSlug ?? entry.movieId}`}
       className="block truncate rounded px-1 py-0.5 text-[10px] font-medium leading-tight text-[#e8c0c0] transition hover:bg-[#60202a] hover:text-white"
       title={entry.name}
     >

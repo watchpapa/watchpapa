@@ -39,7 +39,8 @@ function ProfilePicture({ name, profilePath }) {
 
 function FilmographyCard({ credit }) {
   const imgSrc = credit.posterPath ? `${TMDB_IMG_POSTER}${credit.posterPath}` : null;
-  const to = credit.type === "movie" ? `/movies/${credit.mediaId}` : `/shows/${credit.mediaId}`;
+  const key = credit.mediaSlug ?? credit.mediaId;
+  const to = credit.type === "movie" ? `/movies/${key}` : `/shows/${key}`;
 
   return (
     <Link to={to} className="flex items-center gap-3 rounded-xl border border-[#1a1f3a] bg-[#0d0f1e] p-3 transition hover:border-[#3a3a7a] hover:bg-[#141728]">
@@ -67,8 +68,8 @@ function FilmographyCard({ credit }) {
 }
 
 function PersonPage({ session, showAdult }) {
-  const { id } = useParams();
-  const { person, knownForDepartment, nicknames, movieCredits, showCredits, isLoading, error } = usePersonData(id, showAdult);
+  const { slug } = useParams();
+  const { person, knownForDepartment, nicknames, movieCredits, showCredits, isLoading, error } = usePersonData(slug, showAdult);
 
   const breadcrumbs = person ? [{ label: "People", to: "/people" }, { label: person.name }] : undefined;
 
@@ -98,10 +99,10 @@ function PersonPage({ session, showAdult }) {
         title={person.name}
         description={person.biography ? person.biography.slice(0, 155) : `Discover ${person.name}'s filmography on watchpapa.`}
         image={personOgImage}
-        path={`/people/${id}`}
+        path={`/people/${person.slug ?? slug}`}
         jsonLd={jsonLd}
       />
-      <div className="mb-6"><InjectingBanner type="person" id={id} /></div>
+      <div className="mb-6"><InjectingBanner type="person" id={person.id} /></div>
       <DetailPageLayout
         title={person.name}
         sidebarTop={<ProfilePicture name={person.name} profilePath={person.profile_path} />}

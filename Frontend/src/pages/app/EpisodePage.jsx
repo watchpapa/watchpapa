@@ -24,11 +24,11 @@ function fmtDate(val) {
 }
 
 
-function SiblingRow({ ep, showId, seasonId }) {
+function SiblingRow({ ep, showSlug, seasonNumber }) {
   const imgSrc = ep.poster_path ? `${TMDB_IMG}${ep.poster_path}` : null;
   return (
     <Link
-      to={`/shows/${showId}/seasons/${seasonId}/episodes/${ep.id}`}
+      to={`/shows/${showSlug}/seasons/${seasonNumber}/episodes/${ep.episode_number}`}
       className="flex items-center gap-3 rounded-xl border border-[#1a1f3a] bg-[#0d0f1e] p-3 transition hover:border-[#3a3a7a] hover:bg-[#141728]"
     >
       <div className="h-12 w-20 flex-shrink-0 overflow-hidden rounded-lg border border-[#2a3570] bg-[#12163a]">
@@ -50,16 +50,16 @@ function SiblingRow({ ep, showId, seasonId }) {
 }
 
 function EpisodePage({ session }) {
-  const { id: showId, seasonId, episodeId } = useParams();
+  const { slug: showSlug, seasonNumber, episodeNumber } = useParams();
   const [showAuthPrompt, setShowAuthPrompt] = useState(false);
-  const { episode, season, show, siblings, cast, crew, isLoading, error } = useEpisodeData(episodeId, seasonId, showId);
-  const { isFollowing, toggleFollow, followLimitError, clearFollowLimitError } = useShowFollow(showId, session);
+  const { episode, season, show, siblings, cast, crew, isLoading, error } = useEpisodeData(showSlug, seasonNumber, episodeNumber);
+  const { isFollowing, toggleFollow, followLimitError, clearFollowLimitError } = useShowFollow(show?.id, session);
   const handleFollow = session ? toggleFollow : () => setShowAuthPrompt(true);
 
   const breadcrumbs = episode && season && show ? [
     { label: "Shows", to: "/shows" },
-    { label: show.name, to: `/shows/${showId}` },
-    { label: season.name, to: `/shows/${showId}/seasons/${seasonId}` },
+    { label: show.name, to: `/shows/${show.slug ?? showSlug}` },
+    { label: season.name, to: `/shows/${show.slug ?? showSlug}/seasons/${season.season_number}` },
     { label: episode.name },
   ] : undefined;
 
@@ -91,7 +91,7 @@ function EpisodePage({ session }) {
       <PageHead
         title={`${show.name} S${String(season.season_number).padStart(2, "0")}E${String(episode.episode_number).padStart(2, "0")} — ${episode.name}`}
         description={episode.overview?.slice(0, 155) || `${episode.name} · ${show.name}`}
-        path={`/shows/${showId}/seasons/${seasonId}/episodes/${episodeId}`}
+        path={`/shows/${show.slug ?? showSlug}/seasons/${season.season_number}/episodes/${episode.episode_number}`}
         jsonLd={episodeJsonLd}
       />
       {showAuthPrompt && <AuthPromptModal onClose={() => setShowAuthPrompt(false)} />}
@@ -130,7 +130,7 @@ function EpisodePage({ session }) {
           <ContentPanel label="Other Episodes">
             <div className="space-y-2 max-h-80 overflow-y-auto pr-1">
               {siblings.map((ep) => (
-                <SiblingRow key={ep.id} ep={ep} showId={showId} seasonId={seasonId} />
+                <SiblingRow key={ep.id} ep={ep} showSlug={show.slug ?? showSlug} seasonNumber={season.season_number} />
               ))}
             </div>
           </ContentPanel>
