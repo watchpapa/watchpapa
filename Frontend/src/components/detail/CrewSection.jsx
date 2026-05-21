@@ -18,7 +18,7 @@ function CrewSection({ crew = [] }) {
                   {people.map((p) => (
                     <Link
                       key={p.id}
-                      to={`/people/${p.personId}`}
+                      to={`/people/${p.personSlug ?? p.personId}`}
                       className="text-[#c0c0e8] transition hover:text-white"
                     >
                       {p.name}
