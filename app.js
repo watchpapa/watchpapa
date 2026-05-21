@@ -20,6 +20,7 @@ import adminScriptLogsRouter from "./Backend/src/routes/admin/scriptLogs.js";
 import adminAnalyticsRouter from "./Backend/src/routes/admin/analytics.js";
 import announcementsRouter from "./Backend/src/routes/announcements.js";
 import adminAnnouncementsRouter from "./Backend/src/routes/admin/announcements.js";
+import { sitemapHandler } from "./Backend/src/routes/sitemap.js";
 import { requireAuth } from "./Backend/src/middleware/requireAuth.js";
 import { requireAdmin } from "./Backend/src/middleware/requireAdmin.js";
 import { auditLog } from "./Backend/src/middleware/auditLog.js";
@@ -109,6 +110,9 @@ app.use("/api/admin/analytics", adminLimiter, requireAuth, requireAdmin, adminAn
 // Public GET (global limit only), editor-only POST/PATCH (mutation limit + auth inside router).
 app.use("/api/announcements", mutationOnly(mutationLimiter), announcementsRouter);
 app.use("/api/admin/announcements", adminLimiter, requireAuth, requireAdmin, adminAnnouncementsRouter);
+
+// Public sitemap for search engines and AI crawlers — no auth required.
+app.get("/sitemap.xml", sitemapHandler);
 
 // Health check
 // Return service health status for monitoring.
