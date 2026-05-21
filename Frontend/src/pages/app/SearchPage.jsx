@@ -4,6 +4,7 @@ import AppLayout from "../../layouts/AppLayout.jsx";
 import MediaCard from "../../components/home/MediaCard.jsx";
 import SearchBar from "../../components/home/SearchBar.jsx";
 import { useSearch } from "../../features/search/hooks/useSearch.js";
+import { PageHead } from "../../components/ui/PageHead.jsx";
 
 const TMDB_IMG = "https://image.tmdb.org/t/p/w185";
 
@@ -99,6 +100,12 @@ function SearchPage({ session, showAdult }) {
 
   return (
     <AppLayout session={session}>
+      <PageHead
+        title={q ? `"${q}"` : "Search"}
+        description={q ? `Search results for "${q}" on watchpapa — discover films, shows, and people.` : "Search films, shows, and talent on watchpapa."}
+        path={q ? `/search?q=${encodeURIComponent(q)}` : "/search"}
+        noindex={!!q}
+      />
       <div className="mx-auto max-w-[1600px] space-y-10">
         <div className="space-y-6">
           <SearchBar value={barValue} onChange={handleSearchChange} />

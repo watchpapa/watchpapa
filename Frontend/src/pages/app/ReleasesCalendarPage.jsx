@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 
 const TMDB_IMG = "https://image.tmdb.org/t/p/w92";
 import AppLayout from "../../layouts/AppLayout.jsx";
+import { PageHead } from "../../components/ui/PageHead.jsx";
 import ManageFollowsModal from "../../features/calendar/components/ManageFollowsModal.jsx";
 import { useCalendarData } from "../../features/calendar/hooks/useCalendarData.js";
 import { useSubscription } from "../../features/subscription/hooks/useSubscription.js";
@@ -416,6 +417,11 @@ function ReleasesCalendarPage({ session }) {
 
   return (
     <AppLayout session={session}>
+      <PageHead
+        title="Releases Calendar"
+        description="Track upcoming movie and TV show release dates on the watchpapa releases calendar."
+        path="/calendar"
+      />
       {manageFollowsOpen && (
         <ManageFollowsModal
           open={manageFollowsOpen}

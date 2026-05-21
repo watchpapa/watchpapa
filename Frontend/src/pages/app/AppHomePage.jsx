@@ -4,6 +4,7 @@ import SearchBar from "../../components/home/SearchBar.jsx";
 import MediaRow from "../../components/home/MediaRow.jsx";
 import { useHomeData } from "../../features/home/hooks/useHomeData.js";
 import UpgradePromptToast from "../../components/subscription/UpgradePromptToast.jsx";
+import { PageHead } from "../../components/ui/PageHead.jsx";
 
 function SkeletonRow() {
   return (
@@ -77,6 +78,11 @@ function AppHomePage({ session, showAdult }) {
 
   return (
     <AppLayout session={session}>
+      <PageHead
+        title="Discover Films, Shows & Talent"
+        description="Browse popular movies and TV shows, explore cast and crew, check upcoming releases, and track what to watch next."
+        path="/"
+      />
       {followLimitError && <UpgradePromptToast message={followLimitError} onDismiss={clearFollowLimitError} session={session} />}
       <div className="mx-auto max-w-[1600px] space-y-8">
         <SearchBar value={search} onChange={(e) => setSearch(e.target.value)} />

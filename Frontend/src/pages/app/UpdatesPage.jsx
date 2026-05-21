@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import AppLayout from "../../layouts/AppLayout.jsx";
+import { PageHead } from "../../components/ui/PageHead.jsx";
 import RichTextEditor from "../../components/ui/RichTextEditor.jsx";
 import "../../components/ui/RichTextEditor.css";
 import { useAnnouncements } from "../../features/announcements/hooks/useAnnouncements.js";
@@ -221,6 +222,11 @@ function UpdatesPage({ session }) {
 
   return (
     <AppLayout session={session} breadcrumbs={[{ label: "Updates" }]}>
+      <PageHead
+        title="Updates"
+        description="Latest news, features, and announcements from the watchpapa team."
+        path="/updates"
+      />
       <div className="mx-auto max-w-[720px]">
         <div className="mb-6 flex items-center justify-between gap-4">
           <div>

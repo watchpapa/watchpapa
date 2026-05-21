@@ -1,8 +1,15 @@
 import InfoPageShell from "../../components/static/InfoPageShell.jsx";
+import { PageHead } from "../../components/ui/PageHead.jsx";
 
 function SubscriptionPage({ session }) {
   return (
-    <InfoPageShell
+    <>
+      <PageHead
+        title="Plans & Pricing"
+        description="Explore watchpapa subscription plans — unlock premium features and support the platform."
+        path="/subscription"
+      />
+      <InfoPageShell
       session={session}
       breadcrumbs={[{ label: "Plans", to: "/subscription" }]}
       title="Plans & Perks"
@@ -141,6 +148,7 @@ function SubscriptionPage({ session }) {
       </ul>
       <p className="muted">Each account can only use one referral code.</p>
     </InfoPageShell>
+    </>
   );
 }
 
