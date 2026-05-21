@@ -86,6 +86,13 @@ export function useRewardCodes() {
     return data.claims ?? [];
   }, []);
 
+  const bulkAction = useCallback(async (action, ids) => {
+    await adminFetch("/api/admin/reward-codes/bulk", {
+      method: "POST",
+      body: JSON.stringify({ action, ids }),
+    });
+  }, []);
+
   const exportCsv = useCallback(async (status = "all") => {
     const token = await getToken();
     const res = await fetch(`${API_BASE}/api/admin/reward-codes/export?status=${status}`, {
@@ -101,5 +108,5 @@ export function useRewardCodes() {
     URL.revokeObjectURL(url);
   }, []);
 
-  return { codes, total, isLoading, error, fetchCodes, generateCodes, createCustomCode, toggleActive, editCode, deleteCode, fetchClaims, exportCsv };
+  return { codes, total, isLoading, error, fetchCodes, generateCodes, createCustomCode, toggleActive, editCode, deleteCode, fetchClaims, exportCsv, bulkAction };
 }

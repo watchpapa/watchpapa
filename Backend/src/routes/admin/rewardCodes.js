@@ -174,6 +174,59 @@ router.get("/export", async (req, res) => {
   res.send(header + rows.join("\n"));
 });
 
+// POST /api/admin/reward-codes/bulk — bulk enable, disable, or delete by id array
+router.post("/bulk", async (req, res) => {
+  const { action, ids } = req.body ?? {};
+
+  if (!["enable", "disable", "delete"].includes(action)) {
+    return res.status(400).json({ error: "action must be enable, disable, or delete" });
+  }
+  if (!Array.isArray(ids) || ids.length === 0) {
+    return res.status(400).json({ error: "ids must be a non-empty array" });
+  }
+
+  const validIds = ids.map((id) => parseInt(id, 10)).filter((id) => Number.isInteger(id) && id > 0);
+  if (validIds.length !== ids.length) {
+    return res.status(400).json({ error: "All ids must be positive integers" });
+  }
+  if (validIds.length > 500) {
+    return res.status(400).json({ error: "Cannot act on more than 500 codes at once" });
+  }
+
+  if (action === "enable") {
+    await sequelize.query(
+      `UPDATE public.reward_codes SET is_active = true WHERE id = ANY(:ids)`,
+      { replacements: { ids: validIds }, type: QueryTypes.UPDATE }
+    );
+  } else if (action === "disable") {
+    await sequelize.query(
+      `UPDATE public.reward_codes SET is_active = false WHERE id = ANY(:ids)`,
+      { replacements: { ids: validIds }, type: QueryTypes.UPDATE }
+    );
+  } else {
+    // delete — block any code that already has claims
+    const claimed = await sequelize.query(
+      `SELECT rc.code
+       FROM public.reward_codes rc
+       WHERE rc.id = ANY(:ids)
+         AND EXISTS (SELECT 1 FROM public.reward_code_claims rcc WHERE rcc.code_id = rc.id)`,
+      { replacements: { ids: validIds }, type: QueryTypes.SELECT }
+    );
+    if (claimed.length > 0) {
+      const names = claimed.map((c) => c.code).join(", ");
+      return res.status(409).json({
+        error: `Some codes have claims and cannot be deleted: ${names}. Disable them instead.`,
+      });
+    }
+    await sequelize.query(
+      `DELETE FROM public.reward_codes WHERE id = ANY(:ids)`,
+      { replacements: { ids: validIds }, type: QueryTypes.DELETE }
+    );
+  }
+
+  res.json({ ok: true, count: validIds.length });
+});
+
 // GET /api/admin/reward-codes/:id/claims
 router.get("/:id/claims", async (req, res) => {
   const id = parseInt(req.params.id);

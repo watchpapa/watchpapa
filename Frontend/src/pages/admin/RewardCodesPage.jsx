@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRewardCodes } from "../../features/admin/hooks/useRewardCodes.js";
 
 const TIERS = ["premium", "pro", "pro_plus"];
@@ -64,11 +64,77 @@ function FormFields({ form, onChange }) {
 }
 
 function RewardCodesPage() {
-  const { codes, total, isLoading, error, fetchCodes, generateCodes, createCustomCode, toggleActive, editCode, deleteCode, fetchClaims, exportCsv } = useRewardCodes();
+  const { codes, total, isLoading, error, fetchCodes, generateCodes, createCustomCode, toggleActive, editCode, deleteCode, fetchClaims, exportCsv, bulkAction } = useRewardCodes();
 
   const [statusFilter, setStatusFilter] = useState("all");
   const [page, setPage] = useState(1);
   const limit = 50;
+
+  // Selection state
+  const [selected, setSelected] = useState(new Set());
+  const selectAllRef = useRef(null);
+
+  const toggleSelect = (id) =>
+    setSelected((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+
+  const toggleSelectAll = () => {
+    if (selected.size === codes.length) {
+      setSelected(new Set());
+    } else {
+      setSelected(new Set(codes.map((c) => c.id)));
+    }
+  };
+
+  // Indeterminate checkbox state for "select all"
+  useEffect(() => {
+    if (!selectAllRef.current) return;
+    const some = selected.size > 0 && selected.size < codes.length;
+    selectAllRef.current.indeterminate = some;
+  }, [selected, codes]);
+
+  // Clear selection on page/filter change
+  useEffect(() => { setSelected(new Set()); }, [page, statusFilter]);
+
+  // Bulk actions
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const [bulkError, setBulkError] = useState(null);
+
+  const handleBulk = async (action) => {
+    const ids = [...selected];
+    if (!ids.length) return;
+    if (action === "delete" && !window.confirm(`Delete ${ids.length} code(s)? This cannot be undone.`)) return;
+    setBulkBusy(true);
+    setBulkError(null);
+    try {
+      await bulkAction(action, ids);
+      setSelected(new Set());
+      reload();
+    } catch (e) {
+      setBulkError(e.message);
+    }
+    setBulkBusy(false);
+  };
+
+  const exportSelected = () => {
+    const rows = codes.filter((c) => selected.has(c.id));
+    if (!rows.length) return;
+    const header = "code,tier,duration_days,max_uses,current_uses,expires_at,is_active,status,created_at\n";
+    const csv = rows.map((c) =>
+      [c.code, c.tier, c.duration_days ?? "", c.max_uses ?? "", c.current_uses,
+       c.expires_at ?? "", c.is_active, c.status, c.created_at].join(",")
+    ).join("\n");
+    const blob = new Blob([header + csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `reward-codes-selected-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
 
   const reload = useCallback(() => fetchCodes({ page, limit, status: statusFilter }), [fetchCodes, page, statusFilter]);
   useEffect(() => { reload(); }, [reload]);
@@ -310,10 +376,61 @@ function RewardCodesPage() {
 
         {error && <p className="mb-2 text-sm text-red-400">{error}</p>}
 
+        {/* Bulk action toolbar */}
+        {selected.size > 0 && (
+          <div className="mb-3 flex flex-wrap items-center gap-2 rounded-xl border border-[#2a3570] bg-[#0d0f1e] px-4 py-2.5">
+            <span className="text-xs font-semibold text-white">{selected.size} selected</span>
+            <button
+              onClick={() => setSelected(new Set())}
+              className="text-xs text-[#6868b8] hover:text-white transition"
+            >
+              Clear
+            </button>
+            <div className="mx-1 h-4 w-px bg-[#2a3570]" />
+            <button
+              onClick={() => handleBulk("enable")}
+              disabled={bulkBusy}
+              className="rounded-lg border border-emerald-700/50 px-3 py-1 text-xs font-semibold text-emerald-400 transition hover:bg-emerald-900/20 disabled:opacity-50"
+            >
+              Enable
+            </button>
+            <button
+              onClick={() => handleBulk("disable")}
+              disabled={bulkBusy}
+              className="rounded-lg border border-[#2a3570] px-3 py-1 text-xs font-semibold text-[#8080a8] transition hover:text-white disabled:opacity-50"
+            >
+              Disable
+            </button>
+            <button
+              onClick={exportSelected}
+              className="rounded-lg border border-[#2a3570] px-3 py-1 text-xs font-semibold text-[#9b9bf0] transition hover:text-white"
+            >
+              Export CSV
+            </button>
+            <button
+              onClick={() => handleBulk("delete")}
+              disabled={bulkBusy}
+              className="rounded-lg border border-red-700/50 px-3 py-1 text-xs font-semibold text-red-400 transition hover:bg-red-900/20 disabled:opacity-50"
+            >
+              {bulkBusy ? "Working…" : "Delete"}
+            </button>
+            {bulkError && <p className="text-xs text-red-400">{bulkError}</p>}
+          </div>
+        )}
+
         <div className="overflow-x-auto rounded-2xl border border-[#1a1f3a]">
-          <table className="w-full text-sm min-w-[720px]">
+          <table className="w-full text-sm min-w-[760px]">
             <thead>
               <tr className="border-b border-[#1a1f3a] text-[10px] uppercase tracking-wider text-[#5a5a78]">
+                <th className="px-4 py-3">
+                  <input
+                    ref={selectAllRef}
+                    type="checkbox"
+                    checked={codes.length > 0 && selected.size === codes.length}
+                    onChange={toggleSelectAll}
+                    className="accent-[#6868b8] cursor-pointer"
+                  />
+                </th>
                 {["Code", "Tier", "Duration", "Uses", "Expiry", "Status", "Created", "Actions"].map((h) => (
                   <th key={h} className="px-4 py-3 text-left font-semibold">{h}</th>
                 ))}
@@ -321,11 +438,22 @@ function RewardCodesPage() {
             </thead>
             <tbody>
               {isLoading ? (
-                <tr><td colSpan={8} className="py-10 text-center text-[#5a5a78]">Loading…</td></tr>
+                <tr><td colSpan={9} className="py-10 text-center text-[#5a5a78]">Loading…</td></tr>
               ) : codes.length === 0 ? (
-                <tr><td colSpan={8} className="py-10 text-center text-[#5a5a78]">No codes found.</td></tr>
+                <tr><td colSpan={9} className="py-10 text-center text-[#5a5a78]">No codes found.</td></tr>
               ) : codes.map((c) => (
-                <tr key={c.id} className="border-b border-[#1a1f3a] last:border-0 hover:bg-[#0a0c18] transition">
+                <tr
+                  key={c.id}
+                  className={`border-b border-[#1a1f3a] last:border-0 transition ${selected.has(c.id) ? "bg-[#111430]" : "hover:bg-[#0a0c18]"}`}
+                >
+                  <td className="px-4 py-3">
+                    <input
+                      type="checkbox"
+                      checked={selected.has(c.id)}
+                      onChange={() => toggleSelect(c.id)}
+                      className="accent-[#6868b8] cursor-pointer"
+                    />
+                  </td>
                   <td className="px-4 py-3 font-mono text-white">{c.code}</td>
                   <td className="px-4 py-3 text-[#c0c0e8]">{TIER_LABELS[c.tier] ?? c.tier}</td>
                   <td className="px-4 py-3 text-[#8080a8]">{c.duration_days ? `${c.duration_days}d` : "Lifetime"}</td>
