@@ -8,9 +8,9 @@ const PAGE_SIZE = 100;
 const MIN_GENRE_COUNT = 3;
 
 const SHOW_SELECT =
-  "id, name, poster_path, tmdb_popularity, show_genre(genres(id, name))";
+  "id, name, poster_path, tmdb_popularity, slug, show_genre(genres(id, name))";
 
-const CS_SHOW_SELECT = "id, name, poster_path, tmdb_popularity, first_air_date, in_production";
+const CS_SHOW_SELECT = "id, name, poster_path, tmdb_popularity, first_air_date, in_production, slug";
 
 function formatReleaseLabel(dateStr) {
   if (!dateStr) return null;
@@ -281,6 +281,7 @@ export function useShowsPageData(session, showAdult = false) {
   const toItem = useCallback(
     (row) => ({
       id: row.id,
+      slug: row.slug ?? null,
       type: "show",
       title: row.name,
       posterPath: row.poster_path ?? null,

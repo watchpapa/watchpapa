@@ -10,6 +10,7 @@ const PAGE_SIZE = 20;
 function toMovieItem(row, followedIds) {
   return {
     id: row.id,
+    slug: row.slug ?? null,
     type: "movie",
     title: row.title,
     posterPath: row.poster_path ?? null,
@@ -23,6 +24,7 @@ function toMovieItem(row, followedIds) {
 function toShowItem(row, followedIds) {
   return {
     id: row.id,
+    slug: row.slug ?? null,
     type: "show",
     title: row.name,
     posterPath: row.poster_path ?? null,
@@ -145,7 +147,7 @@ export function useHomeData(session, showAdult = false) {
         // Read top movies from the movie table.
         let movieQ = supabase
           .from("movie")
-          .select("id, tmdb_id, title, tmdb_popularity, poster_path, movie_genre(genres_id)")
+          .select("id, tmdb_id, title, tmdb_popularity, poster_path, slug, movie_genre(genres_id)")
           .is("deleted_at", null)
           .order("tmdb_popularity", { ascending: false })
           .range(0, PAGE_SIZE - 1);
@@ -154,7 +156,7 @@ export function useHomeData(session, showAdult = false) {
         // Read top shows from the show table.
         let showQ = supabase
           .from("show")
-          .select("id, tmdb_id, name, tmdb_popularity, poster_path, show_genre(genres_id)")
+          .select("id, tmdb_id, name, tmdb_popularity, poster_path, slug, show_genre(genres_id)")
           .is("deleted_at", null)
           .order("tmdb_popularity", { ascending: false })
           .range(0, PAGE_SIZE - 1);
@@ -163,7 +165,7 @@ export function useHomeData(session, showAdult = false) {
         // Read unreleased movies (release date in future).
         let csMovieQ = supabase
           .from("movie")
-          .select("id, tmdb_id, title, tmdb_popularity, poster_path, release_date")
+          .select("id, tmdb_id, title, tmdb_popularity, poster_path, release_date, slug")
           .is("deleted_at", null)
           .gt("release_date", today)
           .order("tmdb_popularity", { ascending: false })
@@ -173,7 +175,7 @@ export function useHomeData(session, showAdult = false) {
         // Read shows still in production or not yet premiered.
         let csShowQ = supabase
           .from("show")
-          .select("id, tmdb_id, name, tmdb_popularity, poster_path, first_air_date, in_production")
+          .select("id, tmdb_id, name, tmdb_popularity, poster_path, first_air_date, in_production, slug")
           .is("deleted_at", null)
           .or(`in_production.eq.true,first_air_date.gt.${today}`)
           .order("tmdb_popularity", { ascending: false })
@@ -299,7 +301,7 @@ export function useHomeData(session, showAdult = false) {
       // Fetch the next movie page from the database.
       let q = supabase
         .from("movie")
-        .select("id, tmdb_id, title, tmdb_popularity, poster_path, movie_genre(genres_id)")
+        .select("id, tmdb_id, title, tmdb_popularity, poster_path, slug, movie_genre(genres_id)")
         .is("deleted_at", null)
         .order("tmdb_popularity", { ascending: false })
         .range(from, from + PAGE_SIZE - 1);
@@ -326,7 +328,7 @@ export function useHomeData(session, showAdult = false) {
       // Fetch the next show page from the database.
       let q = supabase
         .from("show")
-        .select("id, tmdb_id, name, tmdb_popularity, poster_path, show_genre(genres_id)")
+        .select("id, tmdb_id, name, tmdb_popularity, poster_path, slug, show_genre(genres_id)")
         .is("deleted_at", null)
         .order("tmdb_popularity", { ascending: false })
         .range(from, from + PAGE_SIZE - 1);
@@ -389,7 +391,7 @@ export function useHomeData(session, showAdult = false) {
           // Keep paging movie rows while building the merged popular list.
           let q = supabase
             .from("movie")
-            .select("id, tmdb_id, title, tmdb_popularity, poster_path, movie_genre(genres_id)")
+            .select("id, tmdb_id, title, tmdb_popularity, poster_path, slug, movie_genre(genres_id)")
             .is("deleted_at", null)
             .order("tmdb_popularity", { ascending: false })
             .range(from, from + PAGE_SIZE - 1);
@@ -405,7 +407,7 @@ export function useHomeData(session, showAdult = false) {
           // Keep paging show rows while building the merged popular list.
           let q = supabase
             .from("show")
-            .select("id, tmdb_id, name, tmdb_popularity, poster_path, show_genre(genres_id)")
+            .select("id, tmdb_id, name, tmdb_popularity, poster_path, slug, show_genre(genres_id)")
             .is("deleted_at", null)
             .order("tmdb_popularity", { ascending: false })
             .range(from, from + PAGE_SIZE - 1);

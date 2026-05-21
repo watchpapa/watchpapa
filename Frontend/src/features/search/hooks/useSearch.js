@@ -60,35 +60,35 @@ async function searchLocalSupabase(query, perTypeLimit, showAdult) {
   ] = await Promise.all([
     applyAdultFilter(supabase
       .from("movie")
-      .select("id, tmdb_id, title, poster_path, tmdb_popularity, release_date")
+      .select("id, tmdb_id, title, poster_path, tmdb_popularity, release_date, slug")
       .is("deleted_at", null)
       .ilike("title", pattern)
       .order("tmdb_popularity", { ascending: false })
       .limit(perTypeLimit)),
     applyAdultFilter(supabase
       .from("movie")
-      .select("id, tmdb_id, title, poster_path, tmdb_popularity, release_date")
+      .select("id, tmdb_id, title, poster_path, tmdb_popularity, release_date, slug")
       .is("deleted_at", null)
       .ilike("original_title", pattern)
       .order("tmdb_popularity", { ascending: false })
       .limit(perTypeLimit)),
     applyAdultFilter(supabase
       .from("show")
-      .select("id, tmdb_id, name, poster_path, tmdb_popularity, first_air_date")
+      .select("id, tmdb_id, name, poster_path, tmdb_popularity, first_air_date, slug")
       .is("deleted_at", null)
       .ilike("name", pattern)
       .order("tmdb_popularity", { ascending: false })
       .limit(perTypeLimit)),
     applyAdultFilter(supabase
       .from("show")
-      .select("id, tmdb_id, name, poster_path, tmdb_popularity, first_air_date")
+      .select("id, tmdb_id, name, poster_path, tmdb_popularity, first_air_date, slug")
       .is("deleted_at", null)
       .ilike("original_name", pattern)
       .order("tmdb_popularity", { ascending: false })
       .limit(perTypeLimit)),
     applyAdultFilter(supabase
       .from("person")
-      .select("id, tmdb_id, name, profile_path, popularity")
+      .select("id, tmdb_id, name, profile_path, popularity, slug")
       .is("deleted_at", null)
       .ilike("name", pattern)
       .order("popularity", { ascending: false })
@@ -111,6 +111,7 @@ async function searchLocalSupabase(query, perTypeLimit, showAdult) {
   const movies = movieRows.map((r) => ({
     type: "movie",
     localId: r.id,
+    slug: r.slug ?? null,
     tmdbId: r.tmdb_id,
     title: r.title,
     posterPath: r.poster_path ?? null,
@@ -121,6 +122,7 @@ async function searchLocalSupabase(query, perTypeLimit, showAdult) {
   const shows = showRows.map((r) => ({
     type: "show",
     localId: r.id,
+    slug: r.slug ?? null,
     tmdbId: r.tmdb_id,
     title: r.name,
     posterPath: r.poster_path ?? null,
@@ -131,6 +133,7 @@ async function searchLocalSupabase(query, perTypeLimit, showAdult) {
   const people = (peopleRes.data ?? []).map((r) => ({
     type: "person",
     localId: r.id,
+    slug: r.slug ?? null,
     tmdbId: r.tmdb_id,
     title: r.name,
     posterPath: r.profile_path ?? null,

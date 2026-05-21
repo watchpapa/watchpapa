@@ -29,9 +29,10 @@ function CheckIcon() {
   );
 }
 
-function MediaCard({ id, type, title, posterPath, isFollowing = false, onFollowToggle, isAuthenticated, customTo, releaseLabel, genreIds = [], trackSource = "browse" }) {
+function MediaCard({ id, slug, type, title, posterPath, isFollowing = false, onFollowToggle, isAuthenticated, customTo, releaseLabel, genreIds = [], trackSource = "browse" }) {
   const imgSrc = posterPath ? `${TMDB_IMG}${posterPath}` : null;
-  const to = customTo ?? (type === "movie" ? `/movies/${id}` : `/shows/${id}`);
+  const key = slug ?? id;
+  const to = customTo ?? (type === "movie" ? `/movies/${key}` : `/shows/${key}`);
   const [hovering, setHovering] = useState(false);
   const [showAuthPrompt, setShowAuthPrompt] = useState(false);
   const [justFollowed, setJustFollowed] = useState(false);

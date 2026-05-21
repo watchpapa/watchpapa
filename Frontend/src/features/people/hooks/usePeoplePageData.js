@@ -28,7 +28,7 @@ export function usePeoplePageData(showAdult = false) {
     // Read people rows ordered by popularity from the person table.
     let q = supabase
       .from("person")
-      .select("id, name, profile_path, popularity, birthday, place_of_birth")
+      .select("id, name, profile_path, popularity, birthday, place_of_birth, slug")
       .is("deleted_at", null)
       .order("popularity", { ascending: false })
       .range(from, from + PAGE_SIZE - 1);
