@@ -294,7 +294,7 @@ function App() {
         }
       />
       <Route
-        path="/movies/:id"
+        path="/movies/:slug"
         element={
           <PublicRoute session={session} needsUsernameSetup={needsUsernameSetup}>
             <MoviePage session={session} showAdult={showAdult} />
@@ -310,7 +310,7 @@ function App() {
         }
       />
       <Route
-        path="/shows/:id"
+        path="/shows/:slug"
         element={
           <PublicRoute session={session} needsUsernameSetup={needsUsernameSetup}>
             <ShowPage session={session} showAdult={showAdult} />
@@ -318,7 +318,7 @@ function App() {
         }
       />
       <Route
-        path="/shows/:id/seasons/:seasonId"
+        path="/shows/:slug/seasons/:seasonNumber"
         element={
           <PublicRoute session={session} needsUsernameSetup={needsUsernameSetup}>
             <SeasonPage session={session} showAdult={showAdult} />
@@ -326,7 +326,7 @@ function App() {
         }
       />
       <Route
-        path="/shows/:id/seasons/:seasonId/episodes/:episodeId"
+        path="/shows/:slug/seasons/:seasonNumber/episodes/:episodeNumber"
         element={
           <PublicRoute session={session} needsUsernameSetup={needsUsernameSetup}>
             <EpisodePage session={session} showAdult={showAdult} />
@@ -342,7 +342,7 @@ function App() {
         }
       />
       <Route
-        path="/people/:id"
+        path="/people/:slug"
         element={
           <PublicRoute session={session} needsUsernameSetup={needsUsernameSetup}>
             <PersonPage session={session} showAdult={showAdult} />
