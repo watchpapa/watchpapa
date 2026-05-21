@@ -53,7 +53,7 @@ const STATIC_URLS = [
   { path: "/", changefreq: "daily", priority: "1.0" },
   { path: "/movies", changefreq: "daily", priority: "0.8" },
   { path: "/shows", changefreq: "daily", priority: "0.8" },
-  { path: "/people", changefreq: "weekly", priority: "0.7" },
+  { path: "/people", changefreq: "daily", priority: "0.7" },
   { path: "/calendar", changefreq: "daily", priority: "0.7" },
   { path: "/updates", changefreq: "weekly", priority: "0.6" },
   { path: "/about", changefreq: "monthly", priority: "0.5" },
