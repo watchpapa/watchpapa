@@ -1,2 +1,2 @@
-/sitemap.xml https://api.watchpapa.tv/sitemap.xml 200
+/sitemap.xml https://api.watchpapa.tv/sitemap.xml 301
 /api/* https://api.watchpapa.tv/api/:splat 200
