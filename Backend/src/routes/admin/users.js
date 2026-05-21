@@ -50,6 +50,55 @@ router.get("/search", async (req, res) => {
   res.json({ users });
 });
 
+// GET /api/admin/users/staff — all accounts with role 3 (moderator) or 4 (admin)
+router.get("/staff", async (_req, res) => {
+  const staff = await sequelize.query(
+    `SELECT
+       au.id,
+       au.email,
+       au.created_at,
+       p.username,
+       p.role
+     FROM public.profile p
+     JOIN auth.users au ON au.id = p.id
+     WHERE p.role IN (3, 4)
+       AND p.deleted_at IS NULL
+     ORDER BY p.role DESC, au.created_at ASC`,
+    { type: QueryTypes.SELECT }
+  );
+  res.json({ staff });
+});
+
+// PATCH /api/admin/users/:id/role — set role to 0, 3, or 4; cannot self-modify
+router.patch("/:id/role", async (req, res) => {
+  const { id } = req.params;
+  const { role } = req.body ?? {};
+
+  if (![0, 3, 4].includes(role)) {
+    return res.status(400).json({ error: "role must be 0, 3, or 4" });
+  }
+
+  if (id === req.user?.id) {
+    return res.status(400).json({ error: "Cannot modify your own role" });
+  }
+
+  const [profile] = await sequelize.query(
+    `SELECT id FROM public.profile WHERE id = :id AND deleted_at IS NULL`,
+    { replacements: { id }, type: QueryTypes.SELECT }
+  );
+
+  if (!profile) {
+    return res.status(404).json({ error: "User not found" });
+  }
+
+  await sequelize.query(
+    `UPDATE public.profile SET role = :role, updated_at = now() WHERE id = :id`,
+    { replacements: { id, role }, type: QueryTypes.SELECT }
+  );
+
+  res.json({ ok: true });
+});
+
 // POST /api/admin/users/:id/grant-tier
 router.post("/:id/grant-tier", async (req, res) => {
   const profileId = req.params.id;
