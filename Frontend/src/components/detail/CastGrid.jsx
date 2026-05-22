@@ -10,7 +10,7 @@ function CastGrid({ credits = [] }) {
       {credits.map((credit) => (
         <Link
           key={credit.id}
-          to={`/people/${credit.personSlug ?? credit.personId}`}
+          to={`/people/${credit.personId}`}
           className="flex flex-col items-center gap-1.5 rounded-xl p-2 transition hover:bg-[#1a1f3a]"
         >
           <div className="h-16 w-16 overflow-hidden rounded-full border border-[#2a3570] bg-[#12163a]">

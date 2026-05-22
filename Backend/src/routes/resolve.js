@@ -15,19 +15,19 @@ const ALLOWED_TYPES = new Set(["movie", "show", "person"]);
 const ALLOWED_KEYS = new Set(["type", "tmdbId"]);
 const BASE = "https://api.themoviedb.org/3";
 
-// Find an existing local database row by tmdb_id for a table.
-async function findLocalRow(table, tmdbId) {
+// Find an existing local database id by tmdb_id for a table.
+async function findLocalId(table, tmdbId) {
   const [row] = await sequelize.query(
-    `SELECT id, slug FROM ${table} WHERE tmdb_id = :tmdbId AND deleted_at IS NULL LIMIT 1`,
+    `SELECT id FROM ${table} WHERE tmdb_id = :tmdbId AND deleted_at IS NULL LIMIT 1`,
     { replacements: { tmdbId }, type: sequelize.QueryTypes.SELECT }
   );
-  return row ?? null;
+  return row?.id ?? null;
 }
 
-// Resolve a movie slug by reusing or upserting a database row.
+// Resolve a movie local id by reusing or upserting a database row.
 async function resolveMovie(tmdbId) {
-  const existing = await findLocalRow("movie", tmdbId);
-  if (existing) return { slug: existing.slug, wasExisting: true };
+  const existing = await findLocalId("movie", tmdbId);
+  if (existing != null) return { localId: existing, wasExisting: true };
 
   const res = await tmdbRateLimitedFetch(`${BASE}/movie/${tmdbId}?api_key=${API_KEY}&language=en-US`);
   if (!res.ok) throw new Error(`TMDB movie ${tmdbId}: ${res.status}`);
@@ -46,13 +46,13 @@ async function resolveMovie(tmdbId) {
     tmdbVoteAvg: r.vote_average ?? 0,
     tmdbVoteCount: r.vote_count ?? 0,
   });
-  return { slug: row.slug, wasExisting: false };
+  return { localId: row.id, wasExisting: false };
 }
 
-// Resolve a show slug by reusing or upserting a database row.
+// Resolve a show local id by reusing or upserting a database row.
 async function resolveShow(tmdbId) {
-  const existing = await findLocalRow("show", tmdbId);
-  if (existing) return { slug: existing.slug, wasExisting: true };
+  const existing = await findLocalId("show", tmdbId);
+  if (existing != null) return { localId: existing, wasExisting: true };
 
   const res = await tmdbRateLimitedFetch(`${BASE}/tv/${tmdbId}?api_key=${API_KEY}&language=en-US`);
   if (!res.ok) throw new Error(`TMDB show ${tmdbId}: ${res.status}`);
@@ -71,13 +71,13 @@ async function resolveShow(tmdbId) {
     tmdbVoteAvg: r.vote_average ?? 0,
     tmdbVoteCount: r.vote_count ?? 0,
   });
-  return { slug: row.slug, wasExisting: false };
+  return { localId: row.id, wasExisting: false };
 }
 
-// Resolve a person slug by reusing or upserting a database row.
+// Resolve a person local id by reusing or upserting a database row.
 async function resolvePerson(tmdbId) {
-  const existing = await findLocalRow("person", tmdbId);
-  if (existing) return { slug: existing.slug, wasExisting: true };
+  const existing = await findLocalId("person", tmdbId);
+  if (existing != null) return { localId: existing, wasExisting: true };
 
   const res = await tmdbRateLimitedFetch(`${BASE}/person/${tmdbId}?api_key=${API_KEY}&language=en-US`);
   if (!res.ok) throw new Error(`TMDB person ${tmdbId}: ${res.status}`);
@@ -90,7 +90,7 @@ async function resolvePerson(tmdbId) {
     popularity: r.popularity ?? 0,
     adult: r.adult ?? false,
   });
-  return { slug: row.slug, wasExisting: false };
+  return { localId: row.id, wasExisting: false };
 }
 
 // Validate resolve input and return the matching local database id.
@@ -108,23 +108,23 @@ router.post("/", async (req, res) => {
   }
 
   try {
-    let slug;
+    let localId;
     let wasExisting = false;
     if (type === "movie") {
       const resolved = await resolveMovie(tmdbId);
-      slug = resolved.slug;
+      localId = resolved.localId;
       wasExisting = resolved.wasExisting;
     } else if (type === "show") {
       const resolved = await resolveShow(tmdbId);
-      slug = resolved.slug;
+      localId = resolved.localId;
       wasExisting = resolved.wasExisting;
     } else if (type === "person") {
       const resolved = await resolvePerson(tmdbId);
-      slug = resolved.slug;
+      localId = resolved.localId;
       wasExisting = resolved.wasExisting;
     } else return res.status(400).json({ error: "unknown type" });
 
-    res.json({ slug });
+    res.json({ localId });
 
     if (API_KEY) {
       if (type === "movie" && !wasExisting) {

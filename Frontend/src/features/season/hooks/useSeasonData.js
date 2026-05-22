@@ -27,39 +27,33 @@ const initialState = {
 };
 
 // Load season details, show details, and credits for the Season page.
-// showSlugOrId: show slug or numeric id; seasonNumber: season_number integer.
-export function useSeasonData(showSlugOrId, seasonNumber) {
-  const isNumericShowId = showSlugOrId ? /^\d+$/.test(showSlugOrId) : false;
+export function useSeasonData(rawSeasonId, rawShowId) {
+  const seasonId = rawSeasonId ? parseInt(rawSeasonId, 10) : null;
+  const showId = rawShowId ? parseInt(rawShowId, 10) : null;
   const [state, dispatch] = useReducer(reducer, initialState);
 
   useEffect(() => {
-    if (!showSlugOrId || !seasonNumber) return;
+    if (!seasonId || !showId) return;
     let cancelled = false;
 
-    // Read show → season → episodes and credits from the database.
+    // Read season episodes and show metadata/credits from the database.
     async function load() {
       try {
-        // Step 1: resolve show by slug or numeric id.
-        const showQuery = supabase
-          .from("show")
-          .select(`id, name, slug, show_credits(title, person(id, name, profile_path, slug), job(name, department(name)))`)
-          .single();
-        const showRes = await (isNumericShowId
-          ? showQuery.eq("id", Number(showSlugOrId))
-          : showQuery.eq("slug", showSlugOrId));
-
-        if (showRes.error) throw showRes.error;
-        if (cancelled) return;
-
-        // Step 2: resolve season by show_id + season_number.
-        const seasonRes = await supabase
-          .from("season")
-          .select(`*, episode(id, name, episode_number, air_date, runtime, poster_path)`)
-          .eq("show_id", showRes.data.id)
-          .eq("season_number", Number(seasonNumber))
-          .single();
+        const [seasonRes, showRes] = await Promise.all([
+          supabase
+            .from("season")
+            .select(`*, episode(id, name, episode_number, air_date, runtime, poster_path)`)
+            .eq("id", seasonId)
+            .single(),
+          supabase
+            .from("show")
+            .select(`id, name, show_credits(title, person(id, name, profile_path), job(name, department(name)))`)
+            .eq("id", showId)
+            .single(),
+        ]);
 
         if (seasonRes.error) throw seasonRes.error;
+        if (showRes.error) throw showRes.error;
         if (cancelled) return;
 
         const episodes = (seasonRes.data.episode ?? []).sort((a, b) => a.episode_number - b.episode_number);
@@ -82,7 +76,7 @@ export function useSeasonData(showSlugOrId, seasonNumber) {
 
     load();
     return () => { cancelled = true; };
-  }, [showSlugOrId, seasonNumber]);
+  }, [seasonId, showId]);
 
   return state;
 }

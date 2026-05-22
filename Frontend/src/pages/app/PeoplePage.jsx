@@ -21,7 +21,7 @@ function PersonRow({ person, rank }) {
 
   return (
     <Link
-      to={`/people/${person.slug ?? person.id}`}
+      to={`/people/${person.id}`}
       className="flex items-start gap-3 rounded-2xl border border-[#1a1f3a] bg-[#0d0f1e] p-3 transition hover:border-[#3a3a7a] hover:bg-[#141728] sm:gap-5 sm:p-4"
     >
       <span className="mt-1 hidden w-8 flex-shrink-0 text-right text-sm font-bold text-[#3a3a7a] sm:block">

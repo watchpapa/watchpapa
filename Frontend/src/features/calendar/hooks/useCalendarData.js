@@ -53,11 +53,11 @@ export function useCalendarData(session, year, month) {
         const [fsRes, fmRes] = await Promise.all([
           supabase
             .from("user_followed_shows")
-            .select("show_id, created_at, show(id, name, poster_path, first_air_date, last_air_date, status, slug)")
+            .select("show_id, created_at, show(id, name, poster_path, first_air_date, last_air_date, status)")
             .eq("profile_id", profileId),
           supabase
             .from("user_followed_movies")
-            .select("movie_id, created_at, movie(id, title, poster_path, release_date, slug)")
+            .select("movie_id, created_at, movie(id, title, poster_path, release_date)")
             .eq("profile_id", profileId),
         ]);
 
@@ -83,7 +83,7 @@ export function useCalendarData(session, year, month) {
           // Read episodes that air during this month from the episode table.
           const { data: episodes, error: epErr } = await supabase
             .from("episode")
-            .select("id, name, air_date, runtime, episode_number, season(id, show_id, season_number, show(id, name, slug))")
+            .select("id, name, air_date, runtime, episode_number, season(id, show_id, season_number, show(id, name))")
             .gte("air_date", startDate)
             .lte("air_date", endDate)
             .is("deleted_at", null);
@@ -101,7 +101,6 @@ export function useCalendarData(session, year, month) {
               name: ep.name,
               showName: ep.season?.show?.name ?? "",
               showId,
-              showSlug: ep.season?.show?.slug ?? null,
               seasonId: ep.season?.id,
               seasonNumber: ep.season?.season_number,
               episodeNumber: ep.episode_number,
@@ -119,7 +118,6 @@ export function useCalendarData(session, year, month) {
             id: movie.id,
             name: movie.title,
             movieId: movie.id,
-            movieSlug: movie.slug ?? null,
           });
         }
 

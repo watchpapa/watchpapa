@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useState } from "react";
+import { useParams } from "react-router-dom";
 import AppLayout from "../../layouts/AppLayout.jsx";
 import DetailPageLayout from "../../components/detail/DetailPageLayout.jsx";
 import SkeletonDetailPage from "../../components/detail/SkeletonDetailPage.jsx";
@@ -38,18 +38,10 @@ function fmtRuntime(val) {
 }
 
 function MoviePage({ session, showAdult }) {
-  const { slug } = useParams();
-  const navigate = useNavigate();
+  const { id } = useParams();
   const [showAuthPrompt, setShowAuthPrompt] = useState(false);
-  const { movie, genres, cast, crew, isFollowing, followLimitError, clearFollowLimitError, isLoading, error, toggleFollow } = useMovieData(slug, session, showAdult);
+  const { movie, genres, cast, crew, isFollowing, followLimitError, clearFollowLimitError, isLoading, error, toggleFollow } = useMovieData(id, session, showAdult);
   const handleFollow = session ? toggleFollow : () => setShowAuthPrompt(true);
-
-  // Redirect numeric IDs to slug URLs.
-  useEffect(() => {
-    if (movie?.slug && /^\d+$/.test(slug) && movie.slug !== slug) {
-      navigate(`/movies/${movie.slug}`, { replace: true });
-    }
-  }, [movie?.slug, slug, navigate]);
 
   const breadcrumbs = movie ? [{ label: "Movies", to: "/movies" }, { label: movie.title }] : undefined;
 
@@ -101,13 +93,13 @@ function MoviePage({ session, showAdult }) {
         title={year ? `${movie.title} (${year})` : movie.title}
         description={movie.overview?.slice(0, 155) || `Discover ${movie.title} on watchpapa.`}
         image={ogImage}
-        path={`/movies/${movie.slug ?? slug}`}
+        path={`/movies/${id}`}
         type="video.movie"
         jsonLd={jsonLd}
       />
       {showAuthPrompt && <AuthPromptModal onClose={() => setShowAuthPrompt(false)} />}
       {followLimitError && <UpgradePromptToast message={followLimitError} onDismiss={clearFollowLimitError} session={session} />}
-      <div className="mb-6"><InjectingBanner type="movie" id={movie.id} /></div>
+      <div className="mb-6"><InjectingBanner type="movie" id={id} /></div>
       <DetailPageLayout
         title={movie.title}
         followButton={<FollowButton isFollowing={isFollowing} onToggle={handleFollow} />}

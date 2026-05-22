@@ -4,7 +4,6 @@
 import sequelize from "../db/database.js";
 import { tmdbRateLimitedFetch } from "../scripts/tmdb_rate_limited_fetch.js";
 import { sanitizeMovie, sanitizeShow, sanitizePerson } from "../lib/sanitizeTmdb.js";
-import { movieSlug, showSlug, personSlug } from "../lib/slugify.js";
 
 
 // Escape wildcard characters for safe SQL ILIKE pattern matching.
@@ -27,7 +26,7 @@ export async function searchLocal(query, perTypeLimit = 5, { includeAdult = fals
 
   const [movieRows, showRows, personRows] = await Promise.all([
     sequelize.query(
-      `SELECT id, tmdb_id, title, poster_path, tmdb_popularity, release_date, slug
+      `SELECT id, tmdb_id, title, poster_path, tmdb_popularity, release_date
        FROM movie
        WHERE deleted_at IS NULL
          ${adultFilter}
@@ -37,7 +36,7 @@ export async function searchLocal(query, perTypeLimit = 5, { includeAdult = fals
       { replacements: { pattern, limit }, type: sequelize.QueryTypes.SELECT }
     ),
     sequelize.query(
-      `SELECT id, tmdb_id, name, poster_path, tmdb_popularity, first_air_date, slug
+      `SELECT id, tmdb_id, name, poster_path, tmdb_popularity, first_air_date
        FROM show
        WHERE deleted_at IS NULL
          ${adultFilter}
@@ -48,7 +47,7 @@ export async function searchLocal(query, perTypeLimit = 5, { includeAdult = fals
     ),
     sequelize.query(
       `SELECT * FROM (
-         SELECT DISTINCT ON (p.id) p.id, p.tmdb_id, p.name, p.profile_path, p.popularity, p.slug
+         SELECT DISTINCT ON (p.id) p.id, p.tmdb_id, p.name, p.profile_path, p.popularity
          FROM person p
          LEFT JOIN person_aka pa ON pa.person_id = p.id AND pa.deleted_at IS NULL
          WHERE p.deleted_at IS NULL
@@ -66,7 +65,6 @@ export async function searchLocal(query, perTypeLimit = 5, { includeAdult = fals
     source: "local",
     type: "movie",
     localId: r.id,
-    slug: r.slug ?? null,
     tmdbId: r.tmdb_id,
     title: r.title,
     posterPath: r.poster_path ?? null,
@@ -78,7 +76,6 @@ export async function searchLocal(query, perTypeLimit = 5, { includeAdult = fals
     source: "local",
     type: "show",
     localId: r.id,
-    slug: r.slug ?? null,
     tmdbId: r.tmdb_id,
     title: r.name,
     posterPath: r.poster_path ?? null,
@@ -90,7 +87,6 @@ export async function searchLocal(query, perTypeLimit = 5, { includeAdult = fals
     source: "local",
     type: "person",
     localId: r.id,
-    slug: r.slug ?? null,
     tmdbId: r.tmdb_id,
     title: r.name,
     posterPath: r.profile_path ?? null,
@@ -198,16 +194,15 @@ export function mergeResults(localResults, tmdbResults) {
 // Insert or update a movie row in the local database.
 export async function fastUpsertMovie(item) {
   const s = sanitizeMovie(item);
-  const baseSlug = movieSlug(s.title, s.releaseDate);
   const [rows] = await sequelize.query(
     `INSERT INTO movie (
        tmdb_id, title, original_title, poster_path, tmdb_popularity,
        overview, release_date, original_language, adult, tmdb_vote_avg, tmdb_vote_count,
-       budget, revenue, runtime, status, tagline, slug
+       budget, revenue, runtime, status, tagline
      ) VALUES (
        :tmdbId, :title, :originalTitle, :posterPath, :tmdbPopularity,
        :overview, :releaseDate, :originalLanguage, :adult, :tmdbVoteAvg, :tmdbVoteCount,
-       0, 0, 0, '', '', :slug
+       0, 0, 0, '', ''
      )
      ON CONFLICT (tmdb_id) DO UPDATE SET
        title             = EXCLUDED.title,
@@ -220,9 +215,8 @@ export async function fastUpsertMovie(item) {
        adult             = EXCLUDED.adult,
        tmdb_vote_avg     = EXCLUDED.tmdb_vote_avg,
        tmdb_vote_count   = EXCLUDED.tmdb_vote_count,
-       slug              = CASE WHEN movie.slug IS NULL OR movie.slug = '' THEN EXCLUDED.slug ELSE movie.slug END,
        updated_at        = now()
-     RETURNING id, slug`,
+     RETURNING id`,
     {
       replacements: {
         tmdbId: s.tmdbId,
@@ -236,7 +230,6 @@ export async function fastUpsertMovie(item) {
         adult: s.adult,
         tmdbVoteAvg: s.tmdbVoteAvg,
         tmdbVoteCount: s.tmdbVoteCount,
-        slug: baseSlug || `movie-${s.tmdbId}`,
       },
     }
   );
@@ -246,18 +239,17 @@ export async function fastUpsertMovie(item) {
 // Insert or update a show row in the local database.
 export async function fastUpsertShow(item) {
   const s = sanitizeShow(item);
-  const baseSlug = showSlug(s.title, s.firstAirDate);
   const [rows] = await sequelize.query(
     `INSERT INTO show (
        tmdb_id, name, original_name, poster_path, tmdb_popularity,
        overview, first_air_date, original_language, adult, tmdb_vote_avg, tmdb_vote_count,
        episode_run_time, in_production, last_air_date,
-       number_of_episodes, number_of_seasons, status, tagline, type, slug
+       number_of_episodes, number_of_seasons, status, tagline, type
      ) VALUES (
        :tmdbId, :name, :originalName, :posterPath, :tmdbPopularity,
        :overview, :firstAirDate, :originalLanguage, :adult, :tmdbVoteAvg, :tmdbVoteCount,
        0, false, NULL,
-       0, 0, '', '', '', :slug
+       0, 0, '', '', ''
      )
      ON CONFLICT (tmdb_id) DO UPDATE SET
        name              = EXCLUDED.name,
@@ -270,9 +262,8 @@ export async function fastUpsertShow(item) {
        adult             = EXCLUDED.adult,
        tmdb_vote_avg     = EXCLUDED.tmdb_vote_avg,
        tmdb_vote_count   = EXCLUDED.tmdb_vote_count,
-       slug              = CASE WHEN show.slug IS NULL OR show.slug = '' THEN EXCLUDED.slug ELSE show.slug END,
        updated_at        = now()
-     RETURNING id, slug`,
+     RETURNING id`,
     {
       replacements: {
         tmdbId: s.tmdbId,
@@ -286,7 +277,6 @@ export async function fastUpsertShow(item) {
         adult: s.adult,
         tmdbVoteAvg: s.tmdbVoteAvg,
         tmdbVoteCount: s.tmdbVoteCount,
-        slug: baseSlug || `show-${s.tmdbId}`,
       },
     }
   );
@@ -296,21 +286,19 @@ export async function fastUpsertShow(item) {
 // Insert or update a person row in the local database.
 export async function fastUpsertPerson(item) {
   const s = sanitizePerson(item);
-  const baseSlug = personSlug(s.title);
   const [rows] = await sequelize.query(
     `INSERT INTO person (
-       tmdb_id, name, profile_path, popularity, adult, gender, slug
+       tmdb_id, name, profile_path, popularity, adult, gender
      ) VALUES (
-       :tmdbId, :name, :profilePath, :popularity, :adult, 0, :slug
+       :tmdbId, :name, :profilePath, :popularity, :adult, 0
      )
      ON CONFLICT (tmdb_id) DO UPDATE SET
        name         = EXCLUDED.name,
        profile_path = COALESCE(EXCLUDED.profile_path, person.profile_path),
        popularity   = EXCLUDED.popularity,
        adult        = EXCLUDED.adult,
-       slug         = CASE WHEN person.slug IS NULL OR person.slug = '' THEN EXCLUDED.slug ELSE person.slug END,
        updated_at   = now()
-     RETURNING id, slug`,
+     RETURNING id`,
     {
       replacements: {
         tmdbId: s.tmdbId,
@@ -318,7 +306,6 @@ export async function fastUpsertPerson(item) {
         profilePath: s.posterPath,
         popularity: s.popularity,
         adult: s.adult,
-        slug: baseSlug || `person-${s.tmdbId}`,
       },
     }
   );

@@ -17,21 +17,7 @@ function getClient() {
   return supabase;
 }
 
-const cache = new Map();
-const CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
-
-function getCached(key) {
-  const entry = cache.get(key);
-  if (!entry) return null;
-  if (Date.now() - entry.ts > CACHE_TTL_MS) { cache.delete(key); return null; }
-  return entry.xml;
-}
-
-function setCached(key, xml) {
-  cache.set(key, { xml, ts: Date.now() });
-}
-
-async function fetchAllRows(table, updatedCol, popularityCol) {
+async function fetchAllIds(table, idCol, updatedCol, popularityCol) {
   const db = getClient();
   const rows = [];
   let from = 0;
@@ -39,9 +25,8 @@ async function fetchAllRows(table, updatedCol, popularityCol) {
   while (true) {
     const { data, error } = await db
       .from(table)
-      .select(`slug, ${updatedCol}`)
+      .select(`${idCol}, ${updatedCol}`)
       .is("deleted_at", null)
-      .not("slug", "is", null)
       .order(popularityCol, { ascending: false, nullsLast: true })
       .range(from, from + PAGE_SIZE - 1);
 
@@ -118,16 +103,12 @@ export function sitemapStaticHandler(_req, res) {
 }
 
 export async function sitemapMoviesHandler(_req, res) {
-  const cached = getCached("movies");
-  if (cached) return sendXml(res, cached);
   try {
-    const rows = await fetchAllRows("movie", "updated_at", "tmdb_popularity");
+    const rows = await fetchAllIds("movie", "id", "updated_at", "tmdb_popularity");
     const entries = rows.map((r) =>
-      urlEntry(`${BASE_URL}/movies/${r.slug}`, r.updated_at, "monthly", "0.6")
+      urlEntry(`${BASE_URL}/movies/${r.id}`, r.updated_at, "monthly", "0.6")
     );
-    const xml = buildUrlset(entries);
-    setCached("movies", xml);
-    sendXml(res, xml);
+    sendXml(res, buildUrlset(entries));
   } catch (err) {
     console.error("Sitemap movies failed:", err.message);
     res.status(500).send("Sitemap generation failed");
@@ -135,16 +116,12 @@ export async function sitemapMoviesHandler(_req, res) {
 }
 
 export async function sitemapShowsHandler(_req, res) {
-  const cached = getCached("shows");
-  if (cached) return sendXml(res, cached);
   try {
-    const rows = await fetchAllRows("show", "updated_at", "tmdb_popularity");
+    const rows = await fetchAllIds("show", "id", "updated_at", "tmdb_popularity");
     const entries = rows.map((r) =>
-      urlEntry(`${BASE_URL}/shows/${r.slug}`, r.updated_at, "weekly", "0.7")
+      urlEntry(`${BASE_URL}/shows/${r.id}`, r.updated_at, "weekly", "0.7")
     );
-    const xml = buildUrlset(entries);
-    setCached("shows", xml);
-    sendXml(res, xml);
+    sendXml(res, buildUrlset(entries));
   } catch (err) {
     console.error("Sitemap shows failed:", err.message);
     res.status(500).send("Sitemap generation failed");
@@ -152,16 +129,12 @@ export async function sitemapShowsHandler(_req, res) {
 }
 
 export async function sitemapPeopleHandler(_req, res) {
-  const cached = getCached("people");
-  if (cached) return sendXml(res, cached);
   try {
-    const rows = await fetchAllRows("person", "updated_at", "popularity");
+    const rows = await fetchAllIds("person", "id", "updated_at", "popularity");
     const entries = rows.map((r) =>
-      urlEntry(`${BASE_URL}/people/${r.slug}`, r.updated_at, "monthly", "0.5")
+      urlEntry(`${BASE_URL}/people/${r.id}`, r.updated_at, "monthly", "0.5")
     );
-    const xml = buildUrlset(entries);
-    setCached("people", xml);
-    sendXml(res, xml);
+    sendXml(res, buildUrlset(entries));
   } catch (err) {
     console.error("Sitemap people failed:", err.message);
     res.status(500).send("Sitemap generation failed");

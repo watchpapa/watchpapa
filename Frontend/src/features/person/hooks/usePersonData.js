@@ -26,30 +26,29 @@ const initialState = {
 };
 
 // Load person details and credits for the Person page.
-export function usePersonData(slugOrId, showAdult = false) {
-  const isNumericId = slugOrId ? /^\d+$/.test(slugOrId) : false;
+export function usePersonData(rawPersonId, showAdult = false) {
+  const personId = rawPersonId ? parseInt(rawPersonId, 10) : null;
   const [state, dispatch] = useReducer(reducer, initialState);
 
   useEffect(() => {
-    if (!slugOrId) return;
+    if (!personId) return;
     let cancelled = false;
 
     // Read person profile, aliases, and credits from related tables.
     async function load() {
       try {
-        const personQuery = supabase
+        const { data, error } = await supabase
           .from("person")
           .select(`
             *,
             known_for:known_for_department_id(name),
             person_aka(nickname),
-            movie_credits(title, job(name, department(name)), movie(id, title, poster_path, adult, slug)),
-            show_credits(title, job(name, department(name)), show(id, name, poster_path, adult, slug))
+            movie_credits(title, job(name, department(name)), movie(id, title, poster_path, adult)),
+            show_credits(title, job(name, department(name)), show(id, name, poster_path, adult))
           `)
+          .eq("id", personId)
           .is("deleted_at", null)
           .single();
-
-        const { data, error } = await (isNumericId ? personQuery.eq("id", Number(slugOrId)) : personQuery.eq("slug", slugOrId));
 
         if (error) throw error;
         if (cancelled) return;
@@ -64,7 +63,6 @@ export function usePersonData(slugOrId, showAdult = false) {
           .map((c) => ({
             id: `m-${c.movie.id}-${c.title}`,
             mediaId: c.movie.id,
-            mediaSlug: c.movie.slug ?? null,
             type: "movie",
             title: c.movie.title,
             posterPath: c.movie.poster_path ?? null,
@@ -78,7 +76,6 @@ export function usePersonData(slugOrId, showAdult = false) {
           .map((c) => ({
             id: `s-${c.show.id}-${c.title}`,
             mediaId: c.show.id,
-            mediaSlug: c.show.slug ?? null,
             type: "show",
             title: c.show.name,
             posterPath: c.show.poster_path ?? null,
@@ -104,7 +101,7 @@ export function usePersonData(slugOrId, showAdult = false) {
 
     load();
     return () => { cancelled = true; };
-  }, [slugOrId, showAdult]);
+  }, [personId, showAdult]);
 
   return state;
 }

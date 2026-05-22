@@ -40,7 +40,7 @@ function SkeletonGrid() {
 }
 
 function PersonCard({ person }) {
-  const to = person.slug ? `/people/${person.slug}` : person.localId ? `/people/${person.localId}` : `/people/tmdb/${person.tmdbId}`;
+  const to = person.localId ? `/people/${person.localId}` : `/people/tmdb/${person.tmdbId}`;
   return (
     <Link
       to={to}
@@ -139,8 +139,7 @@ function SearchPage({ session, showAdult }) {
                     <MediaCard
                       key={`movie-${item.tmdbId}`}
                       id={item.localId}
-                      slug={item.slug}
-                      customTo={!item.localId ? `/movies/tmdb/${item.tmdbId}` : undefined}
+                      customTo={item.localId ? undefined : `/movies/tmdb/${item.tmdbId}`}
                       type="movie"
                       title={item.title}
                       posterPath={item.posterPath}
@@ -159,8 +158,7 @@ function SearchPage({ session, showAdult }) {
                     <MediaCard
                       key={`show-${item.tmdbId}`}
                       id={item.localId}
-                      slug={item.slug}
-                      customTo={!item.localId ? `/shows/tmdb/${item.tmdbId}` : undefined}
+                      customTo={item.localId ? undefined : `/shows/tmdb/${item.tmdbId}`}
                       type="show"
                       title={item.title}
                       posterPath={item.posterPath}

@@ -24,7 +24,6 @@ export function toCast(rows) {
     .map((r) => ({
       id: `${r.person.id}-${r.title ?? ""}`,
       personId: r.person.id,
-      personSlug: r.person.slug ?? null,
       name: r.person.name,
       profilePath: r.person.profile_path ?? null,
       character: r.title ?? null,
@@ -51,7 +50,6 @@ export function toCrew(rows) {
       peopleMap.set(r.person.id, {
         id: `${r.person.id}-${job}`,
         personId: r.person.id,
-        personSlug: r.person.slug ?? null,
         name: r.person.name,
         profilePath: r.person.profile_path ?? null,
       });

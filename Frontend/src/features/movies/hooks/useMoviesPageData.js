@@ -7,9 +7,9 @@ const PAGE_SIZE = 100;
 const MIN_GENRE_COUNT = 3;
 
 const MOVIE_SELECT =
-  "id, title, poster_path, tmdb_popularity, slug, movie_genre(genres(id, name))";
+  "id, title, poster_path, tmdb_popularity, movie_genre(genres(id, name))";
 
-const CS_MOVIE_SELECT = "id, title, poster_path, tmdb_popularity, release_date, slug";
+const CS_MOVIE_SELECT = "id, title, poster_path, tmdb_popularity, release_date";
 
 function formatReleaseLabel(dateStr) {
   if (!dateStr) return null;
@@ -280,7 +280,6 @@ export function useMoviesPageData(session, showAdult = false) {
   const toItem = useCallback(
     (row) => ({
       id: row.id,
-      slug: row.slug ?? null,
       type: "movie",
       title: row.title,
       posterPath: row.poster_path ?? null,

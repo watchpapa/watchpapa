@@ -35,42 +35,38 @@ const initialState = {
 };
 
 // Load show details, related rows, and follow state for the Show page.
-export function useShowData(slugOrId, session, showAdult = false) {
-  const isNumericId = slugOrId ? /^\d+$/.test(slugOrId) : false;
+export function useShowData(rawShowId, session, showAdult = false) {
+  const showId = rawShowId ? parseInt(rawShowId, 10) : null;
   const [state, dispatch] = useReducer(reducer, initialState);
 
   useEffect(() => {
-    if (!slugOrId) return;
+    if (!showId) return;
     let cancelled = false;
 
     // Read show details and current follow state from the database.
     async function load() {
       try {
-        const showQuery = supabase
-          .from("show")
-          .select(`*, show_genre(genres(*)), season(id, name, season_number, air_date, poster_path, episode(id)), show_credits(title, person(id, name, profile_path, slug), job(name, department(name)))`)
-          .is("deleted_at", null)
-          .single();
-
-        const showRes = await (isNumericId ? showQuery.eq("id", Number(slugOrId)) : showQuery.eq("slug", slugOrId));
+        const [showRes, followRes] = await Promise.all([
+          supabase
+            .from("show")
+            .select(`*, show_genre(genres(*)), season(id, name, season_number, air_date, poster_path, episode(id)), show_credits(title, person(id, name, profile_path), job(name, department(name)))`)
+            .eq("id", showId)
+            .is("deleted_at", null)
+            .single(),
+          session?.user?.id
+            ? supabase
+                .from("user_followed_shows")
+                .select("id")
+                .eq("profile_id", session.user.id)
+                .eq("show_id", showId)
+                .maybeSingle()
+            : Promise.resolve({ data: null }),
+        ]);
 
         if (showRes.error) throw showRes.error;
         if (cancelled) return;
 
         const row = showRes.data;
-        const showId = row.id;
-
-        let isFollowing = false;
-        if (session?.user?.id) {
-          const { data: fData } = await supabase
-            .from("user_followed_shows")
-            .select("id")
-            .eq("profile_id", session.user.id)
-            .eq("show_id", showId)
-            .maybeSingle();
-          isFollowing = !!fData;
-        }
-
         if (!showAdult && row.adult) {
           dispatch({ type: "ERROR", error: "This content is restricted." });
           return;
@@ -87,7 +83,7 @@ export function useShowData(slugOrId, session, showAdult = false) {
             seasons,
             cast: toCast(row.show_credits ?? []),
             crew: toCrew(row.show_credits ?? []),
-            isFollowing,
+            isFollowing: !!followRes.data,
           },
         });
       } catch (err) {
@@ -97,11 +93,10 @@ export function useShowData(slugOrId, session, showAdult = false) {
 
     load();
     return () => { cancelled = true; };
-  }, [slugOrId, session?.user?.id, showAdult]);
+  }, [showId, session?.user?.id, showAdult]);
 
   const toggleFollow = useCallback(async () => {
-    if (!session?.user?.id || !state.show?.id) return;
-    const showId = state.show.id;
+    if (!session?.user?.id) return;
     const wasFollowing = state.isFollowing;
     dispatch({ type: "TOGGLE_FOLLOW" });
 
@@ -123,7 +118,7 @@ export function useShowData(slugOrId, session, showAdult = false) {
         dispatch({ type: "TOGGLE_FOLLOW" });
       }
     }
-  }, [state.show?.id, session?.user?.id, state.isFollowing]);
+  }, [showId, session?.user?.id, state.isFollowing]);
 
   return { ...state, toggleFollow, clearFollowLimitError: () => dispatch({ type: "CLEAR_FOLLOW_LIMIT" }) };
 }
