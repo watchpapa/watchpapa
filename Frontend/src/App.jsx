@@ -38,6 +38,7 @@ import ScriptLogsPage from "./pages/admin/ScriptLogsPage.jsx";
 import AdminRoute from "./components/auth/AdminRoute.jsx";
 import AnalyticsPage from "./pages/admin/AnalyticsPage.jsx";
 import StaffPage from "./pages/admin/StaffPage.jsx";
+import ContentResyncPage from "./pages/admin/ContentResyncPage.jsx";
 import { trackPresence, trackPageView } from "./lib/analytics.js";
 import {
   AboutPage,
@@ -463,6 +464,7 @@ function App() {
         <Route path="script-logs" element={<ScriptLogsPage />} />
         <Route path="announcements" element={<AnnouncementsPage />} />
         <Route path="staff" element={<StaffPage />} />
+        <Route path="resync" element={<ContentResyncPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

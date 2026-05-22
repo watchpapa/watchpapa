@@ -28,6 +28,7 @@ const NAV = [
     section: "Content",
     links: [
       { to: "/admin/announcements", label: "Announcements" },
+      { to: "/admin/resync",        label: "Content Resync" },
     ],
   },
   {
