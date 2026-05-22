@@ -7,6 +7,7 @@ import { ingestMovie } from "../scripts/inject_movie.js";
 import { ingestTvShow } from "../scripts/inject_tv_show.js";
 import { ingestPerson } from "../scripts/inject_person.js";
 import { dedupIngest } from "../lib/ingestionQueue.js";
+import { logScriptRun } from "../lib/logScriptRun.js";
 import sequelize from "../db/database.js";
 
 const router = Router();
@@ -126,22 +127,43 @@ router.post("/", async (req, res) => {
 
     res.json({ localId });
 
-    if (API_KEY) {
-      if (type === "movie" && !wasExisting) {
-        // Run background database refresh for the resolved movie.
-        dedupIngest(`movie:${tmdbId}`, () =>
-          ingestMovie({ tmdbId, apiKey: API_KEY, forceRefreshExisting: true })
-        ).catch((e) => console.warn(`bg inject movie ${tmdbId}:`, e.message));
-      } else if (type === "show" && !wasExisting) {
-        // Run background database refresh for the resolved show.
-        dedupIngest(`show:${tmdbId}`, () =>
-          ingestTvShow({ tmdbTvId: tmdbId, apiKey: API_KEY, forceRefreshExisting: true })
-        ).catch((e) => console.warn(`bg inject show ${tmdbId}:`, e.message));
-      } else if (type === "person" && !wasExisting) {
-        // Run background database refresh for the resolved person.
-        dedupIngest(`person:${tmdbId}`, () =>
-          ingestPerson({ tmdbId, apiKey: API_KEY, forceRefreshExisting: true })
-        ).catch((e) => console.warn(`bg inject person ${tmdbId}:`, e.message));
+    if (API_KEY && !wasExisting) {
+      if (type === "movie") {
+        dedupIngest(`movie:${tmdbId}`, async () => {
+          const startedAt = new Date();
+          const scriptName = `inject_movie:${tmdbId}`;
+          try {
+            const result = await ingestMovie({ tmdbId, apiKey: API_KEY, forceRefreshExisting: true });
+            await logScriptRun({ scriptName, status: "success", batchSize: (result?.castLinked ?? 0) + (result?.crewLinked ?? 0), startedAt });
+          } catch (e) {
+            await logScriptRun({ scriptName, status: "failure", errorCode: e?.name, errorDetail: e?.message, startedAt });
+            throw e;
+          }
+        }).catch((e) => console.warn(`bg inject movie ${tmdbId}:`, e.message));
+      } else if (type === "show") {
+        dedupIngest(`show:${tmdbId}`, async () => {
+          const startedAt = new Date();
+          const scriptName = `inject_tv_show:${tmdbId}`;
+          try {
+            const result = await ingestTvShow({ tmdbTvId: tmdbId, apiKey: API_KEY, forceRefreshExisting: true });
+            await logScriptRun({ scriptName, status: "success", batchSize: result?.creditsLinked ?? null, startedAt });
+          } catch (e) {
+            await logScriptRun({ scriptName, status: "failure", errorCode: e?.name, errorDetail: e?.message, startedAt });
+            throw e;
+          }
+        }).catch((e) => console.warn(`bg inject show ${tmdbId}:`, e.message));
+      } else if (type === "person") {
+        dedupIngest(`person:${tmdbId}`, async () => {
+          const startedAt = new Date();
+          const scriptName = `inject_person:${tmdbId}`;
+          try {
+            await ingestPerson({ tmdbId, apiKey: API_KEY, forceRefreshExisting: true });
+            await logScriptRun({ scriptName, status: "success", batchSize: 1, startedAt });
+          } catch (e) {
+            await logScriptRun({ scriptName, status: "failure", errorCode: e?.name, errorDetail: e?.message, startedAt });
+            throw e;
+          }
+        }).catch((e) => console.warn(`bg inject person ${tmdbId}:`, e.message));
       }
     }
   } catch (e) {
