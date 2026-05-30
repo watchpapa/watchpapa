@@ -85,7 +85,9 @@ watchpapa/
 │   │   └── admin/
 │   │       ├── adminFetch.js         # Fetch helper that auto-attaches session Bearer token
 │   │       └── hooks/                # useAdminAnnouncements, useAnalytics, useScriptLogs, …
+│   ├── features/watchlist/hooks/     # useWatchlists, useWatchlistItems(watchlistId, session, refreshKey), useItemWatchlistStatus
 │   ├── components/
+│   │   ├── watchlist/                # AddToWatchlistButton — auto-adds to first list, toast + checklist picker (multi-list); compact prop for WatchlistsPage
 │   │   ├── layout/                   # Navbar, Footer, Breadcrumbs, ProfileMenu, PosterBackground
 │   │   ├── ui/                       # Button, Input, Toggle, OtpInput, PageHead, RichTextEditor, …
 │   │   ├── detail/                   # DetailPageLayout, PosterCard, CastGrid, FollowButton, …
@@ -161,6 +163,8 @@ watchpapa/
 | `GET` | `/api/admin/users/search?email=` | Search users |
 | `GET` | `/api/admin/users/staff` | Role 3 + 4 accounts |
 | `PATCH` | `/api/admin/users/:id/role` | Set user role (0, 3, or 4) |
+| `POST` | `/api/admin/users/:id/grant-tier` | Upgrade tier via `apply_tier_upgrade` (upgrade-only, no downgrade) |
+| `PATCH` | `/api/admin/users/:id/tier` | Direct tier set — any tier incl. `free` and `god`; bypasses rank guards; `free` deletes the subscription row |
 | `*` | `/api/admin/reward-codes` | Reward code CRUD |
 | `GET` | `/api/admin/stats` | Platform statistics |
 | `GET` | `/api/admin/analytics` | Analytics data |
@@ -201,6 +205,7 @@ watchpapa/
 | `/subscription` | Public | `SubscriptionPage` | |
 | `/about`, `/help`, `/terms`, `/contact`, `/privacy` | Public | `StaticInfoPages` | |
 | `/settings` | Protected | `SettingsPage` | Requires session |
+| `/watchlists` | Protected | `WatchlistsPage` | Tabbed page: all lists as tabs, items + All/Watched/Unwatched filter shown inline |
 | `/admin` | AdminRoute (role=4) | `AdminPage` (nested) | |
 | `/admin` (index) | Admin | `StatsPage` | |
 | `/admin/analytics` | Admin | `AnalyticsPage` | |
@@ -254,6 +259,8 @@ Route guards defined in `App.jsx`: `PublicOnlyRoute`, `ProtectedRoute`, `PublicR
 | `referrals` | `uuid` | `referrer_id`, `referred_id` (unique) | |
 | `audit_events` | `uuid` | `action`, `user_id`, `ip`, `method`, `path`, `body`, `created_at` | Written by `auditLog` middleware |
 | `announcements` | `uuid` | `title`, `body`, `archived`, `author_id`, `archived_by`, `archived_at` | |
+| `watchlist` | `bigint` identity | `profile_id`, `name`, `created_at`, `updated_at` | Per-tier limit enforced by `enforce_watchlist_limit` trigger |
+| `watchlist_item` | `bigint` identity | `watchlist_id` FK, `media_type` ('movie'|'show'), `movie_id`/`show_id` FK, `watched`, `added_at` | Partial unique indexes prevent duplicate items per list |
 
 ---
 
@@ -276,8 +283,9 @@ Route guards defined in `App.jsx`: `PublicOnlyRoute`, `ProtectedRoute`, `PublicR
 | 013 | `analytics` | Creates analytics tables + `track_presence`, `track_page_view`, `track_content_click` RPCs |
 | 014 | `announcements` | Creates `announcements` table |
 | 015 | `announcements_archive_tracking` | Adds `archived_by`, `archived_at` columns for archive audit trail |
+| 016 | `watchlists` | Creates `watchlist` and `watchlist_item` tables with RLS and `enforce_watchlist_limit` trigger |
 
-To add the next migration: create `Backend/src/db/migrations/016_<name>.sql`, apply via `mcp__claude_ai_Supabase__apply_migration`.
+To add the next migration: create `Backend/src/db/migrations/017_<name>.sql`, apply via `mcp__claude_ai_Supabase__apply_migration`.
 
 ---
 
@@ -292,6 +300,15 @@ To add the next migration: create `Backend/src/db/migrations/016_<name>.sql`, ap
 | `pro` | 100 | 100 | |
 | `pro_plus` | 100 | 100 | Same as pro; placeholder for no-ads |
 | `god` | unlimited | unlimited | Admin-only grant, never expires |
+
+**Watchlist limits per tier** (enforced by `enforce_watchlist_limit` DB trigger):
+
+| Tier | Max watchlists |
+|---|---|
+| `free` | 1 |
+| `premium` | 3 |
+| `pro` / `pro_plus` | 10 |
+| `god` | unlimited |
 
 **Profile roles:**
 

@@ -23,6 +23,14 @@ function CalendarIcon() {
   );
 }
 
+function WatchlistNavIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
+    </svg>
+  );
+}
+
 function ReferralIcon() {
   return (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -277,6 +285,16 @@ function Navbar({ session }) {
           <div className="flex items-center gap-2 sm:gap-3">
             {session && <ReferralButton referralCode={referralCode} />}
 
+            {session && (
+              <Link
+                to="/watchlists"
+                className="hidden items-center gap-2 rounded-xl border border-[#3a3a7a] bg-[#1a1d35] px-3 py-1.5 text-xs font-semibold text-[#a0a0e8] transition hover:border-[#5a5aaa] hover:text-white sm:flex"
+              >
+                <WatchlistNavIcon />
+                <span className="hidden lg:inline">Watchlists</span>
+              </Link>
+            )}
+
             {session ? (
               <Link
                 to="/calendar"
@@ -330,6 +348,17 @@ function Navbar({ session }) {
               >
                 <CalendarIcon />
                 Releases Radar
+              </Link>
+            ) : null}
+
+            {session ? (
+              <Link
+                to="/watchlists"
+                onClick={() => setMobileOpen(false)}
+                className="flex items-center gap-2 border-b border-[#1a1f3a] py-3 text-sm font-semibold text-[#8888c8] transition hover:text-white"
+              >
+                <WatchlistNavIcon />
+                Watchlists
               </Link>
             ) : null}
 

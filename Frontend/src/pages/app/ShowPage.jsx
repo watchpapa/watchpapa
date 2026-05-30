@@ -6,6 +6,7 @@ import SkeletonDetailPage from "../../components/detail/SkeletonDetailPage.jsx";
 import PosterCard from "../../components/detail/PosterCard.jsx";
 import ContentPanel from "../../components/detail/ContentPanel.jsx";
 import FollowButton from "../../components/detail/FollowButton.jsx";
+import AddToWatchlistButton from "../../components/watchlist/AddToWatchlistButton.jsx";
 import CastGrid from "../../components/detail/CastGrid.jsx";
 import CrewSection from "../../components/detail/CrewSection.jsx";
 import AuthPromptModal from "../../components/AuthPromptModal.jsx";
@@ -124,7 +125,17 @@ function ShowPage({ session, showAdult }) {
       <div className="mb-6"><InjectingBanner type="show" id={id} /></div>
       <DetailPageLayout
         title={show.name}
-        followButton={<FollowButton isFollowing={isFollowing} onToggle={handleFollow} />}
+        followButton={
+          <div className="flex flex-wrap items-center gap-2">
+            <FollowButton isFollowing={isFollowing} onToggle={handleFollow} />
+            <AddToWatchlistButton
+              mediaType="show"
+              entityId={show.id}
+              session={session}
+              onAuthPrompt={() => setShowAuthPrompt(true)}
+            />
+          </div>
+        }
         sidebarTop={<PosterCard title={show.name} posterPath={show.poster_path} />}
         sidebarBottom={
           <ul className="space-y-1.5 text-xs">

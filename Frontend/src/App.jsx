@@ -39,6 +39,7 @@ import AdminRoute from "./components/auth/AdminRoute.jsx";
 import AnalyticsPage from "./pages/admin/AnalyticsPage.jsx";
 import StaffPage from "./pages/admin/StaffPage.jsx";
 import ContentResyncPage from "./pages/admin/ContentResyncPage.jsx";
+import WatchlistsPage from "./pages/app/WatchlistsPage.jsx";
 import { trackPresence, trackPageView } from "./lib/analytics.js";
 import {
   AboutPage,
@@ -443,6 +444,14 @@ function App() {
         element={
           <ProtectedRoute session={session} needsUsernameSetup={needsUsernameSetup}>
             <SettingsPage session={session} />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/watchlists"
+        element={
+          <ProtectedRoute session={session} needsUsernameSetup={needsUsernameSetup}>
+            <WatchlistsPage session={session} />
           </ProtectedRoute>
         }
       />

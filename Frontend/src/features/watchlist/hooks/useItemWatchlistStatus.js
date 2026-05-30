@@ -1,0 +1,101 @@
+import { useCallback, useEffect, useState } from "react";
+import { supabase } from "../../../lib/supabase.js";
+
+// For detail pages: fetches all user watchlists and whether this item is in each one.
+// membershipMap: { [watchlistId]: itemId | null }
+export function useItemWatchlistStatus(mediaType, entityId, session) {
+  const [watchlists, setWatchlists] = useState([]);
+  const [membershipMap, setMembershipMap] = useState({});
+  const [isLoading, setIsLoading] = useState(true);
+  const [pendingIds, setPendingIds] = useState(new Set());
+
+  useEffect(() => {
+    if (!session?.user?.id || !entityId) {
+      setWatchlists([]);
+      setMembershipMap({});
+      setIsLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setIsLoading(true);
+
+    const idCol = mediaType === "movie" ? "movie_id" : "show_id";
+
+    Promise.all([
+      supabase
+        .from("watchlist")
+        .select("id, name")
+        .eq("profile_id", session.user.id)
+        .order("created_at"),
+      supabase
+        .from("watchlist_item")
+        .select("id, watchlist_id")
+        .eq(idCol, entityId),
+    ]).then(([listsResult, itemsResult]) => {
+      if (cancelled) return;
+      const lists = listsResult.data ?? [];
+      const existingItems = itemsResult.data ?? [];
+
+      const map = {};
+      for (const list of lists) map[list.id] = null;
+      for (const item of existingItems) {
+        if (map[item.watchlist_id] !== undefined) {
+          map[item.watchlist_id] = item.id;
+        }
+      }
+
+      setWatchlists(lists);
+      setMembershipMap(map);
+      setIsLoading(false);
+    });
+
+    return () => { cancelled = true; };
+  }, [mediaType, entityId, session?.user?.id]);
+
+  const toggleInWatchlist = useCallback(async (watchlistId) => {
+    if (!entityId) return;
+    const existingItemId = membershipMap[watchlistId];
+    setPendingIds((prev) => new Set(prev).add(watchlistId));
+
+    if (existingItemId !== null && existingItemId !== undefined) {
+      const { error } = await supabase
+        .from("watchlist_item")
+        .delete()
+        .eq("id", existingItemId);
+
+      if (!error) {
+        setMembershipMap((prev) => ({ ...prev, [watchlistId]: null }));
+      }
+    } else {
+      const idCol = mediaType === "movie" ? "movie_id" : "show_id";
+      const { data, error } = await supabase
+        .from("watchlist_item")
+        .insert({ watchlist_id: watchlistId, media_type: mediaType, [idCol]: entityId })
+        .select("id")
+        .single();
+
+      if (!error && data) {
+        setMembershipMap((prev) => ({ ...prev, [watchlistId]: data.id }));
+      }
+    }
+
+    setPendingIds((prev) => {
+      const next = new Set(prev);
+      next.delete(watchlistId);
+      return next;
+    });
+  }, [mediaType, entityId, membershipMap]);
+
+  const isInAny = Object.values(membershipMap).some((v) => v !== null);
+
+  return {
+    watchlists,
+    membershipMap,
+    isLoading,
+    isInAny,
+    pendingIds,
+    toggleInWatchlist,
+    setWatchlists,
+    setMembershipMap,
+  };
+}
