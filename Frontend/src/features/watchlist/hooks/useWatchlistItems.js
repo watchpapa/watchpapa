@@ -4,8 +4,8 @@ import { supabase } from "../../../lib/supabase.js";
 const ITEM_SELECT = `
   id, media_type, watched, added_at,
   movie_id, show_id,
-  movie:movie_id ( id, title, poster_path, release_date ),
-  show:show_id  ( id, name,  poster_path, first_air_date )
+  movie:movie_id ( id, title, poster_path, release_date, tmdb_vote_avg ),
+  show:show_id  ( id, name,  poster_path, first_air_date, tmdb_vote_avg )
 `.trim();
 
 export function useWatchlistItems(watchlistId, session, refreshKey = 0) {
@@ -21,16 +21,74 @@ export function useWatchlistItems(watchlistId, session, refreshKey = 0) {
     let cancelled = false;
     setIsLoading(true);
 
-    supabase
-      .from("watchlist_item")
-      .select(ITEM_SELECT)
-      .eq("watchlist_id", watchlistId)
-      .order("added_at", { ascending: false })
-      .then(({ data, error }) => {
-        if (cancelled) return;
-        if (!error) setItems(data ?? []);
+    async function loadItems() {
+      const { data, error } = await supabase
+        .from("watchlist_item")
+        .select(ITEM_SELECT)
+        .eq("watchlist_id", watchlistId)
+        .order("added_at", { ascending: false });
+
+      if (cancelled) return;
+      if (error) {
         setIsLoading(false);
-      });
+        return;
+      }
+
+      let rows = data ?? [];
+      const movieIds = rows.filter((i) => i.media_type === "movie").map((i) => i.movie_id).filter(Boolean);
+      const showIds = rows.filter((i) => i.media_type === "show").map((i) => i.show_id).filter(Boolean);
+      const ratedMovieIds = new Set();
+      const ratedShowIds = new Set();
+
+      const ratingQueries = [];
+      if (movieIds.length) {
+        ratingQueries.push(
+          supabase
+            .from("user_rating")
+            .select("movie_id")
+            .eq("profile_id", session.user.id)
+            .in("movie_id", movieIds)
+        );
+      }
+      if (showIds.length) {
+        ratingQueries.push(
+          supabase
+            .from("user_rating")
+            .select("show_id")
+            .eq("profile_id", session.user.id)
+            .in("show_id", showIds)
+        );
+      }
+
+      if (ratingQueries.length) {
+        const results = await Promise.all(ratingQueries);
+        if (cancelled) return;
+        for (const { data: ratings } of results) {
+          for (const row of ratings ?? []) {
+            if (row.movie_id != null) ratedMovieIds.add(row.movie_id);
+            if (row.show_id != null) ratedShowIds.add(row.show_id);
+          }
+        }
+      }
+
+      const staleIds = rows
+        .filter((item) =>
+          (item.media_type === "movie" && ratedMovieIds.has(item.movie_id)) ||
+          (item.media_type === "show" && ratedShowIds.has(item.show_id))
+        )
+        .map((item) => item.id);
+
+      if (staleIds.length) {
+        await supabase.from("watchlist_item").delete().in("id", staleIds);
+        if (cancelled) return;
+        rows = rows.filter((item) => !staleIds.includes(item.id));
+      }
+
+      setItems(rows);
+      setIsLoading(false);
+    }
+
+    loadItems();
 
     return () => { cancelled = true; };
   }, [watchlistId, session?.user?.id, refreshKey]);
@@ -66,22 +124,6 @@ export function useWatchlistItems(watchlistId, session, refreshKey = 0) {
     return { error };
   }, []);
 
-  const toggleWatched = useCallback(async (itemId, currentWatched) => {
-    const { error } = await supabase
-      .from("watchlist_item")
-      .update({ watched: !currentWatched })
-      .eq("id", itemId);
-
-    if (!error) {
-      setItems((prev) =>
-        prev.map((item) =>
-          item.id === itemId ? { ...item, watched: !currentWatched } : item
-        )
-      );
-    }
-    return { error };
-  }, []);
-
   const moveItem = useCallback(async (itemId, targetWatchlistId) => {
     const item = items.find((i) => i.id === itemId);
     if (!item) return { error: "Item not found" };
@@ -101,5 +143,5 @@ export function useWatchlistItems(watchlistId, session, refreshKey = 0) {
     return { error: deleteErr };
   }, [items]);
 
-  return { items, isLoading, addItem, removeItem, toggleWatched, moveItem };
+  return { items, isLoading, addItem, removeItem, moveItem };
 }

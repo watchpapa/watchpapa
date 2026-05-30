@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "../../../lib/supabase.js";
 import { isValidId } from "../../../lib/validate.js";
+import { removeFromWatchlistsOnRating } from "../../watchlist/lib/removeFromWatchlistsOnRating.js";
 
 // mediaType: 'movie' | 'show' | 'season' | 'episode'
 // entityId: DB primary key (integer)
@@ -47,7 +48,11 @@ export function useRating(mediaType, entityId, session) {
         .from("user_rating")
         .update({ value: newValue, updated_at: now })
         .eq("id", ratingId);
-      if (error) setValue(prev);
+      if (error) {
+        setValue(prev);
+      } else {
+        await removeFromWatchlistsOnRating(mediaType, id);
+      }
     } else {
       setLoading(true);
       const { data, error } = await supabase
@@ -59,6 +64,7 @@ export function useRating(mediaType, entityId, session) {
       if (!error && data) {
         setRatingId(data.id);
         setValue(data.value);
+        await removeFromWatchlistsOnRating(mediaType, id);
       }
     }
   }, [mediaType, id, session?.user?.id, ratingId, value]);

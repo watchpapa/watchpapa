@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import AppLayout from "../../layouts/AppLayout.jsx";
 import { PageHead } from "../../components/ui/PageHead.jsx";
@@ -9,8 +9,16 @@ import { useWatchlists } from "../../features/watchlist/hooks/useWatchlists.js";
 import { useWatchlistItems } from "../../features/watchlist/hooks/useWatchlistItems.js";
 import { useOverageStatus } from "../../features/follows/hooks/useOverageStatus.js";
 
-const TMDB_IMG = "https://image.tmdb.org/t/p/w185";
-const FILTERS = ["All", "Unwatched", "Watched"];
+const TMDB_IMG = "https://image.tmdb.org/t/p/w300";
+const SORT_OPTIONS = [
+  { id: "added", label: "Date added" },
+  { id: "rating", label: "Rating" },
+];
+
+function getTmdbVoteAvg(item) {
+  const media = item.media_type === "movie" ? item.movie : item.show;
+  return media?.tmdb_vote_avg ?? null;
+}
 
 // ── Icons ────────────────────────────────────────────────────────────────────
 
@@ -41,14 +49,6 @@ function PencilIcon() {
   );
 }
 
-function CheckIcon() {
-  return (
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-      <polyline points="20 6 9 17 4 12" />
-    </svg>
-  );
-}
-
 function FilmIcon() {
   return (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
@@ -75,95 +75,88 @@ function BookmarkIcon() {
   );
 }
 
-// ── Item card ─────────────────────────────────────────────────────────────────
+// ── Item card (grid) ──────────────────────────────────────────────────────────
 
-function ItemCard({ item, onRemove, onToggleWatched, session, onMembershipChange }) {
+function ItemGridCard({ item, onRemove, session, onMembershipChange }) {
   const [confirmingRemove, setConfirmingRemove] = useState(false);
   const media = item.media_type === "movie" ? item.movie : item.show;
   const title = media?.title ?? media?.name ?? "Unknown";
   const year = media?.release_date ?? media?.first_air_date;
   const displayYear = year ? new Date(year).getFullYear() : null;
   const posterSrc = media?.poster_path ? `${TMDB_IMG}${media.poster_path}` : null;
+  const tmdbVote = media?.tmdb_vote_avg;
   const detailPath = item.media_type === "movie"
     ? `/movies/${item.movie_id}`
     : `/shows/${item.show_id}`;
 
   return (
-    <div className={`group flex gap-3 rounded-2xl border p-3 transition ${
-      item.watched
-        ? "border-[#1a2a1a] bg-[#0a0f0a]"
-        : "border-[#1a1f3a] bg-[#0d0f1e] hover:border-[#2a2f5a]"
-    }`}>
-      <Link to={detailPath} className="flex-shrink-0">
-        <div className="h-20 w-14 overflow-hidden rounded-xl border border-[#2a3570] bg-[#12163a]">
+    <article className="group flex flex-col gap-2">
+      <div className="relative">
+        <Link
+          to={detailPath}
+          className="relative block aspect-[2/3] overflow-hidden rounded-2xl border border-[#2a3570] bg-[#12163a] transition hover:border-[#5050a0]"
+        >
           {posterSrc ? (
-            <img src={posterSrc} alt={title} className="h-full w-full object-cover" loading="lazy" />
+            <img src={posterSrc} alt={title} className="h-full w-full object-cover transition duration-300 group-hover:scale-105" loading="lazy" />
           ) : (
-            <div className="flex h-full w-full items-center justify-center text-[#3a3a7a]">
+            <div className="flex h-full w-full flex-col items-center justify-center gap-2 bg-gradient-to-b from-[#181d40] to-[#0e1128] px-3">
               {item.media_type === "movie" ? <FilmIcon /> : <TvIcon />}
+              <span className="text-center text-[11px] font-medium leading-tight text-[#3a3a7a] line-clamp-3">{title}</span>
             </div>
           )}
-        </div>
-      </Link>
 
-      <div className="min-w-0 flex-1">
-        <Link to={detailPath}>
-          <p className={`truncate text-sm font-bold transition hover:text-[#a090ff] ${
-            item.watched ? "text-[#6060a0] line-through" : "text-white"
+          <span className={`absolute top-2 left-2 rounded px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-widest ${
+            item.media_type === "movie"
+              ? "bg-[#1a2050]/90 text-[#6090e0]"
+              : "bg-[#1a3020]/90 text-[#60b070]"
           }`}>
+            {item.media_type}
+          </span>
+
+          {tmdbVote != null && tmdbVote > 0 && (
+            <span className="absolute bottom-2 left-2 rounded-full bg-[#0a0c18]/90 px-2 py-0.5 text-[10px] font-bold text-[#e8c04a]">
+              ★ {Number(tmdbVote).toFixed(1)}
+            </span>
+          )}
+        </Link>
+
+          {!confirmingRemove ? (
+          <button
+            onClick={() => setConfirmingRemove(true)}
+            className="absolute top-2 right-2 rounded-full bg-[#0a0c18]/90 p-1.5 text-[#6060a0] opacity-0 transition hover:bg-red-900/80 hover:text-red-400 group-hover:opacity-100"
+            aria-label="Remove from watchlist"
+          >
+            <TrashIcon />
+          </button>
+        ) : (
+          <div className="absolute inset-x-0 top-2 flex justify-center gap-1.5">
+            <button onClick={() => onRemove(item.id)} className="rounded-lg bg-red-900/90 px-2 py-1 text-[10px] font-bold text-red-300 hover:bg-red-800">Remove</button>
+            <button onClick={() => setConfirmingRemove(false)} className="rounded-lg bg-[#0a0c18]/90 px-2 py-1 text-[10px] text-[#8080c0] hover:text-white">Cancel</button>
+          </div>
+        )}
+      </div>
+
+      <div className="min-w-0 px-0.5">
+        <Link to={detailPath}>
+          <p className="truncate text-center text-xs font-semibold leading-tight text-white transition hover:text-[#a090ff]">
             {title}
           </p>
         </Link>
-        <div className="mt-0.5 flex items-center gap-2">
-          {displayYear && <span className="text-xs text-[#5050a0]">{displayYear}</span>}
-          <span className={`flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${
-            item.media_type === "movie"
-              ? "bg-[#1a2050] text-[#6090e0]"
-              : "bg-[#1a3020] text-[#60b070]"
-          }`}>
-            {item.media_type === "movie" ? <FilmIcon /> : <TvIcon />}
-            {item.media_type}
-          </span>
-        </div>
-
-        <div className="mt-3 flex flex-wrap items-center gap-2">
-          <button
-            onClick={() => onToggleWatched(item.id, item.watched)}
-            className={`flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold transition ${
-              item.watched
-                ? "border-green-700/50 bg-green-900/30 text-green-400 hover:border-red-600/50 hover:bg-red-900/20 hover:text-red-300"
-                : "border-[#2a2d4a] bg-[#141728] text-[#6060a0] hover:border-green-700/50 hover:text-green-300"
-            }`}
-          >
-            {item.watched ? <><CheckIcon /> Watched</> : "Mark watched"}
-          </button>
-
-          <AddToWatchlistButton
-            mediaType={item.media_type}
-            entityId={item.media_type === "movie" ? item.movie_id : item.show_id}
-            session={session}
-            onMembershipChange={onMembershipChange}
-            compact
-          />
-
-          {confirmingRemove ? (
-            <div className="flex items-center gap-1.5">
-              <span className="text-xs text-red-400">Remove?</span>
-              <button onClick={() => onRemove(item.id)} className="rounded-lg bg-red-900/40 px-2 py-0.5 text-xs font-bold text-red-400 hover:bg-red-900/60">Yes</button>
-              <button onClick={() => setConfirmingRemove(false)} className="text-xs text-[#5050a0] hover:text-white">No</button>
-            </div>
-          ) : (
-            <button
-              onClick={() => setConfirmingRemove(true)}
-              className="rounded-full p-1.5 text-[#3a3a6a] opacity-0 transition hover:bg-red-900/30 hover:text-red-400 group-hover:opacity-100"
-              aria-label="Remove from watchlist"
-            >
-              <TrashIcon />
-            </button>
-          )}
-        </div>
+        {displayYear && (
+          <p className="mt-0.5 text-center text-[10px] text-[#5050a0]">{displayYear}</p>
+        )}
       </div>
-    </div>
+
+      <div className="flex justify-center">
+        <AddToWatchlistButton
+          mediaType={item.media_type}
+          entityId={item.media_type === "movie" ? item.movie_id : item.show_id}
+          session={session}
+          onMembershipChange={onMembershipChange}
+          compact
+        />
+      </div>
+    </article>
   );
 }
 
@@ -208,7 +201,7 @@ function WatchlistsPage({ session }) {
   const { status: overageStatus, isOverWatchlistLimit } = useOverageStatus(session);
 
   const [selectedId, setSelectedId] = useState(null);
-  const [filter, setFilter] = useState("All");
+  const [sortBy, setSortBy] = useState("added");
   const [renaming, setRenaming] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [showNewForm, setShowNewForm] = useState(false);
@@ -216,6 +209,14 @@ function WatchlistsPage({ session }) {
   const [creating, setCreating] = useState(false);
   const [itemsRefreshKey, setItemsRefreshKey] = useState(0);
   const handleMembershipChange = useCallback(() => setItemsRefreshKey((k) => k + 1), []);
+
+  useEffect(() => {
+    function handleWatchlistItemRemoved() {
+      setItemsRefreshKey((k) => k + 1);
+    }
+    window.addEventListener("watchpapa:watchlist-item-removed", handleWatchlistItemRemoved);
+    return () => window.removeEventListener("watchpapa:watchlist-item-removed", handleWatchlistItemRemoved);
+  }, []);
 
   // Auto-select first list once loaded.
   useEffect(() => {
@@ -232,13 +233,22 @@ function WatchlistsPage({ session }) {
   }, [watchlists, selectedId]);
 
   const activeList = watchlists.find((w) => w.id === selectedId) ?? null;
-  const { items, isLoading: itemsLoading, removeItem, toggleWatched } = useWatchlistItems(selectedId, session, itemsRefreshKey);
+  const { items, isLoading: itemsLoading, removeItem } = useWatchlistItems(selectedId, session, itemsRefreshKey);
 
-  const filteredItems = items.filter((item) => {
-    if (filter === "Watched") return item.watched;
-    if (filter === "Unwatched") return !item.watched;
-    return true;
-  });
+  const sortedItems = useMemo(() => {
+    const list = [...items];
+    if (sortBy === "rating") {
+      list.sort((a, b) => {
+        const ratingA = getTmdbVoteAvg(a) ?? -1;
+        const ratingB = getTmdbVoteAvg(b) ?? -1;
+        if (ratingB !== ratingA) return ratingB - ratingA;
+        return new Date(b.added_at) - new Date(a.added_at);
+      });
+    } else {
+      list.sort((a, b) => new Date(b.added_at) - new Date(a.added_at));
+    }
+    return list;
+  }, [items, sortBy]);
 
   const handleCreate = async (e) => {
     e.preventDefault();
@@ -266,7 +276,7 @@ function WatchlistsPage({ session }) {
 
   const handleTabSelect = (id) => {
     setSelectedId(id);
-    setFilter("All");
+    setSortBy("added");
     setRenaming(false);
     setConfirmingDelete(false);
   };
@@ -283,7 +293,7 @@ function WatchlistsPage({ session }) {
         <UpgradePromptToast message={limitError} onDismiss={clearLimitError} session={session} />
       )}
 
-      <div className="mx-auto max-w-4xl">
+      <div className="mx-auto max-w-6xl">
         <h1 className="mb-5 text-xl font-extrabold text-[#a090ff] sm:text-2xl">My Watchlists</h1>
 
         {isOverWatchlistLimit && overageStatus && (
@@ -393,8 +403,20 @@ function WatchlistsPage({ session }) {
               ) : (
                 <>
                   <p className="text-sm text-[#5050a0]">
-                    {items.length} item{items.length !== 1 ? "s" : ""} · {items.filter((i) => i.watched).length} watched
+                    {items.length} item{items.length !== 1 ? "s" : ""}
                   </p>
+                  <label className="flex items-center gap-2 text-sm text-[#5050a0]">
+                    <span className="whitespace-nowrap">Sort by</span>
+                    <select
+                      value={sortBy}
+                      onChange={(e) => setSortBy(e.target.value)}
+                      className="rounded-xl border border-[#2a2d4a] bg-[#141728] px-3 py-1.5 text-sm font-semibold text-white outline-none focus:border-[#5050a8]"
+                    >
+                      {SORT_OPTIONS.map((option) => (
+                        <option key={option.id} value={option.id}>{option.label}</option>
+                      ))}
+                    </select>
+                  </label>
                   <div className="ml-auto flex items-center gap-2">
                     <button
                       onClick={() => setRenaming(true)}
@@ -424,54 +446,29 @@ function WatchlistsPage({ session }) {
               )}
             </div>
 
-            {/* Filter tabs */}
-            <div className="mb-4 flex gap-1 rounded-2xl border border-[#1a1f3a] bg-[#0a0c18] p-1">
-              {FILTERS.map((f) => (
-                <button
-                  key={f}
-                  onClick={() => setFilter(f)}
-                  className={`flex-1 rounded-xl px-3 py-1.5 text-sm font-semibold transition ${
-                    filter === f ? "bg-[#1a1d35] text-white" : "text-[#5050a0] hover:text-[#8080c0]"
-                  }`}
-                >
-                  {f}
-                  {f !== "All" && items.length > 0 && (
-                    <span className="ml-1.5 text-xs text-[#3a3a7a]">
-                      ({f === "Watched" ? items.filter((i) => i.watched).length : items.filter((i) => !i.watched).length})
-                    </span>
-                  )}
-                </button>
-              ))}
-            </div>
-
             {/* Items */}
             {itemsLoading ? (
-              <div className="space-y-3">
-                {[1, 2, 3].map((i) => (
-                  <div key={i} className="h-28 animate-pulse rounded-2xl border border-[#1a1f3a] bg-[#0d0f1e]" />
+              <div className="grid grid-cols-[repeat(auto-fill,minmax(130px,1fr))] gap-3 sm:grid-cols-[repeat(auto-fill,minmax(150px,1fr))]">
+                {[1, 2, 3, 4, 5, 6].map((i) => (
+                  <div key={i} className="aspect-[2/3] animate-pulse rounded-2xl border border-[#1a1f3a] bg-[#0d0f1e]" />
                 ))}
               </div>
-            ) : filteredItems.length === 0 ? (
+            ) : items.length === 0 ? (
               <div className="flex flex-col items-center gap-3 rounded-2xl border border-[#1a1f3a] bg-[#0d0f1e] py-12 text-center">
                 <p className="text-sm text-[#4040a0]">
-                  {filter === "All"
-                    ? "This list is empty. Add movies or shows from their detail pages."
-                    : `No ${filter.toLowerCase()} items.`}
+                  This list is empty. Add movies or shows from their detail pages.
                 </p>
-                {filter === "All" && (
-                  <Link to="/movies" className="text-sm font-semibold text-[#6060b0] transition hover:text-[#a0a0e8]">
-                    Browse movies →
-                  </Link>
-                )}
+                <Link to="/movies" className="text-sm font-semibold text-[#6060b0] transition hover:text-[#a0a0e8]">
+                  Browse movies →
+                </Link>
               </div>
             ) : (
-              <div className="space-y-3">
-                {filteredItems.map((item) => (
-                  <ItemCard
+              <div className="grid grid-cols-[repeat(auto-fill,minmax(130px,1fr))] gap-3 sm:grid-cols-[repeat(auto-fill,minmax(150px,1fr))]">
+                {sortedItems.map((item) => (
+                  <ItemGridCard
                     key={item.id}
                     item={item}
                     onRemove={removeItem}
-                    onToggleWatched={toggleWatched}
                     session={session}
                     onMembershipChange={handleMembershipChange}
                   />

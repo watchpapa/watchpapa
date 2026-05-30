@@ -52,6 +52,21 @@ export function useItemWatchlistStatus(mediaType, entityId, session) {
     return () => { cancelled = true; };
   }, [mediaType, entityId, session?.user?.id]);
 
+  useEffect(() => {
+    function handleRemoved(e) {
+      const { mediaType: mt, entityId: eid } = e.detail ?? {};
+      if (mt !== mediaType || String(eid) !== String(entityId)) return;
+      setMembershipMap((prev) => {
+        const next = { ...prev };
+        for (const key of Object.keys(next)) next[key] = null;
+        return next;
+      });
+    }
+
+    window.addEventListener("watchpapa:watchlist-item-removed", handleRemoved);
+    return () => window.removeEventListener("watchpapa:watchlist-item-removed", handleRemoved);
+  }, [mediaType, entityId]);
+
   const toggleInWatchlist = useCallback(async (watchlistId) => {
     if (!entityId) return;
     const existingItemId = membershipMap[watchlistId];
