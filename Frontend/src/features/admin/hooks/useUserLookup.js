@@ -20,15 +20,14 @@ export function useUserLookup() {
     }
   }
 
-  async function grantTier(userId, tier, durationDays) {
+  async function setTier(userId, tier, durationDays) {
     setGrantState((s) => ({ ...s, [userId]: { loading: true, error: null, success: false } }));
     try {
-      await adminFetch(`/api/admin/users/${userId}/grant-tier`, {
-        method: "POST",
+      await adminFetch(`/api/admin/users/${userId}/tier`, {
+        method: "PATCH",
         body: JSON.stringify({ tier, durationDays: durationDays || null }),
       });
       setGrantState((s) => ({ ...s, [userId]: { loading: false, error: null, success: true } }));
-      // Refresh the user list to show updated tier
       const existing = users.find((u) => u.id === userId);
       if (existing) search(existing.email.split("@")[0]);
     } catch (e) {
@@ -36,5 +35,5 @@ export function useUserLookup() {
     }
   }
 
-  return { users, loading, error, search, grantTier, grantState };
+  return { users, loading, error, search, setTier, grantState };
 }

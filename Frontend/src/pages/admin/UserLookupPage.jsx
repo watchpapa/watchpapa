@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { useUserLookup } from "../../features/admin/hooks/useUserLookup.js";
 
-const TIERS = ["premium", "pro", "pro_plus"];
-const TIER_LABEL = { premium: "Premium", pro: "Pro", pro_plus: "Pro+" };
+const TIERS = ["free", "premium", "pro", "pro_plus", "god"];
+const TIER_LABEL = { free: "Free", premium: "Premium", pro: "Pro", pro_plus: "Pro+", god: "God" };
 const TIER_COLORS = {
   free:     "bg-green-900/40 text-green-400 border-green-700/50",
   premium:  "bg-amber-900/40 text-amber-400 border-amber-700/50",
@@ -21,15 +21,16 @@ function TierBadge({ tier }) {
   );
 }
 
-function GrantForm({ userId, onGrant, state }) {
-  const [tier, setTier] = useState("premium");
+function SetTierForm({ userId, onSet, state }) {
+  const [tier, setTierVal] = useState("premium");
   const [days, setDays] = useState("");
 
   const s = state ?? {};
+  const showDuration = tier !== "free" && tier !== "god";
 
   function handleSubmit(e) {
     e.preventDefault();
-    onGrant(userId, tier, days === "" ? null : Number(days));
+    onSet(userId, tier, showDuration && days !== "" ? Number(days) : null);
   }
 
   return (
@@ -38,37 +39,39 @@ function GrantForm({ userId, onGrant, state }) {
         <span className="text-[10px] uppercase tracking-wider text-[#4a4a8a]">Tier</span>
         <select
           value={tier}
-          onChange={(e) => setTier(e.target.value)}
+          onChange={(e) => setTierVal(e.target.value)}
           className="rounded-lg border border-[#2a3570] bg-[#12163a] px-2 py-1 text-sm text-white outline-none focus:border-[#6868b8]"
         >
           {TIERS.map((t) => <option key={t} value={t}>{TIER_LABEL[t]}</option>)}
         </select>
       </label>
-      <label className="flex flex-col gap-1">
-        <span className="text-[10px] uppercase tracking-wider text-[#4a4a8a]">Days (blank = lifetime)</span>
-        <input
-          type="number"
-          min="1"
-          placeholder="lifetime"
-          value={days}
-          onChange={(e) => setDays(e.target.value)}
-          className="w-32 rounded-lg border border-[#2a3570] bg-[#12163a] px-2 py-1 text-sm text-white outline-none placeholder-[#4a4a8a] focus:border-[#6868b8]"
-        />
-      </label>
+      {showDuration && (
+        <label className="flex flex-col gap-1">
+          <span className="text-[10px] uppercase tracking-wider text-[#4a4a8a]">Days (blank = lifetime)</span>
+          <input
+            type="number"
+            min="1"
+            placeholder="lifetime"
+            value={days}
+            onChange={(e) => setDays(e.target.value)}
+            className="w-32 rounded-lg border border-[#2a3570] bg-[#12163a] px-2 py-1 text-sm text-white outline-none placeholder-[#4a4a8a] focus:border-[#6868b8]"
+          />
+        </label>
+      )}
       <button
         type="submit"
         disabled={s.loading}
         className="self-end rounded-lg bg-indigo-600 px-3 py-1 text-sm font-medium text-white transition hover:bg-indigo-500 disabled:opacity-40"
       >
-        {s.loading ? "Granting…" : "Grant"}
+        {s.loading ? "Saving…" : "Set tier"}
       </button>
-      {s.success && <span className="self-end text-xs text-emerald-400">Granted</span>}
+      {s.success && <span className="self-end text-xs text-emerald-400">Updated</span>}
       {s.error   && <span className="self-end text-xs text-red-400">{s.error}</span>}
     </form>
   );
 }
 
-function UserCard({ user, onGrant, grantState }) {
+function UserCard({ user, onSet, grantState }) {
   const [open, setOpen] = useState(false);
   const effectiveTier = user.tier ?? "free";
   const isExpired = user.expires_at && new Date(user.expires_at) < new Date();
@@ -112,18 +115,18 @@ function UserCard({ user, onGrant, grantState }) {
         onClick={() => setOpen((v) => !v)}
         className="mt-3 text-xs text-indigo-400 hover:text-indigo-300 transition"
       >
-        {open ? "Hide grant form ▲" : "Grant tier ▼"}
+        {open ? "Hide ▲" : "Set tier ▼"}
       </button>
 
       {open && (
-        <GrantForm userId={user.id} onGrant={onGrant} state={grantState[user.id]} />
+        <SetTierForm userId={user.id} onSet={onSet} state={grantState[user.id]} />
       )}
     </div>
   );
 }
 
 function UserLookupPage() {
-  const { users, loading, error, search, grantTier, grantState } = useUserLookup();
+  const { users, loading, error, search, setTier, grantState } = useUserLookup();
   const [query, setQuery] = useState("");
 
   function handleSubmit(e) {
@@ -167,7 +170,7 @@ function UserLookupPage() {
 
       <div className="space-y-3">
         {users.map((u) => (
-          <UserCard key={u.id} user={u} onGrant={grantTier} grantState={grantState} />
+          <UserCard key={u.id} user={u} onSet={setTier} grantState={grantState} />
         ))}
       </div>
     </div>

@@ -6,6 +6,7 @@ import { QueryTypes } from "sequelize";
 const router = Router();
 
 const ALLOWED_TIERS = new Set(["premium", "pro", "pro_plus"]);
+const ALL_ADMIN_TIERS = new Set(["free", "premium", "pro", "pro_plus", "god"]);
 
 let adminClient = null;
 function getAdminClient() {
@@ -130,6 +131,71 @@ router.post("/:id/grant-tier", async (req, res) => {
     `SELECT apply_tier_upgrade(:profileId::uuid, :tier, :days, 'admin')`,
     { replacements: { profileId, tier, days }, type: QueryTypes.SELECT }
   );
+
+  res.json({ ok: true });
+});
+
+// PATCH /api/admin/users/:id/tier — admin direct tier set; bypasses upgrade-only guards
+router.patch("/:id/tier", async (req, res) => {
+  const { id } = req.params;
+  const { tier, durationDays } = req.body ?? {};
+
+  if (!ALL_ADMIN_TIERS.has(tier)) {
+    return res.status(400).json({ error: `tier must be one of: ${[...ALL_ADMIN_TIERS].join(", ")}` });
+  }
+
+  if (id === req.user?.id) {
+    return res.status(400).json({ error: "Cannot modify your own tier" });
+  }
+
+  const [profile] = await sequelize.query(
+    `SELECT id FROM public.profile WHERE id = :id AND deleted_at IS NULL`,
+    { replacements: { id }, type: QueryTypes.SELECT }
+  );
+
+  if (!profile) {
+    return res.status(404).json({ error: "User not found" });
+  }
+
+  if (tier === "free") {
+    await sequelize.query(
+      `DELETE FROM public.user_subscriptions WHERE profile_id = :id`,
+      { replacements: { id }, type: QueryTypes.SELECT }
+    );
+    return res.json({ ok: true });
+  }
+
+  const days = durationDays === null || durationDays === undefined || durationDays === ""
+    ? null
+    : parseInt(durationDays, 10);
+
+  if (days !== null && (isNaN(days) || days < 1)) {
+    return res.status(400).json({ error: "durationDays must be a positive integer or null for lifetime" });
+  }
+
+  if (days !== null) {
+    await sequelize.query(
+      `INSERT INTO public.user_subscriptions (profile_id, tier, source, expires_at, updated_at)
+       VALUES (:id, :tier, 'admin', now() + (:days || ' days')::INTERVAL, now())
+       ON CONFLICT (profile_id) DO UPDATE
+         SET tier       = EXCLUDED.tier,
+             source     = EXCLUDED.source,
+             expires_at = EXCLUDED.expires_at,
+             updated_at = now()`,
+      { replacements: { id, tier, days: String(days) }, type: QueryTypes.SELECT }
+    );
+  } else {
+    await sequelize.query(
+      `INSERT INTO public.user_subscriptions (profile_id, tier, source, expires_at, updated_at)
+       VALUES (:id, :tier, 'admin', NULL, now())
+       ON CONFLICT (profile_id) DO UPDATE
+         SET tier       = EXCLUDED.tier,
+             source     = EXCLUDED.source,
+             expires_at = NULL,
+             updated_at = now()`,
+      { replacements: { id, tier }, type: QueryTypes.SELECT }
+    );
+  }
 
   res.json({ ok: true });
 });
