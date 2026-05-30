@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "../../lib/supabase.js";
 
 const TIER_COLORS = {
@@ -14,17 +14,23 @@ const TIER_LABELS = {
   free: "Free", premium: "Premium", pro: "Pro", pro_plus: "Pro+", god: "God",
 };
 
+// True when the device has no hover capability (touch-only).
+const isTouchDevice = () => !window.matchMedia("(hover: hover)").matches;
+
 function ProfileMenu({ session }) {
+  const navigate = useNavigate();
   const containerRef = useRef(null);
+  const closeTimer = useRef(null);
   const [open, setOpen] = useState(false);
   const [tier, setTier] = useState("free");
   const [isEarlyAdopter, setIsEarlyAdopter] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
 
-  const usernameForInitials = (session?.user?.user_metadata?.username ?? session?.user?.email ?? "").trim();
-  const initials = (usernameForInitials[0] ?? "?").toUpperCase();
-  const displayName = session?.user?.user_metadata?.username ?? session?.user?.email ?? "—";
+  const username = (session?.user?.user_metadata?.username ?? session?.user?.email ?? "").trim();
+  const initials = (username[0] ?? "?").toUpperCase();
+  const displayName = username || "—";
 
+  // Fetch tier/admin info lazily when dropdown opens.
   useEffect(() => {
     if (!open || !session?.user?.id) return;
     let active = true;
@@ -41,15 +47,34 @@ function ProfileMenu({ session }) {
     return () => { active = false; };
   }, [open, session?.user?.id]);
 
+  // Close on outside click (mobile / keyboard navigation).
   useEffect(() => {
-    function handleMousedown(e) {
-      if (containerRef.current && !containerRef.current.contains(e.target)) {
-        setOpen(false);
-      }
+    function onPointerdown(e) {
+      if (containerRef.current && !containerRef.current.contains(e.target)) setOpen(false);
     }
-    if (open) document.addEventListener("mousedown", handleMousedown);
-    return () => document.removeEventListener("mousedown", handleMousedown);
+    if (open) document.addEventListener("pointerdown", onPointerdown);
+    return () => document.removeEventListener("pointerdown", onPointerdown);
   }, [open]);
+
+  const handleMouseEnter = () => {
+    if (isTouchDevice()) return;
+    clearTimeout(closeTimer.current);
+    setOpen(true);
+  };
+
+  const handleMouseLeave = () => {
+    if (isTouchDevice()) return;
+    closeTimer.current = setTimeout(() => setOpen(false), 120);
+  };
+
+  // Desktop: click navigates to profile. Mobile: click toggles dropdown.
+  const handleButtonClick = () => {
+    if (isTouchDevice()) {
+      setOpen((v) => !v);
+    } else {
+      navigate(`/u/${username}`);
+    }
+  };
 
   const handleSignOut = async () => {
     setOpen(false);
@@ -59,9 +84,14 @@ function ProfileMenu({ session }) {
   if (!session) return null;
 
   return (
-    <div ref={containerRef} className="relative">
+    <div
+      ref={containerRef}
+      className="relative"
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
+    >
       <button
-        onClick={() => setOpen((v) => !v)}
+        onClick={handleButtonClick}
         className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full border-2 border-[#3a3a7a] bg-[#1a1d35] text-sm font-bold text-[#a0a0e8] transition hover:border-[#7070d0]"
         aria-label="Profile menu"
       >
@@ -70,6 +100,7 @@ function ProfileMenu({ session }) {
 
       {open && (
         <div className="absolute right-0 top-11 z-50 w-56 origin-top-right animate-[fadeSlideDown_0.15s_ease-out] rounded-2xl border border-[#2a3570] bg-[#0d0f1e] shadow-xl shadow-black/40">
+          {/* User info header */}
           <div className="px-4 py-3 border-b border-[#1a1f3a]">
             <p className="text-sm font-bold text-white truncate">{displayName}</p>
             <div className="mt-1 flex flex-wrap items-center gap-1.5">
@@ -96,6 +127,22 @@ function ProfileMenu({ session }) {
               </Link>
             )}
             <Link
+              to={`/u/${username}`}
+              onClick={() => setOpen(false)}
+              className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm text-[#c0c0e8] transition hover:bg-[#141728] hover:text-white"
+            >
+              <ProfileIcon />
+              My Profile
+            </Link>
+            <Link
+              to="/profile/edit"
+              onClick={() => setOpen(false)}
+              className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm text-[#c0c0e8] transition hover:bg-[#141728] hover:text-white"
+            >
+              <EditIcon />
+              Edit Profile
+            </Link>
+            <Link
               to="/settings"
               onClick={() => setOpen(false)}
               className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm text-[#c0c0e8] transition hover:bg-[#141728] hover:text-white"
@@ -121,6 +168,24 @@ function AdminIcon() {
   return (
     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
       <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+    </svg>
+  );
+}
+
+function ProfileIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+      <circle cx="12" cy="7" r="4" />
+    </svg>
+  );
+}
+
+function EditIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+      <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
     </svg>
   );
 }

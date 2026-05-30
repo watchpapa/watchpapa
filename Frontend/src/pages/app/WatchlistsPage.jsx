@@ -4,8 +4,10 @@ import AppLayout from "../../layouts/AppLayout.jsx";
 import { PageHead } from "../../components/ui/PageHead.jsx";
 import UpgradePromptToast from "../../components/subscription/UpgradePromptToast.jsx";
 import AddToWatchlistButton from "../../components/watchlist/AddToWatchlistButton.jsx";
+import { OverLimitBanner } from "../../components/ui/OverLimitBanner.jsx";
 import { useWatchlists } from "../../features/watchlist/hooks/useWatchlists.js";
 import { useWatchlistItems } from "../../features/watchlist/hooks/useWatchlistItems.js";
+import { useOverageStatus } from "../../features/follows/hooks/useOverageStatus.js";
 
 const TMDB_IMG = "https://image.tmdb.org/t/p/w185";
 const FILTERS = ["All", "Unwatched", "Watched"];
@@ -203,6 +205,8 @@ function WatchlistsPage({ session }) {
     deleteWatchlist,
   } = useWatchlists(session);
 
+  const { status: overageStatus, isOverWatchlistLimit } = useOverageStatus(session);
+
   const [selectedId, setSelectedId] = useState(null);
   const [filter, setFilter] = useState("All");
   const [renaming, setRenaming] = useState(false);
@@ -281,6 +285,15 @@ function WatchlistsPage({ session }) {
 
       <div className="mx-auto max-w-4xl">
         <h1 className="mb-5 text-xl font-extrabold text-[#a090ff] sm:text-2xl">My Watchlists</h1>
+
+        {isOverWatchlistLimit && overageStatus && (
+          <OverLimitBanner
+            type="watchlists"
+            current={overageStatus.watchlist_count}
+            limit={overageStatus.watchlist_limit}
+            tier={overageStatus.tier}
+          />
+        )}
 
         {/* Tab bar */}
         <div className="mb-5 flex items-center gap-1 overflow-x-auto rounded-2xl border border-[#1a1f3a] bg-[#0a0c18] p-1.5">
