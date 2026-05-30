@@ -84,7 +84,7 @@ watchpapa/
 │   ├── features/                     # Per-domain hooks — one hooks/ subfolder per domain
 │   │   └── admin/
 │   │       ├── adminFetch.js         # Fetch helper that auto-attaches session Bearer token
-│   │       └── hooks/                # useAdminAnnouncements, useAnalytics, useScriptLogs, …
+│   │       └── hooks/                # useAdminAnnouncements, useAnalytics, useScriptLogs, useIsAdmin (role check for non-admin pages), …
 │   ├── features/watchlist/hooks/     # useWatchlists, useWatchlistItems(watchlistId, session, refreshKey), useItemWatchlistStatus
 │   ├── features/rating/hooks/        # useRating(mediaType, entityId, session), useCommunityRatings(mediaType, entityId)
 │   ├── features/profile/hooks/       # useProfileData(username, session), useProfileRatings(profileId), useProfileStats(profileId, ownerTier), useEditProfile(session)
@@ -95,7 +95,7 @@ watchpapa/
 │   │   ├── profile/                  # ProfileFavourites, FavouritesEditor, ProfileStats (tier-gated with fake blur), ProfileRatingCard
 │   │   ├── layout/                   # Navbar, Footer, Breadcrumbs, ProfileMenu (hover→dropdown desktop / click→profile; click→dropdown mobile), PosterBackground
 │   │   ├── ui/                       # Button, Input, Toggle, OtpInput, PageHead, RichTextEditor, OverLimitBanner, …
-│   │   ├── detail/                   # DetailPageLayout, PosterCard, CastGrid, FollowButton, …
+│   │   ├── detail/                   # DetailPageLayout, PosterCard, CastGrid, FollowButton, AdminResyncButton (admin-only, role 4; shown on Movie/Show/Person pages), …
 │   │   ├── home/                     # MediaCard, MediaGrid, MediaRow, SearchBar
 │   │   ├── auth/                     # AdminRoute (route guard)
 │   │   ├── subscription/             # EarlyAdopterBanner, UpgradePromptToast
@@ -153,6 +153,9 @@ watchpapa/
 | `POST` | `/api/resolve` | JWT + perUser rateLimit + auditLog | Stub upsert + background ingest; returns local `id` |
 | `POST` | `/api/referral/use/:code` | JWT + perUser rateLimit + auditLog | Apply referral code |
 | `POST` | `/api/rewards/claim` | JWT + perUser rateLimit + auditLog | Claim reward code, apply tier upgrade |
+| `POST` | `/api/import/resolve` | JWT + perUser rateLimit | Resolve `[{name, year}]` to local movie IDs; TMDB fallback + fast-upsert for unmatched |
+| `POST` | `/api/import/commit` | JWT + perUser rateLimit | Batch-insert `user_rating` + `watchlist_item`; ON CONFLICT skip or overwrite per `conflictMode` |
+| `GET` | `/api/import/export` | JWT + perUser rateLimit | Stream WatchPapa CSV (ratings + watchlist) as `watchpapa-export-YYYY-MM-DD.csv` |
 | `GET` | `/api/announcements` | None | Active (non-archived) announcements |
 | `POST` | `/api/announcements` | JWT + requireEditor (inside router) | Create announcement |
 | `PATCH` | `/api/announcements/:id` | JWT + requireEditor | Edit announcement |
@@ -176,9 +179,11 @@ watchpapa/
 | `GET` | `/api/admin/referrals` | Referral leaderboard |
 | `GET` | `/api/admin/audit-log` | Audit event log |
 | `GET` | `/api/admin/script-logs` | Ingestion script run logs |
+| `GET` | `/api/admin/stats/catalog` | Row counts for all content + activity tables (movies, shows, seasons, episodes, people, credits, ratings, follows, watchlists, favourites) |
 | `*` | `/api/admin/announcements` | Announcement management (includes restore) |
 | `GET` | `/api/admin/resync/search` | Search local catalog for resync |
-| `POST` | `/api/admin/resync` | Trigger scoped re-ingest |
+| `POST` | `/api/admin/resync` | Trigger scoped re-ingest for a single item |
+| `POST` | `/api/admin/resync/bulk` | Bulk re-ingest up to 1,000 items of a type; optional `since` ISO timestamp to filter by `updated_at` |
 
 ---
 
@@ -214,6 +219,7 @@ watchpapa/
 | `/follows` | Protected | `FollowsPage` | All followed shows + movies with unfollow buttons; tabs Shows/Movies; overage banner |
 | `/u/:username` | Protected | `ProfilePage` | Public profile: bio, tier badge, 5 favourites, stats (owner-tier-gated), ratings grid |
 | `/profile/edit` | Protected | `EditProfilePage` | Edit bio (200 chars) + 5 favourites (search picker) |
+| `/import` | Protected | `ImportPage` | Import from Letterboxd CSV or WatchPapa CSV; step-by-step UI with resolve + commit flow |
 | `/admin` | AdminRoute (role=4) | `AdminPage` (nested) | |
 | `/admin` (index) | Admin | `StatsPage` | |
 | `/admin/analytics` | Admin | `AnalyticsPage` | |
@@ -225,7 +231,8 @@ watchpapa/
 | `/admin/script-logs` | Admin | `ScriptLogsPage` | |
 | `/admin/announcements` | Admin | `AnnouncementsPage` | |
 | `/admin/staff` | Admin | `StaffPage` | |
-| `/admin/resync` | Admin | `ContentResyncPage` | |
+| `/admin/catalog-stats` | Admin | `CatalogStatsPage` | Row counts for movies, shows, seasons, episodes, people, credits, ratings, follows, watchlists, favourites |
+| `/admin/resync` | Admin | `ContentResyncPage` | Bulk resync section (type + time window, capped 1,000) + per-item search resync |
 | `*` | — | `<Navigate to="/" />` | Catch-all |
 
 Route guards defined in `App.jsx`: `PublicOnlyRoute`, `ProtectedRoute`, `PublicRoute`, `AdminRoute` (in `components/auth/AdminRoute.jsx`).
@@ -271,6 +278,30 @@ Route guards defined in `App.jsx`: `PublicOnlyRoute`, `ProtectedRoute`, `PublicR
 | `announcements` | `uuid` | `title`, `body`, `archived`, `author_id`, `archived_by`, `archived_at` | |
 | `watchlist` | `bigint` identity | `profile_id`, `name`, `created_at`, `updated_at` | Per-tier limit enforced by `enforce_watchlist_limit` trigger |
 | `watchlist_item` | `bigint` identity | `watchlist_id` FK, `media_type` ('movie'|'show'), `movie_id`/`show_id` FK, `watched`, `added_at` | Partial unique indexes prevent duplicate items per list |
+
+---
+
+## WatchPapa CSV Format
+
+Used for both export (from Settings) and import (on `/import` page). Round-trips cleanly.
+
+```
+Date,Name,Year,MediaType,WatchlistName,Rating,Watched
+2026-01-15,Oppenheimer,2023,movie,,10,
+2026-01-20,Interstellar,2014,movie,My List,9,true
+```
+
+| Column | Type | Notes |
+|---|---|---|
+| `Date` | `YYYY-MM-DD` | Date added/rated |
+| `Name` | string | Film title |
+| `Year` | 4-digit string | Release year |
+| `MediaType` | `movie` | Only movies currently (Letterboxd is movies-only) |
+| `WatchlistName` | string | Watchlist name, empty if rating-only row |
+| `Rating` | integer 1–10 | WatchPapa scale; empty if not rated |
+| `Watched` | `true`/`false` | Watchlist watched status; empty if not in a watchlist |
+
+The `/api/import/resolve` endpoint also accepts Letterboxd CSV format (auto-detected by headers: `Letterboxd URI` column). Letterboxd ratings (0.5–5) are multiplied by 2 to convert to the 1–10 scale.
 
 ---
 

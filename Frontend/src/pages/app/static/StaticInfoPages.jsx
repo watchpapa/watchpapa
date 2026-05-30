@@ -222,7 +222,7 @@ function ContactPage({ session }) {
           href="mailto:support@WATCHPAPA.tv"
           className="mt-3 inline-block break-all text-xl font-semibold tracking-tight text-white !no-underline underline-offset-[5px] transition hover:text-[#e4e4ff] hover:!underline sm:text-2xl"
         >
-          support@WATCHPAPA.tv
+          support@watchpapa.tv
         </a>
       </ContentPanel>
 
