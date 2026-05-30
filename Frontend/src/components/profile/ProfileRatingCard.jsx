@@ -56,6 +56,9 @@ export function ProfileRatingCard({ rating }) {
   const meta = getItemMeta(rating);
   if (!meta) return null;
   const badge = TYPE_BADGE[meta.type];
+  const ratedOn = rating.created_at
+    ? new Date(rating.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+    : null;
 
   return (
     <Link
@@ -87,6 +90,7 @@ export function ProfileRatingCard({ rating }) {
       <div className="p-2">
         <p className="truncate text-xs font-semibold text-white leading-tight">{meta.title}</p>
         <div className="mt-1 flex items-center gap-1.5">
+          {ratedOn && <span className="text-[10px] text-[#6868b8]">{ratedOn}</span>}
           {meta.year && <span className="text-[10px] text-[#6868b8]">{meta.year}</span>}
           <span className={`rounded border px-1.5 py-0.5 text-[9px] font-semibold ${badge.color}`}>
             {badge.label}

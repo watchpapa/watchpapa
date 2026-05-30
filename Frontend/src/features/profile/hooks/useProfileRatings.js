@@ -3,8 +3,7 @@ import { supabase } from "../../../lib/supabase.js";
 
 const PAGE_SIZE = 20;
 
-// Fetches paginated ratings for a profile (most recent first).
-// Joins movie/show/season/episode for display data.
+// Fetches paginated ratings for a profile (newest rated first).
 export function useProfileRatings(profileId) {
   const [ratings, setRatings] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -29,6 +28,7 @@ export function useProfileRatings(profileId) {
       `)
       .eq("profile_id", profileId)
       .order("created_at", { ascending: false })
+      .order("id", { ascending: false })
       .range(from, to);
 
     setLoading(false);
