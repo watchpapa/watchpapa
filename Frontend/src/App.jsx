@@ -40,6 +40,9 @@ import AnalyticsPage from "./pages/admin/AnalyticsPage.jsx";
 import StaffPage from "./pages/admin/StaffPage.jsx";
 import ContentResyncPage from "./pages/admin/ContentResyncPage.jsx";
 import WatchlistsPage from "./pages/app/WatchlistsPage.jsx";
+import ProfilePage from "./pages/app/ProfilePage.jsx";
+import EditProfilePage from "./pages/app/EditProfilePage.jsx";
+import FollowsPage from "./pages/app/FollowsPage.jsx";
 import { trackPresence, trackPageView } from "./lib/analytics.js";
 import {
   AboutPage,
@@ -452,6 +455,30 @@ function App() {
         element={
           <ProtectedRoute session={session} needsUsernameSetup={needsUsernameSetup}>
             <WatchlistsPage session={session} />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/follows"
+        element={
+          <ProtectedRoute session={session} needsUsernameSetup={needsUsernameSetup}>
+            <FollowsPage session={session} />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/u/:username"
+        element={
+          <ProtectedRoute session={session} needsUsernameSetup={needsUsernameSetup}>
+            <ProfilePage session={session} />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/profile/edit"
+        element={
+          <ProtectedRoute session={session} needsUsernameSetup={needsUsernameSetup}>
+            <EditProfilePage session={session} />
           </ProtectedRoute>
         }
       />
