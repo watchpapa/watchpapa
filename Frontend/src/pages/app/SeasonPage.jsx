@@ -8,6 +8,8 @@ import CastGrid from "../../components/detail/CastGrid.jsx";
 import CrewSection from "../../components/detail/CrewSection.jsx";
 import FollowButton from "../../components/detail/FollowButton.jsx";
 import AuthPromptModal from "../../components/AuthPromptModal.jsx";
+import { RatingSidebar } from "../../components/rating/RatingSidebar.jsx";
+import { RatingHistogram } from "../../components/rating/RatingHistogram.jsx";
 import SkeletonDetailPage from "../../components/detail/SkeletonDetailPage.jsx";
 import { useSeasonData } from "../../features/season/hooks/useSeasonData.js";
 import { useShowFollow } from "../../features/show/hooks/useShowFollow.js";
@@ -89,15 +91,19 @@ function SeasonPage({ session }) {
         followButton={<FollowButton isFollowing={isFollowing} onToggle={handleFollow} />}
         sidebarTop={<PosterCard title={season.name} posterPath={season.poster_path} />}
         sidebarBottom={
-          <ul className="space-y-1.5 text-xs">
-            {[
-              ["Title", fmt(season.name)],
-              ["Episodes", fmt(episodes.length)],
-              ["Air date", fmtDate(season.air_date)],
-            ].map(([k, v]) => (
-              <li key={k}><span className="font-bold text-[#8383e7]">{k}:</span> <span className="text-[#c0c0e8]">{v}</span></li>
-            ))}
-          </ul>
+          <>
+            <ul className="space-y-1.5 text-xs">
+              {[
+                ["Title", fmt(season.name)],
+                ["Episodes", fmt(episodes.length)],
+                ["Air date", fmtDate(season.air_date)],
+              ].map(([k, v]) => (
+                <li key={k}><span className="font-bold text-[#8383e7]">{k}:</span> <span className="text-[#c0c0e8]">{v}</span></li>
+              ))}
+            </ul>
+            <RatingSidebar mediaType="season" entityId={season.id} session={session} onAuthPrompt={() => setShowAuthPrompt(true)} />
+            <RatingHistogram mediaType="season" entityId={season.id} />
+          </>
         }
       >
         <ContentPanel label="Details">

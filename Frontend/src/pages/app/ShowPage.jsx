@@ -7,6 +7,8 @@ import PosterCard from "../../components/detail/PosterCard.jsx";
 import ContentPanel from "../../components/detail/ContentPanel.jsx";
 import FollowButton from "../../components/detail/FollowButton.jsx";
 import AddToWatchlistButton from "../../components/watchlist/AddToWatchlistButton.jsx";
+import { RatingSidebar } from "../../components/rating/RatingSidebar.jsx";
+import { RatingHistogram } from "../../components/rating/RatingHistogram.jsx";
 import CastGrid from "../../components/detail/CastGrid.jsx";
 import CrewSection from "../../components/detail/CrewSection.jsx";
 import AuthPromptModal from "../../components/AuthPromptModal.jsx";
@@ -138,17 +140,21 @@ function ShowPage({ session, showAdult }) {
         }
         sidebarTop={<PosterCard title={show.name} posterPath={show.poster_path} />}
         sidebarBottom={
-          <ul className="space-y-1.5 text-xs">
-            {[
-              ["Title", fmt(show.name)],
-              ["Seasons", fmt(show.number_of_seasons)],
-              ["Episodes", fmt(show.number_of_episodes)],
-              ["Runtime", show.episode_run_time ? `${show.episode_run_time}m` : "—"],
-              ["Popularity", show.tmdb_popularity?.toFixed(1) ?? "—"],
-            ].map(([k, v]) => (
-              <li key={k}><span className="font-bold text-[#8383e7]">{k}:</span> <span className="text-[#c0c0e8]">{v}</span></li>
-            ))}
-          </ul>
+          <>
+            <ul className="space-y-1.5 text-xs">
+              {[
+                ["Title", fmt(show.name)],
+                ["Seasons", fmt(show.number_of_seasons)],
+                ["Episodes", fmt(show.number_of_episodes)],
+                ["Runtime", show.episode_run_time ? `${show.episode_run_time}m` : "—"],
+                ["Popularity", show.tmdb_popularity?.toFixed(1) ?? "—"],
+              ].map(([k, v]) => (
+                <li key={k}><span className="font-bold text-[#8383e7]">{k}:</span> <span className="text-[#c0c0e8]">{v}</span></li>
+              ))}
+            </ul>
+            <RatingSidebar mediaType="show" entityId={show.id} session={session} onAuthPrompt={() => setShowAuthPrompt(true)} />
+            <RatingHistogram mediaType="show" entityId={show.id} />
+          </>
         }
       >
         <ContentPanel label="Details">

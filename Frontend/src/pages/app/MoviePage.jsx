@@ -7,6 +7,8 @@ import PosterCard from "../../components/detail/PosterCard.jsx";
 import ContentPanel from "../../components/detail/ContentPanel.jsx";
 import FollowButton from "../../components/detail/FollowButton.jsx";
 import AddToWatchlistButton from "../../components/watchlist/AddToWatchlistButton.jsx";
+import { RatingSidebar } from "../../components/rating/RatingSidebar.jsx";
+import { RatingHistogram } from "../../components/rating/RatingHistogram.jsx";
 import CastGrid from "../../components/detail/CastGrid.jsx";
 import CrewSection from "../../components/detail/CrewSection.jsx";
 import AuthPromptModal from "../../components/AuthPromptModal.jsx";
@@ -116,11 +118,15 @@ function MoviePage({ session, showAdult }) {
         }
         sidebarTop={<PosterCard title={movie.title} posterPath={movie.poster_path} />}
         sidebarBottom={
-          <ul className="space-y-1.5 text-xs">
-            {sidebarInfo.map(([k, v]) => (
-              <li key={k}><span className="font-bold text-[#8383e7]">{k}:</span> <span className="text-[#c0c0e8]">{v}</span></li>
-            ))}
-          </ul>
+          <>
+            <ul className="space-y-1.5 text-xs">
+              {sidebarInfo.map(([k, v]) => (
+                <li key={k}><span className="font-bold text-[#8383e7]">{k}:</span> <span className="text-[#c0c0e8]">{v}</span></li>
+              ))}
+            </ul>
+            <RatingSidebar mediaType="movie" entityId={movie.id} session={session} onAuthPrompt={() => setShowAuthPrompt(true)} />
+            <RatingHistogram mediaType="movie" entityId={movie.id} />
+          </>
         }
       >
         <ContentPanel label="Details">

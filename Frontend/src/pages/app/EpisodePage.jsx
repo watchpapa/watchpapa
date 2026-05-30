@@ -8,6 +8,8 @@ import CastGrid from "../../components/detail/CastGrid.jsx";
 import CrewSection from "../../components/detail/CrewSection.jsx";
 import FollowButton from "../../components/detail/FollowButton.jsx";
 import AuthPromptModal from "../../components/AuthPromptModal.jsx";
+import { RatingSidebar } from "../../components/rating/RatingSidebar.jsx";
+import { RatingHistogram } from "../../components/rating/RatingHistogram.jsx";
 import SkeletonDetailPage from "../../components/detail/SkeletonDetailPage.jsx";
 import { useEpisodeData } from "../../features/episode/hooks/useEpisodeData.js";
 import { useShowFollow } from "../../features/show/hooks/useShowFollow.js";
@@ -101,15 +103,19 @@ function EpisodePage({ session }) {
         followButton={<FollowButton isFollowing={isFollowing} onToggle={handleFollow} />}
         sidebarTop={<PosterCard title={episode.name} posterPath={episode.poster_path} />}
         sidebarBottom={
-          <ul className="space-y-1.5 text-xs">
-            {[
-              ["Title", fmt(episode.name)],
-              ["Runtime", episode.runtime ? `${episode.runtime}m` : "—"],
-              ["Episode", `${episode.episode_number}${totalEps ? ` / ${totalEps}` : ""}`],
-            ].map(([k, v]) => (
-              <li key={k}><span className="font-bold text-[#8383e7]">{k}:</span> <span className="text-[#c0c0e8]">{v}</span></li>
-            ))}
-          </ul>
+          <>
+            <ul className="space-y-1.5 text-xs">
+              {[
+                ["Title", fmt(episode.name)],
+                ["Runtime", episode.runtime ? `${episode.runtime}m` : "—"],
+                ["Episode", `${episode.episode_number}${totalEps ? ` / ${totalEps}` : ""}`],
+              ].map(([k, v]) => (
+                <li key={k}><span className="font-bold text-[#8383e7]">{k}:</span> <span className="text-[#c0c0e8]">{v}</span></li>
+              ))}
+            </ul>
+            <RatingSidebar mediaType="episode" entityId={episode.id} session={session} onAuthPrompt={() => setShowAuthPrompt(true)} />
+            <RatingHistogram mediaType="episode" entityId={episode.id} />
+          </>
         }
       >
         <ContentPanel label="Details">
