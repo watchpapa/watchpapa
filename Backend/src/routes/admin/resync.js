@@ -1,10 +1,12 @@
 import { Router } from "express";
+import { QueryTypes } from "sequelize";
 import { ingestMovie } from "../../scripts/inject_movie.js";
 import { ingestTvShow } from "../../scripts/inject_tv_show.js";
 import { ingestPerson } from "../../scripts/inject_person.js";
 import { dedupIngest } from "../../lib/ingestionQueue.js";
 import { logScriptRun } from "../../lib/logScriptRun.js";
 import { searchLocal } from "../../services/searchService.js";
+import sequelize from "../../db/database.js";
 
 const router = Router();
 const TMDB_API_KEY = process.env.TMDB_API_KEY_SECRET;
@@ -99,6 +101,86 @@ router.post("/", (req, res) => {
       }
     }).catch((e) => console.warn(`admin resync person tmdb_id=${tmdbId}:`, e.message));
   }
+});
+
+const BULK_CAP = 100000;
+
+const BULK_TABLE = { movie: "movie", show: "show", person: "person" };
+
+// POST /api/admin/resync/bulk
+router.post("/bulk", async (req, res) => {
+  const { type, since: rawSince } = req.body ?? {};
+
+  if (!ALLOWED_TYPES.has(type)) {
+    return res.status(400).json({ error: "type must be movie|show|person" });
+  }
+  if (!TMDB_API_KEY) return res.status(503).json({ error: "Service unavailable" });
+
+  let since = null;
+  if (rawSince) {
+    since = new Date(rawSince);
+    if (isNaN(since.getTime())) return res.status(400).json({ error: "Invalid since timestamp" });
+  }
+
+  const table = BULK_TABLE[type];
+  const hasSoftDelete = type === "movie" || type === "person";
+
+  const sql = `
+    SELECT tmdb_id FROM ${table}
+    WHERE TRUE
+    ${hasSoftDelete ? "AND deleted_at IS NULL" : ""}
+    ${since ? "AND updated_at >= :since" : ""}
+    ORDER BY updated_at DESC
+    LIMIT :cap
+  `;
+
+  let rows;
+  try {
+    rows = await sequelize.query(sql, {
+      replacements: { since: since?.toISOString() ?? null, cap: BULK_CAP },
+      type: QueryTypes.SELECT,
+    });
+  } catch (err) {
+    console.error("Admin bulk resync query error:", err);
+    return res.status(500).json({ error: "Failed to fetch items" });
+  }
+
+  const tmdbIds = rows.map((r) => r.tmdb_id);
+  const count = tmdbIds.length;
+
+  res.json({ ok: true, queued: count, capped: count === BULK_CAP });
+
+  const startedAt = new Date();
+  const scriptName = `bulk_resync:${type}${since ? `:since_${since.toISOString()}` : ""}`;
+
+  const ingestFn =
+    type === "movie"  ? (id) => ingestMovie({ tmdbId: id, apiKey: TMDB_API_KEY, forceRefreshExisting: true }) :
+    type === "show"   ? (id) => ingestTvShow({ tmdbTvId: id, apiKey: TMDB_API_KEY, forceRefreshExisting: true }) :
+                        (id) => ingestPerson({ tmdbId: id, apiKey: TMDB_API_KEY, forceRefreshExisting: true });
+
+  let succeeded = 0;
+  let failed = 0;
+
+  const jobs = tmdbIds.map((tmdbId) =>
+    dedupIngest(`admin-resync:${type}:${tmdbId}`, async () => {
+      try {
+        await ingestFn(tmdbId);
+        succeeded++;
+      } catch (e) {
+        failed++;
+        console.warn(`bulk resync ${type} tmdb_id=${tmdbId}:`, e.message);
+      }
+    }).catch((e) => { failed++; console.warn(`bulk resync ${type} tmdb_id=${tmdbId}:`, e.message); })
+  );
+
+  Promise.all(jobs).then(() =>
+    logScriptRun({
+      scriptName,
+      status: failed === 0 ? "success" : "failure",
+      batchSize: count,
+      startedAt,
+    }).catch(() => {})
+  );
 });
 
 export default router;

@@ -14,6 +14,7 @@ import CrewSection from "../../components/detail/CrewSection.jsx";
 import AuthPromptModal from "../../components/AuthPromptModal.jsx";
 import { useMovieData } from "../../features/movie/hooks/useMovieData.js";
 import InjectingBanner from "../../components/detail/InjectingBanner.jsx";
+import AdminResyncButton from "../../components/detail/AdminResyncButton.jsx";
 import UpgradePromptToast from "../../components/subscription/UpgradePromptToast.jsx";
 import { PageHead } from "../../components/ui/PageHead.jsx";
 
@@ -103,6 +104,7 @@ function MoviePage({ session, showAdult }) {
       {showAuthPrompt && <AuthPromptModal onClose={() => setShowAuthPrompt(false)} />}
       {followLimitError && <UpgradePromptToast message={followLimitError} onDismiss={clearFollowLimitError} session={session} />}
       <div className="mb-6"><InjectingBanner type="movie" id={id} /></div>
+      <div className="mb-6"><AdminResyncButton session={session} type="movie" tmdbId={movie.tmdb_id} /></div>
       <DetailPageLayout
         title={movie.title}
         followButton={

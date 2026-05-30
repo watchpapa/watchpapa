@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import AppLayout from "../../layouts/AppLayout.jsx";
 import { supabase } from "../../lib/supabase.js";
 import { validateUsername, isValidBoolean } from "../../lib/validate.js";
@@ -73,6 +73,14 @@ function SettingsPage({ session }) {
   const [copiedCode, setCopiedCode] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
 
+  // Export
+  const [exporting, setExporting] = useState(false);
+  const [exportError, setExportError] = useState(null);
+
+  // Sync status
+  const [syncStatus, setSyncStatus] = useState(null);
+  const [syncLoading, setSyncLoading] = useState(false);
+
   // Delete
   const [deleteConfirm, setDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -95,6 +103,51 @@ function SettingsPage({ session }) {
   }, [uid]);
 
   useEffect(() => { load(); }, [load]);
+
+  const loadSyncStatus = useCallback(async () => {
+    setSyncLoading(true);
+    try {
+      const token = await getToken();
+      const res = await fetch(`${API_BASE}/api/import/sync-status`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) setSyncStatus(await res.json());
+    } catch {
+      // silently ignore — row just won't render
+    } finally {
+      setSyncLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { if (!loading) loadSyncStatus(); }, [loading, loadSyncStatus]);
+
+  const handleExport = async () => {
+    setExporting(true);
+    setExportError(null);
+    try {
+      const token = await getToken();
+      const res = await fetch(`${API_BASE}/api/import/export`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        setExportError(body.error ?? "Export failed. Please try again.");
+        setExporting(false);
+        return;
+      }
+      const blob = await res.blob();
+      const today = new Date().toISOString().slice(0, 10);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `watchpapa-export-${today}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      setExportError("Network error. Please try again.");
+    }
+    setExporting(false);
+  };
 
   const handleAdultToggle = async (val) => {
     if (adultBusy || !isValidBoolean(val)) return;
@@ -337,6 +390,56 @@ function SettingsPage({ session }) {
                 {rewardError && <p className="text-xs text-red-400">{rewardError}</p>}
               </div>
             )}
+          </Row>
+        </Section>
+
+        {/* Data import / export */}
+        <Section title="Data">
+          <Row label="Import data">
+            <Link
+              to="/import"
+              className="text-xs font-semibold text-[#6868b8] underline transition hover:text-white"
+            >
+              Import from Letterboxd or WatchPapa CSV
+            </Link>
+          </Row>
+          <Row label="Background sync">
+            <div className="flex flex-col items-end gap-1">
+              {syncLoading ? (
+                <span className="text-xs text-[#5a5a78]">Checking…</span>
+              ) : syncStatus ? (
+                <div className="flex items-center gap-3">
+                  <span className="text-sm text-[#b0b0d4]">
+                    {syncStatus.success > 0 || syncStatus.failure > 0 ? (
+                      <>
+                        <span className="text-emerald-400 font-semibold">{syncStatus.success}</span>
+                        {syncStatus.failure > 0 && (
+                          <> · <span className="text-red-400 font-semibold">{syncStatus.failure} failed</span></>
+                        )}
+                        <span className="text-[#5a5a78]"> films synced</span>
+                      </>
+                    ) : (
+                      <span className="text-[#5a5a78]">No recent sync activity</span>
+                    )}
+                  </span>
+                  <button onClick={loadSyncStatus} className="text-xs text-[#6868b8] underline hover:text-white">Refresh</button>
+                </div>
+              ) : null}
+              <p className="text-[11px] text-[#5a5a78]">Cast & crew data synced in the last 24 h.</p>
+            </div>
+          </Row>
+          <Row label="Export my data">
+            <div className="flex flex-col items-end gap-1">
+              <button
+                onClick={handleExport}
+                disabled={exporting}
+                className="rounded-xl border border-[#3a3a7a] bg-[#1a1d35] px-3 py-1.5 text-xs font-semibold text-[#a0a0e8] transition hover:border-[#5a5aaa] hover:text-white disabled:opacity-50"
+              >
+                {exporting ? "Preparing…" : "Download CSV"}
+              </button>
+              {exportError && <p className="text-xs text-red-400">{exportError}</p>}
+              <p className="text-[11px] text-[#5a5a78]">Ratings and watchlist in WatchPapa CSV format.</p>
+            </div>
           </Row>
         </Section>
 

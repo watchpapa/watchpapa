@@ -14,6 +14,7 @@ import CrewSection from "../../components/detail/CrewSection.jsx";
 import AuthPromptModal from "../../components/AuthPromptModal.jsx";
 import { useShowData } from "../../features/show/hooks/useShowData.js";
 import InjectingBanner from "../../components/detail/InjectingBanner.jsx";
+import AdminResyncButton from "../../components/detail/AdminResyncButton.jsx";
 import UpgradePromptToast from "../../components/subscription/UpgradePromptToast.jsx";
 import { PageHead } from "../../components/ui/PageHead.jsx";
 
@@ -125,6 +126,7 @@ function ShowPage({ session, showAdult }) {
       {showAuthPrompt && <AuthPromptModal onClose={() => setShowAuthPrompt(false)} />}
       {followLimitError && <UpgradePromptToast message={followLimitError} onDismiss={clearFollowLimitError} session={session} />}
       <div className="mb-6"><InjectingBanner type="show" id={id} /></div>
+      <div className="mb-6"><AdminResyncButton session={session} type="show" tmdbId={show.tmdb_id} /></div>
       <DetailPageLayout
         title={show.name}
         followButton={

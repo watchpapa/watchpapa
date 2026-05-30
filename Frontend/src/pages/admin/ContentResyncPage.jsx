@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { useContentSearch, useResync } from "../../features/admin/hooks/useContentResync.js";
+import { useContentSearch, useResync, useBulkResync } from "../../features/admin/hooks/useContentResync.js";
 
 const TMDB_IMG = "https://image.tmdb.org/t/p/w92";
 
@@ -169,6 +169,84 @@ function ResultRow({ item }) {
   );
 }
 
+const TIME_WINDOWS = [
+  { label: "All time",    value: "" },
+  { label: "Last 24h",   value: "24h" },
+  { label: "Last 7 days", value: "7d" },
+  { label: "Last 30 days", value: "30d" },
+];
+
+function sinceFromWindow(window) {
+  if (!window) return null;
+  const now = Date.now();
+  const ms = { "24h": 86_400_000, "7d": 7 * 86_400_000, "30d": 30 * 86_400_000 }[window];
+  return new Date(now - ms).toISOString();
+}
+
+function BulkResyncSection() {
+  const [bulkType, setBulkType] = useState("");
+  const [timeWindow, setTimeWindow] = useState("");
+  const { bulkResync, bulkState } = useBulkResync();
+
+  function handleBulk() {
+    if (!bulkType) return;
+    bulkResync(bulkType, sinceFromWindow(timeWindow));
+  }
+
+  return (
+    <div className="mb-8 rounded-2xl border border-[#1e244a] bg-[#0e1128] p-5">
+      <h2 className="mb-0.5 text-sm font-semibold text-white">Bulk Resync</h2>
+      <p className="mb-4 text-xs text-[#6868b8]">
+        Queue all items of a type (optionally filtered by last-updated window). Capped at 1,000 items per request — use the time filter to narrow the scope.
+      </p>
+
+      <div className="flex flex-wrap gap-2">
+        <select
+          value={bulkType}
+          onChange={(e) => setBulkType(e.target.value)}
+          className="rounded-lg border border-[#2a3570] bg-[#12163a] px-2 py-1.5 text-sm text-white outline-none focus:border-[#6868b8]"
+        >
+          <option value="">Select type…</option>
+          <option value="movie">Movies</option>
+          <option value="show">Shows</option>
+          <option value="person">People</option>
+        </select>
+
+        <select
+          value={timeWindow}
+          onChange={(e) => setTimeWindow(e.target.value)}
+          className="rounded-lg border border-[#2a3570] bg-[#12163a] px-2 py-1.5 text-sm text-white outline-none focus:border-[#6868b8]"
+        >
+          {TIME_WINDOWS.map((w) => (
+            <option key={w.value} value={w.value}>{w.label}</option>
+          ))}
+        </select>
+
+        <button
+          onClick={handleBulk}
+          disabled={!bulkType || bulkState.loading}
+          className="rounded-lg bg-indigo-600 px-4 py-1.5 text-sm font-medium text-white transition hover:bg-indigo-500 disabled:opacity-40"
+        >
+          {bulkState.loading ? "Queuing…" : "Bulk Resync"}
+        </button>
+      </div>
+
+      {bulkState.result && (
+        <div className="mt-3 rounded-lg border border-emerald-800/40 bg-emerald-900/20 px-3 py-2 text-xs text-emerald-300">
+          Queued <strong>{bulkState.result.queued}</strong> items
+          {bulkState.result.capped ? " (hit 1,000-item cap — narrow the time window to catch more)" : ""}
+          {" "}— check Script Logs for results.
+        </div>
+      )}
+      {bulkState.error && (
+        <div className="mt-3 rounded-lg border border-red-800/40 bg-red-900/20 px-3 py-2 text-xs text-red-400">
+          {bulkState.error}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function ContentResyncPage() {
   const [query, setQuery] = useState("");
   const [typeFilter, setTypeFilter] = useState("");
@@ -202,6 +280,13 @@ function ContentResyncPage() {
       <div className="mb-6">
         <h1 className="text-lg font-semibold text-white">Content Resync</h1>
         <p className="mt-0.5 text-xs text-[#6868b8]">Search the local database and manually resync any item from TMDB</p>
+      </div>
+
+      <BulkResyncSection />
+
+      <div className="mb-4">
+        <h2 className="text-sm font-semibold text-white">Per-item Resync</h2>
+        <p className="mt-0.5 text-xs text-[#6868b8]">Search the local database and resync a specific item</p>
       </div>
 
       <form onSubmit={handleSubmit} className="mb-5 flex flex-wrap gap-2">

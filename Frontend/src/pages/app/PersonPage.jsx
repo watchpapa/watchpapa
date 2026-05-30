@@ -5,6 +5,7 @@ import ContentPanel from "../../components/detail/ContentPanel.jsx";
 import SkeletonDetailPage from "../../components/detail/SkeletonDetailPage.jsx";
 import { usePersonData } from "../../features/person/hooks/usePersonData.js";
 import InjectingBanner from "../../components/detail/InjectingBanner.jsx";
+import AdminResyncButton from "../../components/detail/AdminResyncButton.jsx";
 import { PageHead } from "../../components/ui/PageHead.jsx";
 
 const TMDB_IMG_PROFILE = "https://image.tmdb.org/t/p/w342";
@@ -102,6 +103,7 @@ function PersonPage({ session, showAdult }) {
         jsonLd={jsonLd}
       />
       <div className="mb-6"><InjectingBanner type="person" id={id} /></div>
+      <div className="mb-6"><AdminResyncButton session={session} type="person" tmdbId={person.tmdb_id} /></div>
       <DetailPageLayout
         title={person.name}
         sidebarTop={<ProfilePicture name={person.name} profilePath={person.profile_path} />}

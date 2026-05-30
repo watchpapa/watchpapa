@@ -1,6 +1,7 @@
 import { Router } from "express";
 import sequelize from "../../db/database.js";
 import { QueryTypes } from "sequelize";
+import { getInflightKeys } from "../../lib/ingestionQueue.js";
 
 const router = Router();
 
@@ -81,6 +82,72 @@ router.get("/tiers", async (_req, res) => {
   const tiers = rows.map((r) => ({ tier: r.tier, count: parseInt(r.count, 10) }));
 
   res.json({ tiers, total });
+});
+
+// GET /api/admin/stats/catalog
+router.get("/catalog", async (_req, res) => {
+  const [rows] = await sequelize.query(
+    `SELECT
+       -- content
+       (SELECT COUNT(*) FROM movie WHERE deleted_at IS NULL)                   AS movies_active,
+       (SELECT COUNT(*) FROM movie WHERE deleted_at IS NOT NULL)               AS movies_deleted,
+       (SELECT COUNT(*) FROM show)                                             AS shows,
+       (SELECT COUNT(*) FROM season)                                           AS seasons,
+       (SELECT COUNT(*) FROM episode)                                          AS episodes,
+       (SELECT COUNT(*) FROM person WHERE deleted_at IS NULL)                  AS people_active,
+       (SELECT COUNT(*) FROM person WHERE deleted_at IS NOT NULL)              AS people_deleted,
+       (SELECT COUNT(*) FROM genres)                                           AS genres,
+       -- credits
+       (SELECT COUNT(*) FROM movie_credits)                                    AS movie_credits,
+       (SELECT COUNT(*) FROM show_credits)                                     AS show_credits,
+       (SELECT COUNT(*) FROM episode_credits)                                  AS episode_credits,
+       -- person extras
+       (SELECT COUNT(*) FROM person_aka WHERE deleted_at IS NULL)              AS person_akas,
+       -- user activity
+       (SELECT COUNT(*) FROM user_rating)                                      AS ratings,
+       (SELECT COUNT(*) FROM watchlist_item)                                   AS watchlist_items,
+       (SELECT COUNT(*) FROM watchlist)                                        AS watchlists,
+       (SELECT COUNT(*) FROM user_followed_movies)                             AS followed_movies,
+       (SELECT COUNT(*) FROM user_followed_shows)                              AS followed_shows,
+       (SELECT COUNT(*) FROM profile_favourite)                                AS favourites`,
+    { type: QueryTypes.SELECT }
+  );
+
+  const n = (v) => parseInt(v ?? 0, 10);
+  res.json({
+    content: {
+      movies:         { active: n(rows.movies_active), deleted: n(rows.movies_deleted) },
+      shows:          n(rows.shows),
+      seasons:        n(rows.seasons),
+      episodes:       n(rows.episodes),
+      people:         { active: n(rows.people_active), deleted: n(rows.people_deleted) },
+      genres:         n(rows.genres),
+    },
+    credits: {
+      movie:   n(rows.movie_credits),
+      show:    n(rows.show_credits),
+      episode: n(rows.episode_credits),
+      personAkas: n(rows.person_akas),
+    },
+    activity: {
+      ratings:        n(rows.ratings),
+      watchlistItems: n(rows.watchlist_items),
+      watchlists:     n(rows.watchlists),
+      followedMovies: n(rows.followed_movies),
+      followedShows:  n(rows.followed_shows),
+      favourites:     n(rows.favourites),
+    },
+  });
+});
+
+// GET /api/admin/stats/queue
+// Returns currently running ingest jobs (in-process only — resets on server restart).
+router.get("/queue", (_req, res) => {
+  const keys = getInflightKeys();
+  res.json({
+    count: keys.length,
+    jobs: keys,
+  });
 });
 
 export default router;
