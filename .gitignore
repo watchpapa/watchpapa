@@ -55,3 +55,4 @@ sql/
 # Other
 docs/
 .docs
+temp/

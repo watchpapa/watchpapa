@@ -86,10 +86,15 @@ watchpapa/
 │   │       ├── adminFetch.js         # Fetch helper that auto-attaches session Bearer token
 │   │       └── hooks/                # useAdminAnnouncements, useAnalytics, useScriptLogs, …
 │   ├── features/watchlist/hooks/     # useWatchlists, useWatchlistItems(watchlistId, session, refreshKey), useItemWatchlistStatus
+│   ├── features/rating/hooks/        # useRating(mediaType, entityId, session), useCommunityRatings(mediaType, entityId)
+│   ├── features/profile/hooks/       # useProfileData(username, session), useProfileRatings(profileId), useProfileStats(profileId, ownerTier), useEditProfile(session)
+│   ├── features/follows/hooks/       # useFollows(session), useOverageStatus(session, refreshKey) — NOTE: ReleasesCalendarPage and FollowsPage derive overage live from reactive arrays instead of calling this hook
 │   ├── components/
 │   │   ├── watchlist/                # AddToWatchlistButton — auto-adds to first list, toast + checklist picker (multi-list); compact prop for WatchlistsPage
-│   │   ├── layout/                   # Navbar, Footer, Breadcrumbs, ProfileMenu, PosterBackground
-│   │   ├── ui/                       # Button, Input, Toggle, OtpInput, PageHead, RichTextEditor, …
+│   │   ├── rating/                   # HeartDisplay, RatingInput, RatingButton, RatingSidebar (always-visible sidebar widget), RatingHistogram (bar tooltips on hover)
+│   │   ├── profile/                  # ProfileFavourites, FavouritesEditor, ProfileStats (tier-gated with fake blur), ProfileRatingCard
+│   │   ├── layout/                   # Navbar, Footer, Breadcrumbs, ProfileMenu (hover→dropdown desktop / click→profile; click→dropdown mobile), PosterBackground
+│   │   ├── ui/                       # Button, Input, Toggle, OtpInput, PageHead, RichTextEditor, OverLimitBanner, …
 │   │   ├── detail/                   # DetailPageLayout, PosterCard, CastGrid, FollowButton, …
 │   │   ├── home/                     # MediaCard, MediaGrid, MediaRow, SearchBar
 │   │   ├── auth/                     # AdminRoute (route guard)
@@ -200,12 +205,15 @@ watchpapa/
 | `/people` | Public | `PeoplePage` | |
 | `/people/:id` | Public | `PersonPage` | |
 | `/people/tmdb/:tmdbId` | Public | `TmdbResolvePage` | |
-| `/calendar` | Public | `ReleasesCalendarPage` | |
+| `/calendar` | Public | `ReleasesCalendarPage` | Today's releases highlighted amber; multiple episodes from same season collapse to "Season X"; hovered day scales 6% with purple border; calendar blocked (overage gate) when follow count exceeds tier limit — computed live from reactive arrays |
 | `/updates` | Public | `UpdatesPage` | Announcements feed |
 | `/subscription` | Public | `SubscriptionPage` | |
 | `/about`, `/help`, `/terms`, `/contact`, `/privacy` | Public | `StaticInfoPages` | |
 | `/settings` | Protected | `SettingsPage` | Requires session |
 | `/watchlists` | Protected | `WatchlistsPage` | Tabbed page: all lists as tabs, items + All/Watched/Unwatched filter shown inline |
+| `/follows` | Protected | `FollowsPage` | All followed shows + movies with unfollow buttons; tabs Shows/Movies; overage banner |
+| `/u/:username` | Protected | `ProfilePage` | Public profile: bio, tier badge, 5 favourites, stats (owner-tier-gated), ratings grid |
+| `/profile/edit` | Protected | `EditProfilePage` | Edit bio (200 chars) + 5 favourites (search picker) |
 | `/admin` | AdminRoute (role=4) | `AdminPage` (nested) | |
 | `/admin` (index) | Admin | `StatsPage` | |
 | `/admin/analytics` | Admin | `AnalyticsPage` | |
@@ -250,7 +258,9 @@ Route guards defined in `App.jsx`: `PublicOnlyRoute`, `ProtectedRoute`, `PublicR
 
 | Table | PK | Key columns | Notes |
 |---|---|---|---|
-| `profile` | `uuid` (= `auth.users.id`) | `username` (unique), `role`, `is_adult`, `date_of_birth`, `setting_display_adult_content`, `referral_code` | role: 0=user, 3=editor, 4=admin |
+| `profile` | `uuid` (= `auth.users.id`) | `username` (unique), `role`, `bio`, `is_adult`, `date_of_birth`, `setting_display_adult_content`, `referral_code` | role: 0=user, 3=editor, 4=admin; bio≤200 chars |
+| `user_rating` | `bigint` identity | `profile_id`, `movie_id`/`show_id`/`season_id`/`episode_id` FK (exactly one), `value` (1–10), `created_at` | All ratings public (anon readable). Partial unique indexes per content type. |
+| `profile_favourite` | `bigint` identity | `profile_id`, `position` (1–5), `movie_id`/`show_id` FK (exactly one) | Up to 5 pinned items per user. Unique on (profile_id, position). |
 | `user_followed_movies` | `bigint` identity | `profile_id`, `movie_id` (unique pair) | |
 | `user_followed_shows` | `bigint` identity | `profile_id`, `show_id` (unique pair) | |
 | `user_subscriptions` | `uuid` | `profile_id`, `tier`, `is_early_adopter`, `expires_at`, `ea_banner_dismissed` | Use `get_effective_tier()` RPC — never raw `tier` |
@@ -284,8 +294,9 @@ Route guards defined in `App.jsx`: `PublicOnlyRoute`, `ProtectedRoute`, `PublicR
 | 014 | `announcements` | Creates `announcements` table |
 | 015 | `announcements_archive_tracking` | Adds `archived_by`, `archived_at` columns for archive audit trail |
 | 016 | `watchlists` | Creates `watchlist` and `watchlist_item` tables with RLS and `enforce_watchlist_limit` trigger |
+| 017 | `ratings_and_profiles` | Creates `user_rating`, `profile_favourite`; adds `profile.bio`; RLS; `get_profile_genre_stats(UUID)` and `get_limit_status(UUID)` functions |
 
-To add the next migration: create `Backend/src/db/migrations/017_<name>.sql`, apply via `mcp__claude_ai_Supabase__apply_migration`.
+To add the next migration: create `Backend/src/db/migrations/018_<name>.sql`, apply via `mcp__claude_ai_Supabase__apply_migration`.
 
 ---
 
@@ -300,6 +311,17 @@ To add the next migration: create `Backend/src/db/migrations/017_<name>.sql`, ap
 | `pro` | 100 | 100 | |
 | `pro_plus` | 100 | 100 | Same as pro; placeholder for no-ads |
 | `god` | unlimited | unlimited | Admin-only grant, never expires |
+
+**Profile stats visibility** (based on profile *owner's* tier — viewer's tier does not matter):
+
+| Stat | Free | Premium | Pro / Pro+ |
+|---|:---:|:---:|:---:|
+| Total ratings, avg, own distribution histogram | ✓ | ✓ | ✓ |
+| Genre breakdown | locked | ✓ | ✓ |
+| Decade breakdown | locked | locked | ✓ |
+| Monthly activity heatmap | locked | locked | ✓ |
+
+Locked widgets show **fake seeded data** under a blur overlay + upgrade CTA (not a spinner, not blank — real data never fetched).
 
 **Watchlist limits per tier** (enforced by `enforce_watchlist_limit` DB trigger):
 
