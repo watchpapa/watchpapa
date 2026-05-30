@@ -155,6 +155,7 @@ watchpapa/
 | `POST` | `/api/rewards/claim` | JWT + perUser rateLimit + auditLog | Claim reward code, apply tier upgrade |
 | `POST` | `/api/import/resolve` | JWT + perUser rateLimit | Resolve `[{name, year}]` to local movie IDs; TMDB fallback + fast-upsert for unmatched |
 | `POST` | `/api/import/commit` | JWT + perUser rateLimit | Batch-insert `user_rating` + `watchlist_item`; ON CONFLICT skip or overwrite per `conflictMode` |
+| `POST` | `/api/import/run` | JWT + perUser rateLimit | Fire-and-forget import: validates + creates watchlist synchronously, returns 202, then processes each unique film in the background — stub-upsert → commit user data immediately → fire full ingest. Resilient to mid-run crashes; 5 MB body limit. |
 | `GET` | `/api/import/export` | JWT + perUser rateLimit | Stream WatchPapa CSV (ratings + watchlist) as `watchpapa-export-YYYY-MM-DD.csv` |
 | `GET` | `/api/announcements` | None | Active (non-archived) announcements |
 | `POST` | `/api/announcements` | JWT + requireEditor (inside router) | Create announcement |

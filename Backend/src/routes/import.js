@@ -113,7 +113,7 @@ async function insertRatingRows(profileId, ratingRows, conflictMode) {
 
   const datedConflict = conflictMode === "overwrite"
     ? "DO UPDATE SET value = EXCLUDED.value, created_at = EXCLUDED.created_at, updated_at = EXCLUDED.updated_at"
-    : "DO UPDATE SET created_at = EXCLUDED.created_at, updated_at = EXCLUDED.updated_at";
+    : "DO NOTHING";
 
   const undatedConflict = conflictMode === "overwrite"
     ? "DO UPDATE SET value = EXCLUDED.value, updated_at = now()"
@@ -534,55 +534,51 @@ router.post("/run", async (req, res) => {
   res.status(202).json({ ok: true, total: ratings.length + watchlistItems.length });
 
   (async () => {
-    // Resolve all unique items to local movie IDs.
-    const seen = new Map();
-    const allItems = [
-      ...ratings.map((r) => ({ name: r.name, year: r.year, uri: r.uri })),
-      ...watchlistItems.map((w) => ({ name: w.name, year: w.year, uri: w.uri })),
-    ];
-    for (const item of allItems) {
-      const key = itemResolveKey(item);
-      if (!seen.has(key)) {
-        const result = await resolveItem(item.name, item.year, item.uri);
-        seen.set(key, result?.localId ?? null);
+    // Build a per-movie work map so each unique film is resolved exactly once.
+    // A film can have a rating, a watchlist entry, or both.
+    const itemMap = new Map(); // resolveKey → { name, year, uri, rating?, watchlist? }
+
+    for (const r of ratings) {
+      const key = itemResolveKey(r);
+      if (!itemMap.has(key)) itemMap.set(key, { name: r.name, year: r.year, uri: r.uri });
+      itemMap.get(key).rating = { value: r.value, ratedAt: r.ratedAt };
+    }
+    for (const w of watchlistItems) {
+      const key = itemResolveKey(w);
+      if (!itemMap.has(key)) itemMap.set(key, { name: w.name, year: w.year, uri: w.uri });
+      const entry = itemMap.get(key);
+      // If the same film appears in both watchlist and watched, prefer watched: true.
+      if (entry.watchlist) {
+        entry.watchlist.watched = entry.watchlist.watched || w.watched;
+      } else {
+        entry.watchlist = { watched: w.watched };
       }
     }
 
-    // Batch insert ratings — isolated so a failure here doesn't block watchlist.
-    const ratingRows = ratings.flatMap(({ name, year, value, uri, ratedAt }) => {
-      const localId = seen.get(itemResolveKey({ name, year, uri }));
-      return localId ? [{ localId, value, ratedAt }] : [];
-    });
+    // Process each unique film: stub-upsert → commit user data immediately → fire full ingest.
+    // Committing per-item means a mid-run crash only loses un-processed tail items.
+    for (const [, item] of itemMap) {
+      const result = await resolveItem(item.name, item.year, item.uri);
+      if (!result) continue;
 
-    if (ratingRows.length > 0) {
-      try {
-        await insertRatingRows(profileId, ratingRows, conflictMode);
-      } catch (e) {
-        console.error("import/run ratings insert error:", e.message);
-      }
-    }
+      const { localId } = result;
 
-    // Batch insert watchlist items — isolated so a ratings failure doesn't block this.
-    if (resolvedWatchlistId != null) {
-      const wlRows = watchlistItems.flatMap(({ name, year, watched, uri }) => {
-        const localId = seen.get(itemResolveKey({ name, year, uri }));
-        return localId ? [{ localId, watched }] : [];
-      });
-
-      if (wlRows.length > 0) {
+      if (item.rating) {
         try {
-          const placeholders = wlRows.map((_, i) => `(:wid, 'movie', :mid${i}, :wtd${i}, now())`).join(", ");
-          const replacements = { wid: resolvedWatchlistId };
-          wlRows.forEach(({ localId, watched }, i) => {
-            replacements[`mid${i}`] = localId;
-            replacements[`wtd${i}`] = watched;
-          });
+          await insertRatingRows(profileId, [{ localId, value: item.rating.value, ratedAt: item.rating.ratedAt }], conflictMode);
+        } catch (e) {
+          console.error("import/run rating insert error:", e.message);
+        }
+      }
+
+      if (resolvedWatchlistId != null && item.watchlist) {
+        try {
           await sequelize.query(
             `INSERT INTO watchlist_item (watchlist_id, media_type, movie_id, watched, added_at)
-             VALUES ${placeholders}
+             VALUES (:wid, 'movie', :mid, :watched, now())
              ON CONFLICT (watchlist_id, movie_id) WHERE movie_id IS NOT NULL
              DO UPDATE SET watched = CASE WHEN EXCLUDED.watched = true THEN true ELSE watchlist_item.watched END`,
-            { replacements }
+            { replacements: { wid: resolvedWatchlistId, mid: localId, watched: item.watchlist.watched } }
           );
         } catch (e) {
           console.error("import/run watchlist insert error:", e.message);

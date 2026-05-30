@@ -38,6 +38,8 @@ const corsAllowedOrigins = allowedOrigins.length > 0 ? allowedOrigins : defaultA
 
 app.use(helmet());
 
+// Import routes need a larger body limit for bulk Letterboxd/WatchPapa CSV payloads.
+app.use("/api/import", express.json({ limit: "5mb" }));
 app.use(express.json({ limit: "128kb" }));
 
 // Apply CORS (Cross-origin resource sharing) headers for allowed frontend origins.
