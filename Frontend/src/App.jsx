@@ -39,10 +39,13 @@ import AdminRoute from "./components/auth/AdminRoute.jsx";
 import AnalyticsPage from "./pages/admin/AnalyticsPage.jsx";
 import StaffPage from "./pages/admin/StaffPage.jsx";
 import ContentResyncPage from "./pages/admin/ContentResyncPage.jsx";
+import CatalogStatsPage from "./pages/admin/CatalogStatsPage.jsx";
+import QueuePage from "./pages/admin/QueuePage.jsx";
 import WatchlistsPage from "./pages/app/WatchlistsPage.jsx";
 import ProfilePage from "./pages/app/ProfilePage.jsx";
 import EditProfilePage from "./pages/app/EditProfilePage.jsx";
 import FollowsPage from "./pages/app/FollowsPage.jsx";
+import ImportPage from "./pages/app/ImportPage.jsx";
 import { trackPresence, trackPageView } from "./lib/analytics.js";
 import {
   AboutPage,
@@ -483,6 +486,14 @@ function App() {
         }
       />
       <Route
+        path="/import"
+        element={
+          <ProtectedRoute session={session} needsUsernameSetup={needsUsernameSetup}>
+            <ImportPage session={session} />
+          </ProtectedRoute>
+        }
+      />
+      <Route
         path="/admin"
         element={
           <AdminRoute session={session}>
@@ -500,7 +511,9 @@ function App() {
         <Route path="script-logs" element={<ScriptLogsPage />} />
         <Route path="announcements" element={<AnnouncementsPage />} />
         <Route path="staff" element={<StaffPage />} />
+        <Route path="catalog-stats" element={<CatalogStatsPage />} />
         <Route path="resync" element={<ContentResyncPage />} />
+        <Route path="queue" element={<QueuePage />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

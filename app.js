@@ -18,6 +18,7 @@ import adminReferralsRouter from "./Backend/src/routes/admin/referrals.js";
 import adminAuditLogRouter from "./Backend/src/routes/admin/auditLog.js";
 import adminScriptLogsRouter from "./Backend/src/routes/admin/scriptLogs.js";
 import adminAnalyticsRouter from "./Backend/src/routes/admin/analytics.js";
+import importRouter from "./Backend/src/routes/import.js";
 import announcementsRouter from "./Backend/src/routes/announcements.js";
 import adminAnnouncementsRouter from "./Backend/src/routes/admin/announcements.js";
 import adminResyncRouter from "./Backend/src/routes/admin/resync.js";
@@ -100,6 +101,8 @@ app.use("/api/resolve", mutationLimiter, requireAuth, perUserMutationLimiter, au
 app.use("/api/referral", mutationLimiter, requireAuth, perUserMutationLimiter, auditLog("referral", ["code"]), referralRouter);
 // Handle reward code claims (user-facing mutation).
 app.use("/api/rewards", mutationLimiter, requireAuth, perUserMutationLimiter, auditLog("rewards", ["code"]), rewardsRouter);
+// Handle data import (resolve + commit) and export for authenticated users.
+app.use("/api/import", mutationLimiter, requireAuth, perUserMutationLimiter, importRouter);
 // Admin routes — tighter rate limit, admin role required.
 app.use("/api/admin/reward-codes", adminLimiter, requireAuth, requireAdmin, adminRewardCodesRouter);
 app.use("/api/admin/stats", adminLimiter, requireAuth, requireAdmin, adminStatsRouter);
