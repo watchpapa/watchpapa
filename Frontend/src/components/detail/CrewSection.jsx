@@ -12,8 +12,8 @@ function CrewSection({ crew = [] }) {
           </h4>
           <div className="space-y-2">
             {jobs.map(({ job, people }) => (
-              <div key={job} className="flex gap-3 text-sm">
-                <span className="w-36 flex-shrink-0 font-semibold text-[#8383e7]">{job}</span>
+              <div key={job} className="flex flex-col gap-1 text-sm sm:flex-row sm:gap-3">
+                <span className="shrink-0 font-semibold text-[#8383e7] sm:w-24 md:w-36">{job}</span>
                 <div className="flex flex-wrap gap-x-4 gap-y-1">
                   {people.map((p) => (
                     <Link
