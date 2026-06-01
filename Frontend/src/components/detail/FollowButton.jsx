@@ -46,7 +46,7 @@ function FollowButton({ isFollowing, onToggle, disabled = false }) {
       } ${
         isFollowing
           ? "border-green-600 bg-green-900/40 text-green-400 hover:border-red-500 hover:bg-red-900/30 hover:text-red-300"
-          : "border-[#3a3a7a] bg-[#1a1d35] text-[#8888c8] hover:border-[#6060b0] hover:text-white"
+          : "border-[#3a3a7a] bg-[#1a1d35] text-[#8888c8] hover:border-[#6f6fdc] hover:text-white"
       }`}
     >
       {isFollowing ? (

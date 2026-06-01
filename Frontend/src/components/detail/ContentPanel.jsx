@@ -1,8 +1,8 @@
 function ContentPanel({ label, children, className = "" }) {
   return (
-    <div className={`rounded-2xl border border-[#1a1f3a] bg-[#141728] p-5 ${className}`}>
+    <div className={`rounded-2xl border border-[#2a3570]/50 bg-[#141728]/70 p-5 backdrop-blur-sm ${className}`}>
       {label && (
-        <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-[#5050b0]">{label}</p>
+        <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-[#c084fc]">{label}</p>
       )}
       {children}
     </div>

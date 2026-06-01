@@ -7,13 +7,13 @@ function CrewSection({ crew = [] }) {
     <div className="space-y-5">
       {crew.map(({ department, jobs }) => (
         <div key={department}>
-          <h4 className="mb-2 text-[11px] font-bold uppercase tracking-widest text-[#5050b0]">
+          <h4 className="mb-2 text-[11px] font-bold uppercase tracking-widest text-[#c084fc]">
             {department}
           </h4>
           <div className="space-y-2">
             {jobs.map(({ job, people }) => (
               <div key={job} className="flex flex-col gap-1 text-sm sm:flex-row sm:gap-3">
-                <span className="shrink-0 font-semibold text-[#8383e7] sm:w-24 md:w-36">{job}</span>
+                <span className="shrink-0 font-semibold text-[#a78bfa] sm:w-24 md:w-36">{job}</span>
                 <div className="flex flex-wrap gap-x-4 gap-y-1">
                   {people.map((p) => (
                     <Link

@@ -4,7 +4,7 @@ function PosterCard({ title, posterPath }) {
   const imgSrc = posterPath ? `${TMDB_IMG}${posterPath}` : null;
 
   return (
-    <div className="relative overflow-hidden rounded-2xl border border-[#2a3570] bg-[#12163a] aspect-[2/3] w-full">
+    <div className="relative overflow-hidden rounded-2xl border border-[#2a3570] bg-[#12163a] aspect-[2/3] w-full shadow-[0_18px_40px_-16px_rgba(0,0,0,0.7)]">
       {imgSrc ? (
         <img src={imgSrc} alt={title} className="h-full w-full object-cover" loading="lazy" />
       ) : (

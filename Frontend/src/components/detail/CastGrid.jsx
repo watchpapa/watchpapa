@@ -11,9 +11,9 @@ function CastGrid({ credits = [] }) {
         <Link
           key={credit.id}
           to={`/people/${credit.personId}`}
-          className="flex flex-col items-center gap-1.5 rounded-xl p-2 transition hover:bg-[#1a1f3a]"
+          className="group flex flex-col items-center gap-1.5 rounded-xl p-2 transition hover:-translate-y-0.5 hover:bg-[#1a1f3a]"
         >
-          <div className="h-16 w-16 overflow-hidden rounded-full border border-[#2a3570] bg-[#12163a]">
+          <div className="h-16 w-16 overflow-hidden rounded-full border border-[#2a3570] bg-[#12163a] transition group-hover:border-[#6f6fdc]">
             {credit.profilePath ? (
               <img
                 src={`${TMDB_IMG}${credit.profilePath}`}
