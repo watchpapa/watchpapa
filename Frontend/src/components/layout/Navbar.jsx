@@ -108,7 +108,7 @@ function Navbar({ session }) {
   return (
     <>
       {showAuthPrompt && <AuthPromptModal onClose={() => setShowAuthPrompt(false)} />}
-      <header ref={headerRef} className="sticky top-0 z-50 border-b border-[#1a1f3a] bg-[#0d0f1e]/95 backdrop-blur-sm">
+      <header ref={headerRef} className="sticky top-0 z-50 border-b border-[#2a3570]/40 bg-[#0d0f1e]/80 backdrop-blur-md">
         {/* Three-column grid keeps the logo centered without overlapping nav/actions */}
         <div className="grid h-14 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 px-3 sm:px-5 lg:px-8">
           {/* Left: menu + catalog links */}
@@ -182,7 +182,7 @@ function Navbar({ session }) {
                 </Link>
                 <Link
                   to="/register"
-                  className="rounded-xl border border-[#3a3a7a] bg-[#1a1d35] px-2.5 py-1.5 text-xs font-semibold text-[#a0a0e8] transition hover:border-[#5a5aaa] hover:text-white sm:px-3"
+                  className="rounded-xl border border-[#6f6fdc] bg-gradient-to-b from-[#6f6fdc] to-[#4b3bb0] px-2.5 py-1.5 text-xs font-semibold text-white shadow-[0_4px_14px_-6px_rgba(111,111,220,0.8)] transition hover:from-[#8585ef] hover:to-[#6f6fdc] sm:px-3"
                 >
                   Register
                 </Link>
@@ -193,14 +193,14 @@ function Navbar({ session }) {
 
         {/* Mobile dropdown */}
         {mobileOpen && (
-          <div className="border-t border-[#1a1f3a] px-5 pb-3 sm:hidden animate-[slideDown_0.18s_ease-out]">
+          <div className="border-t border-[#2a3570]/50 px-5 pb-3 sm:hidden animate-[slideDown_0.18s_ease-out]">
             {session &&
               SESSION_ACTIONS.map(({ label, to, Icon }) => (
                 <Link
                   key={to}
                   to={to}
                   onClick={() => setMobileOpen(false)}
-                  className="flex items-center gap-2 border-b border-[#1a1f3a] py-3 text-sm font-semibold text-[#8888c8] transition hover:text-white"
+                  className="flex items-center gap-2 border-b border-[#2a3570]/50 py-3 text-sm font-semibold text-[#8888c8] transition hover:text-white"
                 >
                   <Icon />
                   {label}
@@ -214,7 +214,7 @@ function Navbar({ session }) {
                 end
                 onClick={() => setMobileOpen(false)}
                 className={({ isActive }) =>
-                  `block border-b border-[#1a1f3a] py-3 text-sm font-semibold transition last:border-0 ${
+                  `block border-b border-[#2a3570]/50 py-3 text-sm font-semibold transition last:border-0 ${
                     isActive ? "text-white" : "text-[#8888c8]"
                   }`
                 }
@@ -228,7 +228,7 @@ function Navbar({ session }) {
                 <button
                   type="button"
                   onClick={() => { setMobileOpen(false); setShowAuthPrompt(true); }}
-                  className="flex w-full items-center gap-2 border-b border-[#1a1f3a] py-3 text-sm font-semibold text-[#8888c8]"
+                  className="flex w-full items-center gap-2 border-b border-[#2a3570]/50 py-3 text-sm font-semibold text-[#8888c8]"
                 >
                   <CalendarIcon />
                   Releases Radar
@@ -244,7 +244,7 @@ function Navbar({ session }) {
                   <Link
                     to="/register"
                     onClick={() => setMobileOpen(false)}
-                    className="flex-1 rounded-xl border border-[#7070d0] bg-[#3a3a8a] py-2.5 text-center text-sm font-semibold text-white"
+                    className="flex-1 rounded-xl border border-[#6f6fdc] bg-gradient-to-b from-[#6f6fdc] to-[#4b3bb0] py-2.5 text-center text-sm font-semibold text-white"
                   >
                     Register
                   </Link>

@@ -15,7 +15,8 @@ const ALL_LINKS = [
 
 function Footer() {
   return (
-    <footer className="border-t border-[#1b1e30] bg-[#0a0c14] px-4 py-4 sm:px-6 lg:px-8">
+    <footer className="relative border-t border-[#2a3570]/30 bg-[#0a0c14] px-4 py-4 sm:px-6 lg:px-8">
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[#6f6fdc]/40 to-transparent" aria-hidden />
       <div className="mx-auto max-w-[1588px] space-y-3">
 
         {/* Top row: logo + links */}
@@ -27,7 +28,7 @@ function Footer() {
             <Link
               key={link.to}
               to={link.to}
-              className="text-xs text-[#5a5a7a] transition hover:text-[#a0a0c8]"
+              className="text-xs text-[#6a6a9a] transition hover:text-[#c084fc]"
             >
               {link.label}
             </Link>
