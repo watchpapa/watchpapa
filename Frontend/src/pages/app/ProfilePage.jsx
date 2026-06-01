@@ -5,6 +5,8 @@ import { PageHead } from "../../components/ui/PageHead.jsx";
 import { useProfileData } from "../../features/profile/hooks/useProfileData.js";
 import { useProfileRatings } from "../../features/profile/hooks/useProfileRatings.js";
 import { useProfileStats } from "../../features/profile/hooks/useProfileStats.js";
+import { useObserve } from "../../features/observe/hooks/useObserve.js";
+import { useObserveCounts } from "../../features/observe/hooks/useObserveCounts.js";
 import { ProfileFavourites } from "../../components/profile/ProfileFavourites.jsx";
 import { ProfileStats } from "../../components/profile/ProfileStats.jsx";
 import { ProfileRatingCard } from "../../components/profile/ProfileRatingCard.jsx";
@@ -37,11 +39,83 @@ function MemberSince({ date }) {
   );
 }
 
+// Observe + block controls shown on another user's profile.
+function ObserveControls({ targetId, targetIsPrivate, session, onChange }) {
+  const { status, isBlocked, loading, busy, observe, unobserve, block, unblock } = useObserve(targetId, session);
+  const [hover, setHover] = useState(false);
+
+  if (loading) return <div className="h-8 w-24 animate-pulse rounded-xl bg-[#1a1f3a]" />;
+
+  const afterChange = () => onChange?.();
+
+  if (isBlocked) {
+    return (
+      <button
+        onClick={async () => { await unblock(); afterChange(); }}
+        disabled={busy}
+        className="rounded-xl border border-[#3a3a7a] bg-[#1a1d35] px-4 py-1.5 text-xs font-semibold text-[#a0a0e8] transition hover:border-[#5a5aaa] hover:text-white disabled:opacity-50"
+      >
+        Unblock
+      </button>
+    );
+  }
+
+  let label;
+  let primary = false;
+  if (status === "accepted") {
+    label = hover ? "Unobserve" : "Observing";
+  } else if (status === "pending") {
+    label = hover ? "Cancel request" : "Requested";
+  } else {
+    label = targetIsPrivate ? "Request to observe" : "Observe";
+    primary = true;
+  }
+
+  const handleObserve = async () => {
+    if (status === "accepted" || status === "pending") await unobserve();
+    else await observe();
+    afterChange();
+  };
+
+  const handleBlock = async () => {
+    if (!window.confirm("Block this user? Any observe relationship between you will be removed.")) return;
+    await block();
+    afterChange();
+  };
+
+  return (
+    <div className="flex items-center gap-2">
+      <button
+        onClick={handleObserve}
+        disabled={busy}
+        onMouseEnter={() => setHover(true)}
+        onMouseLeave={() => setHover(false)}
+        className={`rounded-xl px-4 py-1.5 text-xs font-semibold transition disabled:opacity-50 ${
+          primary
+            ? "border border-[#7070d0] bg-[#3a3a8a] text-white hover:bg-[#4a4aaa]"
+            : "border border-[#3a3a7a] bg-[#1a1d35] text-[#a0a0e8] hover:border-[#aa5a5a] hover:text-white"
+        }`}
+      >
+        {label}
+      </button>
+      <button
+        onClick={handleBlock}
+        disabled={busy}
+        title="Block user"
+        className="rounded-xl border border-[#3a3a7a] bg-[#1a1d35] px-3 py-1.5 text-xs font-semibold text-[#8888c8] transition hover:border-[#aa5a5a] hover:text-white disabled:opacity-50"
+      >
+        Block
+      </button>
+    </div>
+  );
+}
+
 function ProfilePage({ session }) {
   const { username } = useParams();
-  const { profile, tier, favourites, isOwn, loading, notFound } = useProfileData(username, session);
-  const { ratings, loading: ratingsLoading, hasMore, loadMore } = useProfileRatings(profile?.id);
-  const { basic, genreStats, decadeStats, monthlyStats } = useProfileStats(profile?.id, tier);
+  const { profile, tier, favourites, isOwn, canViewRatings, loading, notFound } = useProfileData(username, session);
+  const { ratings, loading: ratingsLoading, hasMore, loadMore } = useProfileRatings(canViewRatings ? profile?.id : null);
+  const { basic, genreStats, decadeStats, monthlyStats } = useProfileStats(canViewRatings ? profile?.id : null, tier);
+  const { counts, reload: reloadCounts } = useObserveCounts(profile?.id);
   const [shareOpen, setShareOpen] = useState(false);
 
   const breadcrumbs = [{ label: username }];
@@ -103,7 +177,7 @@ function ProfilePage({ session }) {
                 </svg>
                 Share
               </button>
-              {isOwn && (
+              {isOwn ? (
                 <>
                   <Link
                     to="/profile/edit"
@@ -120,7 +194,24 @@ function ProfilePage({ session }) {
                     <GearIcon />
                   </Link>
                 </>
+              ) : (
+                <ObserveControls
+                  targetId={profile.id}
+                  targetIsPrivate={profile.is_private}
+                  session={session}
+                  onChange={reloadCounts}
+                />
               )}
+            </div>
+
+            {/* Observer / observing counts */}
+            <div className="flex items-center gap-4 text-xs">
+              <Link to={`/u/${profile.username}/observers`} className="text-[#8888c8] transition hover:text-white">
+                <span className="font-bold text-white">{counts.observers}</span> Observers
+              </Link>
+              <Link to={`/u/${profile.username}/observing`} className="text-[#8888c8] transition hover:text-white">
+                <span className="font-bold text-white">{counts.observing}</span> Observing
+              </Link>
             </div>
             {profile.bio && (
               <p className="mt-1 text-sm text-[#a0a0d8]">{profile.bio}</p>
@@ -134,40 +225,55 @@ function ProfilePage({ session }) {
         {/* Favourites */}
         {favourites.length > 0 && <ProfileFavourites favourites={favourites} />}
 
-        {/* Stats */}
-        <ProfileStats
-          profileId={profile.id}
-          basic={basic}
-          genreStats={genreStats}
-          decadeStats={decadeStats}
-          monthlyStats={monthlyStats}
-          ownerTier={tier}
-        />
-
-        {/* Ratings grid */}
-        <div>
-          <h2 className="mb-3 text-xs font-semibold uppercase tracking-widest text-[#5050b0]">
-            Your Ratings {ratings.length > 0 && <span className="normal-case text-[#4a4a7a]">({ratings.length}{hasMore ? "+" : ""})</span>}
-          </h2>
-
-          {ratings.length === 0 && !ratingsLoading && (
-            <p className="text-sm text-[#4a4a7a]">No ratings yet.</p>
-          )}
-
-          <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-5">
-            {ratings.map((r) => <ProfileRatingCard key={r.id} rating={r} />)}
+        {!canViewRatings ? (
+          <div className="flex flex-col items-center justify-center rounded-2xl border border-[#1a1f3a] bg-[#0a0c18] py-16 text-center">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#5050a0" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+              <rect x="3" y="11" width="18" height="11" rx="2" />
+              <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+            </svg>
+            <p className="mt-3 text-sm font-semibold text-white">This account is private</p>
+            <p className="mt-1 text-xs text-[#5050a0]">
+              Observe @{profile.username} to see their ratings and stats once your request is accepted.
+            </p>
           </div>
+        ) : (
+          <>
+            {/* Stats */}
+            <ProfileStats
+              profileId={profile.id}
+              basic={basic}
+              genreStats={genreStats}
+              decadeStats={decadeStats}
+              monthlyStats={monthlyStats}
+              ownerTier={tier}
+            />
 
-          {hasMore && (
-            <button
-              onClick={loadMore}
-              disabled={ratingsLoading}
-              className="mt-4 w-full rounded-xl border border-[#2a2f5a] py-2.5 text-sm font-semibold text-[#8383e7] transition hover:border-[#5a5aaa] hover:text-white disabled:opacity-50"
-            >
-              {ratingsLoading ? "Loading…" : "Load more"}
-            </button>
-          )}
-        </div>
+            {/* Ratings grid */}
+            <div>
+              <h2 className="mb-3 text-xs font-semibold uppercase tracking-widest text-[#5050b0]">
+                {isOwn ? "Your Ratings" : "Ratings"} {ratings.length > 0 && <span className="normal-case text-[#4a4a7a]">({ratings.length}{hasMore ? "+" : ""})</span>}
+              </h2>
+
+              {ratings.length === 0 && !ratingsLoading && (
+                <p className="text-sm text-[#4a4a7a]">No ratings yet.</p>
+              )}
+
+              <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-5">
+                {ratings.map((r) => <ProfileRatingCard key={r.id} rating={r} />)}
+              </div>
+
+              {hasMore && (
+                <button
+                  onClick={loadMore}
+                  disabled={ratingsLoading}
+                  className="mt-4 w-full rounded-xl border border-[#2a2f5a] py-2.5 text-sm font-semibold text-[#8383e7] transition hover:border-[#5a5aaa] hover:text-white disabled:opacity-50"
+                >
+                  {ratingsLoading ? "Loading…" : "Load more"}
+                </button>
+              )}
+            </div>
+          </>
+        )}
       </div>
       {shareOpen && (
         <ProfileShareModal

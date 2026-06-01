@@ -63,6 +63,10 @@ function SettingsPage({ session }) {
   // Adult toggle
   const [adultBusy, setAdultBusy] = useState(false);
 
+  // Privacy
+  const [privateBusy, setPrivateBusy] = useState(false);
+  const [blocked, setBlocked] = useState([]);
+
   // Reward
   const [rewardInput, setRewardInput] = useState("");
   const [rewardError, setRewardError] = useState(null);
@@ -90,15 +94,17 @@ function SettingsPage({ session }) {
   const load = useCallback(async () => {
     if (!uid) return;
     setLoading(true);
-    const [profileRes, tierRes, subRes] = await Promise.all([
-      supabase.from("profile").select("username, is_adult, setting_display_adult_content, referral_code, username_changed_at").eq("id", uid).maybeSingle(),
+    const [profileRes, tierRes, subRes, blockedRes] = await Promise.all([
+      supabase.from("profile").select("username, is_adult, is_private, setting_display_adult_content, referral_code, username_changed_at").eq("id", uid).maybeSingle(),
       supabase.rpc("get_effective_tier", { p_profile_id: uid }),
       supabase.from("user_subscriptions").select("is_early_adopter, expires_at").eq("profile_id", uid).maybeSingle(),
+      supabase.from("user_block").select("blocked_id, created_at, blocked:blocked_id(id, username)").eq("blocker_id", uid).order("created_at", { ascending: false }),
     ]);
     setProfile(profileRes.data ?? null);
     setTier(tierRes.data ?? "free");
     setIsEarlyAdopter(subRes.data?.is_early_adopter ?? false);
     setExpiresAt(subRes.data?.expires_at ?? null);
+    setBlocked(blockedRes.data ?? []);
     setLoading(false);
   }, [uid]);
 
@@ -159,6 +165,28 @@ function SettingsPage({ session }) {
       .eq("id", uid);
     setAdultBusy(false);
     if (error) setProfile((p) => ({ ...p, setting_display_adult_content: prev }));
+  };
+
+  const handlePrivateToggle = async (val) => {
+    if (privateBusy || !isValidBoolean(val)) return;
+    const prev = profile?.is_private ?? false;
+    setProfile((p) => ({ ...p, is_private: val }));
+    setPrivateBusy(true);
+    const { error } = await supabase.from("profile")
+      .update({ is_private: val, updated_at: new Date().toISOString() })
+      .eq("id", uid);
+    setPrivateBusy(false);
+    if (error) setProfile((p) => ({ ...p, is_private: prev }));
+  };
+
+  const handleUnblock = async (blockedId) => {
+    const prev = blocked;
+    setBlocked((list) => list.filter((b) => b.blocked_id !== blockedId));
+    const { error } = await supabase.from("user_block")
+      .delete()
+      .eq("blocker_id", uid)
+      .eq("blocked_id", blockedId);
+    if (error) setBlocked(prev);
   };
 
   const handleSaveUsername = async () => {
@@ -307,6 +335,41 @@ function SettingsPage({ session }) {
             </Row>
           </Section>
         )}
+
+        {/* Privacy */}
+        <Section title="Privacy">
+          <Row label="Private account">
+            <div className="flex flex-col items-end gap-1">
+              <Toggle
+                value={profile?.is_private ?? false}
+                onChange={handlePrivateToggle}
+                disabled={privateBusy}
+              />
+              <p className="max-w-[16rem] text-[11px] text-[#5a5a78]">
+                When on, people must request to observe you and your ratings stay hidden until you approve.
+              </p>
+            </div>
+          </Row>
+          <Row label="Blocked users">
+            {blocked.length === 0 ? (
+              <span className="text-sm text-[#5a5a78]">No blocked users</span>
+            ) : (
+              <div className="flex w-full flex-col items-end gap-2">
+                {blocked.map((b) => (
+                  <div key={b.blocked_id} className="flex w-full items-center justify-between gap-3 sm:justify-end">
+                    <span className="text-sm text-[#b0b0d4]">{b.blocked?.username ?? "Unknown"}</span>
+                    <button
+                      onClick={() => handleUnblock(b.blocked_id)}
+                      className="rounded-lg border border-[#2a3570] px-3 py-1 text-xs font-semibold text-[#6868b8] transition hover:border-[#5a5aaa] hover:text-white"
+                    >
+                      Unblock
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </Row>
+        </Section>
 
         {/* Subscription */}
         <Section title="Plan">
