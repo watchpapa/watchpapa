@@ -19,7 +19,8 @@ function PersonIcon() {
 
 function SectionHeading({ children }) {
   return (
-    <h2 className="text-xl font-extrabold tracking-tight" style={{ color: "#e8c04a" }}>
+    <h2 className="flex items-center text-xl font-extrabold tracking-tight text-white">
+      <span className="mr-2.5 h-5 w-1 shrink-0 rounded-full bg-gradient-to-b from-[#c084fc] to-[#6f6fdc]" aria-hidden />
       {children}
     </h2>
   );

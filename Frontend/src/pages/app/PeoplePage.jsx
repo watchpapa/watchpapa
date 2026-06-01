@@ -22,7 +22,7 @@ function PersonRow({ person, rank }) {
   return (
     <Link
       to={`/people/${person.id}`}
-      className="flex items-start gap-3 rounded-2xl border border-[#1a1f3a] bg-[#0d0f1e] p-3 transition hover:border-[#3a3a7a] hover:bg-[#141728] sm:gap-5 sm:p-4"
+      className="flex items-start gap-3 rounded-2xl border border-[#2a3570]/60 bg-[#0d0f1e]/70 p-3 backdrop-blur-sm transition hover:-translate-y-0.5 hover:border-[#6f6fdc] hover:bg-[#141728] hover:shadow-[0_14px_30px_-16px_rgba(111,111,220,0.5)] sm:gap-5 sm:p-4"
     >
       <span className="mt-1 hidden w-8 flex-shrink-0 text-right text-sm font-bold text-[#3a3a7a] sm:block">
         {rank}
@@ -71,7 +71,7 @@ function SkeletonRows() {
   return (
     <>
       {Array.from({ length: 10 }).map((_, i) => (
-        <div key={i} className="flex items-start gap-3 rounded-2xl border border-[#1a1f3a] bg-[#0d0f1e] p-3 sm:gap-5 sm:p-4">
+        <div key={i} className="flex items-start gap-3 rounded-2xl border border-[#2a3570]/50 bg-[#0d0f1e] p-3 sm:gap-5 sm:p-4">
           <div className="mt-1 hidden h-4 w-8 animate-pulse rounded bg-[#1e2240] sm:block" />
           <div className="h-32 w-[86px] flex-shrink-0 animate-pulse rounded-xl bg-[#1e2240]" />
           <div className="flex-1 space-y-2 pt-1">
@@ -93,7 +93,8 @@ function PeoplePage({ session, showAdult }) {
     <AppLayout session={session}>
       <div className="mx-auto max-w-3xl">
         <SearchBar value={search} onChange={(e) => setSearch(e.target.value)} />
-        <h2 className="mt-8 mb-6 text-xl font-extrabold tracking-tight" style={{ color: "#e8c04a" }}>
+        <h2 className="mt-8 mb-6 flex items-center text-xl font-extrabold tracking-tight text-white">
+          <span className="mr-2.5 h-5 w-1 shrink-0 rounded-full bg-gradient-to-b from-[#c084fc] to-[#6f6fdc]" aria-hidden />
           Popular People
         </h2>
 
@@ -119,7 +120,7 @@ function PeoplePage({ session, showAdult }) {
             <button
               onClick={loadMore}
               disabled={isLoadingMore}
-              className="rounded-xl border border-[#3a3a7a] bg-[#1a1d35] px-6 py-2.5 text-sm font-semibold text-[#a0a0e8] transition hover:border-[#5a5aaa] hover:text-white disabled:opacity-50"
+              className="rounded-xl border border-[#6f6fdc] bg-gradient-to-b from-[#6f6fdc] to-[#4b3bb0] px-6 py-2.5 text-sm font-bold text-white shadow-[0_8px_24px_-8px_rgba(111,111,220,0.7)] transition hover:from-[#8585ef] disabled:opacity-50"
             >
               {isLoadingMore ? "Loading…" : "Load more"}
             </button>

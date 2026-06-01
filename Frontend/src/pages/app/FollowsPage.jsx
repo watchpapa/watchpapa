@@ -26,7 +26,7 @@ function UnfollowIcon() {
 
 function FollowCard({ title, poster, year, to, onUnfollow, unfollowing }) {
   return (
-    <div className="flex items-center gap-3 rounded-xl border border-[#1a1f3a] bg-[#0a0c18] p-3 transition hover:border-[#2a2f5a]">
+    <div className="flex items-center gap-3 rounded-xl border border-[#2a3570]/50 bg-[#0a0c18] p-3 transition hover:border-[#2a2f5a]">
       <Link to={to} className="shrink-0">
         <div className="h-16 w-11 overflow-hidden rounded-lg border border-[#2a3570] bg-[#0d0f1e]">
           {poster ? (
@@ -93,7 +93,10 @@ function FollowsPage({ session }) {
 
       <div className="mx-auto max-w-2xl py-6 px-4 sm:px-0">
         <div className="mb-4 flex items-center justify-between">
-          <h1 className="text-xl font-bold text-white">Follows</h1>
+          <h1 className="flex items-center text-xl font-bold text-white">
+            <span className="mr-2.5 h-5 w-1 shrink-0 rounded-full bg-gradient-to-b from-[#c084fc] to-[#6f6fdc]" aria-hidden />
+            Follows
+          </h1>
           <span className={`text-sm ${isOverFollowLimit ? "text-amber-400" : "text-[#5050a0]"}`}>
             {isCombined
               ? `${totalFollows} / ${limits.total}`
@@ -117,7 +120,7 @@ function FollowsPage({ session }) {
         )}
 
         {/* Tabs */}
-        <div className="mb-4 flex gap-1 rounded-xl border border-[#1a1f3a] bg-[#0a0c18] p-1">
+        <div className="mb-4 flex gap-1 rounded-xl border border-[#2a3570]/50 bg-[#0a0c18] p-1">
           {[
             { key: "shows", label: `Shows (${shows.length})` },
             { key: "movies", label: `Movies (${movies.length})` },
@@ -127,8 +130,8 @@ function FollowsPage({ session }) {
               onClick={() => setTab(key)}
               className={`flex-1 rounded-lg py-2 text-sm font-semibold transition ${
                 tab === key
-                  ? "bg-[#1a1d35] text-white"
-                  : "text-[#6868b8] hover:text-white"
+                  ? "bg-gradient-to-b from-[#6f6fdc] to-[#4b3bb0] text-white shadow-[0_4px_14px_-6px_rgba(111,111,220,0.8)]"
+                  : "text-[#8888c8] hover:text-white"
               }`}
             >
               {label}

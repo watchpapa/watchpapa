@@ -94,7 +94,7 @@ function ItemGridCard({ item, onRemove, session, onMembershipChange }) {
       <div className="relative">
         <Link
           to={detailPath}
-          className="relative block aspect-[2/3] overflow-hidden rounded-2xl border border-[#2a3570] bg-[#12163a] transition hover:border-[#5050a0]"
+          className="group/wl relative block aspect-[2/3] overflow-hidden rounded-2xl border border-[#2a3570] bg-[#12163a] shadow-[0_8px_24px_-12px_rgba(0,0,0,0.7)] transition duration-300 hover:-translate-y-1 hover:border-[#6f6fdc] hover:shadow-[0_18px_38px_-12px_rgba(111,111,220,0.5)]"
         >
           {posterSrc ? (
             <img src={posterSrc} alt={title} className="h-full w-full object-cover transition duration-300 group-hover:scale-105" loading="lazy" />
@@ -294,7 +294,10 @@ function WatchlistsPage({ session }) {
       )}
 
       <div className="mx-auto max-w-6xl">
-        <h1 className="mb-5 text-xl font-extrabold text-[#a090ff] sm:text-2xl">My Watchlists</h1>
+        <h1 className="mb-5 flex items-center text-xl font-extrabold text-white sm:text-2xl">
+          <span className="mr-2.5 h-6 w-1 shrink-0 rounded-full bg-gradient-to-b from-[#c084fc] to-[#6f6fdc]" aria-hidden />
+          My Watchlists
+        </h1>
 
         {isOverWatchlistLimit && overageStatus && (
           <OverLimitBanner
@@ -306,7 +309,7 @@ function WatchlistsPage({ session }) {
         )}
 
         {/* Tab bar */}
-        <div className="mb-5 flex items-center gap-1 overflow-x-auto rounded-2xl border border-[#1a1f3a] bg-[#0a0c18] p-1.5">
+        <div className="mb-5 flex items-center gap-1 overflow-x-auto rounded-2xl border border-[#2a3570]/50 bg-[#0a0c18] p-1.5">
           {listsLoading ? (
             <div className="flex gap-1">
               {[1, 2].map((i) => (
@@ -320,8 +323,8 @@ function WatchlistsPage({ session }) {
                 onClick={() => handleTabSelect(list.id)}
                 className={`flex-shrink-0 rounded-xl px-4 py-1.5 text-sm font-semibold transition ${
                   list.id === selectedId
-                    ? "bg-[#1a1d35] text-white shadow-sm"
-                    : "text-[#5050a0] hover:text-[#8080c0]"
+                    ? "bg-gradient-to-b from-[#6f6fdc] to-[#4b3bb0] text-white shadow-[0_4px_14px_-6px_rgba(111,111,220,0.8)]"
+                    : "text-[#8888c8] hover:text-white"
                 }`}
               >
                 {list.name}
@@ -374,7 +377,7 @@ function WatchlistsPage({ session }) {
 
         {/* Empty state — no lists at all */}
         {!listsLoading && watchlists.length === 0 && !showNewForm && (
-          <div className="flex flex-col items-center gap-4 rounded-2xl border border-[#1a1f3a] bg-[#0d0f1e] py-16 text-center">
+          <div className="flex flex-col items-center gap-4 rounded-2xl border border-[#2a3570]/50 bg-[#0d0f1e] py-16 text-center">
             <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-[#2a2d4a] bg-[#141728] text-[#5050a0]">
               <BookmarkIcon />
             </div>
@@ -450,11 +453,11 @@ function WatchlistsPage({ session }) {
             {itemsLoading ? (
               <div className="grid grid-cols-[repeat(auto-fill,minmax(130px,1fr))] gap-3 sm:grid-cols-[repeat(auto-fill,minmax(150px,1fr))]">
                 {[1, 2, 3, 4, 5, 6].map((i) => (
-                  <div key={i} className="aspect-[2/3] animate-pulse rounded-2xl border border-[#1a1f3a] bg-[#0d0f1e]" />
+                  <div key={i} className="aspect-[2/3] animate-pulse rounded-2xl border border-[#2a3570]/50 bg-[#0d0f1e]" />
                 ))}
               </div>
             ) : items.length === 0 ? (
-              <div className="flex flex-col items-center gap-3 rounded-2xl border border-[#1a1f3a] bg-[#0d0f1e] py-12 text-center">
+              <div className="flex flex-col items-center gap-3 rounded-2xl border border-[#2a3570]/50 bg-[#0d0f1e] py-12 text-center">
                 <p className="text-sm text-[#4040a0]">
                   This list is empty. Add movies or shows from their detail pages.
                 </p>
