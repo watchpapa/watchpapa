@@ -1,5 +1,4 @@
 import { Link } from "react-router-dom";
-import { useProfileStats } from "../../features/profile/hooks/useProfileStats.js";
 import { HeartDisplay } from "../rating/HeartDisplay.jsx";
 
 const PREMIUM_TIERS = new Set(["premium", "pro", "pro_plus", "god"]);
@@ -127,12 +126,12 @@ function OwnHistogram({ histogram, total, avg }) {
 
 // ownerTier drives which stats are unlocked.
 // profileId is the profile being viewed (not the viewer).
-export function ProfileStats({ profileId, ownerTier }) {
-  const { basic, genreStats, decadeStats, monthlyStats, loading } = useProfileStats(profileId, ownerTier);
+// Stats are fetched by the parent (ProfilePage) and passed as props.
+export function ProfileStats({ profileId, basic, genreStats, decadeStats, monthlyStats, ownerTier }) {
   const canSeeGenre = PREMIUM_TIERS.has(ownerTier);
   const canSeePro = PRO_TIERS.has(ownerTier);
 
-  if (loading || !basic) return null;
+  if (!basic) return null;
 
   const fakeHist = canSeeGenre ? null : fakeHistogram(profileId);
   const fakeGen = canSeeGenre ? null : fakeGenres(profileId);
@@ -165,7 +164,7 @@ export function ProfileStats({ profileId, ownerTier }) {
       {/* Genre breakdown — Premium+ */}
       <div className={`relative rounded-xl border border-[#1a1f3a] bg-[#0a0c18] p-4 ${!canSeeGenre ? "overflow-hidden" : ""}`}>
         {!canSeeGenre && <LockedOverlay requiredTier="premium" />}
-        <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-[#5050b0]">Top genres</p>
+        <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-[#5050b0]">Your top genres</p>
         <div className={`space-y-2 ${!canSeeGenre ? "select-none" : ""}`}>
           {(canSeeGenre ? genreStats ?? [] : fakeGen).slice(0, 5).map((g, i) => (
             <div key={i} className="flex items-center gap-2">
@@ -185,7 +184,7 @@ export function ProfileStats({ profileId, ownerTier }) {
       {/* Decade breakdown — Pro+ */}
       <div className={`relative rounded-xl border border-[#1a1f3a] bg-[#0a0c18] p-4 ${!canSeePro ? "overflow-hidden" : ""}`}>
         {!canSeePro && <LockedOverlay requiredTier="pro" />}
-        <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-[#5050b0]">Decades</p>
+        <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-[#5050b0]">Your Top Decades</p>
         <div className={!canSeePro ? "select-none" : ""}>
           <div className="flex items-end gap-2" style={{ height: 40 }}>
             {(canSeePro ? decadeStats ?? [] : fakeDec).map((d) => {
@@ -214,7 +213,7 @@ export function ProfileStats({ profileId, ownerTier }) {
       {/* Monthly heatmap — Pro+ */}
       <div className={`relative rounded-xl border border-[#1a1f3a] bg-[#0a0c18] p-4 ${!canSeePro ? "overflow-hidden" : ""}`}>
         {!canSeePro && <LockedOverlay requiredTier="pro" />}
-        <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-[#5050b0]">Activity</p>
+        <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-[#5050b0]">Your Activity</p>
         <div className={`flex items-end gap-[3px] ${!canSeePro ? "select-none" : ""}`} style={{ height: 40 }}>
           {(canSeePro ? monthlyStats ?? [] : fakeMon).map((m) => {
             const all = canSeePro ? monthlyStats ?? [] : fakeMon;

@@ -1,11 +1,14 @@
+import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import AppLayout from "../../layouts/AppLayout.jsx";
 import { PageHead } from "../../components/ui/PageHead.jsx";
 import { useProfileData } from "../../features/profile/hooks/useProfileData.js";
 import { useProfileRatings } from "../../features/profile/hooks/useProfileRatings.js";
+import { useProfileStats } from "../../features/profile/hooks/useProfileStats.js";
 import { ProfileFavourites } from "../../components/profile/ProfileFavourites.jsx";
 import { ProfileStats } from "../../components/profile/ProfileStats.jsx";
 import { ProfileRatingCard } from "../../components/profile/ProfileRatingCard.jsx";
+import ProfileShareModal from "../../components/profile/ProfileShareModal.jsx";
 
 const TIER_COLORS = {
   free: "text-green-400 border-green-900/50 bg-green-900/10",
@@ -38,6 +41,8 @@ function ProfilePage({ session }) {
   const { username } = useParams();
   const { profile, tier, favourites, isOwn, loading, notFound } = useProfileData(username, session);
   const { ratings, loading: ratingsLoading, hasMore, loadMore } = useProfileRatings(profile?.id);
+  const { basic, genreStats, decadeStats, monthlyStats } = useProfileStats(profile?.id, tier);
+  const [shareOpen, setShareOpen] = useState(false);
 
   const breadcrumbs = [{ label: username }];
 
@@ -85,23 +90,35 @@ function ProfilePage({ session }) {
               <span className={`rounded border px-2 py-0.5 text-[11px] font-semibold ${TIER_COLORS[tier] ?? TIER_COLORS.free}`}>
                 {TIER_LABELS[tier] ?? tier}
               </span>
-              {isOwn && (
-                <div className="ml-auto flex items-center gap-2">
-                  <Link
-                    to="/profile/edit"
-                    className="rounded-xl border border-[#3a3a7a] bg-[#1a1d35] px-3 py-1.5 text-xs font-semibold text-[#a0a0e8] transition hover:border-[#5a5aaa] hover:text-white"
-                  >
-                    Edit Profile
-                  </Link>
-                  <Link
-                    to="/settings"
-                    className="flex items-center gap-1.5 rounded-xl border border-[#3a3a7a] bg-[#1a1d35] px-2.5 py-1.5 text-xs font-semibold text-[#a0a0e8] transition hover:border-[#5a5aaa] hover:text-white"
-                    title="Settings"
-                  >
-                    <GearIcon />
-                  </Link>
-                </div>
-              )}
+              <div className="ml-auto flex items-center gap-2">
+                <button
+                  onClick={() => setShareOpen(true)}
+                  className="flex items-center gap-1.5 rounded-xl border border-[#3a3a7a] bg-[#1a1d35] px-3 py-1.5 text-xs font-semibold text-[#a0a0e8] transition hover:border-[#5a5aaa] hover:text-white"
+                >
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                    <circle cx="18" cy="5" r="3" /><circle cx="6" cy="12" r="3" /><circle cx="18" cy="19" r="3" />
+                    <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" /><line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
+                  </svg>
+                  Share
+                </button>
+                {isOwn && (
+                  <>
+                    <Link
+                      to="/profile/edit"
+                      className="rounded-xl border border-[#3a3a7a] bg-[#1a1d35] px-3 py-1.5 text-xs font-semibold text-[#a0a0e8] transition hover:border-[#5a5aaa] hover:text-white"
+                    >
+                      Edit Profile
+                    </Link>
+                    <Link
+                      to="/settings"
+                      className="flex items-center gap-1.5 rounded-xl border border-[#3a3a7a] bg-[#1a1d35] px-2.5 py-1.5 text-xs font-semibold text-[#a0a0e8] transition hover:border-[#5a5aaa] hover:text-white"
+                      title="Settings"
+                    >
+                      <GearIcon />
+                    </Link>
+                  </>
+                )}
+              </div>
             </div>
             {profile.bio && (
               <p className="mt-1 text-sm text-[#a0a0d8]">{profile.bio}</p>
@@ -116,12 +133,19 @@ function ProfilePage({ session }) {
         {favourites.length > 0 && <ProfileFavourites favourites={favourites} />}
 
         {/* Stats */}
-        <ProfileStats profileId={profile.id} ownerTier={tier} />
+        <ProfileStats
+          profileId={profile.id}
+          basic={basic}
+          genreStats={genreStats}
+          decadeStats={decadeStats}
+          monthlyStats={monthlyStats}
+          ownerTier={tier}
+        />
 
         {/* Ratings grid */}
         <div>
           <h2 className="mb-3 text-xs font-semibold uppercase tracking-widest text-[#5050b0]">
-            Ratings {ratings.length > 0 && <span className="normal-case text-[#4a4a7a]">({ratings.length}{hasMore ? "+" : ""})</span>}
+            Your Ratings {ratings.length > 0 && <span className="normal-case text-[#4a4a7a]">({ratings.length}{hasMore ? "+" : ""})</span>}
           </h2>
 
           {ratings.length === 0 && !ratingsLoading && (
@@ -143,6 +167,18 @@ function ProfilePage({ session }) {
           )}
         </div>
       </div>
+      {shareOpen && (
+        <ProfileShareModal
+          onClose={() => setShareOpen(false)}
+          profile={profile}
+          tier={tier}
+          favourites={favourites}
+          basic={basic}
+          genreStats={genreStats}
+          decadeStats={decadeStats}
+          ownerTier={tier}
+        />
+      )}
     </AppLayout>
   );
 }

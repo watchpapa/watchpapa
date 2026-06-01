@@ -92,7 +92,10 @@ watchpapa/
 │   ├── components/
 │   │   ├── watchlist/                # AddToWatchlistButton — auto-adds to first list, toast + checklist picker (multi-list); compact prop for WatchlistsPage
 │   │   ├── rating/                   # HeartDisplay, RatingInput, RatingButton, RatingSidebar (always-visible sidebar widget), RatingHistogram (bar tooltips on hover)
-│   │   ├── profile/                  # ProfileFavourites, FavouritesEditor, ProfileStats (tier-gated with fake blur), ProfileRatingCard
+│   │   ├── profile/
+│   │   │   ├── generateShareCard.js  # Canvas 2D renderer for 4K share cards (story 9:16, square 1:1, wide 16:9); tier-gated layouts + personality emoji; scale param for preview (1x) vs download (3x)
+│   │   │   └── ProfileShareModal.jsx # Format picker (3 pills), WYSIWYG preview (canvas at 1x scale), Download PNG + Share to Instagram/Stories (Web Share API mobile, fallback download on desktop)
+│   │   │   # Also: ProfileFavourites, FavouritesEditor, ProfileStats (tier-gated blur), ProfileRatingCard
 │   │   ├── layout/                   # Navbar, Footer, Breadcrumbs, ProfileMenu (hover→dropdown desktop / click→profile; click→dropdown mobile), PosterBackground
 │   │   ├── ui/                       # Button, Input, Toggle, OtpInput, PageHead, RichTextEditor, OverLimitBanner, …
 │   │   ├── detail/                   # DetailPageLayout, PosterCard, CastGrid, FollowButton, AdminResyncButton (admin-only, role 4; shown on Movie/Show/Person pages), …
@@ -148,6 +151,7 @@ watchpapa/
 | Method | Path | Auth | Description |
 |---|---|---|---|
 | `GET` | `/api/search` | None | `?q=&limit=&localPerType=&includeAdult=` — local catalog + TMDB |
+| `GET` | `/api/image-proxy` | None | `?path=&size=` — CORS-compliant TMDB poster proxy for canvas rendering; used by profile share card generator |
 | `GET` | `/api/posters` | None | Random poster paths for auth page background |
 | `POST` | `/api/inject` | JWT + perUser rateLimit + auditLog | Background-ingest TMDB entity `{type, tmdbId}` |
 | `POST` | `/api/resolve` | JWT + perUser rateLimit + auditLog | Stub upsert + background ingest; returns local `id` |

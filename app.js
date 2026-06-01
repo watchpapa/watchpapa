@@ -23,6 +23,7 @@ import announcementsRouter from "./Backend/src/routes/announcements.js";
 import adminAnnouncementsRouter from "./Backend/src/routes/admin/announcements.js";
 import adminResyncRouter from "./Backend/src/routes/admin/resync.js";
 import { sitemapIndexHandler, sitemapStaticHandler, sitemapMoviesHandler, sitemapShowsHandler, sitemapPeopleHandler } from "./Backend/src/routes/sitemap.js";
+import imageProxyRouter from "./Backend/src/routes/imageProxy.js";
 import { requireAuth } from "./Backend/src/middleware/requireAuth.js";
 import { requireAdmin } from "./Backend/src/middleware/requireAdmin.js";
 import { auditLog } from "./Backend/src/middleware/auditLog.js";
@@ -91,6 +92,8 @@ const perUserMutationLimiter = rateLimit({
 
 app.use(globalLimiter);
 
+// TMDB image proxy — serves poster images with CORS headers for canvas capture.
+app.use("/api/image-proxy", imageProxyRouter);
 // Public poster paths for the auth page background.
 app.use("/api/posters", postersRouter);
 // Handle read search requests that query local database content.
