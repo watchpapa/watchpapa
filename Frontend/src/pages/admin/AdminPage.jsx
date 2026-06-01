@@ -6,7 +6,6 @@ const NAV = [
     section: "Overview",
     links: [
       { to: "/admin",               label: "Stats",        end: true },
-      { to: "/admin/analytics",     label: "Analytics" },
       { to: "/admin/early-adopters",label: "Early Adopters" },
     ],
   },

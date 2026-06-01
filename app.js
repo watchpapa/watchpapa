@@ -17,7 +17,6 @@ import adminUsersRouter from "./Backend/src/routes/admin/users.js";
 import adminReferralsRouter from "./Backend/src/routes/admin/referrals.js";
 import adminAuditLogRouter from "./Backend/src/routes/admin/auditLog.js";
 import adminScriptLogsRouter from "./Backend/src/routes/admin/scriptLogs.js";
-import adminAnalyticsRouter from "./Backend/src/routes/admin/analytics.js";
 import importRouter from "./Backend/src/routes/import.js";
 import announcementsRouter from "./Backend/src/routes/announcements.js";
 import adminAnnouncementsRouter from "./Backend/src/routes/admin/announcements.js";
@@ -115,7 +114,6 @@ app.use("/api/admin/users", adminLimiter, requireAuth, requireAdmin, adminUsersR
 app.use("/api/admin/referrals", adminLimiter, requireAuth, requireAdmin, adminReferralsRouter);
 app.use("/api/admin/audit-log", adminLimiter, requireAuth, requireAdmin, adminAuditLogRouter);
 app.use("/api/admin/script-logs", adminLimiter, requireAuth, requireAdmin, adminScriptLogsRouter);
-app.use("/api/admin/analytics", adminLimiter, requireAuth, requireAdmin, adminAnalyticsRouter);
 // Public GET (global limit only), editor-only POST/PATCH (mutation limit + auth inside router).
 app.use("/api/announcements", mutationOnly(mutationLimiter), announcementsRouter);
 app.use("/api/admin/announcements", adminLimiter, requireAuth, requireAdmin, adminAnnouncementsRouter);

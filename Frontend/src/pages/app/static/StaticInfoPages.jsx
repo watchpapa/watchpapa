@@ -283,15 +283,12 @@ function PrivacyPage({ session }) {
       <p>
         When you create an account we store your <strong>email address</strong>, a securely hashed
         password, and your <strong>date of birth</strong> (used to personalise age-appropriate
-        content). We also collect lightweight, anonymised usage analytics (page
-        views and feature interactions) to understand how the product is used. We do not collect
-        names, addresses, or payment information.
+        content). We do not collect names, addresses, or payment information.
       </p>
 
       <h2>How it is used</h2>
       <ul>
         <li>Your email is used for authentication and, if you opt in, product updates.</li>
-        <li>Analytics data is used only to improve the Service.</li>
         <li>We do not build advertising profiles or sell data to third parties.</li>
       </ul>
 

@@ -1,7 +1,7 @@
 // Used by:
 // - Frontend/src/main.jsx
 import { useEffect, useState } from "react";
-import { Navigate, Route, Routes, useLocation } from "react-router-dom";
+import { Navigate, Route, Routes } from "react-router-dom";
 import { supabase } from "./lib/supabase.js";
 import ForgotPasswordPage from "./pages/auth/ForgotPasswordPage.jsx";
 import LoginPage from "./pages/auth/LoginPage.jsx";
@@ -36,7 +36,6 @@ import ReferralLeaderboardPage from "./pages/admin/ReferralLeaderboardPage.jsx";
 import AuditLogPage from "./pages/admin/AuditLogPage.jsx";
 import ScriptLogsPage from "./pages/admin/ScriptLogsPage.jsx";
 import AdminRoute from "./components/auth/AdminRoute.jsx";
-import AnalyticsPage from "./pages/admin/AnalyticsPage.jsx";
 import StaffPage from "./pages/admin/StaffPage.jsx";
 import ContentResyncPage from "./pages/admin/ContentResyncPage.jsx";
 import CatalogStatsPage from "./pages/admin/CatalogStatsPage.jsx";
@@ -46,7 +45,6 @@ import ProfilePage from "./pages/app/ProfilePage.jsx";
 import EditProfilePage from "./pages/app/EditProfilePage.jsx";
 import FollowsPage from "./pages/app/FollowsPage.jsx";
 import ImportPage from "./pages/app/ImportPage.jsx";
-import { trackPresence, trackPageView } from "./lib/analytics.js";
 import {
   AboutPage,
   ContactPage,
@@ -157,60 +155,48 @@ function App() {
     }
 
     setIsProfileLoading(true);
-    // Read profile settings from the profile table for the signed-in user.
+    // Read profile settings for the signed-in user.
     supabase
       .from("profile")
       .select("username, is_adult, date_of_birth, setting_display_adult_content")
       .eq("id", session.user.id)
       .maybeSingle()
       .then(({ data, error }) => {
-        if (!isMounted) return;
-        if (error) {
-          setNeedsUsernameSetup(false);
-          setInitialUsername("");
-          setIsProfileLoading(false);
-          return;
-        }
-
-        const nextUsername = data?.username?.trim() ?? "";
-        setInitialUsername(nextUsername);
-        setNeedsUsernameSetup(nextUsername.length === 0);
-        setShowAdult(data?.setting_display_adult_content ?? false);
+      if (!isMounted) return;
+      if (error) {
+        setNeedsUsernameSetup(false);
+        setInitialUsername("");
         setIsProfileLoading(false);
+        return;
+      }
 
-        if (data && !data.is_adult && data.date_of_birth) {
-          const dob = new Date(data.date_of_birth);
-          const today = new Date();
-          let age = today.getFullYear() - dob.getFullYear();
-          const m = today.getMonth() - dob.getMonth();
-          if (m < 0 || (m === 0 && today.getDate() < dob.getDate())) age--;
-          if (age >= 18) {
-            // Persist adult eligibility update back to the profile table.
-            supabase
-              .from("profile")
-              .update({ is_adult: true, updated_at: new Date().toISOString() })
-              .eq("id", session.user.id)
-              .then(() => {});
-          }
+      const nextUsername = data?.username?.trim() ?? "";
+      setInitialUsername(nextUsername);
+      setNeedsUsernameSetup(nextUsername.length === 0);
+      setShowAdult(data?.setting_display_adult_content ?? false);
+      setIsProfileLoading(false);
+
+      if (data && !data.is_adult && data.date_of_birth) {
+        const dob = new Date(data.date_of_birth);
+        const today = new Date();
+        let age = today.getFullYear() - dob.getFullYear();
+        const m = today.getMonth() - dob.getMonth();
+        if (m < 0 || (m === 0 && today.getDate() < dob.getDate())) age--;
+        if (age >= 18) {
+          // Persist adult eligibility update back to the profile table.
+          supabase
+            .from("profile")
+            .update({ is_adult: true, updated_at: new Date().toISOString() })
+            .eq("id", session.user.id)
+            .then(() => {});
         }
+      }
       });
 
     return () => {
       isMounted = false;
     };
   }, [session?.user?.id]);
-
-  // Record hourly presence bucket for authenticated users (DAU/WAU/MAU).
-  useEffect(() => {
-    if (!session?.user?.id) return;
-    trackPresence();
-  }, [session?.user?.id]);
-
-  // Record page view on every route change.
-  const location = useLocation();
-  useEffect(() => {
-    trackPageView(location.pathname);
-  }, [location.pathname]);
 
   if (isSessionLoading || (session && isProfileLoading)) {
     return null;
@@ -502,7 +488,6 @@ function App() {
         }
       >
         <Route index element={<StatsPage />} />
-        <Route path="analytics" element={<AnalyticsPage />} />
         <Route path="reward-codes" element={<RewardCodesPage />} />
         <Route path="early-adopters" element={<EarlyAdoptersPage />} />
         <Route path="users" element={<UserLookupPage />} />
