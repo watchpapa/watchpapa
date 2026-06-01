@@ -612,7 +612,7 @@ router.get("/sync-status", async (req, res) => {
   res.json(summary);
 });
 
-// Export all user data as WatchPapa CSV format.
+// Export all user data as watchpapa CSV format.
 // Returns CSV text directly with Content-Disposition header for download.
 router.get("/export", async (req, res) => {
   const profileId = req.user.id;

@@ -158,7 +158,7 @@ watchpapa/
 | `POST` | `/api/import/resolve` | JWT + perUser rateLimit | Resolve `[{name, year}]` to local movie IDs; TMDB fallback + fast-upsert for unmatched |
 | `POST` | `/api/import/commit` | JWT + perUser rateLimit | Batch-insert `user_rating` + `watchlist_item`; ON CONFLICT skip or overwrite per `conflictMode` |
 | `POST` | `/api/import/run` | JWT + perUser rateLimit | Fire-and-forget import: validates + creates watchlist synchronously, returns 202, then processes each unique film in the background — stub-upsert → commit user data immediately → fire full ingest. Resilient to mid-run crashes; 5 MB body limit. |
-| `GET` | `/api/import/export` | JWT + perUser rateLimit | Stream WatchPapa CSV (ratings + watchlist) as `watchpapa-export-YYYY-MM-DD.csv` |
+| `GET` | `/api/import/export` | JWT + perUser rateLimit | Stream watchpapa CSV (ratings + watchlist) as `watchpapa-export-YYYY-MM-DD.csv` |
 | `GET` | `/api/announcements` | None | Active (non-archived) announcements |
 | `POST` | `/api/announcements` | JWT + requireEditor (inside router) | Create announcement |
 | `PATCH` | `/api/announcements/:id` | JWT + requireEditor | Edit announcement |
@@ -221,7 +221,7 @@ watchpapa/
 | `/follows` | Protected | `FollowsPage` | All followed shows + movies with unfollow buttons; tabs Shows/Movies; overage banner |
 | `/u/:username` | Protected | `ProfilePage` | Public profile: bio, tier badge, 5 favourites, stats (owner-tier-gated), ratings grid |
 | `/profile/edit` | Protected | `EditProfilePage` | Edit bio (200 chars) + 5 favourites (search picker) |
-| `/import` | Protected | `ImportPage` | Import from Letterboxd CSV or WatchPapa CSV; step-by-step UI with resolve + commit flow |
+| `/import` | Protected | `ImportPage` | Import from Letterboxd CSV or watchpapa CSV; step-by-step UI with resolve + commit flow |
 | `/admin` | AdminRoute (role=4) | `AdminPage` (nested) | |
 | `/admin` (index) | Admin | `StatsPage` | |
 | `/admin/reward-codes` | Admin | `RewardCodesPage` | |
@@ -282,7 +282,7 @@ Route guards defined in `App.jsx`: `PublicOnlyRoute`, `ProtectedRoute`, `PublicR
 
 ---
 
-## WatchPapa CSV Format
+## watchpapa CSV format
 
 Used for both export (from Settings) and import (on `/import` page). Round-trips cleanly.
 
@@ -299,7 +299,7 @@ Date,Name,Year,MediaType,WatchlistName,Rating,Watched
 | `Year` | 4-digit string | Release year |
 | `MediaType` | `movie` | Only movies currently (Letterboxd is movies-only) |
 | `WatchlistName` | string | Watchlist name, empty if rating-only row |
-| `Rating` | integer 1–10 | WatchPapa scale; empty if not rated |
+| `Rating` | integer 1–10 | watchpapa scale; empty if not rated |
 | `Watched` | `true`/`false` | Watchlist watched status; empty if not in a watchlist |
 
 The `/api/import/resolve` endpoint also accepts Letterboxd CSV format (auto-detected by headers: `Letterboxd URI` column). Letterboxd ratings (0.5–5) are multiplied by 2 to convert to the 1–10 scale.

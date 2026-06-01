@@ -27,7 +27,7 @@
 
 ## ❓ What is it?
 
-Watchpapa.tv is a web application that lets you track the release dates of episodes of shows you're watching or waiting for, as well as movie releases.
+watchpapa.tv is a web application that lets you track the release dates of episodes of shows you're watching or waiting for, as well as movie releases.
 
 ## 📺 Scenario
 

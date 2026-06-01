@@ -92,7 +92,7 @@ function parseLetterboxdList(rows) {
     }));
 }
 
-function parseWatchPapaCsv(rows) {
+function parseWatchpapaCsv(rows) {
   const ratings = [];
   const watchlistItems = [];
   for (const r of rows) {
@@ -181,7 +181,7 @@ export default function ImportPage({ session }) {
         if (data?.length > 0) setSelectedWatchlistId(String(data[0].id));
         else {
           setSelectedWatchlistId("new");
-          setNewWatchlistName(source === "letterboxd" ? "Letterboxd Import" : "WatchPapa Import");
+          setNewWatchlistName(source === "letterboxd" ? "Letterboxd Import" : "Watchpapa Import");
         }
         setWatchlistsLoading(false);
       });
@@ -199,10 +199,10 @@ export default function ImportPage({ session }) {
         const rows = parseCsv(e.target.result);
         const fmt = detectFormat(rows);
         if (fmt !== "watchpapa") {
-          setParseError("This doesn't look like a WatchPapa CSV. Make sure you upload the exported file.");
+          setParseError("This doesn't look like a watchpapa CSV. Make sure you upload the exported file.");
           return;
         }
-        const { ratings, watchlistItems } = parseWatchPapaCsv(rows);
+        const { ratings, watchlistItems } = parseWatchpapaCsv(rows);
         setLbRatings(ratings);
         setLbWatchlist(watchlistItems.filter((w) => !w.watched));
         setLbWatched(watchlistItems.filter((w) => w.watched));
@@ -330,7 +330,7 @@ export default function ImportPage({ session }) {
         {step === STEPS.SOURCE && (
           <div className="space-y-3">
             <p className="text-sm text-[#8888c8]">
-              Import your watch history, ratings, and watchlist from another service or from a previous WatchPapa export.
+              Import your watch history, ratings, and watchlist from another service or from a previous watchpapa export.
             </p>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <button
@@ -344,8 +344,8 @@ export default function ImportPage({ session }) {
                 onClick={() => { setSource("watchpapa"); setStep(STEPS.UPLOAD); }}
                 className="group rounded-2xl border border-[#1a1f3a] bg-[#0a0c18] p-5 text-left transition hover:border-[#4a4a8a] hover:bg-[#0d0f22]"
               >
-                <p className="mb-1 font-semibold text-white group-hover:text-[#a0a0e8]">WatchPapa CSV</p>
-                <p className="text-xs text-[#5a5a78]">Re-import a previously exported WatchPapa CSV file.</p>
+                <p className="mb-1 font-semibold text-white group-hover:text-[#a0a0e8]">watchpapa CSV</p>
+                <p className="text-xs text-[#5a5a78]">Re-import a previously exported watchpapa CSV file.</p>
               </button>
             </div>
           </div>
@@ -379,7 +379,7 @@ export default function ImportPage({ session }) {
                 </li>
                 <li className="flex gap-3">
                   <StepNumber n={6} />
-                  <span>Click the upload area below and <strong>select the unzipped folder</strong> — WatchPapa will find the right files automatically.</span>
+                  <span>Click the upload area below and <strong>select the unzipped folder</strong> — watchpapa will find the right files automatically.</span>
                 </li>
               </ol>
             </div>
@@ -409,7 +409,7 @@ export default function ImportPage({ session }) {
             </p>
 
             <DropZone
-              label="Select your WatchPapa CSV file"
+              label="Select your watchpapa CSV file"
               multiple={false}
               fileInputRef={fileInputRef}
               onFiles={handleFiles}
@@ -487,14 +487,14 @@ export default function ImportPage({ session }) {
                   <label className="flex cursor-pointer items-center justify-between px-5 py-3">
                     <div>
                       <p className="text-sm font-medium text-[#c0c0e8]">Skip existing ratings</p>
-                      <p className="text-xs text-[#5a5a78]">Keep your current WatchPapa ratings unchanged</p>
+                      <p className="text-xs text-[#5a5a78]">Keep your current watchpapa ratings unchanged</p>
                     </div>
                     <input type="radio" name="conflict" value="skip" checked={conflictMode === "skip"} onChange={() => setConflictMode("skip")} className="accent-[#6868b8]" />
                   </label>
                   <label className="flex cursor-pointer items-center justify-between px-5 py-3">
                     <div>
                       <p className="text-sm font-medium text-[#c0c0e8]">Overwrite existing ratings</p>
-                      <p className="text-xs text-[#5a5a78]">Replace your WatchPapa ratings with imported ones</p>
+                      <p className="text-xs text-[#5a5a78]">Replace your watchpapa ratings with imported ones</p>
                     </div>
                     <input type="radio" name="conflict" value="overwrite" checked={conflictMode === "overwrite"} onChange={() => setConflictMode("overwrite")} className="accent-[#6868b8]" />
                   </label>

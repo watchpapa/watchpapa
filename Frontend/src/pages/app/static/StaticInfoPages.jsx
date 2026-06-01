@@ -8,19 +8,19 @@ function AboutPage({ session }) {
   return (
     <>
       <PageHead
-        title="About WATCHPAPA"
-        description="WATCHPAPA is a free media discovery platform powered by TMDB — browse films, shows, and people in one streamlined dashboard."
+        title="About Watchpapa"
+        description="Watchpapa is a free media discovery platform powered by TMDB — browse films, shows, and people in one streamlined dashboard."
         path="/about"
       />
       <InfoPageShell
       session={session}
       breadcrumbs={[{ label: "About" }]}
-      title="About WATCHPAPA"
+      title="About Watchpapa"
       lead="A streamlined dashboard for discovering and tracking the films, shows, and people that matter to you."
     >
       <h2>What we do</h2>
       <p>
-        WATCHPAPA pulls real-time metadata from{" "}
+        Watchpapa pulls real-time metadata from{" "}
         <a href="https://www.themoviedb.org/" target="_blank" rel="noopener noreferrer">
           The Movie Database (TMDB)
         </a>{" "}
@@ -43,18 +43,18 @@ function AboutPage({ session }) {
         <a href="https://www.themoviedb.org/" target="_blank" rel="noopener noreferrer">
           The Movie Database (TMDB)
         </a>
-        . WATCHPAPA is not endorsed, certified, or otherwise approved by TMDB. If you spot an
+        . Watchpapa is not endorsed, certified, or otherwise approved by TMDB. If you spot an
         inaccuracy in a title, cast list, or release date, the fastest fix is to update it directly
         on{" "}
         <a href="https://www.themoviedb.org/" target="_blank" rel="noopener noreferrer">
           themoviedb.org
         </a>{" "}
-        — changes propagate to WATCHPAPA automatically.
+        — changes propagate to watchpapa automatically.
       </p>
 
       <h2>Roadmap</h2>
       <p>
-        WATCHPAPA is actively developed. We build in the direction of how people actually explore
+        Watchpapa is actively developed. We build in the direction of how people actually explore
         film and TV, so feedback is taken seriously. Head to the{" "}
         <a href="/contact">Contact page</a> to share ideas or report issues.
       </p>
@@ -70,14 +70,14 @@ function HelpPage({ session }) {
     <>
       <PageHead
         title="Help & FAQ"
-        description="Answers to common questions about WATCHPAPA — navigating content, creating an account, release calendars, and reporting problems."
+        description="Answers to common questions about watchpapa — navigating content, creating an account, release calendars, and reporting problems."
         path="/help"
       />
       <InfoPageShell
       session={session}
       breadcrumbs={[{ label: "Help" }]}
       title="Help"
-      lead="Quick answers to common questions about using WATCHPAPA."
+      lead="Quick answers to common questions about using watchpapa."
     >
       <h2>Discovery</h2>
       <p>
@@ -125,18 +125,18 @@ function TermsPage({ session }) {
     <>
       <PageHead
         title="Terms of Use"
-        description="Read the terms of use for WATCHPAPA. By using the service you agree to these terms."
+        description="Read the terms of use for watchpapa. By using the service you agree to these terms."
         path="/terms"
       />
       <InfoPageShell
       session={session}
       breadcrumbs={[{ label: "Terms" }]}
       title="Terms of Use"
-      lead="Please read these terms carefully before using WATCHPAPA."
+      lead="Please read these terms carefully before using watchpapa."
     >
       <h2>Acceptance</h2>
       <p>
-        By accessing or using WATCHPAPA (&ldquo;the Service&rdquo;), you confirm that you are at
+        By accessing or using watchpapa (&ldquo;the Service&rdquo;), you confirm that you are at
         least 13 years old, located in Europe, and agree to be bound by these Terms of Use. If you
         do not meet these requirements or do not agree, do not use the Service.
       </p>
@@ -147,7 +147,7 @@ function TermsPage({ session }) {
         <a href="https://www.themoviedb.org/terms-of-use" target="_blank" rel="noopener noreferrer">
           The Movie Database (TMDB)
         </a>
-        . Your use of that data is also subject to TMDB&apos;s own Terms of Use. WATCHPAPA is not
+        . Your use of that data is also subject to TMDB&apos;s own Terms of Use. Watchpapa is not
         affiliated with or endorsed by TMDB.
       </p>
 
@@ -163,7 +163,7 @@ function TermsPage({ session }) {
       <h2>Accounts</h2>
       <p>
         You are responsible for maintaining the confidentiality of your account credentials. You
-        must notify us immediately at <a href="mailto:support@WATCHPAPA.tv">support@WATCHPAPA.tv</a>{" "}
+        must notify us immediately at <a href="mailto:support@watchpapa.tv">support@watchpapa.tv</a>{" "}
         if you suspect unauthorised access to your account.
       </p>
 
@@ -176,7 +176,7 @@ function TermsPage({ session }) {
 
       <h2>Geographic availability</h2>
       <p>
-        WATCHPAPA is currently intended for users located in Europe only. By using the Service,
+        Watchpapa is currently intended for users located in Europe only. By using the Service,
         you confirm that you are accessing it from within Europe. We do not knowingly offer the
         Service to users outside of Europe at this time and make no representations that the Service
         is appropriate or available in other locations. Access from outside Europe is at your own
@@ -204,8 +204,8 @@ function ContactPage({ session }) {
   return (
     <>
       <PageHead
-        title="Contact WATCHPAPA"
-        description="Get in touch with the WATCHPAPA team. Email us at support@WATCHPAPA.tv or find us on LinkedIn."
+        title="Contact Watchpapa"
+        description="Get in touch with the watchpapa team. Email us at support@watchpapa.tv or find us on LinkedIn."
         path="/contact"
       />
       <InfoPageShell
@@ -219,7 +219,7 @@ function ContactPage({ session }) {
           The fastest way to reach the team is by email.
         </p>
         <a
-          href="mailto:support@WATCHPAPA.tv"
+          href="mailto:support@watchpapa.tv"
           className="mt-3 inline-block break-all text-xl font-semibold tracking-tight text-white !no-underline underline-offset-[5px] transition hover:text-[#e4e4ff] hover:!underline sm:text-2xl"
         >
           support@watchpapa.tv
@@ -241,7 +241,7 @@ function ContactPage({ session }) {
             <a href="https://www.themoviedb.org/" target="_blank" rel="noopener noreferrer">
               themoviedb.org
             </a>{" "}
-            — changes propagate to WATCHPAPA automatically.
+            — changes propagate to watchpapa automatically.
           </p>
         </div>
       </div>
@@ -250,11 +250,11 @@ function ContactPage({ session }) {
       <p>
         Follow company updates and announcements on{" "}
         <a
-          href="https://www.linkedin.com/company/WATCHPAPA"
+          href="https://www.linkedin.com/company/watchpapa"
           target="_blank"
           rel="noopener noreferrer"
         >
-          WATCHPAPA on LinkedIn
+          watchpapa on LinkedIn
         </a>
         .
       </p>
@@ -270,7 +270,7 @@ function PrivacyPage({ session }) {
     <>
       <PageHead
         title="Privacy Policy"
-        description="Learn how WATCHPAPA handles your data — we collect only what's necessary and never sell it."
+        description="Learn how watchpapa handles your data — we collect only what's necessary and never sell it."
         path="/privacy"
       />
       <InfoPageShell
@@ -294,11 +294,11 @@ function PrivacyPage({ session }) {
 
       <h2>Third-party services</h2>
       <p>
-        WATCHPAPA fetches media content from{" "}
+        Watchpapa fetches media content from{" "}
         <a href="https://www.themoviedb.org/" target="_blank" rel="noopener noreferrer">
           TMDB
         </a>
-        . Your WATCHPAPA account data is <strong>not</strong> shared with TMDB. We use{" "}
+        . Your watchpapa account data is <strong>not</strong> shared with TMDB. We use{" "}
         <a href="https://supabase.com/" target="_blank" rel="noopener noreferrer">
           Supabase
         </a>{" "}
@@ -320,7 +320,7 @@ function PrivacyPage({ session }) {
         You may delete your account and all associated data at any time from your account settings.
         On deletion, your personal data is permanently removed within 30 days. You may also request
         a copy of your data or ask us to correct inaccuracies by emailing{" "}
-        <a href="mailto:support@WATCHPAPA.tv">support@WATCHPAPA.tv</a>.
+        <a href="mailto:support@watchpapa.tv">support@watchpapa.tv</a>.
       </p>
 
       <h2>Changes</h2>

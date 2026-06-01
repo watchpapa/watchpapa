@@ -102,7 +102,7 @@ function Toolbar({ editor }) {
   );
 }
 
-function RichTextEditor({ value, onChange, placeholder = "Write something…" }) {
+function RichTextEditor({ value, onChange, placeholder = "Write something…", fill = false }) {
   const editor = useEditor({
     extensions: [
       StarterKit.configure({ heading: { levels: [1, 2, 3] } }),
@@ -117,9 +117,13 @@ function RichTextEditor({ value, onChange, placeholder = "Write something…" })
   });
 
   return (
-    <div className="rich-editor rounded-lg border border-[#2a3570] bg-[#12163a] focus-within:border-[#6868b8]">
+    <div
+      className={`rich-editor flex min-h-0 flex-col overflow-hidden rounded-lg border border-[#2a3570] bg-[#12163a] focus-within:border-[#6868b8] ${fill ? "rich-editor--fill" : ""}`}
+    >
       <Toolbar editor={editor} />
-      <EditorContent editor={editor} />
+      <div className="rich-editor__scroll min-h-0 overflow-y-auto overscroll-contain">
+        <EditorContent editor={editor} />
+      </div>
     </div>
   );
 }

@@ -463,7 +463,7 @@ function SettingsPage({ session }) {
               to="/import"
               className="text-xs font-semibold text-[#6868b8] underline transition hover:text-white"
             >
-              Import from Letterboxd or WatchPapa CSV
+              Import from Letterboxd or watchpapa CSV
             </Link>
           </Row>
           <Row label="Background sync">
@@ -501,7 +501,7 @@ function SettingsPage({ session }) {
                 {exporting ? "Preparing…" : "Download CSV"}
               </button>
               {exportError && <p className="text-xs text-red-400">{exportError}</p>}
-              <p className="text-[11px] text-[#5a5a78]">Ratings and watchlist in WatchPapa CSV format.</p>
+              <p className="text-[11px] text-[#5a5a78]">Ratings and watchlist in watchpapa CSV format.</p>
             </div>
           </Row>
         </Section>

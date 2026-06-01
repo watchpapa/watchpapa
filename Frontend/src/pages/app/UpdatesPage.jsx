@@ -83,9 +83,14 @@ function PostModal({ post, onClose, onSaved }) {
   const [error, setError] = useState(null);
 
   useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
     function onKey(e) { if (e.key === "Escape") onClose(); }
     window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    return () => {
+      document.body.style.overflow = prev;
+      window.removeEventListener("keydown", onKey);
+    };
   }, [onClose]);
 
   const set = (field, value) => setForm((prev) => ({ ...prev, [field]: value }));
@@ -119,24 +124,23 @@ function PostModal({ post, onClose, onSaved }) {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
-      onClick={onClose}
+      className="fixed inset-0 z-[9500] flex flex-col bg-[#111320]"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="post-modal-title"
     >
-      <div
-        className="w-full max-w-2xl rounded-2xl border border-[#2a3570] bg-[#0e1128] p-6 shadow-2xl"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="mb-5 flex items-center justify-between">
-          <h2 className="text-[18px] font-extrabold text-white">
-            {isEdit ? "Edit post" : "New post"}
-          </h2>
-          <button type="button" onClick={onClose} className="text-[#5a5a78] transition hover:text-white" aria-label="Close">
-            ✕
-          </button>
-        </div>
+      <div className="flex shrink-0 items-center justify-between border-b border-[#1a1f3a] bg-[#0d0f1e] px-4 py-3 sm:px-6 sm:py-4">
+        <h2 id="post-modal-title" className="text-lg font-extrabold text-white sm:text-xl">
+          {isEdit ? "Edit post" : "New post"}
+        </h2>
+        <button type="button" onClick={onClose} className="text-[#5a5a78] transition hover:text-white" aria-label="Close">
+          ✕
+        </button>
+      </div>
 
-        <form onSubmit={onSubmit} className="space-y-4">
-          <label className="flex flex-col gap-1">
+      <form onSubmit={onSubmit} className="flex min-h-0 flex-1 flex-col overflow-hidden">
+        <div className="mx-auto flex min-h-0 w-full max-w-3xl flex-1 flex-col gap-4 overflow-y-auto overscroll-contain px-4 py-4 sm:px-6 sm:py-5">
+          <label className="flex shrink-0 flex-col gap-1">
             <span className="text-[11px] font-semibold uppercase tracking-wider text-[#5a5a78]">Title *</span>
             <input
               autoFocus
@@ -147,16 +151,17 @@ function PostModal({ post, onClose, onSaved }) {
             />
           </label>
 
-          <div className="flex flex-col gap-1">
-            <span className="text-[11px] font-semibold uppercase tracking-wider text-[#5a5a78]">Body *</span>
+          <div className="flex min-h-0 flex-1 flex-col gap-1">
+            <span className="shrink-0 text-[11px] font-semibold uppercase tracking-wider text-[#5a5a78]">Body *</span>
             <RichTextEditor
+              fill
               value={form.body}
               onChange={(v) => set("body", v)}
               placeholder="Describe the update…"
             />
           </div>
 
-          <label className="flex flex-col gap-1">
+          <label className="flex shrink-0 flex-col gap-1">
             <span className="text-[11px] font-semibold uppercase tracking-wider text-[#5a5a78]">
               Image URL <span className="normal-case text-[#3a3a58]">(optional)</span>
             </span>
@@ -169,9 +174,10 @@ function PostModal({ post, onClose, onSaved }) {
             />
           </label>
 
-          {error && <p className="text-[13px] font-semibold text-pink-300">{error}</p>}
+          {error && <p className="shrink-0 text-[13px] font-semibold text-pink-300">{error}</p>}
+        </div>
 
-          <div className="flex justify-end gap-3 pt-1">
+        <div className="flex shrink-0 justify-end gap-3 border-t border-[#1a1f3a] bg-[#0d0f1e] px-4 py-3 sm:px-6 sm:py-4">
             <button
               type="button"
               onClick={onClose}
@@ -186,9 +192,8 @@ function PostModal({ post, onClose, onSaved }) {
             >
               {isSubmitting ? "Saving..." : isEdit ? "Save changes" : "Publish"}
             </button>
-          </div>
-        </form>
-      </div>
+        </div>
+      </form>
     </div>
   );
 }

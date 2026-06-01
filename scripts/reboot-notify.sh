@@ -13,6 +13,6 @@ curl --silent --fail \
   -d "{
     \"from\": \"wpp-workflows@watchpapa.tv\",
     \"to\": [\"alert@watchpapa.tv\"],
-    \"subject\": \"WATCHPAPA server rebooted: $HOSTNAME\",
+    \"subject\": \"watchpapa server rebooted: $HOSTNAME\",
     \"text\": \"Server $HOSTNAME restarted.\n\nBoot time: $BOOT_TIME\nUptime: $(uptime -p)\"
   }"
