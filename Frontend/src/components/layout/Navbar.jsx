@@ -2,8 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import { Link, NavLink } from "react-router-dom";
 import AuthPromptModal from "../AuthPromptModal.jsx";
 import ProfileMenu from "./ProfileMenu.jsx";
+import NotificationBell from "./NotificationBell.jsx";
 import watchpapaBanner from "../../assets/branding/watchpapa-banner.svg";
-import { supabase } from "../../lib/supabase.js";
 
 const NAV_LINKS = [
   { label: "Popular", to: "/" },
@@ -15,7 +15,7 @@ const NAV_LINKS = [
 
 function CalendarIcon() {
   return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
       <rect x="3" y="4" width="18" height="18" rx="2" />
       <path d="M16 2v4M8 2v4M3 10h18" />
       <path d="M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01" />
@@ -23,29 +23,42 @@ function CalendarIcon() {
   );
 }
 
+function FindPeopleIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <circle cx="9" cy="7" r="4" />
+      <path d="M3 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2" />
+      <circle cx="18" cy="8" r="3" />
+    </svg>
+  );
+}
+
+function ActivityIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
+    </svg>
+  );
+}
+
 function WatchlistNavIcon() {
   return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
       <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
     </svg>
   );
 }
 
-
-function ReferralIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
-      <circle cx="9" cy="7" r="4" />
-      <line x1="19" y1="8" x2="19" y2="14" />
-      <line x1="22" y1="11" x2="16" y2="11" />
-    </svg>
-  );
-}
+const SESSION_ACTIONS = [
+  { label: "Find People", to: "/users", Icon: FindPeopleIcon },
+  { label: "Activity", to: "/feed", Icon: ActivityIcon },
+  { label: "Watchlists", to: "/watchlists", Icon: WatchlistNavIcon },
+  { label: "Releases Radar", to: "/calendar", Icon: CalendarIcon },
+];
 
 function MenuIcon() {
   return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
       <path d="M4 6h16M4 12h16M4 18h16" />
     </svg>
   );
@@ -53,185 +66,34 @@ function MenuIcon() {
 
 function XIcon() {
   return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
       <path d="M18 6L6 18M6 6l12 12" />
     </svg>
   );
 }
 
-function ReferralButton({ referralCode }) {
-  const [open, setOpen] = useState(false);
-  const [copied, setCopied] = useState(false);
-  const popoverRef = useRef(null);
-  const buttonRef = useRef(null);
-
-  useEffect(() => {
-    function onPointerdown(e) {
-      if (
-        popoverRef.current && !popoverRef.current.contains(e.target) &&
-        buttonRef.current && !buttonRef.current.contains(e.target)
-      ) {
-        setOpen(false);
-      }
-    }
-    if (open) document.addEventListener("pointerdown", onPointerdown);
-    return () => document.removeEventListener("pointerdown", onPointerdown);
-  }, [open]);
-
-  const referralUrl = referralCode
-    ? `${window.location.origin}/register?ref=${referralCode}`
-    : null;
-
-  const handleCopy = () => {
-    if (!referralUrl) return;
-    navigator.clipboard?.writeText(referralUrl).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    });
-  };
-
-  const handleShare = () => {
-    if (!referralUrl) return;
-    navigator.share?.({ title: "Join watchpapa", url: referralUrl });
-  };
-
-  return (
-    <div className="relative hidden sm:block">
-      <button
-        ref={buttonRef}
-        onClick={() => setOpen((v) => !v)}
-        className={`flex items-center gap-2 rounded-xl border px-3 py-1.5 text-xs font-semibold transition ${
-          open
-            ? "border-[#5a5aaa] bg-[#1a1d35] text-white"
-            : "border-[#3a3a7a] bg-[#1a1d35] text-[#a0a0e8] hover:border-[#5a5aaa] hover:text-white"
-        }`}
-        aria-label="Invite friends"
-      >
-        <ReferralIcon />
-        <span className="hidden lg:inline">Invite Friends</span>
+// Compact header control — icon-only to avoid crowding the bar.
+function NavIconLink({ to, label, children, onClick }) {
+  const className =
+    "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-[#8888c8] transition hover:bg-[#1a1d35] hover:text-white";
+  if (onClick) {
+    return (
+      <button type="button" onClick={onClick} className={className} title={label} aria-label={label}>
+        {children}
       </button>
-
-      {open && (
-        <div
-          ref={popoverRef}
-          className="absolute right-0 top-full z-50 mt-2 w-72 max-w-[calc(100vw-1rem)] rounded-2xl border border-[#2a2f5a] bg-[#0d0f1e] shadow-2xl shadow-black/60 animate-[fadeSlideDown_0.15s_ease-out]"
-        >
-          <div className="border-b border-[#1a1f3a] px-4 py-3">
-            <p className="text-sm font-bold text-white">Invite a friend</p>
-            <p className="mt-0.5 text-xs text-[#6868b8]">Share your link — you both get rewarded.</p>
-          </div>
-
-          <div className="px-4 py-3">
-            {referralUrl ? (
-              <>
-                <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-widest text-[#5050b0]">Your referral link</p>
-                <div className="flex items-center gap-1.5 rounded-xl border border-[#2a3570] bg-[#141728] px-3 py-2">
-                  <span className="min-w-0 flex-1 truncate font-mono text-[11px] text-[#a0a0e8]">
-                    {referralUrl}
-                  </span>
-                  <div className="flex shrink-0 gap-1">
-                    <button
-                      onClick={handleCopy}
-                      className="rounded-lg px-2 py-1 text-[11px] font-semibold text-[#8383e7] transition hover:bg-[#2a2d60] hover:text-white"
-                    >
-                      {copied ? "Copied!" : "Copy"}
-                    </button>
-                    {typeof navigator !== "undefined" && navigator.share && (
-                      <button
-                        onClick={handleShare}
-                        className="rounded-lg px-2 py-1 text-[11px] font-semibold text-[#8383e7] transition hover:bg-[#2a2d60] hover:text-white"
-                      >
-                        Share
-                      </button>
-                    )}
-                  </div>
-                </div>
-              </>
-            ) : (
-              <p className="text-xs text-[#4a4a7a]">Loading your referral link…</p>
-            )}
-          </div>
-
-          <div className="border-t border-[#1a1f3a] px-4 py-3">
-            <p className="text-[11px] text-[#4a4a7a]">
-              You and your friend both unlock a plan upgrade when they join and get active.{" "}
-              <Link to="/subscription" onClick={() => setOpen(false)} className="text-[#6868b8] hover:text-[#a0a0e8]">
-                See details
-              </Link>
-            </p>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function MobileInviteRow({ referralCode, onClose }) {
-  const [copied, setCopied] = useState(false);
-  const referralUrl = referralCode
-    ? `${window.location.origin}/register?ref=${referralCode}`
-    : null;
-
-  const handleCopy = () => {
-    if (!referralUrl) return;
-    navigator.clipboard?.writeText(referralUrl).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    });
-  };
-
-  const handleShare = () => {
-    if (!referralUrl) return;
-    navigator.share?.({ title: "Join watchpapa", url: referralUrl });
-    onClose();
-  };
-
-  if (!referralUrl) return null;
-
+    );
+  }
   return (
-    <div className="border-b border-[#1a1f3a] py-3">
-      <p className="mb-2 flex items-center gap-2 text-sm font-semibold text-[#8888c8]">
-        <ReferralIcon />
-        Invite Friends
-      </p>
-      <div className="flex items-center gap-1.5 rounded-xl border border-[#2a3570] bg-[#0d0f1e] px-3 py-2">
-        <span className="min-w-0 flex-1 truncate font-mono text-[11px] text-[#a0a0e8]">{referralUrl}</span>
-        <div className="flex shrink-0 gap-1">
-          <button
-            onClick={handleCopy}
-            className="rounded-lg px-2 py-1 text-[11px] font-semibold text-[#8383e7] transition hover:bg-[#2a2d60]"
-          >
-            {copied ? "Copied!" : "Copy"}
-          </button>
-          {typeof navigator !== "undefined" && navigator.share && (
-            <button
-              onClick={handleShare}
-              className="rounded-lg px-2 py-1 text-[11px] font-semibold text-[#8383e7] transition hover:bg-[#2a2d60]"
-            >
-              Share
-            </button>
-          )}
-        </div>
-      </div>
-    </div>
+    <Link to={to} className={className} title={label} aria-label={label}>
+      {children}
+    </Link>
   );
 }
 
 function Navbar({ session }) {
   const [showAuthPrompt, setShowAuthPrompt] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [referralCode, setReferralCode] = useState(null);
   const headerRef = useRef(null);
-
-  useEffect(() => {
-    if (!session?.user?.id) return;
-    supabase
-      .from("profile")
-      .select("referral_code")
-      .eq("id", session.user.id)
-      .maybeSingle()
-      .then(({ data }) => { if (data?.referral_code) setReferralCode(data.referral_code); });
-  }, [session?.user?.id]);
 
   useEffect(() => {
     function onPointerdown(e) {
@@ -247,26 +109,26 @@ function Navbar({ session }) {
     <>
       {showAuthPrompt && <AuthPromptModal onClose={() => setShowAuthPrompt(false)} />}
       <header ref={headerRef} className="sticky top-0 z-50 border-b border-[#1a1f3a] bg-[#0d0f1e]/95 backdrop-blur-sm">
-        <div className="relative flex min-h-14 items-center justify-between gap-3 px-3 py-2 sm:gap-4 sm:px-5 sm:py-0 lg:px-8">
-
-          {/* Left: hamburger (mobile) or nav links (sm+) */}
-          <div className="flex items-center">
+        {/* Three-column grid keeps the logo centered without overlapping nav/actions */}
+        <div className="grid h-14 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 px-3 sm:px-5 lg:px-8">
+          {/* Left: menu + catalog links */}
+          <div className="flex min-w-0 items-center gap-1">
             <button
               onClick={() => setMobileOpen((v) => !v)}
-              className="flex h-9 w-9 items-center justify-center rounded-xl text-[#8888c8] transition hover:text-white sm:hidden"
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-[#8888c8] transition hover:bg-[#1a1d35] hover:text-white sm:hidden"
               aria-label={mobileOpen ? "Close menu" : "Open menu"}
             >
               {mobileOpen ? <XIcon /> : <MenuIcon />}
             </button>
 
-            <nav className="hidden items-center gap-5 sm:flex">
+            <nav className="hidden min-w-0 items-center gap-3 md:gap-4 sm:flex">
               {NAV_LINKS.map(({ label, to }) => (
                 <NavLink
                   key={label}
                   to={to}
                   end
                   className={({ isActive }) =>
-                    `text-sm font-semibold tracking-wide transition-colors ${
+                    `whitespace-nowrap text-sm font-semibold tracking-wide transition-colors ${
                       isActive ? "text-white" : "text-[#8888c8] hover:text-white"
                     }`
                   }
@@ -277,49 +139,41 @@ function Navbar({ session }) {
             </nav>
           </div>
 
-          {/* Center: Logo */}
-          <Link to="/" className="mx-auto sm:absolute sm:left-1/2 sm:mx-0 sm:-translate-x-1/2">
-            <img src={watchpapaBanner} alt="watchpapa" className="h-9 drop-shadow-md" />
+          {/* Center: logo */}
+          <Link to="/" className="shrink-0 justify-self-center">
+            <img
+              src={watchpapaBanner}
+              alt="watchpapa"
+              className="h-7 w-auto drop-shadow-md sm:h-8"
+            />
           </Link>
 
-          {/* Right: invite + calendar + auth */}
-          <div className="flex items-center gap-2 sm:gap-3">
-            {session && <ReferralButton referralCode={referralCode} />}
-
+          {/* Right: session tools + auth */}
+          <div className="flex min-w-0 items-center justify-end gap-0.5 sm:gap-1">
             {session && (
-              <Link
-                to="/watchlists"
-                className="hidden items-center gap-2 rounded-xl border border-[#3a3a7a] bg-[#1a1d35] px-3 py-1.5 text-xs font-semibold text-[#a0a0e8] transition hover:border-[#5a5aaa] hover:text-white sm:flex"
-              >
-                <WatchlistNavIcon />
-                <span className="hidden lg:inline">Watchlists</span>
-              </Link>
+              <div className="hidden items-center sm:flex">
+                {SESSION_ACTIONS.map(({ label, to, Icon }) => (
+                  <NavIconLink key={to} to={to} label={label}>
+                    <Icon />
+                  </NavIconLink>
+                ))}
+              </div>
             )}
 
-            {session ? (
-              <Link
-                to="/calendar"
-                className="hidden items-center gap-2 rounded-xl border border-[#3a3a7a] bg-[#1a1d35] px-3 py-1.5 text-xs font-semibold text-[#a0a0e8] transition hover:border-[#5a5aaa] hover:text-white sm:flex"
-              >
-                <CalendarIcon />
-                <span className="hidden lg:inline">Releases Radar</span>
-                <span className="inline lg:hidden">Radar</span>
-              </Link>
-            ) : (
-              <button
-                onClick={() => setShowAuthPrompt(true)}
-                className="hidden items-center gap-2 rounded-xl border border-[#3a3a7a] bg-[#1a1d35] px-3 py-1.5 text-xs font-semibold text-[#a0a0e8] transition hover:border-[#5a5aaa] hover:text-white sm:flex"
-              >
-                <CalendarIcon />
-                <span className="hidden lg:inline">Releases Radar</span>
-                <span className="inline lg:hidden">Radar</span>
-              </button>
+            {!session && (
+              <div className="hidden sm:block">
+                <NavIconLink label="Releases Radar" onClick={() => setShowAuthPrompt(true)}>
+                  <CalendarIcon />
+                </NavIconLink>
+              </div>
             )}
+
+            {session && <NotificationBell session={session} />}
 
             {session ? (
               <ProfileMenu session={session} />
             ) : (
-              <div className="flex items-center gap-1.5 sm:gap-2">
+              <div className="ml-1 flex items-center gap-1 sm:gap-1.5">
                 <Link
                   to="/login"
                   className="rounded-xl px-2.5 py-1.5 text-xs font-semibold text-[#8888c8] transition hover:text-white sm:px-3"
@@ -340,30 +194,19 @@ function Navbar({ session }) {
         {/* Mobile dropdown */}
         {mobileOpen && (
           <div className="border-t border-[#1a1f3a] px-5 pb-3 sm:hidden animate-[slideDown_0.18s_ease-out]">
-            {/* Calendar first */}
-            {session ? (
-              <Link
-                to="/calendar"
-                onClick={() => setMobileOpen(false)}
-                className="flex items-center gap-2 border-b border-[#1a1f3a] py-3 text-sm font-semibold text-[#8888c8] transition hover:text-white"
-              >
-                <CalendarIcon />
-                Releases Radar
-              </Link>
-            ) : null}
+            {session &&
+              SESSION_ACTIONS.map(({ label, to, Icon }) => (
+                <Link
+                  key={to}
+                  to={to}
+                  onClick={() => setMobileOpen(false)}
+                  className="flex items-center gap-2 border-b border-[#1a1f3a] py-3 text-sm font-semibold text-[#8888c8] transition hover:text-white"
+                >
+                  <Icon />
+                  {label}
+                </Link>
+              ))}
 
-            {session ? (
-              <Link
-                to="/watchlists"
-                onClick={() => setMobileOpen(false)}
-                className="flex items-center gap-2 border-b border-[#1a1f3a] py-3 text-sm font-semibold text-[#8888c8] transition hover:text-white"
-              >
-                <WatchlistNavIcon />
-                Watchlists
-              </Link>
-            ) : null}
-
-            {/* Nav links */}
             {NAV_LINKS.map(({ label, to }) => (
               <NavLink
                 key={label}
@@ -380,9 +223,33 @@ function Navbar({ session }) {
               </NavLink>
             ))}
 
-            {/* Invite Friends inline */}
-            {session && (
-              <MobileInviteRow referralCode={referralCode} onClose={() => setMobileOpen(false)} />
+            {!session && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => { setMobileOpen(false); setShowAuthPrompt(true); }}
+                  className="flex w-full items-center gap-2 border-b border-[#1a1f3a] py-3 text-sm font-semibold text-[#8888c8]"
+                >
+                  <CalendarIcon />
+                  Releases Radar
+                </button>
+                <div className="flex gap-2 pt-3">
+                  <Link
+                    to="/login"
+                    onClick={() => setMobileOpen(false)}
+                    className="flex-1 rounded-xl border border-[#3a3a7a] py-2.5 text-center text-sm font-semibold text-[#a0a0e8]"
+                  >
+                    Sign in
+                  </Link>
+                  <Link
+                    to="/register"
+                    onClick={() => setMobileOpen(false)}
+                    className="flex-1 rounded-xl border border-[#7070d0] bg-[#3a3a8a] py-2.5 text-center text-sm font-semibold text-white"
+                  >
+                    Register
+                  </Link>
+                </div>
+              </>
             )}
           </div>
         )}
