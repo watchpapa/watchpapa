@@ -132,9 +132,10 @@ function MediaRow({ title, items, session, onLoadMore, hasMore = false, isLoadin
   return (
     <section>
       {/* Match desktop left control (w-10 + mr-3) so the title lines up with the first poster */}
-      <div className="mb-3 flex min-w-0 items-baseline">
+      <div className="mb-3 flex min-w-0 items-center">
         <div className="pointer-events-none hidden w-10 shrink-0 md:mr-3 md:block" aria-hidden />
-        <h2 className="min-w-0 text-xl font-extrabold tracking-tight" style={{ color: "#e8c04a" }}>
+        <span className="mr-2.5 h-5 w-1 shrink-0 rounded-full bg-gradient-to-b from-[#c084fc] to-[#6f6fdc]" aria-hidden />
+        <h2 className="min-w-0 text-xl font-extrabold tracking-tight text-white">
           {title}
         </h2>
       </div>
@@ -145,14 +146,14 @@ function MediaRow({ title, items, session, onLoadMore, hasMore = false, isLoadin
           onClick={scrollLeft}
           aria-label="Scroll left"
           disabled={!showLeftArrow}
-          className={`mr-3 hidden h-10 w-10 flex-shrink-0 items-center justify-center rounded-full border border-[#2a3570] bg-[#141728] text-[#8888c8] transition active:scale-95 hover:border-[#5050a0] hover:text-white disabled:pointer-events-none disabled:opacity-0 md:flex ${showLeftArrow ? "" : "invisible"}`}
+          className={`mr-3 hidden h-10 w-10 flex-shrink-0 items-center justify-center rounded-full border border-[#2a3570] bg-[#141728]/80 text-[#a78bfa] backdrop-blur-sm transition active:scale-95 hover:border-[#6f6fdc] hover:bg-[#1a1d40] hover:text-white disabled:pointer-events-none disabled:opacity-0 md:flex ${showLeftArrow ? "" : "invisible"}`}
         >
           <ChevronLeft />
         </button>
 
         <div
           ref={scrollRef}
-          className="flex min-w-0 flex-1 gap-3 overflow-x-auto pb-2 scrollbar-none"
+          className="flex min-w-0 flex-1 gap-3 overflow-x-auto overflow-y-hidden px-1 pb-3 pt-3 scrollbar-none"
           style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
         >
           {items.map((item) => (
@@ -165,7 +166,7 @@ function MediaRow({ title, items, session, onLoadMore, hasMore = false, isLoadin
           onClick={scrollRight}
           aria-label={hasMore ? "Scroll right or load more" : "Scroll right"}
           disabled={!showRightArrow || isLoadingMore}
-          className={`ml-3 hidden h-10 w-10 flex-shrink-0 items-center justify-center rounded-full border border-[#2a3570] bg-[#141728] text-[#8888c8] transition active:scale-95 hover:border-[#5050a0] hover:text-white disabled:pointer-events-none md:flex ${!showRightArrow ? "invisible" : isLoadingMore ? "opacity-70" : ""}`}
+          className={`ml-3 hidden h-10 w-10 flex-shrink-0 items-center justify-center rounded-full border border-[#2a3570] bg-[#141728]/80 text-[#a78bfa] backdrop-blur-sm transition active:scale-95 hover:border-[#6f6fdc] hover:bg-[#1a1d40] hover:text-white disabled:pointer-events-none md:flex ${!showRightArrow ? "invisible" : isLoadingMore ? "opacity-70" : ""}`}
         >
           {isLoadingMore ? (
             <span className="h-4 w-4 animate-spin rounded-full border-2 border-[#8888c8] border-t-transparent" aria-hidden />

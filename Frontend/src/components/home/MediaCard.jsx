@@ -31,6 +31,8 @@ function CheckIcon() {
 function MediaCard({ id, type, title, posterPath, isFollowing = false, onFollowToggle, isAuthenticated, customTo, releaseLabel, genreIds = [], trackSource = "browse" }) {
   const imgSrc = posterPath ? `${TMDB_IMG}${posterPath}` : null;
   const to = customTo ?? (type === "movie" ? `/movies/${id}` : `/shows/${id}`);
+  const isMovie = type === "movie";
+  const upcoming = releaseLabel && releaseLabel !== "Airing";
   const [hovering, setHovering] = useState(false);
   const [showAuthPrompt, setShowAuthPrompt] = useState(false);
   const [justFollowed, setJustFollowed] = useState(false);
@@ -49,51 +51,80 @@ function MediaCard({ id, type, title, posterPath, isFollowing = false, onFollowT
   }
 
   return (
-    <article className="flex w-[130px] flex-shrink-0 flex-col gap-2 sm:w-[150px]">
+    <article className="group/card flex w-[100px] flex-shrink-0 flex-col gap-1.5 sm:w-[132px] sm:gap-2 lg:w-[150px]">
       {showAuthPrompt && <AuthPromptModal onClose={() => setShowAuthPrompt(false)} />}
 
-      <Link to={to} className="relative overflow-hidden rounded-2xl border border-[#2a3570] bg-[#12163a] aspect-[2/3] block group">
-        <span className="absolute top-2 left-2 z-10 rounded px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-widest" style={{ background: "rgba(10,12,35,0.82)", color: type === "movie" ? "#e8c04a" : "#7eb8f7" }}>
-          {type === "movie" ? "Movie" : "Show"}
+      <Link
+        to={to}
+        className="relative block aspect-[2/3] overflow-hidden rounded-2xl border border-[#2a3570] bg-[#12163a] shadow-[0_8px_24px_-12px_rgba(0,0,0,0.7)] outline-none transition duration-300 group-hover/card:-translate-y-1 group-hover/card:border-[#6f6fdc] group-hover/card:shadow-[0_18px_38px_-12px_rgba(111,111,220,0.55)] focus-visible:ring-2 focus-visible:ring-[#8585ef]"
+      >
+        {/* Type badge */}
+        <span
+          className="absolute left-2 top-2 z-20 rounded px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-widest backdrop-blur-sm"
+          style={{ background: "rgba(10,12,35,0.82)", color: isMovie ? "#e8c04a" : "#7eb8f7" }}
+        >
+          {isMovie ? "Movie" : "Show"}
         </span>
+
+        {/* Following status ring */}
+        {isFollowing && (
+          <span
+            className="absolute right-2 top-2 z-20 flex h-5 w-5 items-center justify-center rounded-full text-green-400 ring-1 ring-green-500/60 backdrop-blur-sm"
+            style={{ background: "rgba(10,12,35,0.82)" }}
+            title="Following"
+          >
+            <CheckIcon />
+          </span>
+        )}
+
+        {/* Releasing-soon badge */}
+        {upcoming && (
+          <span className="absolute bottom-2 left-2 z-20 rounded bg-[#e8c04a] px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-[#1a1405]">
+            {releaseLabel}
+          </span>
+        )}
+
         {imgSrc ? (
           <img
             src={imgSrc}
             alt={title}
-            className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-110"
+            className="h-full w-full object-cover transition-transform duration-500 group-hover/card:scale-[1.07]"
             loading="lazy"
           />
         ) : (
-          <div className="flex h-full w-full flex-col items-center justify-center gap-2 bg-gradient-to-b from-[#181d40] to-[#0e1128] px-3 transition-[filter] duration-300 group-hover:brightness-110">
+          <div className="flex h-full w-full flex-col items-center justify-center gap-2 bg-gradient-to-b from-[#181d40] to-[#0e1128] px-3">
             <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#3a3a7a" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
               <rect x="2" y="6" width="20" height="14" rx="2" />
               <path d="M8 6V4M16 6V4M2 10h20" />
             </svg>
-            <span className="text-center text-[11px] font-medium leading-tight text-[#3a3a7a] line-clamp-3">{title}</span>
+            <span className="line-clamp-3 text-center text-[11px] font-medium leading-tight text-[#3a3a7a]">{title}</span>
           </div>
         )}
+
+        {/* Hover scrim */}
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[#0a0c18] via-transparent to-transparent opacity-0 transition-opacity duration-300 group-hover/card:opacity-90" />
       </Link>
 
-      <p className="text-center text-xs font-semibold leading-tight text-white line-clamp-2 min-h-[2.5em]">
+      <p className="line-clamp-2 min-h-[2.5em] text-center text-xs font-semibold leading-tight text-white transition-colors group-hover/card:text-[#d9d3ff]">
         {title}
       </p>
 
       {releaseLabel && (
-        <p className="text-center text-[10px] font-medium -mt-1 text-[#7eb8f7]">{releaseLabel}</p>
+        <p className="-mt-1 text-center text-[10px] font-medium text-[#7eb8f7]">{releaseLabel}</p>
       )}
 
       <button
         onClick={handleFollow}
         onMouseEnter={() => setHovering(true)}
         onMouseLeave={() => setHovering(false)}
-        className={`mx-auto flex min-w-[5.5rem] items-center justify-center gap-1 rounded-full border px-3 py-0.5 text-[11px] font-bold transition active:scale-95 ${
+        className={`mx-auto flex w-full max-w-[7rem] items-center justify-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-bold transition active:scale-95 sm:px-3 ${
           justFollowed ? "animate-[followPop_0.4s_ease-out]" : ""
         } ${
           isFollowing
             ? hovering
               ? "border-red-500 bg-red-900/30 text-red-400"
               : "border-green-600 bg-green-900/40 text-green-400"
-            : "border-[#3a3a7a] bg-[#1a1d35] text-[#8888c8] hover:border-[#6060b0] hover:text-white"
+            : "border-[#3a3a7a] bg-[#1a1d35] text-[#8888c8] hover:border-[#6f6fdc] hover:text-white"
         }`}
       >
         {isFollowing ? (

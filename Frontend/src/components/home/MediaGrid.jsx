@@ -3,11 +3,12 @@ import MediaCard from "./MediaCard.jsx";
 function MediaGrid({ title, items, session, onLoadMore, hasMore = false, isLoadingMore = false }) {
   return (
     <section>
-      <h2 className="mb-4 text-xl font-extrabold tracking-tight" style={{ color: "#e8c04a" }}>
+      <h2 className="mb-4 flex items-center text-xl font-extrabold tracking-tight text-white">
+        <span className="mr-2.5 h-5 w-1 shrink-0 rounded-full bg-gradient-to-b from-[#c084fc] to-[#6f6fdc]" aria-hidden />
         {title}
       </h2>
 
-      <div className="grid grid-cols-[repeat(auto-fill,minmax(130px,1fr))] gap-3 sm:grid-cols-[repeat(auto-fill,minmax(150px,1fr))]">
+      <div className="grid grid-cols-[repeat(auto-fill,minmax(96px,1fr))] gap-2 sm:grid-cols-[repeat(auto-fill,minmax(130px,1fr))] sm:gap-3 lg:grid-cols-[repeat(auto-fill,minmax(150px,1fr))]">
         {items.map((item) => (
           <MediaCard key={`${item.type}-${item.id}`} {...item} isAuthenticated={!!session} />
         ))}

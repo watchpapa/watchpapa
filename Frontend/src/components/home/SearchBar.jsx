@@ -217,7 +217,7 @@ function SearchBar({ value, onChange }) {
         role="combobox"
         aria-expanded={isOpen}
         aria-autocomplete="list"
-        className="w-full rounded-2xl border border-[#2a2d50] bg-[#141728] py-3 pl-11 pr-10 text-sm text-white placeholder-[#4a4a7a] outline-none transition focus:border-[#5050a0] focus:ring-1 focus:ring-[#5050a0]"
+        className="w-full rounded-2xl border border-[#2a3570] bg-[#141728]/90 py-3.5 pl-11 pr-10 text-sm text-white placeholder-[#5a5a9a] shadow-[0_8px_24px_-14px_rgba(0,0,0,0.8)] outline-none transition focus:border-[#6f6fdc] focus:bg-[#161a32] focus:ring-2 focus:ring-[#6f6fdc]/50"
       />
 
       {isLoading && (
@@ -229,7 +229,7 @@ function SearchBar({ value, onChange }) {
       {isOpen && (
         <div
           role="listbox"
-          className="absolute left-0 right-0 top-full z-50 mt-1.5 max-h-[480px] overflow-y-auto rounded-2xl border border-[#2a2d50] bg-[#141728] shadow-xl"
+          className="absolute left-0 right-0 top-full z-50 mt-1.5 max-h-[480px] overflow-y-auto rounded-2xl border border-[#2a3570] bg-[#141728]/95 shadow-2xl backdrop-blur-md"
         >
           {status === "loading" && results.length === 0 ? (
             <SkeletonRows count={4} />
