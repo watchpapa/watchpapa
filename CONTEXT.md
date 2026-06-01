@@ -49,7 +49,6 @@ watchpapa/
 │   │       ├── referrals.js          # /api/admin/referrals
 │   │       ├── auditLog.js           # /api/admin/audit-log
 │   │       ├── scriptLogs.js         # /api/admin/script-logs
-│   │       ├── analytics.js          # /api/admin/analytics
 │   │       ├── announcements.js      # /api/admin/announcements
 │   │       └── resync.js             # /api/admin/resync
 │   ├── middleware/
@@ -84,7 +83,7 @@ watchpapa/
 │   ├── features/                     # Per-domain hooks — one hooks/ subfolder per domain
 │   │   └── admin/
 │   │       ├── adminFetch.js         # Fetch helper that auto-attaches session Bearer token
-│   │       └── hooks/                # useAdminAnnouncements, useAnalytics, useScriptLogs, useIsAdmin (role check for non-admin pages), …
+│   │       └── hooks/                # useAdminAnnouncements, useScriptLogs, useIsAdmin (role check for non-admin pages), …
 │   ├── features/watchlist/hooks/     # useWatchlists, useWatchlistItems(watchlistId, session, refreshKey), useItemWatchlistStatus
 │   ├── features/rating/hooks/        # useRating(mediaType, entityId, session), useCommunityRatings(mediaType, entityId)
 │   ├── features/profile/hooks/       # useProfileData(username, session), useProfileRatings(profileId), useProfileStats(profileId, ownerTier), useEditProfile(session)
@@ -105,7 +104,6 @@ watchpapa/
 │   │   └── static/                   # InfoPageShell
 │   └── lib/
 │       ├── supabase.js               # Supabase JS client (anon key, consent-aware storage)
-│       ├── analytics.js              # trackPresence(), trackPageView(), trackContentClick()
 │       ├── cookieConsent.js          # Cookie consent state helpers
 │       ├── constants.js              # App-wide constants
 │       ├── cn.js                     # Tailwind class merger
@@ -180,7 +178,6 @@ watchpapa/
 | `PATCH` | `/api/admin/users/:id/tier` | Direct tier set — any tier incl. `free` and `god`; bypasses rank guards; `free` deletes the subscription row |
 | `*` | `/api/admin/reward-codes` | Reward code CRUD |
 | `GET` | `/api/admin/stats` | Platform statistics |
-| `GET` | `/api/admin/analytics` | Analytics data |
 | `GET` | `/api/admin/referrals` | Referral leaderboard |
 | `GET` | `/api/admin/audit-log` | Audit event log |
 | `GET` | `/api/admin/script-logs` | Ingestion script run logs |
@@ -227,7 +224,6 @@ watchpapa/
 | `/import` | Protected | `ImportPage` | Import from Letterboxd CSV or WatchPapa CSV; step-by-step UI with resolve + commit flow |
 | `/admin` | AdminRoute (role=4) | `AdminPage` (nested) | |
 | `/admin` (index) | Admin | `StatsPage` | |
-| `/admin/analytics` | Admin | `AnalyticsPage` | |
 | `/admin/reward-codes` | Admin | `RewardCodesPage` | |
 | `/admin/early-adopters` | Admin | `EarlyAdoptersPage` | |
 | `/admin/users` | Admin | `UserLookupPage` | |
@@ -331,8 +327,10 @@ The `/api/import/resolve` endpoint also accepts Letterboxd CSV format (auto-dete
 | 015 | `announcements_archive_tracking` | Adds `archived_by`, `archived_at` columns for archive audit trail |
 | 016 | `watchlists` | Creates `watchlist` and `watchlist_item` tables with RLS and `enforce_watchlist_limit` trigger |
 | 017 | `ratings_and_profiles` | Creates `user_rating`, `profile_favourite`; adds `profile.bio`; RLS; `get_profile_genre_stats(UUID)` and `get_limit_status(UUID)` functions |
+| 018 | `security_hardening` | `SET search_path` on tier/watchlist functions; REVOKE analytics RPCs from anon/authenticated |
+| 019 | `drop_analytics` | Drops analytics tables and `track_*` RPCs (product analytics removed from app) |
 
-To add the next migration: create `Backend/src/db/migrations/018_<name>.sql`, apply via `mcp__claude_ai_Supabase__apply_migration`.
+To add the next migration: create `Backend/src/db/migrations/020_<name>.sql`, apply via Supabase migration workflow.
 
 ---
 
