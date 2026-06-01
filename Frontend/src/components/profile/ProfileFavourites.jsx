@@ -52,7 +52,7 @@ export function ProfileFavourites({ favourites }) {
   return (
     <div>
       <h2 className="mb-3 text-xs font-semibold uppercase tracking-widest text-[#5050b0]">Favourites</h2>
-      <div className="grid grid-cols-5 gap-2">
+      <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
         {slots.map((fav, i) => (
           <FavSlot key={i} fav={fav} />
         ))}

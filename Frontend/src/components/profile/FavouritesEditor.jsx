@@ -108,7 +108,7 @@ export function FavouritesEditor({ favourites, setFavourite }) {
       <div>
         <p className="mb-1 text-xs font-semibold uppercase tracking-widest text-[#5050b0]">5 Favourites</p>
         <p className="mb-3 text-xs text-[#5050a0]">Mixed movies and shows. Click a slot to change it.</p>
-        <div className="grid grid-cols-5 gap-2">
+        <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
           {slots.map((fav, i) => {
             const pos = i + 1;
             const item = fav?.movie ?? fav?.show;

@@ -112,7 +112,7 @@ export default function ProfileShareModal({ onClose, profile, tier, favourites, 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 px-3 py-6 backdrop-blur-sm" onClick={onClose}>
       <div
-        className="relative w-full max-w-lg rounded-2xl border border-[#1a1f3a] bg-[#0a0c18] shadow-2xl overflow-y-auto"
+        className="relative w-full max-w-lg overflow-x-hidden overflow-y-auto rounded-2xl border border-[#1a1f3a] bg-[#0a0c18] shadow-2xl"
         style={{ maxHeight: "calc(100vh - 48px)" }}
         onClick={e => e.stopPropagation()}
         role="dialog" aria-modal="true" aria-label="Share profile"
@@ -129,7 +129,7 @@ export default function ProfileShareModal({ onClose, profile, tier, favourites, 
         </div>
 
         {/* Format pills */}
-        <div className="flex gap-2 px-5 py-3" style={{ scrollbarWidth: "none" }}>
+        <div className="flex gap-2 overflow-x-auto px-5 py-3 pb-4" style={{ scrollbarWidth: "none" }}>
           {FORMAT_OPTIONS.map(({ id, label, sub }) => (
             <button
               key={id}
@@ -145,7 +145,10 @@ export default function ProfileShareModal({ onClose, profile, tier, favourites, 
 
         {/* WYSIWYG Preview — this IS the output, just at 1x scale */}
         <div className="px-5 pb-4">
-          <div className="mx-auto flex items-center justify-center" style={{ width: MAX_PREVIEW_W, height: MAX_PREVIEW_H }}>
+          <div
+            className="mx-auto flex min-h-[200px] w-full max-w-[430px] items-center justify-center"
+            style={{ maxHeight: MAX_PREVIEW_H }}
+          >
             {previewLoading ? (
               <div className="flex flex-col items-center gap-3 text-[#3a3a6a]">
                 <div className="h-6 w-6 animate-spin rounded-full border-2 border-[#3a3a7a] border-t-[#8080c0]" />
@@ -155,7 +158,8 @@ export default function ProfileShareModal({ onClose, profile, tier, favourites, 
               <img
                 src={previewUrl}
                 alt="Profile card preview"
-                style={{ width: displayW, height: displayH, borderRadius: 12, display: "block" }}
+                className="block max-h-[480px] w-full max-w-full rounded-xl object-contain"
+                style={{ aspectRatio: `${displayW} / ${displayH}` }}
               />
             ) : (
               <span className="text-xs text-[#3a3a6a]">Preview unavailable</span>

@@ -84,41 +84,43 @@ function ProfilePage({ session }) {
           <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full border-2 border-[#3a3a7a] bg-[#1a1d35] text-2xl font-bold text-[#a0a0e8]">
             {initials}
           </div>
-          <div className="min-w-0 flex-1">
+          <div className="min-w-0 flex-1 space-y-2">
             <div className="flex flex-wrap items-center gap-2">
               <h1 className="text-xl font-bold text-white">{profile.username}</h1>
               <span className={`rounded border px-2 py-0.5 text-[11px] font-semibold ${TIER_COLORS[tier] ?? TIER_COLORS.free}`}>
                 {TIER_LABELS[tier] ?? tier}
               </span>
-              <div className="ml-auto flex items-center gap-2">
-                <button
-                  onClick={() => setShareOpen(true)}
-                  className="flex items-center gap-1.5 rounded-xl border border-[#3a3a7a] bg-[#1a1d35] px-3 py-1.5 text-xs font-semibold text-[#a0a0e8] transition hover:border-[#5a5aaa] hover:text-white"
-                >
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                    <circle cx="18" cy="5" r="3" /><circle cx="6" cy="12" r="3" /><circle cx="18" cy="19" r="3" />
-                    <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" /><line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
-                  </svg>
-                  Share
-                </button>
-                {isOwn && (
-                  <>
-                    <Link
-                      to="/profile/edit"
-                      className="rounded-xl border border-[#3a3a7a] bg-[#1a1d35] px-3 py-1.5 text-xs font-semibold text-[#a0a0e8] transition hover:border-[#5a5aaa] hover:text-white"
-                    >
-                      Edit Profile
-                    </Link>
-                    <Link
-                      to="/settings"
-                      className="flex items-center gap-1.5 rounded-xl border border-[#3a3a7a] bg-[#1a1d35] px-2.5 py-1.5 text-xs font-semibold text-[#a0a0e8] transition hover:border-[#5a5aaa] hover:text-white"
-                      title="Settings"
-                    >
-                      <GearIcon />
-                    </Link>
-                  </>
-                )}
-              </div>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                onClick={() => setShareOpen(true)}
+                className="flex items-center gap-1.5 rounded-xl border border-[#3a3a7a] bg-[#1a1d35] px-3 py-1.5 text-xs font-semibold text-[#a0a0e8] transition hover:border-[#5a5aaa] hover:text-white"
+                aria-label="Share profile"
+              >
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
+                  <circle cx="18" cy="5" r="3" /><circle cx="6" cy="12" r="3" /><circle cx="18" cy="19" r="3" />
+                  <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" /><line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
+                </svg>
+                Share
+              </button>
+              {isOwn && (
+                <>
+                  <Link
+                    to="/profile/edit"
+                    className="rounded-xl border border-[#3a3a7a] bg-[#1a1d35] px-3 py-1.5 text-xs font-semibold text-[#a0a0e8] transition hover:border-[#5a5aaa] hover:text-white"
+                  >
+                    Edit Profile
+                  </Link>
+                  <Link
+                    to="/settings"
+                    className="flex items-center gap-1.5 rounded-xl border border-[#3a3a7a] bg-[#1a1d35] px-2.5 py-1.5 text-xs font-semibold text-[#a0a0e8] transition hover:border-[#5a5aaa] hover:text-white"
+                    title="Settings"
+                    aria-label="Settings"
+                  >
+                    <GearIcon />
+                  </Link>
+                </>
+              )}
             </div>
             {profile.bio && (
               <p className="mt-1 text-sm text-[#a0a0d8]">{profile.bio}</p>
