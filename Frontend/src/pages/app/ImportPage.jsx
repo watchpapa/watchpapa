@@ -359,19 +359,19 @@ export default function ImportPage({ session }) {
               <ol className="space-y-3 text-sm text-[#c0c0e8]">
                 <li className="flex gap-3">
                   <StepNumber n={1} />
-                  <span>Go to <span className="font-mono text-[#a0a0e8]">letterboxd.com</span> and sign in.</span>
+                  <span>Go to <span className="font-mono text-[#a0a0e8]">letterboxd.com</span>.</span>
                 </li>
                 <li className="flex gap-3">
                   <StepNumber n={2} />
-                  <span>Click your avatar (top-right) and open <strong>Settings</strong>.</span>
+                  <span>Go to <strong>Settings</strong>.</span>
                 </li>
                 <li className="flex gap-3">
                   <StepNumber n={3} />
-                  <span>Go to <strong>Import & Export</strong> in the left sidebar.</span>
+                  <span>Open the <strong>DATA</strong> tab.</span>
                 </li>
                 <li className="flex gap-3">
                   <StepNumber n={4} />
-                  <span>Click <strong>Export your data</strong> and wait for the email with a download link.</span>
+                  <span>Press <strong>Export your data</strong> and wait for the email with a download link.</span>
                 </li>
                 <li className="flex gap-3">
                   <StepNumber n={5} />

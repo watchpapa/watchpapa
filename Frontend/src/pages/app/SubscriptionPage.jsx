@@ -68,7 +68,7 @@ function SubscriptionPage({ session }) {
       <h2>Invite a friend, both get rewarded</h2>
 
       <p>
-        Your personal referral code is shown in the profile menu. Share it with someone — once they join and get active, you both earn a plan upgrade for 30 days.
+        Your personal referral code and invite link are in <strong>Settings</strong> and in your profile menu under <strong>Invite Friends</strong>. Share either with someone — once they join and get active, you both earn a plan upgrade for 30 days.
       </p>
 
       <h3>What you both get</h3>
@@ -135,7 +135,7 @@ function SubscriptionPage({ session }) {
 
       <h2>Reward codes</h2>
       <p>
-        Occasionally we run promotions with reward codes. You can enter one in the profile menu under <strong>Claim reward code</strong>. Each code can only be used once per account.
+        Occasionally we run promotions with reward codes. Enter one in <strong>Settings</strong> under <strong>Claim a reward code</strong>. Each code can only be used once per account.
       </p>
 
       <h2>How to use a referral code</h2>
@@ -143,8 +143,8 @@ function SubscriptionPage({ session }) {
         You can enter a friend's code two ways:
       </p>
       <ul>
-        <li>Click a referral link your friend shared — the code is applied automatically when you register.</li>
-        <li>Go to the profile menu and choose <strong>Use referral code</strong> to enter it manually.</li>
+        <li>Click a referral link your friend shared — the code is filled in automatically on the sign-up form.</li>
+        <li>Or paste their code into the optional <strong>referral or gift code</strong> field when you register.</li>
       </ul>
       <p className="muted">Each account can only use one referral code.</p>
     </InfoPageShell>
