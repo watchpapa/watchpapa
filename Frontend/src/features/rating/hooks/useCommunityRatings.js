@@ -2,9 +2,10 @@ import { useEffect, useState } from "react";
 import { supabase } from "../../../lib/supabase.js";
 import { isValidId } from "../../../lib/validate.js";
 
-// Fetches all ratings for one content item (no auth required — anon can read).
-// Returns histogram {1..10: count}, avg (1 decimal), total.
-// Used for the sidebar histogram widget on detail pages.
+// Fetches the anonymous community rating stats for one content item.
+// Uses the get_community_rating_stats RPC (SECURITY DEFINER) so that ratings
+// from private accounts still count toward the aggregate even though per-user
+// reads are gated by RLS. Returns histogram {1..10: count}, avg (1 decimal), total.
 export function useCommunityRatings(mediaType, entityId) {
   const id = entityId ? parseInt(entityId, 10) : null;
   const [histogram, setHistogram] = useState({});
@@ -20,31 +21,19 @@ export function useCommunityRatings(mediaType, entityId) {
       return;
     }
     let cancelled = false;
-    const col = `${mediaType}_id`;
     setLoading(true);
 
     supabase
-      .from("user_rating")
-      .select("value")
-      .eq(col, id)
+      .rpc("get_community_rating_stats", { p_media_type: mediaType, p_entity_id: id })
       .then(({ data }) => {
         if (cancelled) return;
         setLoading(false);
-        if (!data || data.length === 0) {
-          setHistogram({});
-          setAvg(null);
-          setTotal(0);
-          return;
-        }
-        const hist = {};
-        let sum = 0;
-        for (const row of data) {
-          hist[row.value] = (hist[row.value] ?? 0) + 1;
-          sum += row.value;
-        }
+        const stats = data ?? {};
+        const hist = stats.histogram ?? {};
+        const t = stats.total ?? 0;
         setHistogram(hist);
-        setTotal(data.length);
-        setAvg(Math.round((sum / data.length) * 10) / 10);
+        setTotal(t);
+        setAvg(t > 0 && stats.avg != null ? Number(stats.avg) : null);
       });
 
     return () => { cancelled = true; };
