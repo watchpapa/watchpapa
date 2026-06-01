@@ -1,6 +1,6 @@
 # watchpapa
 
-> watchpapa is a free media discovery platform for browsing films, TV shows, and talent. Powered by TMDB metadata. Not a streaming service — a discovery and tracking tool.
+> watchpapa is a free media discovery platform for browsing films, TV shows, and people. Powered by TMDB metadata. Not a streaming service — a discovery and tracking tool.
 
 ## Content
 

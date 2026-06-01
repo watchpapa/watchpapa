@@ -9,14 +9,14 @@ function AboutPage({ session }) {
     <>
       <PageHead
         title="About WATCHPAPA"
-        description="WATCHPAPA is a free media discovery platform powered by TMDB — browse films, shows, and talent in one streamlined dashboard."
+        description="WATCHPAPA is a free media discovery platform powered by TMDB — browse films, shows, and people in one streamlined dashboard."
         path="/about"
       />
       <InfoPageShell
       session={session}
       breadcrumbs={[{ label: "About" }]}
       title="About WATCHPAPA"
-      lead="A streamlined dashboard for discovering and tracking the films, shows, and talent that matter to you."
+      lead="A streamlined dashboard for discovering and tracking the films, shows, and people that matter to you."
     >
       <h2>What we do</h2>
       <p>

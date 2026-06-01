@@ -1,7 +1,7 @@
 import { Helmet } from "react-helmet-async";
 
 const SITE_NAME = "watchpapa";
-const DEFAULT_DESC = "Discover and track films, shows, and talent. Browse popular movies and TV shows, explore cast and crew, check upcoming releases — all in one place.";
+const DEFAULT_DESC = "Discover and track films, shows, and people. Browse popular movies and TV shows, explore cast and crew, check upcoming releases — all in one place.";
 const DEFAULT_IMAGE = "https://watchpapa.tv/logo_v3.1.svg";
 const BASE_URL = "https://watchpapa.tv";
 

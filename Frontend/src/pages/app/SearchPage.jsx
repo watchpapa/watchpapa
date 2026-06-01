@@ -102,7 +102,7 @@ function SearchPage({ session, showAdult }) {
     <AppLayout session={session}>
       <PageHead
         title={q ? `"${q}"` : "Search"}
-        description={q ? `Search results for "${q}" on watchpapa — discover films, shows, and people.` : "Search films, shows, and talent on watchpapa."}
+        description={q ? `Search results for "${q}" on watchpapa — discover films, shows, and people.` : "Search films, shows, and people on watchpapa."}
         path={q ? `/search?q=${encodeURIComponent(q)}` : "/search"}
         noindex={!!q}
       />
