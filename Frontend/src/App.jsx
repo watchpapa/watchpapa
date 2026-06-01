@@ -45,6 +45,11 @@ import ProfilePage from "./pages/app/ProfilePage.jsx";
 import EditProfilePage from "./pages/app/EditProfilePage.jsx";
 import FollowsPage from "./pages/app/FollowsPage.jsx";
 import ImportPage from "./pages/app/ImportPage.jsx";
+import UserSearchPage from "./pages/app/UserSearchPage.jsx";
+import ActivityFeedPage from "./pages/app/ActivityFeedPage.jsx";
+import ObserveRequestsPage from "./pages/app/ObserveRequestsPage.jsx";
+import NotificationsPage from "./pages/app/NotificationsPage.jsx";
+import ObserveListPage from "./pages/app/ObserveListPage.jsx";
 import {
   AboutPage,
   ContactPage,
@@ -456,10 +461,58 @@ function App() {
         }
       />
       <Route
+        path="/users"
+        element={
+          <ProtectedRoute session={session} needsUsernameSetup={needsUsernameSetup}>
+            <UserSearchPage session={session} />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/feed"
+        element={
+          <ProtectedRoute session={session} needsUsernameSetup={needsUsernameSetup}>
+            <ActivityFeedPage session={session} showAdult={showAdult} />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/observe-requests"
+        element={
+          <ProtectedRoute session={session} needsUsernameSetup={needsUsernameSetup}>
+            <ObserveRequestsPage session={session} />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/notifications"
+        element={
+          <ProtectedRoute session={session} needsUsernameSetup={needsUsernameSetup}>
+            <NotificationsPage session={session} />
+          </ProtectedRoute>
+        }
+      />
+      <Route
         path="/u/:username"
         element={
           <ProtectedRoute session={session} needsUsernameSetup={needsUsernameSetup}>
             <ProfilePage session={session} />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/u/:username/observers"
+        element={
+          <ProtectedRoute session={session} needsUsernameSetup={needsUsernameSetup}>
+            <ObserveListPage session={session} kind="observers" />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/u/:username/observing"
+        element={
+          <ProtectedRoute session={session} needsUsernameSetup={needsUsernameSetup}>
+            <ObserveListPage session={session} kind="observing" />
           </ProtectedRoute>
         }
       />
