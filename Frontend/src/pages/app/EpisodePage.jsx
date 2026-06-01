@@ -10,6 +10,7 @@ import FollowButton from "../../components/detail/FollowButton.jsx";
 import AuthPromptModal from "../../components/AuthPromptModal.jsx";
 import { RatingSidebar } from "../../components/rating/RatingSidebar.jsx";
 import { RatingHistogram } from "../../components/rating/RatingHistogram.jsx";
+import { ObservedRatingsPanel } from "../../components/observe/ObservedRatingsPanel.jsx";
 import SkeletonDetailPage from "../../components/detail/SkeletonDetailPage.jsx";
 import { useEpisodeData } from "../../features/episode/hooks/useEpisodeData.js";
 import { useShowFollow } from "../../features/show/hooks/useShowFollow.js";
@@ -114,6 +115,7 @@ function EpisodePage({ session }) {
               ))}
             </ul>
             <RatingSidebar mediaType="episode" entityId={episode.id} session={session} onAuthPrompt={() => setShowAuthPrompt(true)} />
+            <ObservedRatingsPanel mediaType="episode" entityId={episode.id} session={session} />
             <RatingHistogram mediaType="episode" entityId={episode.id} />
           </>
         }

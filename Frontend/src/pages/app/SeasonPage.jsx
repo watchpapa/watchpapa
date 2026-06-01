@@ -10,6 +10,7 @@ import FollowButton from "../../components/detail/FollowButton.jsx";
 import AuthPromptModal from "../../components/AuthPromptModal.jsx";
 import { RatingSidebar } from "../../components/rating/RatingSidebar.jsx";
 import { RatingHistogram } from "../../components/rating/RatingHistogram.jsx";
+import { ObservedRatingsPanel } from "../../components/observe/ObservedRatingsPanel.jsx";
 import SkeletonDetailPage from "../../components/detail/SkeletonDetailPage.jsx";
 import { useSeasonData } from "../../features/season/hooks/useSeasonData.js";
 import { useShowFollow } from "../../features/show/hooks/useShowFollow.js";
@@ -102,6 +103,7 @@ function SeasonPage({ session }) {
               ))}
             </ul>
             <RatingSidebar mediaType="season" entityId={season.id} session={session} onAuthPrompt={() => setShowAuthPrompt(true)} />
+            <ObservedRatingsPanel mediaType="season" entityId={season.id} session={session} />
             <RatingHistogram mediaType="season" entityId={season.id} />
           </>
         }

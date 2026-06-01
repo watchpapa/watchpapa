@@ -9,6 +9,7 @@ import FollowButton from "../../components/detail/FollowButton.jsx";
 import AddToWatchlistButton from "../../components/watchlist/AddToWatchlistButton.jsx";
 import { RatingSidebar } from "../../components/rating/RatingSidebar.jsx";
 import { RatingHistogram } from "../../components/rating/RatingHistogram.jsx";
+import { ObservedRatingsPanel } from "../../components/observe/ObservedRatingsPanel.jsx";
 import CastGrid from "../../components/detail/CastGrid.jsx";
 import CrewSection from "../../components/detail/CrewSection.jsx";
 import AuthPromptModal from "../../components/AuthPromptModal.jsx";
@@ -155,6 +156,7 @@ function ShowPage({ session, showAdult }) {
               ))}
             </ul>
             <RatingSidebar mediaType="show" entityId={show.id} session={session} onAuthPrompt={() => setShowAuthPrompt(true)} />
+            <ObservedRatingsPanel mediaType="show" entityId={show.id} session={session} />
             <RatingHistogram mediaType="show" entityId={show.id} />
           </>
         }
