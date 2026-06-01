@@ -1,5 +1,6 @@
 import { useState } from "react";
 import AppLayout from "../../layouts/AppLayout.jsx";
+import HeroBanner from "../../components/home/HeroBanner.jsx";
 import SearchBar from "../../components/home/SearchBar.jsx";
 import MediaRow from "../../components/home/MediaRow.jsx";
 import { useHomeData } from "../../features/home/hooks/useHomeData.js";
@@ -79,11 +80,12 @@ function AppHomePage({ session, showAdult }) {
   return (
     <AppLayout session={session}>
       <PageHead
-        title="Discover Films, Shows & Talent"
-        description="Browse popular movies and TV shows, explore cast and crew, check upcoming releases, and track what to watch next."
+        title="Discover Films, Shows & People"
+        description="Browse popular movies and TV shows, explore people and cast, check upcoming releases, and track what to watch next."
         path="/"
       />
       {followLimitError && <UpgradePromptToast message={followLimitError} onDismiss={clearFollowLimitError} session={session} />}
+      <HeroBanner />
       <div className="mx-auto max-w-[1600px] space-y-8">
         <SearchBar value={search} onChange={(e) => setSearch(e.target.value)} />
 
