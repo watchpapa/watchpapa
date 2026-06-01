@@ -226,7 +226,7 @@ function ContactPage({ session }) {
         </a>
       </ContentPanel>
 
-      <div className="flex gap-4 rounded-2xl border border-[#1a1f3a] bg-[#0f1225] p-5 sm:gap-5 sm:p-6">
+      <div className="flex gap-4 rounded-2xl border border-[#2a3570]/50 bg-[#0f1225] p-5 sm:gap-5 sm:p-6">
         <div
           className="w-0.5 shrink-0 self-stretch rounded-full bg-gradient-to-b from-[#6f6fdc] to-[#4a4a9e]"
           aria-hidden

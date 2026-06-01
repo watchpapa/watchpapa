@@ -32,7 +32,7 @@ function SiblingRow({ ep, showId, seasonId }) {
   return (
     <Link
       to={`/shows/${showId}/seasons/${seasonId}/episodes/${ep.id}`}
-      className="flex items-center gap-3 rounded-xl border border-[#1a1f3a] bg-[#0d0f1e] p-3 transition hover:border-[#3a3a7a] hover:bg-[#141728]"
+      className="flex items-center gap-3 rounded-xl border border-[#2a3570]/50 bg-[#0d0f1e] p-3 transition hover:border-[#3a3a7a] hover:bg-[#141728]"
     >
       <div className="h-12 w-20 flex-shrink-0 overflow-hidden rounded-lg border border-[#2a3570] bg-[#12163a]">
         {imgSrc ? (

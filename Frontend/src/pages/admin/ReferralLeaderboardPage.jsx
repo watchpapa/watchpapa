@@ -65,7 +65,7 @@ function ReferralLeaderboardPage() {
                   </tr>
                 ) : (
                   data.leaderboard.map((row, i) => (
-                    <tr key={row.referrer_id} className="border-b border-[#1a1f3a] last:border-0 hover:bg-[#111530]">
+                    <tr key={row.referrer_id} className="border-b border-[#2a3570]/50 last:border-0 hover:bg-[#111530]">
                       <td className="px-4 py-3 text-[#4a4a8a] tabular-nums">{i + 1}</td>
                       <td className="px-4 py-3">
                         <p className="text-white">{row.email ?? "—"}</p>

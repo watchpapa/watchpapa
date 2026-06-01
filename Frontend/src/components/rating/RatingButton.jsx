@@ -62,7 +62,7 @@ export function RatingButton({ mediaType, entityId, session, onAuthPrompt }) {
 
       {open && (
         <div className="absolute left-0 top-full z-50 mt-2 w-max rounded-2xl border border-[#2a2f5a] bg-[#0d0f1e] p-4 shadow-2xl shadow-black/60 animate-[fadeSlideDown_0.15s_ease-out]">
-          <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-[#5050b0]">Your rating</p>
+          <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-[#c084fc]">Your rating</p>
           <RatingInput
             value={value}
             onChange={async (v) => {

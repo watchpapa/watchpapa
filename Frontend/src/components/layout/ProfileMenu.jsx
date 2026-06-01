@@ -121,7 +121,7 @@ function ProfileMenu({ session }) {
       {open && (
         <div className="absolute right-0 top-11 z-50 w-72 max-w-[calc(100vw-1rem)] origin-top-right animate-[fadeSlideDown_0.15s_ease-out] rounded-2xl border border-[#2a3570] bg-[#0d0f1e] shadow-xl shadow-black/40">
           {/* User info header */}
-          <div className="px-4 py-3 border-b border-[#1a1f3a]">
+          <div className="px-4 py-3 border-b border-[#2a3570]/50">
             <p className="text-sm font-bold text-white truncate">{displayName}</p>
             <div className="mt-1 flex flex-wrap items-center gap-1.5">
               <span className={`text-xs font-semibold ${TIER_COLORS[tier] ?? "text-[#6868b8]"}`}>
@@ -135,7 +135,7 @@ function ProfileMenu({ session }) {
             </div>
           </div>
 
-          <div className="border-b border-[#1a1f3a] px-4 py-3">
+          <div className="border-b border-[#2a3570]/50 px-4 py-3">
             <p className="flex items-center gap-2 text-sm font-semibold text-white">
               <ReferralIcon />
               Invite Friends

@@ -18,7 +18,7 @@ function FavSlot({ fav }) {
   return (
     <Link
       to={to}
-      className="group relative block aspect-[2/3] w-full overflow-hidden rounded-xl border border-[#1a1f3a] bg-[#0a0c18] transition hover:border-[#5a5aaa]"
+      className="group relative block aspect-[2/3] w-full overflow-hidden rounded-xl border border-[#2a3570]/50 bg-[#0a0c18] transition hover:border-[#5a5aaa]"
     >
       {poster ? (
         <img
@@ -51,7 +51,7 @@ export function ProfileFavourites({ favourites }) {
 
   return (
     <div>
-      <h2 className="mb-3 text-xs font-semibold uppercase tracking-widest text-[#5050b0]">Favourites</h2>
+      <h2 className="mb-3 text-xs font-semibold uppercase tracking-widest text-[#c084fc]">Favourites</h2>
       <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
         {slots.map((fav, i) => (
           <FavSlot key={i} fav={fav} />

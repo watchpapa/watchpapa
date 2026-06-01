@@ -132,7 +132,7 @@ function ResultRow({ item }) {
   const poster = item.posterPath ? `${TMDB_IMG}${item.posterPath}` : null;
 
   return (
-    <div className="border-b border-[#1a1f3a] last:border-0">
+    <div className="border-b border-[#2a3570]/50 last:border-0">
       <button
         onClick={() => setOpen((v) => !v)}
         className="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-[#111530] transition"

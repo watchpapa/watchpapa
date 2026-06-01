@@ -94,10 +94,10 @@ function EarlyAdoptersPage() {
           <p className="mb-2 text-sm text-red-400">{listError}</p>
         )}
 
-        <div className="overflow-x-auto rounded-2xl border border-[#1a1f3a]">
+        <div className="overflow-x-auto rounded-2xl border border-[#2a3570]/50">
           <table className="w-full text-sm min-w-[520px]">
             <thead>
-              <tr className="border-b border-[#1a1f3a] text-[10px] uppercase tracking-wider text-[#5a5a78]">
+              <tr className="border-b border-[#2a3570]/50 text-[10px] uppercase tracking-wider text-[#5a5a78]">
                 <th className="px-4 py-3 text-left font-semibold">#</th>
                 <th className="px-4 py-3 text-left font-semibold">Username</th>
                 <th className="px-4 py-3 text-left font-semibold">Email</th>
@@ -110,7 +110,7 @@ function EarlyAdoptersPage() {
               ) : list.length === 0 ? (
                 <tr><td colSpan={4} className="py-10 text-center text-[#5a5a78]">No early adopters yet.</td></tr>
               ) : list.map((u, i) => (
-                <tr key={u.id} className="border-b border-[#1a1f3a] last:border-0 hover:bg-[#0a0c18] transition">
+                <tr key={u.id} className="border-b border-[#2a3570]/50 last:border-0 hover:bg-[#0a0c18] transition">
                   <td className="px-4 py-3 tabular-nums text-[#4a4a8a]">
                     {(listPage - 1) * LIST_LIMIT + i + 1}
                   </td>

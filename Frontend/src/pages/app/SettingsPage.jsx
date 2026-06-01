@@ -26,11 +26,11 @@ async function getToken() {
 
 function Section({ title, children }) {
   return (
-    <section className="rounded-2xl border border-[#1a1f3a] bg-[#0a0c18]">
-      <div className="border-b border-[#1a1f3a] px-5 py-4">
+    <section className="rounded-2xl border border-[#2a3570]/50 bg-[#0a0c18]">
+      <div className="border-b border-[#2a3570]/50 px-5 py-4">
         <h2 className="text-sm font-semibold uppercase tracking-widest text-[#6868b8]">{title}</h2>
       </div>
-      <div className="divide-y divide-[#1a1f3a]">{children}</div>
+      <div className="divide-y divide-[#2a3570]/40">{children}</div>
     </section>
   );
 }

@@ -46,7 +46,7 @@ function SearchModal({ onSelect, onClose }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
       <div className="w-full max-w-md rounded-2xl border border-[#2a2f5a] bg-[#0d0f1e] shadow-2xl">
-        <div className="border-b border-[#1a1f3a] p-4">
+        <div className="border-b border-[#2a3570]/50 p-4">
           <input
             ref={inputRef}
             value={query}
@@ -78,7 +78,7 @@ function SearchModal({ onSelect, onClose }) {
             </button>
           ))}
         </div>
-        <div className="border-t border-[#1a1f3a] p-3">
+        <div className="border-t border-[#2a3570]/50 p-3">
           <button onClick={onClose} className="text-xs text-[#5050a0] transition hover:text-white">Cancel</button>
         </div>
       </div>
@@ -106,7 +106,7 @@ export function FavouritesEditor({ favourites, setFavourite }) {
         <SearchModal onSelect={handleSelect} onClose={() => setPickingSlot(null)} />
       )}
       <div>
-        <p className="mb-1 text-xs font-semibold uppercase tracking-widest text-[#5050b0]">5 Favourites</p>
+        <p className="mb-1 text-xs font-semibold uppercase tracking-widest text-[#c084fc]">5 Favourites</p>
         <p className="mb-3 text-xs text-[#5050a0]">Mixed movies and shows. Click a slot to change it.</p>
         <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
           {slots.map((fav, i) => {

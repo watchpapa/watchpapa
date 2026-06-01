@@ -63,7 +63,7 @@ export function ProfileRatingCard({ rating }) {
   return (
     <Link
       to={meta.to}
-      className="group flex flex-col overflow-hidden rounded-xl border border-[#1a1f3a] bg-[#0a0c18] transition hover:border-[#3a3a7a]"
+      className="group flex flex-col overflow-hidden rounded-xl border border-[#2a3570]/50 bg-[#0a0c18] transition hover:border-[#3a3a7a]"
     >
       <div className="relative aspect-[2/3] w-full overflow-hidden bg-[#0d0f1e]">
         {meta.poster ? (

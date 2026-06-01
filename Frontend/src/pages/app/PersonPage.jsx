@@ -43,7 +43,7 @@ function FilmographyCard({ credit }) {
   const to = credit.type === "movie" ? `/movies/${credit.mediaId}` : `/shows/${credit.mediaId}`;
 
   return (
-    <Link to={to} className="flex items-center gap-3 rounded-xl border border-[#1a1f3a] bg-[#0d0f1e] p-3 transition hover:border-[#3a3a7a] hover:bg-[#141728]">
+    <Link to={to} className="flex items-center gap-3 rounded-xl border border-[#2a3570]/50 bg-[#0d0f1e] p-3 transition hover:border-[#3a3a7a] hover:bg-[#141728]">
       <div className="h-16 w-11 flex-shrink-0 overflow-hidden rounded-lg border border-[#2a3570] bg-[#12163a]">
         {imgSrc ? (
           <img src={imgSrc} alt={credit.title} className="h-full w-full object-cover" loading="lazy" />

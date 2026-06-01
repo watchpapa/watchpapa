@@ -335,14 +335,14 @@ export default function ImportPage({ session }) {
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <button
                 onClick={() => { setSource("letterboxd"); setStep(STEPS.UPLOAD); }}
-                className="group rounded-2xl border border-[#1a1f3a] bg-[#0a0c18] p-5 text-left transition hover:border-[#4a4a8a] hover:bg-[#0d0f22]"
+                className="group rounded-2xl border border-[#2a3570]/50 bg-[#0a0c18] p-5 text-left transition hover:border-[#4a4a8a] hover:bg-[#0d0f22]"
               >
                 <p className="mb-1 font-semibold text-white group-hover:text-[#a0a0e8]">Letterboxd</p>
                 <p className="text-xs text-[#5a5a78]">Import ratings, watchlist, and watched history from your Letterboxd data export.</p>
               </button>
               <button
                 onClick={() => { setSource("watchpapa"); setStep(STEPS.UPLOAD); }}
-                className="group rounded-2xl border border-[#1a1f3a] bg-[#0a0c18] p-5 text-left transition hover:border-[#4a4a8a] hover:bg-[#0d0f22]"
+                className="group rounded-2xl border border-[#2a3570]/50 bg-[#0a0c18] p-5 text-left transition hover:border-[#4a4a8a] hover:bg-[#0d0f22]"
               >
                 <p className="mb-1 font-semibold text-white group-hover:text-[#a0a0e8]">watchpapa CSV</p>
                 <p className="text-xs text-[#5a5a78]">Re-import a previously exported watchpapa CSV file.</p>
@@ -354,7 +354,7 @@ export default function ImportPage({ session }) {
         {/* ── Step 1: Upload ────────────────────────────────────────────────── */}
         {step === STEPS.UPLOAD && source === "letterboxd" && (
           <div className="space-y-5">
-            <div className="rounded-2xl border border-[#1a1f3a] bg-[#0a0c18] p-5">
+            <div className="rounded-2xl border border-[#2a3570]/50 bg-[#0a0c18] p-5">
               <h2 className="mb-4 text-sm font-semibold uppercase tracking-widest text-[#6868b8]">How to export from Letterboxd</h2>
               <ol className="space-y-3 text-sm text-[#c0c0e8]">
                 <li className="flex gap-3">
@@ -430,11 +430,11 @@ export default function ImportPage({ session }) {
         {step === STEPS.CONFIGURE && (
           <div className="space-y-4">
             {/* Data preview */}
-            <div className="rounded-2xl border border-[#1a1f3a] bg-[#0a0c18]">
-              <div className="border-b border-[#1a1f3a] px-5 py-4">
+            <div className="rounded-2xl border border-[#2a3570]/50 bg-[#0a0c18]">
+              <div className="border-b border-[#2a3570]/50 px-5 py-4">
                 <h2 className="text-sm font-semibold uppercase tracking-widest text-[#6868b8]">Detected data</h2>
               </div>
-              <div className="divide-y divide-[#1a1f3a]">
+              <div className="divide-y divide-[#2a3570]/40">
                 <label className="flex cursor-pointer items-center justify-between px-5 py-3">
                   <div>
                     <p className="text-sm font-medium text-[#c0c0e8]">Ratings</p>
@@ -479,11 +479,11 @@ export default function ImportPage({ session }) {
 
             {/* Rating conflict */}
             {includeRatings && lbRatings.length > 0 && (
-              <div className="rounded-2xl border border-[#1a1f3a] bg-[#0a0c18]">
-                <div className="border-b border-[#1a1f3a] px-5 py-4">
+              <div className="rounded-2xl border border-[#2a3570]/50 bg-[#0a0c18]">
+                <div className="border-b border-[#2a3570]/50 px-5 py-4">
                   <h2 className="text-sm font-semibold uppercase tracking-widest text-[#6868b8]">Rating conflicts</h2>
                 </div>
-                <div className="space-y-0 divide-y divide-[#1a1f3a]">
+                <div className="space-y-0 divide-y divide-[#2a3570]/40">
                   <label className="flex cursor-pointer items-center justify-between px-5 py-3">
                     <div>
                       <p className="text-sm font-medium text-[#c0c0e8]">Skip existing ratings</p>
@@ -504,8 +504,8 @@ export default function ImportPage({ session }) {
 
             {/* Watchlist target */}
             {hasWatchlistData && (
-              <div className="rounded-2xl border border-[#1a1f3a] bg-[#0a0c18]">
-                <div className="border-b border-[#1a1f3a] px-5 py-4">
+              <div className="rounded-2xl border border-[#2a3570]/50 bg-[#0a0c18]">
+                <div className="border-b border-[#2a3570]/50 px-5 py-4">
                   <h2 className="text-sm font-semibold uppercase tracking-widest text-[#6868b8]">Watchlist destination</h2>
                 </div>
                 <div className="px-5 py-4 space-y-3">

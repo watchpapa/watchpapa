@@ -18,7 +18,7 @@ export function RatingHistogram({ mediaType, entityId }) {
   if (loading) return null;
   if (total < MIN_RATINGS) {
     return (
-      <div className="mt-4 rounded-xl border border-[#1a1f3a] bg-[#0a0c18] px-4 py-3">
+      <div className="mt-4 rounded-xl border border-[#2a3570]/50 bg-[#0a0c18] px-4 py-3">
         <p className="text-[10px] font-semibold uppercase tracking-widest text-[#4a4a7a]">Community ratings</p>
         <p className="mt-1 text-xs text-[#4a4a7a]">Not enough ratings yet</p>
       </div>
@@ -28,9 +28,9 @@ export function RatingHistogram({ mediaType, entityId }) {
   const maxCount = Math.max(...Object.values(histogram), 1);
 
   return (
-    <div className="mt-4 rounded-xl border border-[#1a1f3a] bg-[#0a0c18] px-4 py-3">
+    <div className="mt-4 rounded-xl border border-[#2a3570]/50 bg-[#0a0c18] px-4 py-3">
       <div className="flex items-baseline justify-between mb-3">
-        <p className="text-[10px] font-semibold uppercase tracking-widest text-[#5050b0]">Ratings</p>
+        <p className="text-[10px] font-semibold uppercase tracking-widest text-[#c084fc]">Ratings</p>
         <span className="text-xs text-[#6868b8]">{total}</span>
       </div>
 

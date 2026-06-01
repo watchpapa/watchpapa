@@ -43,7 +43,7 @@ export function UserResultRow({ user, session }) {
   const initials = (user.username?.[0] ?? "?").toUpperCase();
 
   return (
-    <div className="flex items-center gap-3 rounded-xl border border-[#1a1f3a] bg-[#0d0f1e] px-3 py-2.5">
+    <div className="flex items-center gap-3 rounded-xl border border-[#2a3570]/50 bg-[#0d0f1e] px-3 py-2.5">
       <Link to={`/u/${user.username}`} className="flex min-w-0 flex-1 items-center gap-3">
         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#3a3a7a] bg-[#1a1d35] text-sm font-bold text-[#a0a0e8]">
           {initials}

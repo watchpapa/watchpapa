@@ -141,8 +141,8 @@ export function ProfileStats({ profileId, basic, genreStats, decadeStats, monthl
   return (
     <div className="space-y-4">
       {/* Always visible: basic + histogram */}
-      <div className="rounded-xl border border-[#1a1f3a] bg-[#0a0c18] p-4">
-        <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-[#5050b0]">Your stats</p>
+      <div className="rounded-xl border border-[#2a3570]/50 bg-[#0a0c18] p-4">
+        <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-[#c084fc]">Your stats</p>
         <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
           {[
             ["Total ratings", basic.total],
@@ -162,9 +162,9 @@ export function ProfileStats({ profileId, basic, genreStats, decadeStats, monthl
       </div>
 
       {/* Genre breakdown — Premium+ */}
-      <div className={`relative rounded-xl border border-[#1a1f3a] bg-[#0a0c18] p-4 ${!canSeeGenre ? "overflow-hidden" : ""}`}>
+      <div className={`relative rounded-xl border border-[#2a3570]/50 bg-[#0a0c18] p-4 ${!canSeeGenre ? "overflow-hidden" : ""}`}>
         {!canSeeGenre && <LockedOverlay requiredTier="premium" />}
-        <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-[#5050b0]">Your top genres</p>
+        <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-[#c084fc]">Your top genres</p>
         <div className={`space-y-2 ${!canSeeGenre ? "select-none" : ""}`}>
           {(canSeeGenre ? genreStats ?? [] : fakeGen).slice(0, 5).map((g, i) => (
             <div key={i} className="flex items-center gap-2">
@@ -182,9 +182,9 @@ export function ProfileStats({ profileId, basic, genreStats, decadeStats, monthl
       </div>
 
       {/* Decade breakdown — Pro+ */}
-      <div className={`relative rounded-xl border border-[#1a1f3a] bg-[#0a0c18] p-4 ${!canSeePro ? "overflow-hidden" : ""}`}>
+      <div className={`relative rounded-xl border border-[#2a3570]/50 bg-[#0a0c18] p-4 ${!canSeePro ? "overflow-hidden" : ""}`}>
         {!canSeePro && <LockedOverlay requiredTier="pro" />}
-        <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-[#5050b0]">Your Top Decades</p>
+        <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-[#c084fc]">Your Top Decades</p>
         <div className={!canSeePro ? "select-none" : ""}>
           <div className="flex items-end gap-2" style={{ height: 40 }}>
             {(canSeePro ? decadeStats ?? [] : fakeDec).map((d) => {
@@ -211,9 +211,9 @@ export function ProfileStats({ profileId, basic, genreStats, decadeStats, monthl
       </div>
 
       {/* Monthly heatmap — Pro+ */}
-      <div className={`relative rounded-xl border border-[#1a1f3a] bg-[#0a0c18] p-4 ${!canSeePro ? "overflow-hidden" : ""}`}>
+      <div className={`relative rounded-xl border border-[#2a3570]/50 bg-[#0a0c18] p-4 ${!canSeePro ? "overflow-hidden" : ""}`}>
         {!canSeePro && <LockedOverlay requiredTier="pro" />}
-        <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-[#5050b0]">Your Activity</p>
+        <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-[#c084fc]">Your Activity</p>
         <div className={`flex items-end gap-[3px] ${!canSeePro ? "select-none" : ""}`} style={{ height: 40 }}>
           {(canSeePro ? monthlyStats ?? [] : fakeMon).map((m) => {
             const all = canSeePro ? monthlyStats ?? [] : fakeMon;

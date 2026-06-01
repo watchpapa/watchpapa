@@ -9,7 +9,7 @@ const STATUS_BADGE = {
   active:   "bg-emerald-900/40 text-emerald-400 border-emerald-700/50",
   expired:  "bg-amber-900/40 text-amber-400 border-amber-700/50",
   depleted: "bg-[#1a1f3a] text-[#6868b8] border-[#2a3570]",
-  inactive: "bg-[#1a1f3a] text-[#5a5a78] border-[#1a1f3a]",
+  inactive: "bg-[#1a1f3a] text-[#5a5a78] border-[#2a3570]/50",
 };
 
 const EMPTY_FORM = { tier: "premium", durationDays: 30, maxUses: 1, expiresAt: "" };
@@ -285,7 +285,7 @@ function RewardCodesPage() {
       <h1 className="text-xl font-bold text-white">Reward Codes</h1>
 
       {/* Create panel */}
-      <section className="rounded-2xl border border-[#1a1f3a] bg-[#0a0c18] p-5">
+      <section className="rounded-2xl border border-[#2a3570]/50 bg-[#0a0c18] p-5">
         {/* Mode tabs */}
         <div className="mb-4 flex gap-1">
           {[["random", "Generate random"], ["custom", "Create custom"]].map(([mode, label]) => (
@@ -344,7 +344,7 @@ function RewardCodesPage() {
                 <button onClick={downloadGenerated} className="text-xs text-[#9b9bf0] underline hover:text-white transition">Download CSV</button>
               )}
             </div>
-            <div className="max-h-40 overflow-y-auto rounded-lg border border-[#1a1f3a] bg-[#06070f] p-2">
+            <div className="max-h-40 overflow-y-auto rounded-lg border border-[#2a3570]/50 bg-[#06070f] p-2">
               <table className="w-full text-xs font-mono">
                 <tbody>
                   {genResult.map((c) => (
@@ -418,10 +418,10 @@ function RewardCodesPage() {
           </div>
         )}
 
-        <div className="overflow-x-auto rounded-2xl border border-[#1a1f3a]">
+        <div className="overflow-x-auto rounded-2xl border border-[#2a3570]/50">
           <table className="w-full text-sm min-w-[760px]">
             <thead>
-              <tr className="border-b border-[#1a1f3a] text-[10px] uppercase tracking-wider text-[#5a5a78]">
+              <tr className="border-b border-[#2a3570]/50 text-[10px] uppercase tracking-wider text-[#5a5a78]">
                 <th className="px-4 py-3">
                   <input
                     ref={selectAllRef}
@@ -444,7 +444,7 @@ function RewardCodesPage() {
               ) : codes.map((c) => (
                 <tr
                   key={c.id}
-                  className={`border-b border-[#1a1f3a] last:border-0 transition ${selected.has(c.id) ? "bg-[#111430]" : "hover:bg-[#0a0c18]"}`}
+                  className={`border-b border-[#2a3570]/50 last:border-0 transition ${selected.has(c.id) ? "bg-[#111430]" : "hover:bg-[#0a0c18]"}`}
                 >
                   <td className="px-4 py-3">
                     <input

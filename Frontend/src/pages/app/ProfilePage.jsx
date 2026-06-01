@@ -226,7 +226,7 @@ function ProfilePage({ session }) {
         {favourites.length > 0 && <ProfileFavourites favourites={favourites} />}
 
         {!canViewRatings ? (
-          <div className="flex flex-col items-center justify-center rounded-2xl border border-[#1a1f3a] bg-[#0a0c18] py-16 text-center">
+          <div className="flex flex-col items-center justify-center rounded-2xl border border-[#2a3570]/50 bg-[#0a0c18] py-16 text-center">
             <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#5050a0" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
               <rect x="3" y="11" width="18" height="11" rx="2" />
               <path d="M7 11V7a5 5 0 0 1 10 0v4" />
@@ -250,7 +250,7 @@ function ProfilePage({ session }) {
 
             {/* Ratings grid */}
             <div>
-              <h2 className="mb-3 text-xs font-semibold uppercase tracking-widest text-[#5050b0]">
+              <h2 className="mb-3 text-xs font-semibold uppercase tracking-widest text-[#c084fc]">
                 {isOwn ? "Your Ratings" : "Ratings"} {ratings.length > 0 && <span className="normal-case text-[#4a4a7a]">({ratings.length}{hasMore ? "+" : ""})</span>}
               </h2>
 

@@ -233,7 +233,7 @@ export default function AddToWatchlistButton({ mediaType, entityId, session, onA
 
           {/* Inline checklist picker */}
           {pickerOpen && (
-            <div className="border-t border-[#1a1f3a]">
+            <div className="border-t border-[#2a3570]/50">
               <div className="max-h-52 overflow-y-auto py-1">
                 {watchlists.map((list) => {
                   const isIn      = membershipMap[list.id] != null;
@@ -261,7 +261,7 @@ export default function AddToWatchlistButton({ mediaType, entityId, session, onA
                 })}
               </div>
 
-              <div className="border-t border-[#1a1f3a] px-4 py-2.5">
+              <div className="border-t border-[#2a3570]/50 px-4 py-2.5">
                 <Link
                   to="/watchlists"
                   onClick={dismissToast}

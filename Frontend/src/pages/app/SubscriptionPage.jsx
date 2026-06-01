@@ -17,17 +17,17 @@ function SubscriptionPage({ session }) {
     >
       <h2>What each plan includes</h2>
 
-      <div className="overflow-x-auto rounded-xl border border-[#1a1f3a]">
+      <div className="overflow-x-auto rounded-xl border border-[#2a3570]/50">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-[#1a1f3a] text-[11px] uppercase tracking-widest text-[#5a5a78]">
+            <tr className="border-b border-[#2a3570]/50 text-[11px] uppercase tracking-widest text-[#5a5a78]">
               <th className="px-4 py-3 text-left">Plan</th>
               <th className="px-4 py-3 text-left">Followed shows</th>
               <th className="px-4 py-3 text-left">Followed movies</th>
               <th className="px-4 py-3 text-left">Ads *</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-[#1a1f3a]">
+          <tbody className="divide-y divide-[#2a3570]/40">
             <tr>
               <td className="px-4 py-3 font-semibold text-green-400">Free</td>
               <td className="px-4 py-3 text-[#b0b0d4]">3</td>
@@ -75,16 +75,16 @@ function SubscriptionPage({ session }) {
       <p className="muted text-sm">
         Rewards depend on how many <strong>Early Adopter</strong> accounts exist (cap 5,000), not on whether you are on Free, Premium, or Pro today.
       </p>
-      <div className="overflow-x-auto rounded-xl border border-[#1a1f3a]">
+      <div className="overflow-x-auto rounded-xl border border-[#2a3570]/50">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-[#1a1f3a] text-[11px] uppercase tracking-widest text-[#5a5a78]">
+            <tr className="border-b border-[#2a3570]/50 text-[11px] uppercase tracking-widest text-[#5a5a78]">
               <th className="px-4 py-3 text-left">Situation</th>
               <th className="px-4 py-3 text-left">You get</th>
               <th className="px-4 py-3 text-left">Your friend gets</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-[#1a1f3a]">
+          <tbody className="divide-y divide-[#2a3570]/40">
             <tr>
               <td className="px-4 py-3 text-[#b0b0d4]">
                 Fewer than 5,000 Early Adopters so far — pool still has open seats

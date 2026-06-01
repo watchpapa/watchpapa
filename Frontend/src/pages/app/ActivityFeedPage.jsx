@@ -35,7 +35,7 @@ const TYPE_LABEL = { movie: "Movie", show: "Show", season: "Season", episode: "E
 
 function FeedRow({ item }) {
   return (
-    <div className="flex items-center gap-3 rounded-xl border border-[#1a1f3a] bg-[#0d0f1e] p-3">
+    <div className="flex items-center gap-3 rounded-xl border border-[#2a3570]/50 bg-[#0d0f1e] p-3">
       <Link to={entityLink(item)} className="shrink-0">
         <div className="h-[84px] w-14 overflow-hidden rounded-lg border border-[#2a3570] bg-[#12163a]">
           {item.poster_path ? (
@@ -83,7 +83,7 @@ function ActivityFeedPage({ session, showAdult }) {
         )}
 
         {!loading && items.length === 0 && (
-          <div className="rounded-2xl border border-[#1a1f3a] bg-[#0a0c18] py-16 text-center">
+          <div className="rounded-2xl border border-[#2a3570]/50 bg-[#0a0c18] py-16 text-center">
             <p className="text-sm font-semibold text-white">Nothing here yet</p>
             <p className="mt-1 text-xs text-[#5050a0]">
               Observe people from <Link to="/users" className="text-[#8383e7] hover:text-white">Find People</Link> to see their ratings here.

@@ -76,8 +76,8 @@ export function RatingSidebar({ mediaType, entityId, session, onAuthPrompt }) {
   };
 
   return (
-    <div className="mt-4 rounded-xl border border-[#1a1f3a] bg-[#0a0c18] px-4 py-3">
-      <p className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-[#5050b0]">
+    <div className="mt-4 rounded-xl border border-[#2a3570]/50 bg-[#0a0c18] px-4 py-3">
+      <p className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-[#c084fc]">
         {value != null ? `Your rating · ${value}/10` : `Rate this ${mediaType}`}
       </p>
 

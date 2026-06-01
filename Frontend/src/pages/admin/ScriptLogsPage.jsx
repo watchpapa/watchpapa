@@ -194,7 +194,7 @@ function ScriptLogsPage() {
                 <tr
                   key={log.id}
                   onClick={() => setSelected(log)}
-                  className="cursor-pointer border-b border-[#1a1f3a] last:border-0 hover:bg-[#111530]"
+                  className="cursor-pointer border-b border-[#2a3570]/50 last:border-0 hover:bg-[#111530]"
                 >
                   <td className="px-4 py-2.5 text-xs tabular-nums text-[#6868b8] whitespace-nowrap">
                     {new Date(log.started_at).toLocaleString()}

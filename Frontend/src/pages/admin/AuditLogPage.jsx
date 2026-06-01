@@ -206,7 +206,7 @@ function AuditLogPage() {
                 <tr
                   key={ev.id}
                   onClick={() => setSelected(ev)}
-                  className="cursor-pointer border-b border-[#1a1f3a] last:border-0 hover:bg-[#111530]"
+                  className="cursor-pointer border-b border-[#2a3570]/50 last:border-0 hover:bg-[#111530]"
                 >
                   <td className="px-4 py-2.5 text-xs tabular-nums text-[#6868b8] whitespace-nowrap">
                     {new Date(ev.created_at).toLocaleString()}

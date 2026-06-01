@@ -45,7 +45,7 @@ function ObserveListPage({ session, kind }) {
         </h1>
 
         {!canViewRatings ? (
-          <p className="rounded-2xl border border-[#1a1f3a] bg-[#0a0c18] py-12 text-center text-sm text-[#5050a0]">
+          <p className="rounded-2xl border border-[#2a3570]/50 bg-[#0a0c18] py-12 text-center text-sm text-[#5050a0]">
             This account is private.
           </p>
         ) : listLoading ? (

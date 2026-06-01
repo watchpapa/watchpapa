@@ -112,13 +112,13 @@ export default function ProfileShareModal({ onClose, profile, tier, favourites, 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 px-3 py-6 backdrop-blur-sm" onClick={onClose}>
       <div
-        className="relative w-full max-w-lg overflow-x-hidden overflow-y-auto rounded-2xl border border-[#1a1f3a] bg-[#0a0c18] shadow-2xl"
+        className="relative w-full max-w-lg overflow-x-hidden overflow-y-auto rounded-2xl border border-[#2a3570]/50 bg-[#0a0c18] shadow-2xl"
         style={{ maxHeight: "calc(100vh - 48px)" }}
         onClick={e => e.stopPropagation()}
         role="dialog" aria-modal="true" aria-label="Share profile"
       >
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-[#1a1f3a] px-5 py-4">
+        <div className="flex items-center justify-between border-b border-[#2a3570]/50 px-5 py-4">
           <div>
             <p className="text-sm font-bold text-white">Share Profile</p>
             <p className="text-xs text-[#4a4a7a]">@{profile.username}</p>
@@ -135,7 +135,7 @@ export default function ProfileShareModal({ onClose, profile, tier, favourites, 
               key={id}
               onClick={() => setFormat(id)}
               className={`flex shrink-0 flex-col items-center rounded-xl border px-4 py-2 text-xs font-semibold transition
-                ${format === id ? "border-[#5a5aaa] bg-[#1a1d35] text-white" : "border-[#1a1f3a] text-[#5050a0] hover:border-[#3a3a7a] hover:text-[#a0a0e8]"}`}
+                ${format === id ? "border-[#5a5aaa] bg-[#1a1d35] text-white" : "border-[#2a3570]/50 text-[#5050a0] hover:border-[#3a3a7a] hover:text-[#a0a0e8]"}`}
             >
               <span>{label}</span>
               <span className={`text-[10px] font-normal ${format === id ? "text-[#8080c0]" : "text-[#3a3a6a]"}`}>{sub}</span>

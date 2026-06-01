@@ -4,7 +4,7 @@ function Breadcrumbs({ items = [] }) {
   if (!items.length) return null;
 
   return (
-    <nav className="border-b border-[#1a1f3a] bg-[#0a0c18] px-5 py-2 lg:px-8">
+    <nav className="border-b border-[#2a3570]/50 bg-[#0a0c18] px-5 py-2 lg:px-8">
       <ol className="flex flex-wrap items-center gap-1 text-xs">
         {items.map((item, i) => (
           <li key={i} className="flex items-center gap-1">

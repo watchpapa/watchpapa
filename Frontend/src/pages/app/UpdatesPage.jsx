@@ -129,7 +129,7 @@ function PostModal({ post, onClose, onSaved }) {
       aria-modal="true"
       aria-labelledby="post-modal-title"
     >
-      <div className="flex shrink-0 items-center justify-between border-b border-[#1a1f3a] bg-[#0d0f1e] px-4 py-3 sm:px-6 sm:py-4">
+      <div className="flex shrink-0 items-center justify-between border-b border-[#2a3570]/50 bg-[#0d0f1e] px-4 py-3 sm:px-6 sm:py-4">
         <h2 id="post-modal-title" className="text-lg font-extrabold text-white sm:text-xl">
           {isEdit ? "Edit post" : "New post"}
         </h2>
@@ -177,7 +177,7 @@ function PostModal({ post, onClose, onSaved }) {
           {error && <p className="shrink-0 text-[13px] font-semibold text-pink-300">{error}</p>}
         </div>
 
-        <div className="flex shrink-0 justify-end gap-3 border-t border-[#1a1f3a] bg-[#0d0f1e] px-4 py-3 sm:px-6 sm:py-4">
+        <div className="flex shrink-0 justify-end gap-3 border-t border-[#2a3570]/50 bg-[#0d0f1e] px-4 py-3 sm:px-6 sm:py-4">
             <button
               type="button"
               onClick={onClose}

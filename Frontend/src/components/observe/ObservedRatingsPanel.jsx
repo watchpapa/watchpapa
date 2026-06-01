@@ -13,13 +13,13 @@ export function ObservedRatingsPanel({ mediaType, entityId, session }) {
   if (!session || loading || total === 0) return null;
 
   return (
-    <div className="mt-4 rounded-xl border border-[#1a1f3a] bg-[#0a0c18]">
+    <div className="mt-4 rounded-xl border border-[#2a3570]/50 bg-[#0a0c18]">
       <button
         onClick={() => setOpen((v) => !v)}
         className="flex w-full items-center justify-between px-4 py-3 text-left"
         aria-expanded={open}
       >
-        <span className="text-[10px] font-semibold uppercase tracking-widest text-[#5050b0]">
+        <span className="text-[10px] font-semibold uppercase tracking-widest text-[#c084fc]">
           Ratings from {total} {total === 1 ? "person" : "people"} you observe
         </span>
         <svg
@@ -33,7 +33,7 @@ export function ObservedRatingsPanel({ mediaType, entityId, session }) {
       </button>
 
       {open && (
-        <ul className="space-y-1 border-t border-[#1a1f3a] px-2 py-2">
+        <ul className="space-y-1 border-t border-[#2a3570]/50 px-2 py-2">
           {ratings.map((r) => (
             <li key={r.profile_id}>
               <Link

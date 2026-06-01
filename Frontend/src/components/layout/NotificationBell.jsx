@@ -76,7 +76,7 @@ function NotificationBell({ session }) {
 
       {open && (
         <div className="absolute right-0 top-11 z-50 w-80 max-w-[calc(100vw-1rem)] origin-top-right animate-[fadeSlideDown_0.15s_ease-out] rounded-2xl border border-[#2a3570] bg-[#0d0f1e] shadow-xl shadow-black/40">
-          <div className="flex items-center justify-between border-b border-[#1a1f3a] px-4 py-3">
+          <div className="flex items-center justify-between border-b border-[#2a3570]/50 px-4 py-3">
             <p className="text-sm font-bold text-white">Notifications</p>
             <Link to="/notifications" onClick={() => setOpen(false)} className="text-xs font-semibold text-[#8383e7] hover:text-white">
               See all

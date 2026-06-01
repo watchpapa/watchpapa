@@ -22,7 +22,7 @@ function NotificationRow({ n }) {
     <Link
       to={to}
       className={`flex items-center gap-3 rounded-xl border px-3 py-3 transition hover:border-[#5a5aaa] ${
-        n.read_at ? "border-[#1a1f3a] bg-[#0d0f1e]" : "border-[#2a2f6a] bg-[#12152e]"
+        n.read_at ? "border-[#2a3570]/50 bg-[#0d0f1e]" : "border-[#2a2f6a] bg-[#12152e]"
       }`}
     >
       <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#3a3a7a] bg-[#1a1d35] text-sm font-bold text-[#a0a0e8]">
@@ -59,7 +59,7 @@ function NotificationsPage({ session }) {
         )}
 
         {!loading && items.length === 0 && (
-          <p className="rounded-2xl border border-[#1a1f3a] bg-[#0a0c18] py-16 text-center text-sm text-[#5050a0]">
+          <p className="rounded-2xl border border-[#2a3570]/50 bg-[#0a0c18] py-16 text-center text-sm text-[#5050a0]">
             No notifications yet.
           </p>
         )}

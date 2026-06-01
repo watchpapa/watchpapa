@@ -156,7 +156,7 @@ function DayCell({ date, entries = [], isHovered = false, onMouseEnter, onMouseL
             ? "border-amber-700/60 bg-[#1a1510]"
             : isHovered
             ? "border-[#6050c0] bg-[#111328] shadow-lg shadow-black/50"
-            : "border-[#1a1f3a] bg-[#0d0f1e]"
+            : "border-[#2a3570]/50 bg-[#0d0f1e]"
           : "border-transparent"
       }`}
     >
@@ -221,7 +221,7 @@ function AgendaView({ year, month, calendarEntries }) {
           <div
             key={key}
             className={`rounded-2xl border p-3 ${
-              isToday ? "border-amber-700/60 bg-[#1a1510]" : "border-[#1a1f3a] bg-[#0d0f1e]"
+              isToday ? "border-amber-700/60 bg-[#1a1510]" : "border-[#2a3570]/50 bg-[#0d0f1e]"
             }`}
           >
             <p className={`mb-2 text-xs font-bold ${isToday ? "text-amber-400" : "text-[#8383e7]"}`}>
@@ -241,7 +241,7 @@ function SidebarSection({ label, items, renderItem }) {
   if (items.length === 0) return null;
   return (
     <div>
-      <p className="mb-2 text-[11px] font-bold uppercase tracking-widest text-[#5050b0]">{label}</p>
+      <p className="mb-2 text-[11px] font-bold uppercase tracking-widest text-[#c084fc]">{label}</p>
       <ul className="space-y-2">
         {items.map((item) => renderItem(item))}
       </ul>
@@ -329,7 +329,7 @@ function FollowedSidebar({ shows, movies, onUnfollowShow, onUnfollowMovie, tier,
   const empty = shows.length === 0 && movies.length === 0;
   return (
     <aside className="order-2 flex w-full flex-col md:order-1 md:w-[230px] md:flex-shrink-0 md:sticky md:top-[4.5rem] md:self-start lg:w-[250px]">
-      <div className="flex flex-col rounded-2xl border border-[#1a1f3a] bg-[#141728] p-4 overflow-hidden max-h-[55vh] md:max-h-[calc(100vh-5.5rem)]">
+      <div className="flex flex-col rounded-2xl border border-[#2a3570]/50 bg-[#141728] p-4 overflow-hidden max-h-[55vh] md:max-h-[calc(100vh-5.5rem)]">
         <h2 className="mb-3 shrink-0 text-sm font-extrabold text-[#8383e7]">Followed</h2>
         <div className="shrink-0">
           <FollowCounter showCount={shows.length} movieCount={movies.length} tier={tier} />
@@ -528,7 +528,7 @@ function ReleasesCalendarPage({ session }) {
         />
 
         {/* Calendar main — page scroll height follows calendar (columns align to start) */}
-        <div className="order-1 min-w-0 flex-1 rounded-2xl border border-[#1a1f3a] bg-[#141728] p-3 sm:p-4 md:order-2 md:p-5">
+        <div className="order-1 min-w-0 flex-1 rounded-2xl border border-[#2a3570]/50 bg-[#141728] p-3 sm:p-4 md:order-2 md:p-5">
           {monthNav}
 
           {/* Follow overage gate — blocks calendar until user trims follows */}
@@ -565,7 +565,7 @@ function ReleasesCalendarPage({ session }) {
           <div className="hidden md:block">
             <div className="grid grid-cols-7 gap-1 mb-2">
               {DAY_LABELS.map((d, i) => (
-                <div key={d} className="rounded-xl border border-[#1a1f3a] py-2 text-center text-xs font-bold text-[#8383e7]">
+                <div key={d} className="rounded-xl border border-[#2a3570]/50 py-2 text-center text-xs font-bold text-[#8383e7]">
                   <span className="hidden lg:inline">{d}</span>
                   <span className="lg:hidden">{DAY_SHORT[i]}</span>
                 </div>
