@@ -5,7 +5,7 @@ function InfoPageShell({ session, breadcrumbs, title, lead, children }) {
     <AppLayout session={session} breadcrumbs={breadcrumbs}>
       <article className="mx-auto max-w-2xl">
         {/* Page header */}
-        <header className="mb-10 border-b border-[#1a1f3a] pb-8">
+        <header className="mb-10 border-b border-[#2a3570]/50 pb-8">
           <h1 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">{title}</h1>
           {lead && (
             <p className="mt-4 text-base leading-relaxed text-[#8080a8] sm:text-[17px]">{lead}</p>
@@ -20,13 +20,13 @@ function InfoPageShell({ session, breadcrumbs, title, lead, children }) {
             "[&_a]:text-[#9b9bf0] [&_a]:underline [&_a]:decoration-[#6f6fdc]/50 [&_a]:underline-offset-2 [&_a]:transition hover:[&_a]:text-[#c8c8ff] hover:[&_a]:decoration-[#9b9bf0]",
             /* h2 sections */
             "[&_h2]:mt-10 [&_h2]:flex [&_h2]:items-center [&_h2]:gap-3 [&_h2]:text-[15px] [&_h2]:font-semibold [&_h2]:uppercase [&_h2]:tracking-[0.1em] [&_h2]:text-[#9b9bf0] first:[&_h2]:mt-0",
-            "[&_h2]:before:block [&_h2]:before:h-px [&_h2]:before:w-5 [&_h2]:before:shrink-0 [&_h2]:before:bg-[#6f6fdc]",
+            "[&_h2]:before:block [&_h2]:before:h-[3px] [&_h2]:before:w-6 [&_h2]:before:shrink-0 [&_h2]:before:rounded-full [&_h2]:before:bg-gradient-to-r [&_h2]:before:from-[#c084fc] [&_h2]:before:to-[#6f6fdc]",
             /* h3 */
             "[&_h3]:mt-6 [&_h3]:text-base [&_h3]:font-semibold [&_h3]:text-[#d0d0ee] first:[&_h3]:mt-0",
             /* lists */
             "[&_ul]:list-none [&_ul]:space-y-2 [&_ul]:pl-0",
             "[&_ul_li]:flex [&_ul_li]:gap-3",
-            "[&_ul_li]:before:mt-[0.35em] [&_ul_li]:before:block [&_ul_li]:before:h-1.5 [&_ul_li]:before:w-1.5 [&_ul_li]:before:shrink-0 [&_ul_li]:before:rounded-full [&_ul_li]:before:bg-[#4a4a8a]",
+            "[&_ul_li]:before:mt-[0.35em] [&_ul_li]:before:block [&_ul_li]:before:h-1.5 [&_ul_li]:before:w-1.5 [&_ul_li]:before:shrink-0 [&_ul_li]:before:rounded-full [&_ul_li]:before:bg-[#c084fc]",
             "[&_ol]:list-decimal [&_ol]:space-y-2 [&_ol]:pl-5",
             /* strong */
             "[&_strong]:font-semibold [&_strong]:text-[#d0d0ee]",
