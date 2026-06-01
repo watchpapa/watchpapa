@@ -10,7 +10,7 @@ function SkeletonRow() {
   return (
     <section className="flex flex-col items-center">
       <div className="mb-3 h-6 w-32 animate-pulse rounded bg-[#1e2240]" />
-      <div className="flex w-full justify-center gap-3 overflow-hidden">
+      <div className="flex w-full justify-start gap-3 overflow-x-auto">
         {Array.from({ length: 8 }).map((_, i) => (
           <div key={i} className="w-[130px] flex-shrink-0 sm:w-[150px]">
             <div className="aspect-[2/3] animate-pulse rounded-2xl bg-[#1e2240]" />
