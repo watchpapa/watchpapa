@@ -476,6 +476,33 @@ All sync workflows run on `self-hosted` runner. Deploy runs on `ubuntu-latest`.
 
 ---
 
+## Visual Design (frontend)
+
+Dark-first, cinematic, **refined-purple** identity. No design-token/`@theme` system and
+no font change — the original `globals.css` (`#111320` bg, `#8383e7` text, Proxima
+Nova→Avenir→system stack) is intact. The redesign is class-level only, using the existing
+palette pushed vivid. Key recurring conventions introduced:
+
+- **Accent.** Brand violet `#6f6fdc` (gradients/borders/focus), bright accent `#c084fc`
+  (labels, "trending"), with `#8b8bff`/`#a78bfa` highlights. Cards/panels: border `#2a3570`
+  (or `/50` for subtle dividers), surface `#141728`/`#12163a`, page `#111320`.
+- **Primary buttons / tabs** = purple gradient `from-[#6f6fdc] to-[#4b3bb0]` + soft glow
+  shadow. The shared `components/ui/Button.jsx` is this filled gradient. Active tabs
+  (Watchlists, Follows) reuse it.
+- **Section headings** = white text with a vertical gradient accent bar
+  (`from-[#c084fc] to-[#6f6fdc]`) — see `MediaRow`, `MediaGrid`, People/Search/Watchlists.
+- **Cards** (`MediaCard`, person rows, watchlist cards, cast) lift on hover
+  (`-translate-y`), gain a `#6f6fdc` border + glow shadow, and posters zoom. `MediaCard`
+  shows status badges (following ✓ ring, releasing-soon gold pill).
+- **Home hero** = `components/home/ContentHero.jsx`: full-bleed cinematic banner built from
+  the top `popular` items (blurred saturated backdrop + scrims, poster, title, CTAs,
+  thumbnail strip, and a "what is watchpapa" intro panel on the right). Full-bleed uses
+  `width:100vw; margin-inline: calc(50% - 50vw)`. Falls back to `HeroBanner` while loading.
+- **Glass** treatment (`bg-…/70-80` + `backdrop-blur`) on the navbar, detail panels, and
+  search dropdown. `InfoPageShell` styles all static/info pages (accent headings + prose).
+
+---
+
 ## Key Conventions
 
 - **Raw SQL only.** All DB writes use `sequelize.query()` with named `replacements:`. Never introduce Sequelize model-level CRUD.
