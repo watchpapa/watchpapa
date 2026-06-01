@@ -25,6 +25,8 @@ function ProfileMenu({ session }) {
   const [tier, setTier] = useState("free");
   const [isEarlyAdopter, setIsEarlyAdopter] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [referralCode, setReferralCode] = useState(null);
+  const [inviteCopied, setInviteCopied] = useState(false);
 
   const username = (session?.user?.user_metadata?.username ?? session?.user?.email ?? "").trim();
   const initials = (username[0] ?? "?").toUpperCase();
@@ -37,12 +39,13 @@ function ProfileMenu({ session }) {
     Promise.all([
       supabase.rpc("get_effective_tier", { p_profile_id: session.user.id }),
       supabase.from("user_subscriptions").select("is_early_adopter").eq("profile_id", session.user.id).maybeSingle(),
-      supabase.from("profile").select("role").eq("id", session.user.id).single(),
+      supabase.from("profile").select("role, referral_code").eq("id", session.user.id).single(),
     ]).then(([tierRes, subRes, profileRes]) => {
       if (!active) return;
       setTier(tierRes.data ?? "free");
       setIsEarlyAdopter(subRes.data?.is_early_adopter ?? false);
       setIsAdmin(profileRes.data?.role === 4);
+      setReferralCode(profileRes.data?.referral_code ?? null);
     });
     return () => { active = false; };
   }, [open, session?.user?.id]);
@@ -81,6 +84,23 @@ function ProfileMenu({ session }) {
     await supabase.auth.signOut();
   };
 
+  const referralUrl = referralCode
+    ? `${window.location.origin}/register?ref=${referralCode}`
+    : null;
+
+  const handleCopyReferral = () => {
+    if (!referralUrl) return;
+    navigator.clipboard?.writeText(referralUrl).then(() => {
+      setInviteCopied(true);
+      setTimeout(() => setInviteCopied(false), 2000);
+    });
+  };
+
+  const handleShareReferral = () => {
+    if (!referralUrl) return;
+    navigator.share?.({ title: "Join watchpapa", url: referralUrl });
+  };
+
   if (!session) return null;
 
   return (
@@ -99,7 +119,7 @@ function ProfileMenu({ session }) {
       </button>
 
       {open && (
-        <div className="absolute right-0 top-11 z-50 w-56 origin-top-right animate-[fadeSlideDown_0.15s_ease-out] rounded-2xl border border-[#2a3570] bg-[#0d0f1e] shadow-xl shadow-black/40">
+        <div className="absolute right-0 top-11 z-50 w-72 max-w-[calc(100vw-1rem)] origin-top-right animate-[fadeSlideDown_0.15s_ease-out] rounded-2xl border border-[#2a3570] bg-[#0d0f1e] shadow-xl shadow-black/40">
           {/* User info header */}
           <div className="px-4 py-3 border-b border-[#1a1f3a]">
             <p className="text-sm font-bold text-white truncate">{displayName}</p>
@@ -113,6 +133,46 @@ function ProfileMenu({ session }) {
                 </span>
               )}
             </div>
+          </div>
+
+          <div className="border-b border-[#1a1f3a] px-4 py-3">
+            <p className="flex items-center gap-2 text-sm font-semibold text-white">
+              <ReferralIcon />
+              Invite Friends
+            </p>
+            <p className="mt-0.5 text-xs text-[#6868b8]">Share your link — you both get rewarded.</p>
+            {referralUrl ? (
+              <div className="mt-2.5 flex items-center gap-1.5 rounded-xl border border-[#2a3570] bg-[#141728] px-3 py-2">
+                <span className="min-w-0 flex-1 truncate font-mono text-[11px] text-[#a0a0e8]">
+                  {referralUrl}
+                </span>
+                <div className="flex shrink-0 gap-1">
+                  <button
+                    type="button"
+                    onClick={handleCopyReferral}
+                    className="rounded-lg px-2 py-1 text-[11px] font-semibold text-[#8383e7] transition hover:bg-[#2a2d60] hover:text-white"
+                  >
+                    {inviteCopied ? "Copied!" : "Copy"}
+                  </button>
+                  {typeof navigator !== "undefined" && navigator.share && (
+                    <button
+                      type="button"
+                      onClick={handleShareReferral}
+                      className="rounded-lg px-2 py-1 text-[11px] font-semibold text-[#8383e7] transition hover:bg-[#2a2d60] hover:text-white"
+                    >
+                      Share
+                    </button>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <p className="mt-2 text-xs text-[#4a4a7a]">Loading your referral link…</p>
+            )}
+            <p className="mt-2 text-[11px] text-[#4a4a7a]">
+              <Link to="/subscription" onClick={() => setOpen(false)} className="text-[#6868b8] hover:text-[#a0a0e8]">
+                See reward details
+              </Link>
+            </p>
           </div>
 
           <div className="p-2 space-y-0.5">
@@ -133,6 +193,22 @@ function ProfileMenu({ session }) {
             >
               <ProfileIcon />
               My Profile
+            </Link>
+            <Link
+              to="/notifications"
+              onClick={() => setOpen(false)}
+              className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm text-[#c0c0e8] transition hover:bg-[#141728] hover:text-white"
+            >
+              <BellIcon />
+              Notifications
+            </Link>
+            <Link
+              to="/observe-requests"
+              onClick={() => setOpen(false)}
+              className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm text-[#c0c0e8] transition hover:bg-[#141728] hover:text-white"
+            >
+              <RequestIcon />
+              Observe Requests
             </Link>
             <Link
               to="/profile/edit"
@@ -164,6 +240,17 @@ function ProfileMenu({ session }) {
   );
 }
 
+function ReferralIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+      <circle cx="9" cy="7" r="4" />
+      <line x1="19" y1="8" x2="19" y2="14" />
+      <line x1="22" y1="11" x2="16" y2="11" />
+    </svg>
+  );
+}
+
 function AdminIcon() {
   return (
     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -177,6 +264,26 @@ function ProfileIcon() {
     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
       <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
       <circle cx="12" cy="7" r="4" />
+    </svg>
+  );
+}
+
+function BellIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+      <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+    </svg>
+  );
+}
+
+function RequestIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+      <circle cx="9" cy="7" r="4" />
+      <line x1="19" y1="8" x2="19" y2="14" />
+      <line x1="22" y1="11" x2="16" y2="11" />
     </svg>
   );
 }
