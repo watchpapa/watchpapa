@@ -101,7 +101,7 @@ export async function generateMediaShareCard(format, detailLevel, mediaData, sca
   ctx.scale(scale, scale);
 
   const posterImg = mediaData.posterPath ? await loadImg(`https://image.tmdb.org/t/p/w500${mediaData.posterPath}`) : null;
-  const bannerImg = await loadImg("/banner.png").catch(() => null);
+  const bannerImg = await loadImg("/assets/banner.png").catch(() => null);
 
   const data = {
     width: formatDims.width,

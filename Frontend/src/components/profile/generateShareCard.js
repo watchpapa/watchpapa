@@ -489,7 +489,7 @@ export async function generateRecapShareCard(format, recapData, profileData, sca
   const tierStyle = TIER_COLORS[getTierLevel(tier)];
   const tierLabel = TIER_LABELS[tier];
   const now = new Date();
-  const bannerImg = await loadImg("/banner.png").catch(() => null);
+  const bannerImg = await loadImg("/assets/banner.png").catch(() => null);
 
   if (format === "story") {
     const pad = 60, gap = 40;
