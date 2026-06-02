@@ -1,6 +1,6 @@
 # CONTEXT.md — watchpapa.tv Codebase Reference
 
-Monorepo for watchpapa.tv — a web app for tracking movie/TV show releases. Co-located Express backend (root) and Vite React frontend (`Frontend/`). For product narrative, setup, and ER diagram see `README.md`; for architecture deep-dives see `docs/`.
+Monorepo for watchpapa.tv — a web app for tracking movie/TV show releases. Co-located Express backend (root) and Vite React frontend (`Frontend/`). For product narrative, setup, and ER diagram see `README.md`; for architecture deep-dives see `docs/`; for recent releases see `releases.md`.
 
 ---
 
@@ -532,4 +532,7 @@ palette pushed vivid. Key recurring conventions introduced:
 - **Episode navigation** (`EpisodePage.jsx`): Added prev/next episode buttons using `season.episode` array. Finds current episode by ID, sorts by `episode_number`, renders navigation links when siblings exist. Styled as two-column hover-lift cards with arrows.
 
 - **Season navigation** (`SeasonPage.jsx`, `useSeasonData.js`): Extended `useSeasonData` hook to fetch sibling seasons via `season(id, name, season_number)` relation in the show select query. Exposes `seasons` state; `SeasonPage` computes prev/next and renders dual navigation cards matching episode style.
+
+- **Media share captions** (`MediaShareModal.jsx`, `generateMediaShareCard.js`): Added optional caption field (max 100 chars) in the media share modal. Users can add a short thought above the poster in the generated card. Caption text wraps across multiple lines if longer. Debounced preview generation (300ms) to prevent flickering while typing. Canvas draws quoted caption centered above poster in `#a0a0cc` color at 28px font, with ellipsis fallback on extreme overflow.
+
 - **Adult content.** `showAdult` boolean is derived from `profile.setting_display_adult_content` and passed as a prop — not stored in React context. Include it in any query that filters `adult` content.

@@ -4,6 +4,7 @@ import { generateMediaShareCard } from "./generateMediaShareCard.js";
 
 export function MediaShareModal({ mediaType, mediaData, session, onClose }) {
   const [detailLevel, setDetailLevel] = useState("rich");
+  const [caption, setCaption] = useState("");
   const [preview, setPreview] = useState(null);
   const [loading, setLoading] = useState(false);
   const format = "story";
@@ -13,23 +14,23 @@ export function MediaShareModal({ mediaType, mediaData, session, onClose }) {
   const mergedData = { ...mediaData, userRating, username: session?.user?.user_metadata?.username || "user" };
 
   useEffect(() => {
-    const generatePreview = async () => {
+    const timer = setTimeout(async () => {
       try {
-        const blob = await generateMediaShareCard(format, detailLevel, mergedData, 1);
+        const blob = await generateMediaShareCard(format, detailLevel, mergedData, 1, caption);
         const url = URL.createObjectURL(blob);
         setPreview(url);
       } catch (err) {
         console.error("Failed to generate preview:", err);
       }
-    };
+    }, 300);
 
-    generatePreview();
-  }, [detailLevel, mergedData]);
+    return () => clearTimeout(timer);
+  }, [detailLevel, mergedData, caption]);
 
   const downloadImage = async () => {
     setLoading(true);
     try {
-      const blob = await generateMediaShareCard(format, detailLevel, mergedData, 3);
+      const blob = await generateMediaShareCard(format, detailLevel, mergedData, 3, caption);
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
@@ -49,7 +50,7 @@ export function MediaShareModal({ mediaType, mediaData, session, onClose }) {
     }
     setLoading(true);
     try {
-      const blob = await generateMediaShareCard(format, detailLevel, mergedData, 3);
+      const blob = await generateMediaShareCard(format, detailLevel, mergedData, 3, caption);
       const file = new File([blob], `watchpapa-share.png`, { type: "image/png" });
       await navigator.share({ files: [file], title: `Check out this ${mediaType}` });
     } catch (err) {
@@ -104,6 +105,20 @@ export function MediaShareModal({ mediaType, mediaData, session, onClose }) {
                   </button>
                 ))}
               </div>
+            </div>
+
+            {/* Caption */}
+            <div className="flex flex-col gap-1">
+              <label className="text-xs text-[#8383e7]">Add a thought (optional)</label>
+              <textarea
+                value={caption}
+                onChange={e => setCaption(e.target.value)}
+                maxLength={125}
+                rows={2}
+                placeholder="A short thought about this one…"
+                className="bg-[#141728] border border-[#2a3570] rounded-lg px-3 py-2 text-sm text-white resize-none placeholder:text-[#4a4a7a] focus:outline-none focus:border-[#6f6fdc]"
+              />
+              <span className="text-xs text-[#4a4a7a] text-right">{caption.length}/125</span>
             </div>
 
             {/* Actions */}

@@ -54,7 +54,7 @@ function drawHearts(ctx, value, x, y, size, spacing) {
 }
 
 function layoutStory(ctx, d) {
-  const { width, height, title, posterImg, userRating, year, genres, overview, logoImg, detailLevel, username } = d;
+  const { width, height, title, posterImg, userRating, year, genres, overview, logoImg, detailLevel, username, caption } = d;
   const pad = 60, gap = 32;
   drawBg(ctx, width, height);
   let y = pad;
@@ -67,8 +67,39 @@ function layoutStory(ctx, d) {
   }
   y += bannerH + gap;
 
+  // Caption (above poster) - with text wrapping
+  if (caption && caption.trim()) {
+    ctx.font = "500 28px Inter,sans-serif";
+    ctx.fillStyle = "#a0a0cc";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "top";
+    const innerW = width - pad*2 - 40;
+    const lineHeight = 36;
+    const words = caption.trim().split(/\s+/);
+    let lines = [];
+    let currentLine = '"';
+
+    for (let word of words) {
+      const testLine = currentLine + (currentLine === '"' ? '' : ' ') + word;
+      if (ctx.measureText(testLine).width > innerW && currentLine !== '"') {
+        lines.push(currentLine);
+        currentLine = word;
+      } else {
+        currentLine = testLine;
+      }
+    }
+    currentLine += '"';
+    lines.push(currentLine);
+
+    // Draw each line
+    lines.forEach((line, idx) => {
+      ctx.fillText(line, width/2, y + idx * lineHeight);
+    });
+    y += lines.length * lineHeight + gap * 0.5;
+  }
+
   // Poster
-  const posterW = width - pad*2, posterH = posterW * 1.5;
+  const posterW = width - pad*2, posterH = posterW * 1.42;
   if (posterImg) {
     ctx.fillStyle = "#0d0f20"; rr(ctx, pad, y, posterW, posterH, 24); ctx.fill();
     ctx.save(); rr(ctx, pad, y, posterW, posterH, 24); ctx.clip();
@@ -99,7 +130,7 @@ function layoutStory(ctx, d) {
   ctx.font = "600 18px Inter,sans-serif"; ctx.fillStyle = "#2a2f5a"; ctx.textAlign = "center"; ctx.textBaseline = "bottom"; ctx.fillText("watchpapa.tv", width/2, height - pad);
 }
 
-export async function generateMediaShareCard(format, detailLevel, mediaData, scale = 1) {
+export async function generateMediaShareCard(format, detailLevel, mediaData, scale = 1, caption = "") {
   const formatDims = FORMATS[format];
   const canvas = new OffscreenCanvas(formatDims.width * scale, formatDims.height * scale);
   const ctx = canvas.getContext("2d");
@@ -120,6 +151,7 @@ export async function generateMediaShareCard(format, detailLevel, mediaData, sca
     detailLevel,
     username: mediaData.username || "user",
     logoImg: bannerImg,
+    caption,
   };
 
   layoutStory(ctx, data);
