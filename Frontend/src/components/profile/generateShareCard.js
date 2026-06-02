@@ -230,12 +230,13 @@ function layoutStory(ctx, d) {
 
   let y = pad;
 
-  // Header
-  if (logoImg) ctx.drawImage(logoImg, pad, y, fs.logoH*(logoImg.naturalWidth/logoImg.naturalHeight), fs.logoH);
-  else { ctx.font=`800 36px 'Inter',sans-serif`; ctx.fillStyle="#8080c0"; ctx.textAlign="left"; ctx.textBaseline="top"; ctx.fillText("watchpapa", pad, y+fs.logoH*0.1); }
-  ctx.font=`600 ${fs.date}px 'Inter','Helvetica Neue',Arial,sans-serif`; ctx.fillStyle="#3a3a6a"; ctx.textAlign="right"; ctx.textBaseline="middle";
-  ctx.fillText(dateLabel, width-pad, y+fs.logoH/2);
-  y += fs.logoH + gap;
+  // Header — logo centered at top
+  const logoW = fs.logoH*(logoImg?.naturalWidth/logoImg?.naturalHeight || 1);
+  if (logoImg) ctx.drawImage(logoImg, (width-logoW)/2, y, logoW, fs.logoH);
+  else { ctx.font=`800 36px 'Inter',sans-serif`; ctx.fillStyle="#8080c0"; ctx.textAlign="center"; ctx.textBaseline="top"; ctx.fillText("watchpapa", width/2, y+fs.logoH*0.1); }
+  ctx.font=`600 ${fs.date}px 'Inter','Helvetica Neue',Arial,sans-serif`; ctx.fillStyle="#3a3a6a"; ctx.textAlign="center"; ctx.textBaseline="middle";
+  ctx.fillText(dateLabel, width/2, y+fs.logoH*1.4);
+  y += fs.logoH + gap*1.5;
 
   // User
   drawAvatar(ctx, pad+fs.avR, y+fs.avR, fs.avR, (profile?.username?.[0]??"?").toUpperCase(), Math.round(fs.avR*0.82));
@@ -306,10 +307,11 @@ function layoutWide(ctx, d) {
 
   let y = padV;
 
-  // Header: logo left, date right
-  if (logoImg) ctx.drawImage(logoImg, padH, y, fs.logoH*(logoImg.naturalWidth/logoImg.naturalHeight), fs.logoH);
-  ctx.font=`600 ${fs.date}px 'Inter','Helvetica Neue',Arial,sans-serif`; ctx.fillStyle="#3a3a6a"; ctx.textAlign="right"; ctx.textBaseline="middle";
-  ctx.fillText(dateLabel, width-padH, y+fs.logoH/2);
+  // Header: logo centered, date below
+  const logoW = fs.logoH*(logoImg?.naturalWidth/logoImg?.naturalHeight || 1);
+  if (logoImg) ctx.drawImage(logoImg, (width-logoW)/2, y, logoW, fs.logoH);
+  ctx.font=`600 ${fs.date}px 'Inter','Helvetica Neue',Arial,sans-serif`; ctx.fillStyle="#3a3a6a"; ctx.textAlign="center"; ctx.textBaseline="middle";
+  ctx.fillText(dateLabel, width/2, y+fs.logoH*1.2);
   y += fs.logoH + 10;
 
   // Poster row — fills most of the vertical space
@@ -380,12 +382,13 @@ function layoutSquare(ctx, d) {
 
   let y = pad;
 
-  // Header
-  if (logoImg) ctx.drawImage(logoImg, pad, y, fs.logoH*(logoImg.naturalWidth/logoImg.naturalHeight), fs.logoH);
-  else { ctx.font=`800 24px 'Inter',sans-serif`; ctx.fillStyle="#8080c0"; ctx.textAlign="left"; ctx.textBaseline="top"; ctx.fillText("watchpapa", pad, y+fs.logoH*0.1); }
-  ctx.font=`600 ${fs.date}px 'Inter','Helvetica Neue',Arial,sans-serif`; ctx.fillStyle="#3a3a6a"; ctx.textAlign="right"; ctx.textBaseline="middle";
-  ctx.fillText(dateLabel, width-pad, y+fs.logoH/2);
-  y += fs.logoH + gap;
+  // Header — logo centered at top
+  const logoW = fs.logoH*(logoImg?.naturalWidth/logoImg?.naturalHeight || 1);
+  if (logoImg) ctx.drawImage(logoImg, (width-logoW)/2, y, logoW, fs.logoH);
+  else { ctx.font=`800 24px 'Inter',sans-serif`; ctx.fillStyle="#8080c0"; ctx.textAlign="center"; ctx.textBaseline="top"; ctx.fillText("watchpapa", width/2, y+fs.logoH*0.1); }
+  ctx.font=`600 ${fs.date}px 'Inter','Helvetica Neue',Arial,sans-serif`; ctx.fillStyle="#3a3a6a"; ctx.textAlign="center"; ctx.textBaseline="middle";
+  ctx.fillText(dateLabel, width/2, y+fs.logoH*1.3);
+  y += fs.logoH + gap*1.2;
 
   // User (no bio — space is tight)
   drawAvatar(ctx, pad+fs.avR, y+fs.avR, fs.avR, (profile?.username?.[0]??"?").toUpperCase(), Math.round(fs.avR*0.82));
