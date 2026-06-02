@@ -14,7 +14,6 @@ export function MediaShareModal({ mediaType, mediaData, session, onClose }) {
 
   useEffect(() => {
     const generatePreview = async () => {
-      setLoading(true);
       try {
         const blob = await generateMediaShareCard(format, detailLevel, mergedData, 1);
         const url = URL.createObjectURL(blob);
@@ -22,7 +21,6 @@ export function MediaShareModal({ mediaType, mediaData, session, onClose }) {
       } catch (err) {
         console.error("Failed to generate preview:", err);
       }
-      setLoading(false);
     };
 
     generatePreview();
@@ -73,7 +71,7 @@ export function MediaShareModal({ mediaType, mediaData, session, onClose }) {
                 <img src={preview} alt="Preview" className="w-full rounded" />
               ) : (
                 <div className="aspect-[3/4] flex items-center justify-center rounded bg-[#12163a] text-[#4a4a7a]">
-                  {loading ? "Generating..." : "Loading preview..."}
+                  Loading preview...
                 </div>
               )}
             </div>

@@ -489,29 +489,34 @@ export async function generateRecapShareCard(format, recapData, profileData, sca
   const tierStyle = TIER_COLORS[getTierLevel(tier)];
   const tierLabel = TIER_LABELS[tier];
   const now = new Date();
-  const logoImg = await loadImg("https://watchpapa.tv/logo_v3.1.svg").catch(() => null);
+  const bannerImg = await loadImg("/banner.png").catch(() => null);
 
   if (format === "story") {
-    const pad = 60, gap = 48;
+    const pad = 60, gap = 40;
     let y = pad;
-    const logoH = 50;
-    const logoW = logoH * (logoImg?.naturalWidth / logoImg?.naturalHeight || 1);
-    if (logoImg) ctx.drawImage(logoImg, (width - logoW)/2, y, logoW, logoH);
-    else { ctx.font = "800 32px Inter,sans-serif"; ctx.fillStyle = "#8080c0"; ctx.textAlign = "center"; ctx.fillText("watchpapa", width/2, y + logoH*0.15); }
-    y += logoH + gap;
-    ctx.font = "700 32px Inter,sans-serif"; ctx.fillStyle = "#d0a0ff"; ctx.textAlign = "center";
+
+    // Banner
+    const bannerH = 48;
+    const bannerW = bannerImg ? bannerImg.naturalWidth * (bannerH / bannerImg.naturalHeight) : 0;
+    if (bannerImg) ctx.drawImage(bannerImg, (width - bannerW)/2, y, bannerW, bannerH);
+    y += bannerH + gap;
+
+    // Title
+    ctx.font = "700 48px Inter,sans-serif"; ctx.fillStyle = "#d0a0ff"; ctx.textAlign = "center";
     ctx.fillText("WEEKLY RECAP", width/2, y);
-    y += 48;
-    const dateStr = `${MONTHS[Math.max(0, now.getMonth()-1)]} ${now.getDate()} – ${MONTHS[now.getMonth()]} ${now.getDate()}`;
-    ctx.font = "500 14px Inter,sans-serif"; ctx.fillStyle = "#6868b8"; ctx.fillText(dateStr, width/2, y);
-    y += gap;
-    ctx.font = "800 72px Inter,sans-serif"; ctx.fillStyle = "#fff"; ctx.textAlign = "center"; ctx.fillText(count.toString(), width/2, y + 40);
-    y += 90;
-    ctx.font = "500 14px Inter,sans-serif"; ctx.fillStyle = "#9090c8"; ctx.fillText("ratings", width/2, y);
-    y += gap + 8;
+    y += gap + 16;
+
+    // Count - big number
+    ctx.font = "800 80px Inter,sans-serif"; ctx.fillStyle = "#fff"; ctx.textAlign = "center";
+    ctx.fillText(count.toString(), width/2, y + 50);
+    y += 100;
+    ctx.font = "600 18px Inter,sans-serif"; ctx.fillStyle = "#9090c8"; ctx.fillText("ratings this week", width/2, y);
+    y += gap + 16;
+
+    // Average rating section
     if (avg) {
-      ctx.font = "600 14px Inter,sans-serif"; ctx.fillStyle = "#c084fc"; ctx.fillText("Average rating", width/2, y); y += 24;
-      const heartSize = 18, heartSpacing = 6;
+      ctx.font = "600 16px Inter,sans-serif"; ctx.fillStyle = "#c084fc"; ctx.textAlign = "center"; ctx.fillText("Average rating", width/2, y); y += 28;
+      const heartSize = 20, heartSpacing = 7;
       const hearts = Math.round(avg);
       const heartStartX = (width - 5*(heartSize + heartSpacing))/2;
       for (let i = 1; i <= 5; i++) {
@@ -526,30 +531,33 @@ export async function generateRecapShareCard(format, recapData, profileData, sca
         else { ctx.fillStyle = "#a090ff"; ctx.fill(new Path2D(heartPath)); ctx.globalCompositeOperation = "destination-out"; ctx.fillRect(8, 0, 8, 16); ctx.globalCompositeOperation = "source-over"; }
         ctx.restore();
       }
-      y += 28;
-      ctx.font = "600 16px Inter,sans-serif"; ctx.fillStyle = "#fff"; ctx.fillText((avg/2).toFixed(1), width/2, y + 4);
-      y += gap;
+      y += 32;
+      ctx.font = "700 20px Inter,sans-serif"; ctx.fillStyle = "#fff"; ctx.fillText((avg/2).toFixed(1), width/2, y + 2);
+      y += gap + 8;
     }
-    y += 16;
-    const statBoxY = y, statBoxH = 60;
-    const statBoxW = (width - pad*2 - 16) / 2;
-    ctx.fillStyle = "#0a0c18"; rr(ctx, pad, statBoxY, statBoxW, statBoxH, 12); ctx.fill();
-    ctx.fillStyle = "#12163a"; rr(ctx, pad + statBoxW + 16, statBoxY, statBoxW, statBoxH, 12); ctx.fill();
-    ctx.font = "700 24px Inter,sans-serif"; ctx.fillStyle = "#a090ff"; ctx.textAlign = "center";
-    ctx.fillText(movieCount.toString(), pad + statBoxW/2, statBoxY + 18);
-    ctx.font = "500 12px Inter,sans-serif"; ctx.fillStyle = "#6868b8"; ctx.fillText("Movies", pad + statBoxW/2, statBoxY + 42);
-    ctx.fillStyle = "#a090ff"; ctx.fillText(showCount.toString(), pad + statBoxW + 16 + statBoxW/2, statBoxY + 18);
-    ctx.fillStyle = "#6868b8"; ctx.fillText("Shows", pad + statBoxW + 16 + statBoxW/2, statBoxY + 42);
-    y = height - pad - 32;
-    ctx.font = "700 16px Inter,sans-serif"; ctx.fillStyle = "#fff"; ctx.textAlign = "center"; ctx.fillText(`@${profile.username}`, width/2, y);
-    y += 28;
-    const tierColor = tierStyle.text;
-    rr(ctx, (width - 140)/2, y, 140, 24, 8);
+
+    // Stats boxes
+    const boxW = (width - pad*2 - 16) / 2, boxH = 70;
+    ctx.fillStyle = "#0a0c18"; rr(ctx, pad, y, boxW, boxH, 14); ctx.fill();
+    ctx.fillStyle = "#12163a"; rr(ctx, pad + boxW + 16, y, boxW, boxH, 14); ctx.fill();
+
+    ctx.font = "700 32px Inter,sans-serif"; ctx.fillStyle = "#a090ff"; ctx.textAlign = "center";
+    ctx.fillText(movieCount.toString(), pad + boxW/2, y + 22);
+    ctx.font = "500 13px Inter,sans-serif"; ctx.fillStyle = "#6868b8"; ctx.fillText("Movies", pad + boxW/2, y + 48);
+
+    ctx.fillStyle = "#a090ff"; ctx.fillText(showCount.toString(), pad + boxW + 16 + boxW/2, y + 22);
+    ctx.fillStyle = "#6868b8"; ctx.fillText("Shows", pad + boxW + 16 + boxW/2, y + 48);
+
+    y = height - pad - 60;
+    ctx.font = "700 18px Inter,sans-serif"; ctx.fillStyle = "#fff"; ctx.textAlign = "center"; ctx.fillText(`@${profile.username}`, width/2, y);
+    y += 32;
+    const tierW = 140;
+    rr(ctx, (width - tierW)/2, y, tierW, 26, 8);
     ctx.fillStyle = tierStyle.bg; ctx.fill();
     ctx.strokeStyle = tierStyle.border; ctx.lineWidth = 1; ctx.stroke();
-    ctx.font = "700 12px Inter,sans-serif"; ctx.fillStyle = tierColor; ctx.textAlign = "center"; ctx.fillText(tierLabel, width/2, y + 16);
-    y += 36;
-    ctx.font = "500 11px Inter,sans-serif"; ctx.fillStyle = "#2a2f5a"; ctx.textAlign = "center"; ctx.fillText("watchpapa.tv", width/2, height - 20);
+    ctx.font = "700 13px Inter,sans-serif"; ctx.fillStyle = tierStyle.text; ctx.textAlign = "center"; ctx.fillText(tierLabel, width/2, y + 17);
+
+    ctx.font = "500 12px Inter,sans-serif"; ctx.fillStyle = "#2a2f5a"; ctx.textAlign = "center"; ctx.fillText("watchpapa.tv", width/2, height - 20);
   } else if (format === "square") {
     const pad = 48, gap = 32;
     let y = pad;
