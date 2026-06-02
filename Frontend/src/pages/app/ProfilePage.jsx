@@ -248,6 +248,7 @@ function ProfilePage({ session }) {
               decadeStats={decadeStats}
               monthlyStats={monthlyStats}
               ownerTier={tier}
+              isOwn={isOwn}
             />
 
             {/* Ratings grid */}
