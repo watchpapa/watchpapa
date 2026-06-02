@@ -475,7 +475,7 @@ export async function generateShareCard({ format, profile, tier, favourites, bas
 
 export async function generateRecapShareCard(format, recapData, profileData, scale = 1) {
   const { profile, tier } = profileData;
-  const { count, avg, movieCount, showCount } = recapData;
+  const { count, avg, movieCount, showCount, posters = [] } = recapData;
   const { width, height } = FORMATS[format];
 
   const canvas = document.createElement("canvas");
@@ -491,6 +491,11 @@ export async function generateRecapShareCard(format, recapData, profileData, sca
   const now = new Date();
   const bannerImg = await loadImg("/assets/banner.png").catch(() => null);
 
+  // Load poster images
+  const posterImgs = await Promise.all(
+    posters.map(path => loadImg(`https://image.tmdb.org/t/p/w342${path}`))
+  );
+
   if (format === "story") {
     const pad = 60, gap = 40;
     let y = pad;
@@ -500,6 +505,23 @@ export async function generateRecapShareCard(format, recapData, profileData, sca
     const bannerW = bannerImg ? bannerImg.naturalWidth * (bannerH / bannerImg.naturalHeight) : 0;
     if (bannerImg) ctx.drawImage(bannerImg, (width - bannerW)/2, y, bannerW, bannerH);
     y += bannerH + gap;
+
+    // Poster grid (3 columns, 2 rows)
+    if (posterImgs.length > 0) {
+      const gridPad = 40, posterW = (width - gridPad*2 - 16) / 3, posterH = posterW * 1.5;
+      let px = gridPad, py = y;
+      for (let i = 0; i < Math.min(6, posterImgs.length); i++) {
+        if (i > 0 && i % 3 === 0) { px = gridPad; py += posterH + 8; }
+        if (posterImgs[i]) {
+          ctx.fillStyle = "#0a0c18"; rr(ctx, px, py, posterW, posterH, 8); ctx.fill();
+          ctx.save(); rr(ctx, px, py, posterW, posterH, 8); ctx.clip();
+          ctx.drawImage(posterImgs[i], px, py, posterW, posterH);
+          ctx.restore();
+        }
+        px += posterW + 8;
+      }
+      y += (Math.ceil(Math.min(6, posterImgs.length) / 3) * (posterH + 8)) + gap;
+    }
 
     // Title
     ctx.font = "700 48px Inter,sans-serif"; ctx.fillStyle = "#d0a0ff"; ctx.textAlign = "center";
@@ -528,7 +550,16 @@ export async function generateRecapShareCard(format, recapData, profileData, sca
         const heartPath = "M8 14.7C3.8 11.2 1 8.8 1 6.1 1 4 2.7 2.4 4.8 2.4c1.1 0 2.2.5 3.2 1.8C9 2.9 10.1 2.4 11.2 2.4 13.3 2.4 15 4 15 6.1c0 2.7-2.8 5.1-7 8.6z";
         if (fill === "empty") { ctx.strokeStyle = "#4a4a8a"; ctx.lineWidth = 1.2; ctx.stroke(new Path2D(heartPath)); }
         else if (fill === "full") { ctx.fillStyle = "#a090ff"; ctx.fill(new Path2D(heartPath)); }
-        else { ctx.fillStyle = "#a090ff"; ctx.fill(new Path2D(heartPath)); ctx.globalCompositeOperation = "destination-out"; ctx.fillRect(8, 0, 8, 16); ctx.globalCompositeOperation = "source-over"; }
+        else {
+          ctx.beginPath();
+          ctx.moveTo(8, 14.7);
+          ctx.bezierCurveTo(3.8, 11.2, 1, 8.8, 1, 6.1);
+          ctx.bezierCurveTo(1, 4, 2.7, 2.4, 4.8, 2.4);
+          ctx.bezierCurveTo(5.9, 2.4, 7, 2.9, 8, 4.2);
+          ctx.lineTo(8, 14.7);
+          ctx.closePath();
+          ctx.fillStyle = "#a090ff"; ctx.fill();
+        }
         ctx.restore();
       }
       y += 32;
@@ -587,7 +618,16 @@ export async function generateRecapShareCard(format, recapData, profileData, sca
         const heartPath = "M8 14.7C3.8 11.2 1 8.8 1 6.1 1 4 2.7 2.4 4.8 2.4c1.1 0 2.2.5 3.2 1.8C9 2.9 10.1 2.4 11.2 2.4 13.3 2.4 15 4 15 6.1c0 2.7-2.8 5.1-7 8.6z";
         if (fill === "empty") { ctx.strokeStyle = "#4a4a8a"; ctx.lineWidth = 1.2; ctx.stroke(new Path2D(heartPath)); }
         else if (fill === "full") { ctx.fillStyle = "#a090ff"; ctx.fill(new Path2D(heartPath)); }
-        else { ctx.fillStyle = "#a090ff"; ctx.fill(new Path2D(heartPath)); ctx.globalCompositeOperation = "destination-out"; ctx.fillRect(8, 0, 8, 16); ctx.globalCompositeOperation = "source-over"; }
+        else {
+          ctx.beginPath();
+          ctx.moveTo(8, 14.7);
+          ctx.bezierCurveTo(3.8, 11.2, 1, 8.8, 1, 6.1);
+          ctx.bezierCurveTo(1, 4, 2.7, 2.4, 4.8, 2.4);
+          ctx.bezierCurveTo(5.9, 2.4, 7, 2.9, 8, 4.2);
+          ctx.lineTo(8, 14.7);
+          ctx.closePath();
+          ctx.fillStyle = "#a090ff"; ctx.fill();
+        }
         ctx.restore();
       }
       y += 20;
@@ -637,7 +677,16 @@ export async function generateRecapShareCard(format, recapData, profileData, sca
         const heartPath = "M8 14.7C3.8 11.2 1 8.8 1 6.1 1 4 2.7 2.4 4.8 2.4c1.1 0 2.2.5 3.2 1.8C9 2.9 10.1 2.4 11.2 2.4 13.3 2.4 15 4 15 6.1c0 2.7-2.8 5.1-7 8.6z";
         if (fill === "empty") { ctx.strokeStyle = "#4a4a8a"; ctx.lineWidth = 1.2; ctx.stroke(new Path2D(heartPath)); }
         else if (fill === "full") { ctx.fillStyle = "#a090ff"; ctx.fill(new Path2D(heartPath)); }
-        else { ctx.fillStyle = "#a090ff"; ctx.fill(new Path2D(heartPath)); ctx.globalCompositeOperation = "destination-out"; ctx.fillRect(8, 0, 8, 16); ctx.globalCompositeOperation = "source-over"; }
+        else {
+          ctx.beginPath();
+          ctx.moveTo(8, 14.7);
+          ctx.bezierCurveTo(3.8, 11.2, 1, 8.8, 1, 6.1);
+          ctx.bezierCurveTo(1, 4, 2.7, 2.4, 4.8, 2.4);
+          ctx.bezierCurveTo(5.9, 2.4, 7, 2.9, 8, 4.2);
+          ctx.lineTo(8, 14.7);
+          ctx.closePath();
+          ctx.fillStyle = "#a090ff"; ctx.fill();
+        }
         ctx.restore();
       }
       y += 20;

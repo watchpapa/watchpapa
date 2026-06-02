@@ -36,7 +36,9 @@ export function useProfileRecapStats(profileId, tier) {
 
         const { data, error } = await supabase
           .from("user_rating")
-          .select("value, created_at, movie_id, show_id")
+          .select(`value, created_at, movie_id, show_id,
+            movie:movie_id(poster_path),
+            show:show_id(poster_path)`)
           .eq("profile_id", profileId)
           .gte("created_at", since30);
 
@@ -48,13 +50,18 @@ export function useProfileRecapStats(profileId, tier) {
         const monthRows = data || [];
 
         const aggregate = (rows) => {
-          if (!rows.length) return { count: 0, avg: null, movieCount: 0, showCount: 0 };
+          if (!rows.length) return { count: 0, avg: null, movieCount: 0, showCount: 0, posters: [] };
           const avg = +(rows.reduce((s, r) => s + r.value, 0) / rows.length).toFixed(1);
+          const posters = rows
+            .map(r => r.movie?.poster_path || r.show?.poster_path)
+            .filter(Boolean)
+            .slice(0, 6); // limit to 6 posters
           return {
             count: rows.length,
             avg,
             movieCount: rows.filter(r => r.movie_id).length,
             showCount: rows.filter(r => r.show_id).length,
+            posters,
           };
         };
 

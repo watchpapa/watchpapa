@@ -40,9 +40,14 @@ function drawHearts(ctx, value, x, y, size, spacing) {
     } else if (fill === "full") {
       ctx.fillStyle = "#a090ff"; ctx.fill(new Path2D(heartPath));
     } else {
-      ctx.fillStyle = "#a090ff"; ctx.fill(new Path2D(heartPath));
-      ctx.globalCompositeOperation = "destination-out"; ctx.fillRect(8, 0, 8, 16);
-      ctx.globalCompositeOperation = "source-over";
+      ctx.beginPath();
+      ctx.moveTo(8, 14.7);
+      ctx.bezierCurveTo(3.8, 11.2, 1, 8.8, 1, 6.1);
+      ctx.bezierCurveTo(1, 4, 2.7, 2.4, 4.8, 2.4);
+      ctx.bezierCurveTo(5.9, 2.4, 7, 2.9, 8, 4.2);
+      ctx.lineTo(8, 14.7);
+      ctx.closePath();
+      ctx.fillStyle = "#a090ff"; ctx.fill();
     }
     ctx.restore();
   }
