@@ -42,6 +42,7 @@ import CatalogStatsPage from "./pages/admin/CatalogStatsPage.jsx";
 import QueuePage from "./pages/admin/QueuePage.jsx";
 import WatchlistsPage from "./pages/app/WatchlistsPage.jsx";
 import ProfilePage from "./pages/app/ProfilePage.jsx";
+import ProfileRatingsPage from "./pages/app/ProfileRatingsPage.jsx";
 import EditProfilePage from "./pages/app/EditProfilePage.jsx";
 import FollowsPage from "./pages/app/FollowsPage.jsx";
 import ImportPage from "./pages/app/ImportPage.jsx";
@@ -513,6 +514,14 @@ function App() {
         element={
           <ProtectedRoute session={session} needsUsernameSetup={needsUsernameSetup}>
             <ObserveListPage session={session} kind="observing" />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/u/:username/ratings"
+        element={
+          <ProtectedRoute session={session} needsUsernameSetup={needsUsernameSetup}>
+            <ProfileRatingsPage session={session} />
           </ProtectedRoute>
         }
       />

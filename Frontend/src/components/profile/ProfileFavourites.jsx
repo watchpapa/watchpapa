@@ -39,9 +39,7 @@ function FavSlot({ fav }) {
   );
 }
 
-// Displays up to 5 favourite posters in a row.
-// favourites: [{position, movie_id, show_id, movie, show}]
-export function ProfileFavourites({ favourites }) {
+export function ProfileFavourites({ favourites, isOwn, username }) {
   const slots = [1, 2, 3, 4, 5].map((pos) =>
     favourites.find((f) => f.position === pos) ?? null
   );
@@ -51,7 +49,7 @@ export function ProfileFavourites({ favourites }) {
 
   return (
     <div>
-      <h2 className="mb-3 text-xs font-semibold uppercase tracking-widest text-[#c084fc]">Favourites</h2>
+      <h2 className="mb-3 text-xs font-semibold uppercase tracking-widest text-[#c084fc]">{isOwn ? "Your" : `@${username}`} Favourites</h2>
       <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
         {slots.map((fav, i) => (
           <FavSlot key={i} fav={fav} />

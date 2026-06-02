@@ -113,7 +113,8 @@ function ObserveControls({ targetId, targetIsPrivate, session, onChange }) {
 function ProfilePage({ session }) {
   const { username } = useParams();
   const { profile, tier, favourites, isOwn, canViewRatings, loading, notFound } = useProfileData(username, session);
-  const { ratings, loading: ratingsLoading, hasMore, loadMore } = useProfileRatings(canViewRatings ? profile?.id : null);
+  const twoWeeksAgo = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString();
+  const { ratings, loading: ratingsLoading, hasMore, loadMore } = useProfileRatings(canViewRatings ? profile?.id : null, { since: twoWeeksAgo });
   const { basic, genreStats, decadeStats, monthlyStats } = useProfileStats(canViewRatings ? profile?.id : null, tier);
   const { counts, reload: reloadCounts } = useObserveCounts(profile?.id);
   const [shareOpen, setShareOpen] = useState(false);
@@ -225,7 +226,7 @@ function ProfilePage({ session }) {
         </div>
 
         {/* Favourites */}
-        {favourites.length > 0 && <ProfileFavourites favourites={favourites} />}
+        {favourites.length > 0 && <ProfileFavourites favourites={favourites} isOwn={isOwn} username={profile.username} />}
 
         {!canViewRatings ? (
           <div className="flex flex-col items-center justify-center rounded-2xl border border-[#2a3570]/50 bg-[#0a0c18] py-16 text-center">
@@ -252,29 +253,28 @@ function ProfilePage({ session }) {
               username={profile.username}
             />
 
-            {/* Ratings grid */}
+            {/* Recent Ratings */}
             <div>
               <h2 className="mb-3 text-xs font-semibold uppercase tracking-widest text-[#c084fc]">
-                {isOwn ? "Your Ratings" : "Ratings"} {ratings.length > 0 && <span className="normal-case text-[#4a4a7a]">({ratings.length}{hasMore ? "+" : ""})</span>}
+                {isOwn ? "Your" : `@${username}`} Recent Ratings
               </h2>
 
               {ratings.length === 0 && !ratingsLoading && (
-                <p className="text-sm text-[#4a4a7a]">No ratings yet.</p>
+                <p className="text-sm text-[#4a4a7a]">No ratings in the last 2 weeks.</p>
               )}
 
-              <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-5">
-                {ratings.map((r) => <ProfileRatingCard key={r.id} rating={r} />)}
-              </div>
-
-              {hasMore && (
-                <button
-                  onClick={loadMore}
-                  disabled={ratingsLoading}
-                  className="mt-4 w-full rounded-xl border border-[#2a2f5a] py-2.5 text-sm font-semibold text-[#8383e7] transition hover:border-[#5a5aaa] hover:text-white disabled:opacity-50"
-                >
-                  {ratingsLoading ? "Loading…" : "Load more"}
-                </button>
+              {ratings.length > 0 && (
+                <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-5">
+                  {ratings.map((r) => <ProfileRatingCard key={r.id} rating={r} />)}
+                </div>
               )}
+
+              <Link
+                to={`/u/${profile.username}/ratings`}
+                className="mt-4 block w-full rounded-xl border border-[#2a2f5a] py-2.5 text-center text-sm font-semibold text-[#8383e7] transition hover:border-[#5a5aaa] hover:text-white"
+              >
+                See all ratings →
+              </Link>
             </div>
           </>
         )}
