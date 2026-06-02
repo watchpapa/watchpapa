@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import AppLayout from "../../layouts/AppLayout.jsx";
 import { PageHead } from "../../components/ui/PageHead.jsx";
@@ -113,7 +113,7 @@ function ObserveControls({ targetId, targetIsPrivate, session, onChange }) {
 function ProfilePage({ session }) {
   const { username } = useParams();
   const { profile, tier, favourites, isOwn, canViewRatings, loading, notFound } = useProfileData(username, session);
-  const twoWeeksAgo = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString();
+  const twoWeeksAgo = useMemo(() => new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString(), []);
   const { ratings, loading: ratingsLoading, hasMore, loadMore } = useProfileRatings(canViewRatings ? profile?.id : null, { since: twoWeeksAgo });
   const { basic, genreStats, decadeStats, monthlyStats } = useProfileStats(canViewRatings ? profile?.id : null, tier);
   const { counts, reload: reloadCounts } = useObserveCounts(profile?.id);
