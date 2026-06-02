@@ -472,3 +472,179 @@ export async function generateShareCard({ format, profile, tier, favourites, bas
 
   return canvas;
 }
+
+export async function generateRecapShareCard(format, recapData, profileData, scale = 1) {
+  const { profile, tier } = profileData;
+  const { count, avg, movieCount, showCount } = recapData;
+  const { width, height } = FORMATS[format];
+
+  const canvas = document.createElement("canvas");
+  canvas.width = width * scale; canvas.height = height * scale;
+  const ctx = canvas.getContext("2d");
+  ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = "high";
+  ctx.scale(scale, scale);
+
+  drawBg(ctx, width, height);
+
+  const tierStyle = TIER_COLORS[getTierLevel(tier)];
+  const tierLabel = TIER_LABELS[tier];
+  const now = new Date();
+  const logoImg = await loadImg("https://watchpapa.tv/logo_v3.1.svg").catch(() => null);
+
+  if (format === "story") {
+    const pad = 60, gap = 48;
+    let y = pad;
+    const logoH = 50;
+    const logoW = logoH * (logoImg?.naturalWidth / logoImg?.naturalHeight || 1);
+    if (logoImg) ctx.drawImage(logoImg, (width - logoW)/2, y, logoW, logoH);
+    else { ctx.font = "800 32px Inter,sans-serif"; ctx.fillStyle = "#8080c0"; ctx.textAlign = "center"; ctx.fillText("watchpapa", width/2, y + logoH*0.15); }
+    y += logoH + gap;
+    ctx.font = "700 32px Inter,sans-serif"; ctx.fillStyle = "#d0a0ff"; ctx.textAlign = "center";
+    ctx.fillText("WEEKLY RECAP", width/2, y);
+    y += 48;
+    const dateStr = `${MONTHS[Math.max(0, now.getMonth()-1)]} ${now.getDate()} – ${MONTHS[now.getMonth()]} ${now.getDate()}`;
+    ctx.font = "500 14px Inter,sans-serif"; ctx.fillStyle = "#6868b8"; ctx.fillText(dateStr, width/2, y);
+    y += gap;
+    ctx.font = "800 72px Inter,sans-serif"; ctx.fillStyle = "#fff"; ctx.textAlign = "center"; ctx.fillText(count.toString(), width/2, y + 40);
+    y += 90;
+    ctx.font = "500 14px Inter,sans-serif"; ctx.fillStyle = "#9090c8"; ctx.fillText("ratings", width/2, y);
+    y += gap + 8;
+    if (avg) {
+      ctx.font = "600 14px Inter,sans-serif"; ctx.fillStyle = "#c084fc"; ctx.fillText("Average rating", width/2, y); y += 24;
+      const heartSize = 18, heartSpacing = 6;
+      const hearts = Math.round(avg);
+      const heartStartX = (width - 5*(heartSize + heartSpacing))/2;
+      for (let i = 1; i <= 5; i++) {
+        const fill = hearts >= i*2 ? "full" : hearts >= i*2-1 ? "half" : "empty";
+        const sx = heartStartX + (i-1)*(heartSize + heartSpacing);
+        ctx.save();
+        ctx.translate(sx, y);
+        ctx.scale(heartSize/16, heartSize/16);
+        const heartPath = "M8 14.7C3.8 11.2 1 8.8 1 6.1 1 4 2.7 2.4 4.8 2.4c1.1 0 2.2.5 3.2 1.8C9 2.9 10.1 2.4 11.2 2.4 13.3 2.4 15 4 15 6.1c0 2.7-2.8 5.1-7 8.6z";
+        if (fill === "empty") { ctx.strokeStyle = "#4a4a8a"; ctx.lineWidth = 1.2; ctx.stroke(new Path2D(heartPath)); }
+        else if (fill === "full") { ctx.fillStyle = "#a090ff"; ctx.fill(new Path2D(heartPath)); }
+        else { ctx.fillStyle = "#a090ff"; ctx.fill(new Path2D(heartPath)); ctx.globalCompositeOperation = "destination-out"; ctx.fillRect(8, 0, 8, 16); ctx.globalCompositeOperation = "source-over"; }
+        ctx.restore();
+      }
+      y += 28;
+      ctx.font = "600 16px Inter,sans-serif"; ctx.fillStyle = "#fff"; ctx.fillText((avg/2).toFixed(1), width/2, y + 4);
+      y += gap;
+    }
+    y += 16;
+    const statBoxY = y, statBoxH = 60;
+    const statBoxW = (width - pad*2 - 16) / 2;
+    ctx.fillStyle = "#0a0c18"; rr(ctx, pad, statBoxY, statBoxW, statBoxH, 12); ctx.fill();
+    ctx.fillStyle = "#12163a"; rr(ctx, pad + statBoxW + 16, statBoxY, statBoxW, statBoxH, 12); ctx.fill();
+    ctx.font = "700 24px Inter,sans-serif"; ctx.fillStyle = "#a090ff"; ctx.textAlign = "center";
+    ctx.fillText(movieCount.toString(), pad + statBoxW/2, statBoxY + 18);
+    ctx.font = "500 12px Inter,sans-serif"; ctx.fillStyle = "#6868b8"; ctx.fillText("Movies", pad + statBoxW/2, statBoxY + 42);
+    ctx.fillStyle = "#a090ff"; ctx.fillText(showCount.toString(), pad + statBoxW + 16 + statBoxW/2, statBoxY + 18);
+    ctx.fillStyle = "#6868b8"; ctx.fillText("Shows", pad + statBoxW + 16 + statBoxW/2, statBoxY + 42);
+    y = height - pad - 32;
+    ctx.font = "700 16px Inter,sans-serif"; ctx.fillStyle = "#fff"; ctx.textAlign = "center"; ctx.fillText(`@${profile.username}`, width/2, y);
+    y += 28;
+    const tierColor = tierStyle.text;
+    rr(ctx, (width - 140)/2, y, 140, 24, 8);
+    ctx.fillStyle = tierStyle.bg; ctx.fill();
+    ctx.strokeStyle = tierStyle.border; ctx.lineWidth = 1; ctx.stroke();
+    ctx.font = "700 12px Inter,sans-serif"; ctx.fillStyle = tierColor; ctx.textAlign = "center"; ctx.fillText(tierLabel, width/2, y + 16);
+    y += 36;
+    ctx.font = "500 11px Inter,sans-serif"; ctx.fillStyle = "#2a2f5a"; ctx.textAlign = "center"; ctx.fillText("watchpapa.tv", width/2, height - 20);
+  } else if (format === "square") {
+    const pad = 48, gap = 32;
+    let y = pad;
+    const logoH = 36;
+    const logoW = logoH * (logoImg?.naturalWidth / logoImg?.naturalHeight || 1);
+    if (logoImg) ctx.drawImage(logoImg, (width - logoW)/2, y, logoW, logoH);
+    else { ctx.font = "800 24px Inter,sans-serif"; ctx.fillStyle = "#8080c0"; ctx.textAlign = "center"; ctx.fillText("watchpapa", width/2, y + logoH*0.15); }
+    y += logoH + gap;
+    ctx.font = "700 24px Inter,sans-serif"; ctx.fillStyle = "#d0a0ff"; ctx.textAlign = "center";
+    ctx.fillText("WEEKLY RECAP", width/2, y);
+    y += 40;
+    ctx.font = "800 48px Inter,sans-serif"; ctx.fillStyle = "#fff"; ctx.textAlign = "center"; ctx.fillText(count.toString(), width/2, y + 28);
+    y += 68;
+    ctx.font = "500 12px Inter,sans-serif"; ctx.fillStyle = "#6868b8"; ctx.fillText("ratings", width/2, y);
+    y += gap;
+    if (avg) {
+      ctx.font = "600 12px Inter,sans-serif"; ctx.fillStyle = "#c084fc"; ctx.fillText("Avg rating", width/2, y); y += 18;
+      const heartSize = 14, heartSpacing = 5;
+      const hearts = Math.round(avg);
+      const heartStartX = (width - 5*(heartSize + heartSpacing))/2;
+      for (let i = 1; i <= 5; i++) {
+        const fill = hearts >= i*2 ? "full" : hearts >= i*2-1 ? "half" : "empty";
+        const sx = heartStartX + (i-1)*(heartSize + heartSpacing);
+        ctx.save();
+        ctx.translate(sx, y);
+        ctx.scale(heartSize/16, heartSize/16);
+        const heartPath = "M8 14.7C3.8 11.2 1 8.8 1 6.1 1 4 2.7 2.4 4.8 2.4c1.1 0 2.2.5 3.2 1.8C9 2.9 10.1 2.4 11.2 2.4 13.3 2.4 15 4 15 6.1c0 2.7-2.8 5.1-7 8.6z";
+        if (fill === "empty") { ctx.strokeStyle = "#4a4a8a"; ctx.lineWidth = 1.2; ctx.stroke(new Path2D(heartPath)); }
+        else if (fill === "full") { ctx.fillStyle = "#a090ff"; ctx.fill(new Path2D(heartPath)); }
+        else { ctx.fillStyle = "#a090ff"; ctx.fill(new Path2D(heartPath)); ctx.globalCompositeOperation = "destination-out"; ctx.fillRect(8, 0, 8, 16); ctx.globalCompositeOperation = "source-over"; }
+        ctx.restore();
+      }
+      y += 20;
+      ctx.font = "500 12px Inter,sans-serif"; ctx.fillStyle = "#fff"; ctx.fillText((avg/2).toFixed(1), width/2, y + 2);
+      y += gap;
+    }
+    const statBoxH = 48, statBoxW = (width - pad*2 - 12) / 2;
+    ctx.fillStyle = "#0a0c18"; rr(ctx, pad, y, statBoxW, statBoxH, 10); ctx.fill();
+    ctx.fillStyle = "#12163a"; rr(ctx, pad + statBoxW + 12, y, statBoxW, statBoxH, 10); ctx.fill();
+    ctx.font = "700 18px Inter,sans-serif"; ctx.fillStyle = "#a090ff"; ctx.textAlign = "center";
+    ctx.fillText(movieCount.toString(), pad + statBoxW/2, y + 14);
+    ctx.font = "500 10px Inter,sans-serif"; ctx.fillStyle = "#6868b8"; ctx.fillText("Movies", pad + statBoxW/2, y + 32);
+    ctx.fillStyle = "#a090ff"; ctx.fillText(showCount.toString(), pad + statBoxW + 12 + statBoxW/2, y + 14);
+    ctx.fillStyle = "#6868b8"; ctx.fillText("Shows", pad + statBoxW + 12 + statBoxW/2, y + 32);
+    y += statBoxH + gap;
+    ctx.font = "700 14px Inter,sans-serif"; ctx.fillStyle = "#fff"; ctx.textAlign = "center"; ctx.fillText(`@${profile.username}`, width/2, y);
+    y += 22;
+    const tierW = 110;
+    rr(ctx, (width - tierW)/2, y, tierW, 20, 6);
+    ctx.fillStyle = tierStyle.bg; ctx.fill();
+    ctx.strokeStyle = tierStyle.border; ctx.lineWidth = 1; ctx.stroke();
+    ctx.font = "700 11px Inter,sans-serif"; ctx.fillStyle = tierStyle.text; ctx.textAlign = "center"; ctx.fillText(tierLabel, width/2, y + 13);
+    ctx.font = "500 10px Inter,sans-serif"; ctx.fillStyle = "#2a2f5a"; ctx.textAlign = "center"; ctx.fillText("watchpapa.tv", width/2, height - 16);
+  } else {
+    const padV = 28, padH = 40;
+    let y = padV;
+    const logoH = 24;
+    const logoW = logoH * (logoImg?.naturalWidth / logoImg?.naturalHeight || 1);
+    if (logoImg) ctx.drawImage(logoImg, (width - logoW)/2, y, logoW, logoH);
+    else { ctx.font = "800 18px Inter,sans-serif"; ctx.fillStyle = "#8080c0"; ctx.textAlign = "center"; ctx.fillText("watchpapa", width/2, y + logoH*0.15); }
+    y += logoH + 20;
+    ctx.font = "700 20px Inter,sans-serif"; ctx.fillStyle = "#d0a0ff"; ctx.textAlign = "center"; ctx.fillText("WEEKLY RECAP", width/2, y);
+    y += 40;
+    ctx.font = "700 32px Inter,sans-serif"; ctx.fillStyle = "#fff"; ctx.textAlign = "center"; ctx.fillText(`${count} ratings`, width/2, y);
+    y += 40;
+    if (avg) {
+      ctx.font = "600 12px Inter,sans-serif"; ctx.fillStyle = "#c084fc"; ctx.fillText("Average rating", width/2, y); y += 18;
+      const heartSize = 16, heartSpacing = 5;
+      const hearts = Math.round(avg);
+      const heartStartX = (width - 5*(heartSize + heartSpacing))/2;
+      for (let i = 1; i <= 5; i++) {
+        const fill = hearts >= i*2 ? "full" : hearts >= i*2-1 ? "half" : "empty";
+        const sx = heartStartX + (i-1)*(heartSize + heartSpacing);
+        ctx.save();
+        ctx.translate(sx, y);
+        ctx.scale(heartSize/16, heartSize/16);
+        const heartPath = "M8 14.7C3.8 11.2 1 8.8 1 6.1 1 4 2.7 2.4 4.8 2.4c1.1 0 2.2.5 3.2 1.8C9 2.9 10.1 2.4 11.2 2.4 13.3 2.4 15 4 15 6.1c0 2.7-2.8 5.1-7 8.6z";
+        if (fill === "empty") { ctx.strokeStyle = "#4a4a8a"; ctx.lineWidth = 1.2; ctx.stroke(new Path2D(heartPath)); }
+        else if (fill === "full") { ctx.fillStyle = "#a090ff"; ctx.fill(new Path2D(heartPath)); }
+        else { ctx.fillStyle = "#a090ff"; ctx.fill(new Path2D(heartPath)); ctx.globalCompositeOperation = "destination-out"; ctx.fillRect(8, 0, 8, 16); ctx.globalCompositeOperation = "source-over"; }
+        ctx.restore();
+      }
+      y += 20;
+      ctx.font = "600 12px Inter,sans-serif"; ctx.fillStyle = "#fff"; ctx.fillText((avg/2).toFixed(1), width/2, y);
+    }
+    y = height - padV - 26;
+    ctx.font = "600 12px Inter,sans-serif"; ctx.fillStyle = "#fff"; ctx.textAlign = "center"; ctx.fillText(`@${profile.username}`, width/2, y);
+    y += 20;
+    const tierW = 100;
+    rr(ctx, (width - tierW)/2, y, tierW, 18, 5);
+    ctx.fillStyle = tierStyle.bg; ctx.fill();
+    ctx.strokeStyle = tierStyle.border; ctx.lineWidth = 0.8; ctx.stroke();
+    ctx.font = "700 10px Inter,sans-serif"; ctx.fillStyle = tierStyle.text; ctx.textAlign = "center"; ctx.fillText(tierLabel, width/2, y + 12);
+    ctx.font = "500 9px Inter,sans-serif"; ctx.fillStyle = "#2a2f5a"; ctx.textAlign = "center"; ctx.textBaseline = "bottom"; ctx.fillText("watchpapa.tv", width/2, height - padV + 4);
+  }
+
+  return canvas;
+}

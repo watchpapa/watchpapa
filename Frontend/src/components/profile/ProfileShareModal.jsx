@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { generateShareCard, FORMATS } from "./generateShareCard.js";
+import { generateShareCard, generateRecapShareCard, FORMATS } from "./generateShareCard.js";
 
 const FORMAT_OPTIONS = [
   { id: "story",  label: "Story",  sub: "9:16" },
@@ -23,8 +23,9 @@ function ShareIcon() {
   return <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>;
 }
 
-export default function ProfileShareModal({ onClose, profile, tier, favourites, basic, genreStats, decadeStats, ownerTier }) {
+export default function ProfileShareModal({ onClose, profile, tier, favourites, basic, genreStats, decadeStats, ownerTier, recapStats }) {
   const [format, setFormat] = useState("story");
+  const [cardType, setCardType] = useState("profile");
   const [busy, setBusy] = useState(false);
   const [previewUrl, setPreviewUrl] = useState(null);
   const [previewLoading, setPreviewLoading] = useState(true);
@@ -35,12 +36,19 @@ export default function ProfileShareModal({ onClose, profile, tier, favourites, 
 
   // WYSIWYG preview: render at scale=1 (same exact renderer, 1/3 the pixels for speed)
   useEffect(() => {
-    if (!hasData) return;
+    const hasRecapData = cardType !== "profile" && recapStats?.[cardType]?.count > 0;
+    if (!hasData && !hasRecapData) return;
     let cancelled = false;
     setPreviewLoading(true);
 
-    generateShareCard({ format, ...cardData, scale: 1 })
-      .then(canvas => {
+    const generatePreview = async () => {
+      try {
+        let canvas;
+        if (cardType === "profile") {
+          canvas = await generateShareCard({ format, ...cardData, scale: 1 });
+        } else {
+          canvas = await generateRecapShareCard(format, recapStats[cardType], { profile, tier }, 1);
+        }
         if (cancelled) return;
         canvas.toBlob(blob => {
           if (cancelled || !blob) return;
@@ -50,11 +58,14 @@ export default function ProfileShareModal({ onClose, profile, tier, favourites, 
           });
           setPreviewLoading(false);
         }, "image/png");
-      })
-      .catch(() => { if (!cancelled) setPreviewLoading(false); });
+      } catch (err) {
+        if (!cancelled) setPreviewLoading(false);
+      }
+    };
 
+    generatePreview();
     return () => { cancelled = true; };
-  }, [format, hasData]); // regenerate on format change or when data first loads
+  }, [format, cardType, hasData, recapStats]); // regenerate on format/cardType change or when data first loads
 
   // Cleanup blob URL on unmount
   useEffect(() => () => { setPreviewUrl(prev => { if (prev) URL.revokeObjectURL(prev); return null; }); }, []);
@@ -67,7 +78,12 @@ export default function ProfileShareModal({ onClose, profile, tier, favourites, 
 
   // Download/share at full 3× 4K quality
   async function getHiResBlob() {
-    const canvas = await generateShareCard({ format, ...cardData, scale: 3 });
+    let canvas;
+    if (cardType === "profile") {
+      canvas = await generateShareCard({ format, ...cardData, scale: 3 });
+    } else {
+      canvas = await generateRecapShareCard(format, recapStats[cardType], { profile, tier }, 3);
+    }
     return new Promise(resolve => canvas.toBlob(resolve, "image/png"));
   }
 
@@ -127,6 +143,37 @@ export default function ProfileShareModal({ onClose, profile, tier, favourites, 
             <XIcon />
           </button>
         </div>
+
+        {/* Card type selector */}
+        {(recapStats?.weekly?.count > 0 || recapStats?.monthly?.count > 0) && (
+          <div className="flex gap-2 overflow-x-auto px-5 py-2 pb-2" style={{ scrollbarWidth: "none" }}>
+            <button
+              onClick={() => setCardType("profile")}
+              className={`flex shrink-0 items-center rounded-lg border px-3 py-1.5 text-xs font-semibold transition
+                ${cardType === "profile" ? "border-[#6f6fdc] bg-[#6f6fdc]/20 text-[#a0a0ff]" : "border-[#2a3570]/50 text-[#5050a0] hover:border-[#3a3a7a]"}`}
+            >
+              Profile
+            </button>
+            {recapStats?.weekly?.count > 0 && (
+              <button
+                onClick={() => setCardType("weekly")}
+                className={`flex shrink-0 items-center rounded-lg border px-3 py-1.5 text-xs font-semibold transition
+                  ${cardType === "weekly" ? "border-[#fbbf24] bg-[#fbbf24]/20 text-[#fef08a]" : "border-[#2a3570]/50 text-[#5050a0] hover:border-[#3a3a7a]"}`}
+              >
+                Weekly
+              </button>
+            )}
+            {recapStats?.monthly?.count > 0 && (
+              <button
+                onClick={() => setCardType("monthly")}
+                className={`flex shrink-0 items-center rounded-lg border px-3 py-1.5 text-xs font-semibold transition
+                  ${cardType === "monthly" ? "border-[#c084fc] bg-[#c084fc]/20 text-[#e0a0ff]" : "border-[#2a3570]/50 text-[#5050a0] hover:border-[#3a3a7a]"}`}
+              >
+                Monthly
+              </button>
+            )}
+          </div>
+        )}
 
         {/* Format pills */}
         <div className="flex gap-2 overflow-x-auto px-5 py-3 pb-4" style={{ scrollbarWidth: "none" }}>

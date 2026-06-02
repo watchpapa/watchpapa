@@ -5,6 +5,7 @@ import { PageHead } from "../../components/ui/PageHead.jsx";
 import { useProfileData } from "../../features/profile/hooks/useProfileData.js";
 import { useProfileRatings } from "../../features/profile/hooks/useProfileRatings.js";
 import { useProfileStats } from "../../features/profile/hooks/useProfileStats.js";
+import { useProfileRecapStats } from "../../features/profile/hooks/useProfileRecapStats.js";
 import { useObserve } from "../../features/observe/hooks/useObserve.js";
 import { useObserveCounts } from "../../features/observe/hooks/useObserveCounts.js";
 import { ProfileFavourites } from "../../components/profile/ProfileFavourites.jsx";
@@ -20,6 +21,7 @@ const TIER_COLORS = {
   god: "text-rose-400 border-rose-900/50 bg-rose-900/10",
 };
 const TIER_LABELS = { free: "Free", premium: "Premium", pro: "Pro", pro_plus: "Pro+", god: "God" };
+const PREMIUM_TIERS = new Set(["premium", "pro", "pro_plus", "god"]);
 
 function GearIcon() {
   return (
@@ -116,6 +118,7 @@ function ProfilePage({ session }) {
   const { ratings, loading: ratingsLoading, hasMore, loadMore } = useProfileRatings(canViewRatings ? profile?.id : null);
   const { basic, genreStats, decadeStats, monthlyStats } = useProfileStats(canViewRatings ? profile?.id : null, tier);
   const { counts, reload: reloadCounts } = useObserveCounts(profile?.id);
+  const { weekly, monthly } = useProfileRecapStats(profile?.id, PREMIUM_TIERS.has(tier) ? tier : null);
   const [shareOpen, setShareOpen] = useState(false);
 
   const breadcrumbs = [{ label: username }];
@@ -285,6 +288,7 @@ function ProfilePage({ session }) {
           genreStats={genreStats}
           decadeStats={decadeStats}
           ownerTier={tier}
+          recapStats={{ weekly, monthly }}
         />
       )}
     </AppLayout>
