@@ -106,7 +106,20 @@ function EpisodePage({ session }) {
       <DetailPageLayout
         title={episode.name}
         followButton={<FollowButton isFollowing={isFollowing} onToggle={handleFollow} />}
-        sidebarTop={<PosterCard title={episode.name} posterPath={episode.poster_path} />}
+        sidebarTop={
+          <div className="relative overflow-hidden rounded-2xl border border-[#2a3570] bg-[#12163a] aspect-video w-full">
+            {episode.poster_path ? (
+              <img src={`${TMDB_IMG}${episode.poster_path}`} alt={episode.name} className="h-full w-full object-cover" loading="lazy" />
+            ) : (
+              <div className="flex h-full w-full flex-col items-center justify-center gap-3 bg-gradient-to-b from-[#181d40] to-[#0e1128]">
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#3a3a7a" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="2" y="6" width="20" height="14" rx="2" /><path d="M8 6V4M16 6V4M2 10h20" />
+                </svg>
+                <span className="text-center text-sm font-medium leading-tight text-[#3a3a7a]">{episode.name}</span>
+              </div>
+            )}
+          </div>
+        }
         sidebarBottom={
           <>
             <ul className="space-y-1.5 text-xs">
