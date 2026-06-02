@@ -1,12 +1,12 @@
 import { useState, useEffect } from "react";
 import { useRating } from "../../features/rating/hooks/useRating.js";
-import { FORMATS, generateMediaShareCard } from "./generateMediaShareCard.js";
+import { generateMediaShareCard } from "./generateMediaShareCard.js";
 
 export function MediaShareModal({ mediaType, mediaData, session, onClose }) {
-  const [format, setFormat] = useState("story");
   const [detailLevel, setDetailLevel] = useState("minimal");
   const [preview, setPreview] = useState(null);
   const [loading, setLoading] = useState(false);
+  const format = "story";
 
   const { value: userRating } = useRating(mediaType, mediaData.entityId, session);
 
@@ -26,7 +26,7 @@ export function MediaShareModal({ mediaType, mediaData, session, onClose }) {
     };
 
     generatePreview();
-  }, [format, detailLevel]);
+  }, [detailLevel, mergedData]);
 
   const downloadImage = async () => {
     setLoading(true);
@@ -35,7 +35,7 @@ export function MediaShareModal({ mediaType, mediaData, session, onClose }) {
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `watchpapa-${mediaType}-share-${format}.png`;
+      a.download = `${mediaData.title.replace(/[^a-z0-9]/gi, "-").toLowerCase()}-watchpapa.png`;
       a.click();
       URL.revokeObjectURL(url);
     } catch (err) {
@@ -73,7 +73,7 @@ export function MediaShareModal({ mediaType, mediaData, session, onClose }) {
                 <img src={preview} alt="Preview" className="w-full rounded" />
               ) : (
                 <div className="aspect-[3/4] flex items-center justify-center rounded bg-[#12163a] text-[#4a4a7a]">
-                  {loading ? "Generating..." : "Select format to preview"}
+                  {loading ? "Generating..." : "Loading preview..."}
                 </div>
               )}
             </div>
@@ -81,30 +81,6 @@ export function MediaShareModal({ mediaType, mediaData, session, onClose }) {
 
           {/* Options & Actions */}
           <div className="flex flex-col gap-6">
-            {/* Format */}
-            <div>
-              <label className="block text-xs font-semibold uppercase tracking-widest text-[#8383e7] mb-2">
-                Format
-              </label>
-              <div className="flex flex-col gap-2">
-                {Object.keys(FORMATS).map((key) => (
-                  <button
-                    key={key}
-                    onClick={() => setFormat(key)}
-                    className={`rounded-lg border px-3 py-2 text-left text-xs font-medium transition ${
-                      format === key
-                        ? "border-[#6f6fdc] bg-[#6f6fdc]/20 text-[#a0a0ff]"
-                        : "border-[#2a3570] bg-[#12163a] text-[#6868b8] hover:border-[#3a3a7a]"
-                    }`}
-                  >
-                    {key === "story" && "Story (9:16)"}
-                    {key === "square" && "Square (1:1)"}
-                    {key === "wide" && "Wide (16:9)"}
-                  </button>
-                ))}
-              </div>
-            </div>
-
             {/* Detail Level */}
             <div>
               <label className="block text-xs font-semibold uppercase tracking-widest text-[#8383e7] mb-2">

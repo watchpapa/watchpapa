@@ -1,7 +1,5 @@
 export const FORMATS = {
-  story:  { width: 1080, height: 1920 },
-  square: { width: 1080, height: 1080 },
-  wide:   { width: 1080, height: 608  },
+  story: { width: 1080, height: 1920 },
 };
 
 function loadImg(src) {
@@ -56,10 +54,13 @@ function layoutStory(ctx, d) {
   drawBg(ctx, width, height);
   let y = pad;
 
-  // Header: watchpapa text instead of logo
-  ctx.font = "800 48px Inter,sans-serif"; ctx.fillStyle = "#8080c0"; ctx.textAlign = "center";
-  ctx.fillText("watchpapa", width/2, y + 28);
-  y += pad + gap;
+  // Header: banner image
+  const bannerH = 48;
+  const bannerW = logoImg ? logoImg.naturalWidth * (bannerH / logoImg.naturalHeight) : 0;
+  if (logoImg) {
+    ctx.drawImage(logoImg, (width - bannerW)/2, y, bannerW, bannerH);
+  }
+  y += bannerH + gap;
 
   // Poster
   const posterW = width - pad*2, posterH = posterW * 1.5;
@@ -81,7 +82,7 @@ function layoutStory(ctx, d) {
   // Rating with username
   if (userRating) {
     ctx.font = "700 20px Inter,sans-serif"; ctx.fillStyle = "#c084fc"; ctx.textAlign = "center";
-    ctx.fillText(`@${username} rated`, width/2, y);
+    ctx.fillText(`@${username} rating`, width/2, y);
     y += 32;
     drawHearts(ctx, userRating, (width - 5*(20+7))/2, y, 20, 7);
     y += 36 + gap*0.5;
@@ -93,99 +94,6 @@ function layoutStory(ctx, d) {
   ctx.font = "600 18px Inter,sans-serif"; ctx.fillStyle = "#2a2f5a"; ctx.textAlign = "center"; ctx.textBaseline = "bottom"; ctx.fillText("watchpapa.tv", width/2, height - pad);
 }
 
-function layoutSquare(ctx, d) {
-  const { width, height, title, posterImg, userRating, year, genres, logoImg, detailLevel, username } = d;
-  const pad = 48, gap = 24;
-  drawBg(ctx, width, height);
-  let y = pad;
-
-  // Header
-  ctx.font = "800 40px Inter,sans-serif"; ctx.fillStyle = "#8080c0"; ctx.textAlign = "center";
-  ctx.fillText("watchpapa", width/2, y + 24);
-  y += pad + gap;
-
-  // Poster
-  const posterW = width - pad*2, posterH = posterW * 1.5;
-  if (posterImg) {
-    ctx.fillStyle = "#0d0f20"; rr(ctx, pad, y, posterW, posterH, 16); ctx.fill();
-    ctx.save(); rr(ctx, pad, y, posterW, posterH, 16); ctx.clip();
-    ctx.drawImage(posterImg, pad, y, posterW, posterH);
-    ctx.restore();
-  }
-  y += posterH + gap;
-
-  // Title
-  ctx.font = "700 32px Inter,sans-serif"; ctx.fillStyle = "#fff"; ctx.textAlign = "center";
-  let titleText = title;
-  while (ctx.measureText(titleText).width > posterW && titleText.length > 3) titleText = titleText.slice(0, -1);
-  ctx.fillText(titleText, width/2, y);
-  y += 44;
-
-  // Rating
-  if (userRating) {
-    ctx.font = "600 14px Inter,sans-serif"; ctx.fillStyle = "#c084fc";
-    ctx.fillText(`@${username} rated`, width/2, y);
-    y += 22;
-    drawHearts(ctx, userRating, (width - 5*(16+6))/2, y, 16, 6);
-    y += 26 + gap;
-  }
-
-  if (detailLevel !== "minimal") {
-    const infoText = [year, genres?.slice(0, 2).join(" · ")].filter(Boolean).join(" · ");
-    if (infoText) { ctx.font = "500 13px Inter,sans-serif"; ctx.fillStyle = "#6868b8"; ctx.fillText(infoText, width/2, y); y += gap; }
-  }
-
-  ctx.font = "500 13px Inter,sans-serif"; ctx.fillStyle = "#2a2f5a"; ctx.textBaseline = "bottom"; ctx.fillText("watchpapa.tv", width/2, height - pad + 8);
-}
-
-function layoutWide(ctx, d) {
-  const { width, height, title, posterImg, userRating, year, genres, overview, logoImg, detailLevel, username } = d;
-  const padV = 28, padH = 40;
-  drawBg(ctx, width, height);
-  let y = padV;
-
-  // Header
-  ctx.font = "800 32px Inter,sans-serif"; ctx.fillStyle = "#8080c0"; ctx.textAlign = "center";
-  ctx.fillText("watchpapa", width/2, y + 20);
-  y += padV + 20;
-
-  // Poster
-  const posterH = height - padV*2 - 48 - 20;
-  const posterW = posterH / 1.5;
-  if (posterImg) {
-    ctx.fillStyle = "#0d0f20"; rr(ctx, padH, y, posterW, posterH, 12); ctx.fill();
-    ctx.save(); rr(ctx, padH, y, posterW, posterH, 12); ctx.clip();
-    ctx.drawImage(posterImg, padH, y, posterW, posterH);
-    ctx.restore();
-  }
-
-  // Info panel on right
-  const infoX = padH + posterW + 28, infoW = width - infoX - padH;
-  let infoY = y;
-  ctx.font = "700 28px Inter,sans-serif"; ctx.fillStyle = "#fff"; ctx.textAlign = "left"; ctx.textBaseline = "top";
-  let titleText = title;
-  while (ctx.measureText(titleText).width > infoW && titleText.length > 3) titleText = titleText.slice(0, -1);
-  ctx.fillText(titleText, infoX, infoY);
-  infoY += 40;
-
-  if (detailLevel !== "minimal" && (year || genres?.length > 0)) {
-    const infoText = [year, genres?.slice(0, 2).join(" · ")].filter(Boolean).join(" · ");
-    ctx.font = "500 13px Inter,sans-serif"; ctx.fillStyle = "#6868b8";
-    ctx.fillText(infoText, infoX, infoY);
-    infoY += 24;
-  }
-
-  if (userRating) {
-    ctx.font = "600 13px Inter,sans-serif"; ctx.fillStyle = "#c084fc";
-    ctx.fillText(`@${username} rated`, infoX, infoY);
-    infoY += 18;
-    drawHearts(ctx, userRating, infoX, infoY, 14, 5);
-    infoY += 20;
-  }
-
-  ctx.font = "500 11px Inter,sans-serif"; ctx.fillStyle = "#2a2f5a"; ctx.textAlign = "right"; ctx.textBaseline = "bottom"; ctx.fillText("watchpapa.tv", width - padH, height - padV);
-}
-
 export async function generateMediaShareCard(format, detailLevel, mediaData, scale = 1) {
   const formatDims = FORMATS[format];
   const canvas = new OffscreenCanvas(formatDims.width * scale, formatDims.height * scale);
@@ -193,6 +101,7 @@ export async function generateMediaShareCard(format, detailLevel, mediaData, sca
   ctx.scale(scale, scale);
 
   const posterImg = mediaData.posterPath ? await loadImg(`https://image.tmdb.org/t/p/w500${mediaData.posterPath}`) : null;
+  const bannerImg = await loadImg("/banner.png").catch(() => null);
 
   const data = {
     width: formatDims.width,
@@ -205,11 +114,9 @@ export async function generateMediaShareCard(format, detailLevel, mediaData, sca
     overview: mediaData.overview,
     detailLevel,
     username: mediaData.username || "user",
+    logoImg: bannerImg,
   };
 
-  if (format === "story") layoutStory(ctx, data);
-  else if (format === "square") layoutSquare(ctx, data);
-  else if (format === "wide") layoutWide(ctx, data);
-
+  layoutStory(ctx, data);
   return canvas.convertToBlob({ type: "image/png" });
 }
