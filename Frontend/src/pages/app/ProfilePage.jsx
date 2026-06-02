@@ -249,6 +249,7 @@ function ProfilePage({ session }) {
               monthlyStats={monthlyStats}
               ownerTier={tier}
               isOwn={isOwn}
+              username={profile.username}
             />
 
             {/* Ratings grid */}
