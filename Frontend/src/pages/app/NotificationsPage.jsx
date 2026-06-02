@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import AppLayout from "../../layouts/AppLayout.jsx";
 import { PageHead } from "../../components/ui/PageHead.jsx";
@@ -38,7 +38,15 @@ function NotificationRow({ n }) {
 }
 
 function NotificationsPage({ session }) {
-  const { items, loading, hasMore, loadMore, markAllRead } = useNotifications(session);
+  const { items, loading, hasMore, loadMore, markAllRead, clearAll } = useNotifications(session);
+  const [clearing, setClearing] = useState(false);
+
+  const handleClearAll = async () => {
+    if (!window.confirm("Delete all notifications? This cannot be undone.")) return;
+    setClearing(true);
+    await clearAll();
+    setClearing(false);
+  };
 
   useEffect(() => {
     const t = setTimeout(() => markAllRead(), 800);
@@ -49,7 +57,18 @@ function NotificationsPage({ session }) {
     <AppLayout session={session} breadcrumbs={[{ label: "Notifications" }]}>
       <PageHead title="Notifications" path="/notifications" noindex />
       <div className="mx-auto max-w-2xl space-y-4 py-6 px-4 sm:px-0">
-        <h1 className="text-2xl font-extrabold text-white">Notifications</h1>
+        <div className="flex items-center justify-between">
+          <h1 className="text-2xl font-extrabold text-white">Notifications</h1>
+          {items.length > 0 && (
+            <button
+              onClick={handleClearAll}
+              disabled={clearing}
+              className="text-xs font-semibold text-[#7070d0] transition hover:text-[#8888e8] disabled:opacity-50"
+            >
+              Clear all
+            </button>
+          )}
+        </div>
 
         {loading && items.length === 0 && (
           <div className="animate-pulse space-y-2">

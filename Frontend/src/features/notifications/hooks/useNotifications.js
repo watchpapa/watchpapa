@@ -54,5 +54,14 @@ export function useNotifications(session) {
     await supabase.rpc("mark_notifications_read", { p_ids: null });
   }, [uid, unread]);
 
-  return { items, unread, loading, hasMore, loadMore, markAllRead, reloadUnread: loadUnread };
+  const clearAll = useCallback(async () => {
+    if (!uid) return;
+    setLoading(true);
+    await supabase.from("notification").delete().eq("recipient_id", uid);
+    setItems([]);
+    setUnread(0);
+    setLoading(false);
+  }, [uid]);
+
+  return { items, unread, loading, hasMore, loadMore, markAllRead, clearAll, reloadUnread: loadUnread };
 }
