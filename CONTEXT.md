@@ -513,4 +513,20 @@ palette pushed vivid. Key recurring conventions introduced:
 - **Analytics are consent-gated.** `trackPresence`, `trackPageView`, `trackContentClick` are no-ops if cookie consent has not been given.
 - **Background ingest deduplication.** Always use `dedupIngest(key, fn)` from `ingestionQueue.js` when triggering background ingest from an API route.
 - **Migrations are one-way.** Never modify an applied migration file. Create a new numbered file instead.
+
+---
+
+## Recent Fixes & Features
+
+**2026-06 rating & navigation system improvements:**
+
+- **Half-heart display fix** (`HeartDisplay.jsx`): Replaced `Math.random()` UID generation with `useId()` hook to ensure stable clipPath IDs across React 18 concurrent renders. Removed dead `Heart` component from `RatingSidebar.jsx`.
+  
+- **Unreleased content gating** (`RatingSidebar.jsx`, 4 detail pages): Added `isUnreleased` prop. When true (checked via date comparison: `new Date(release_date) > new Date()`), shows "Not yet released" and disables rating interaction. Applied to `MoviePage`, `ShowPage`, `SeasonPage`, `EpisodePage` using their respective date fields (`release_date`, `first_air_date`, `air_date`).
+
+- **TMDB rating fallback** (`RatingHistogram.jsx`): When community vote count < 10, if `tmdbVoteAvg` is provided, shows TMDB's average rating (formatted to 1 decimal place) instead of "Not enough ratings yet". Applied to `MoviePage` and `ShowPage` via `tmdb_vote_avg` column. Seasons & episodes omit this prop (no TMDB column available).
+
+- **Episode navigation** (`EpisodePage.jsx`): Added prev/next episode buttons using `season.episode` array. Finds current episode by ID, sorts by `episode_number`, renders navigation links when siblings exist. Styled as two-column hover-lift cards with arrows.
+
+- **Season navigation** (`SeasonPage.jsx`, `useSeasonData.js`): Extended `useSeasonData` hook to fetch sibling seasons via `season(id, name, season_number)` relation in the show select query. Exposes `seasons` state; `SeasonPage` computes prev/next and renders dual navigation cards matching episode style.
 - **Adult content.** `showAdult` boolean is derived from `profile.setting_display_adult_content` and passed as a prop — not stored in React context. Include it in any query that filters `adult` content.
