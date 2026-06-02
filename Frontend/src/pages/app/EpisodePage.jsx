@@ -145,11 +145,20 @@ function EpisodePage({ session }) {
                 to={`/shows/${showId}/seasons/${seasonId}/episodes/${prevEp.id}`}
                 className="flex-1 flex items-center gap-3 rounded-xl border border-[#2a3570]/50 bg-[#0d0f1e] p-3 transition hover:border-[#3a3a7a] hover:bg-[#141728]"
               >
-                <svg className="flex-shrink-0 text-[#3a3a7a]" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M15 18l-6-6 6-6" /></svg>
+                <div className="h-16 w-28 flex-shrink-0 overflow-hidden rounded-lg border border-[#2a3570] bg-[#12163a]">
+                  {prevEp.poster_path ? (
+                    <img src={`${TMDB_IMG}${prevEp.poster_path}`} alt={prevEp.name} className="h-full w-full object-cover" loading="lazy" />
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center text-[#3a3a7a]">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="2" y="6" width="20" height="14" rx="2" /><path d="M8 6V4M16 6V4M2 10h20" /></svg>
+                    </div>
+                  )}
+                </div>
                 <div className="min-w-0 flex-1">
                   <p className="text-[10px] text-[#6868b8]">Prev episode</p>
-                  <p className="text-xs font-semibold text-white line-clamp-1">Ep. {prevEp.episode_number}: {prevEp.name}</p>
+                  <p className="text-xs font-semibold text-white line-clamp-2">Ep. {prevEp.episode_number}: {prevEp.name}</p>
                 </div>
+                <svg className="flex-shrink-0 text-[#3a3a7a]" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M15 18l-6-6 6-6" /></svg>
               </Link>
             )}
             {nextEp && (
@@ -157,11 +166,20 @@ function EpisodePage({ session }) {
                 to={`/shows/${showId}/seasons/${seasonId}/episodes/${nextEp.id}`}
                 className="flex-1 flex items-center gap-3 rounded-xl border border-[#2a3570]/50 bg-[#0d0f1e] p-3 transition hover:border-[#3a3a7a] hover:bg-[#141728]"
               >
+                <svg className="flex-shrink-0 text-[#3a3a7a]" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M9 18l6-6-6-6" /></svg>
                 <div className="min-w-0 flex-1">
                   <p className="text-[10px] text-[#6868b8]">Next episode</p>
-                  <p className="text-xs font-semibold text-white line-clamp-1">Ep. {nextEp.episode_number}: {nextEp.name}</p>
+                  <p className="text-xs font-semibold text-white line-clamp-2">Ep. {nextEp.episode_number}: {nextEp.name}</p>
                 </div>
-                <svg className="flex-shrink-0 text-[#3a3a7a]" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M9 18l6-6-6-6" /></svg>
+                <div className="h-16 w-28 flex-shrink-0 overflow-hidden rounded-lg border border-[#2a3570] bg-[#12163a]">
+                  {nextEp.poster_path ? (
+                    <img src={`${TMDB_IMG}${nextEp.poster_path}`} alt={nextEp.name} className="h-full w-full object-cover" loading="lazy" />
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center text-[#3a3a7a]">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="2" y="6" width="20" height="14" rx="2" /><path d="M8 6V4M16 6V4M2 10h20" /></svg>
+                    </div>
+                  )}
+                </div>
               </Link>
             )}
           </div>
