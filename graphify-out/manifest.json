@@ -1,0 +1,1487 @@
+{
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Backend/src/db/database.js": {
+    "mtime": 1778693444.3126862,
+    "ast_hash": "4c9d41c8f28242bf27def2aefeacc45a",
+    "semantic_hash": "4c9d41c8f28242bf27def2aefeacc45a"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Backend/src/db/migrations/001_audit_events.sql": {
+    "mtime": 1779221472.881635,
+    "ast_hash": "20539e64793dffd08145a9fd754e024f",
+    "semantic_hash": "20539e64793dffd08145a9fd754e024f"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Backend/src/db/migrations/002_audit_user_follow_triggers.sql": {
+    "mtime": 1779221472.8818998,
+    "ast_hash": "de7c2f900ef1efcfbfadedc5b7fe877e",
+    "semantic_hash": "de7c2f900ef1efcfbfadedc5b7fe877e"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Backend/src/db/migrations/003_profile_referral_columns.sql": {
+    "mtime": 1779221472.8821607,
+    "ast_hash": "7fc530f6e63e556ef78d43c4105fc857",
+    "semantic_hash": "7fc530f6e63e556ef78d43c4105fc857"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Backend/src/db/migrations/004_subscription_tables.sql": {
+    "mtime": 1779221472.88236,
+    "ast_hash": "952ac0e257a40f1d24612533bb92e4ef",
+    "semantic_hash": "952ac0e257a40f1d24612533bb92e4ef"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Backend/src/db/migrations/005_subscription_functions.sql": {
+    "mtime": 1779221472.8826554,
+    "ast_hash": "8ff4871854deeb5d33170a83ea514f79",
+    "semantic_hash": "8ff4871854deeb5d33170a83ea514f79"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Backend/src/db/migrations/006_profile_insert_trigger.sql": {
+    "mtime": 1779221472.8829904,
+    "ast_hash": "f21885d34256f6c24458da5be3f07f26",
+    "semantic_hash": "f21885d34256f6c24458da5be3f07f26"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Backend/src/db/migrations/007_follow_limit_trigger.sql": {
+    "mtime": 1779221472.8832698,
+    "ast_hash": "fe0c91b329a8f0c0a5fbc7b879d9d48f",
+    "semantic_hash": "fe0c91b329a8f0c0a5fbc7b879d9d48f"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Backend/src/db/migrations/008_referral_rewards.sql": {
+    "mtime": 1779221472.883566,
+    "ast_hash": "86686875623b2fa7a984799e8558a9e6",
+    "semantic_hash": "86686875623b2fa7a984799e8558a9e6"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Backend/src/db/migrations/009_subscription_rls.sql": {
+    "mtime": 1779221472.8837218,
+    "ast_hash": "1c0fd95b054a7eb17f9b3dba74a17a18",
+    "semantic_hash": "1c0fd95b054a7eb17f9b3dba74a17a18"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Backend/src/db/migrations/010_protect_sensitive_columns.sql": {
+    "mtime": 1779221472.8838573,
+    "ast_hash": "22d1c2fe6fef686226aee17b35a09451",
+    "semantic_hash": "22d1c2fe6fef686226aee17b35a09451"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Backend/src/db/migrations/011_username_change_limit.sql": {
+    "mtime": 1779221472.8840604,
+    "ast_hash": "a5bc8a8fed585ae91956775c8ff4a6f8",
+    "semantic_hash": "a5bc8a8fed585ae91956775c8ff4a6f8"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Backend/src/db/migrations/012_ea_banner_dismissed.sql": {
+    "mtime": 1779221472.8842263,
+    "ast_hash": "4d5ed3b4d2f3130fb58628669322ad4e",
+    "semantic_hash": "4d5ed3b4d2f3130fb58628669322ad4e"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Backend/src/db/migrations/013_analytics.sql": {
+    "mtime": 1779221472.8845184,
+    "ast_hash": "2eaf7565fd138afef70f24243e84e00a",
+    "semantic_hash": "2eaf7565fd138afef70f24243e84e00a"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Backend/src/db/migrations/013_analytics_rollback.sql": {
+    "mtime": 1779221472.884708,
+    "ast_hash": "64b5fe9923a07e328a7f5e39832415c1",
+    "semantic_hash": "64b5fe9923a07e328a7f5e39832415c1"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Backend/src/db/migrations/014_announcements.sql": {
+    "mtime": 1779381592.2776399,
+    "ast_hash": "879fcfd077cf88beffc313d5b63cf13f",
+    "semantic_hash": "879fcfd077cf88beffc313d5b63cf13f"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Backend/src/db/migrations/015_announcements_archive_tracking.sql": {
+    "mtime": 1779382147.5459728,
+    "ast_hash": "0cdff6c41c7d8a9e9d1200cd9efd49e8",
+    "semantic_hash": "0cdff6c41c7d8a9e9d1200cd9efd49e8"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Backend/src/db/migrations/016_watchlists.sql": {
+    "mtime": 1780144183.5194943,
+    "ast_hash": "5604d5a1a38c6cc78007774ac7fbae03",
+    "semantic_hash": "5604d5a1a38c6cc78007774ac7fbae03"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Backend/src/db/migrations/017_ratings_and_profiles.sql": {
+    "mtime": 1780157866.214407,
+    "ast_hash": "5f458846ef2727ad29b975fbb5a11b20",
+    "semantic_hash": "5f458846ef2727ad29b975fbb5a11b20"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Backend/src/db/migrations/018_security_hardening.sql": {
+    "mtime": 1780315422.7824974,
+    "ast_hash": "c5f91437ff5a64916586ced0eb86ef07",
+    "semantic_hash": "c5f91437ff5a64916586ced0eb86ef07"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Backend/src/db/migrations/019_drop_analytics.sql": {
+    "mtime": 1780328033.2127533,
+    "ast_hash": "0a73682dc97d76e720b71d0bd01ea61e",
+    "semantic_hash": "0a73682dc97d76e720b71d0bd01ea61e"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Backend/src/db/migrations/020_social_observe.sql": {
+    "mtime": 1780333765.1831732,
+    "ast_hash": "e1e7b6143ff7cd153e9296753de0e0dd",
+    "semantic_hash": "e1e7b6143ff7cd153e9296753de0e0dd"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Backend/src/lib/ingestionQueue.js": {
+    "mtime": 1780162953.9329104,
+    "ast_hash": "f9f4cbdcd688e1dbeba83817dc36b49a",
+    "semantic_hash": "f9f4cbdcd688e1dbeba83817dc36b49a"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Backend/src/lib/letterboxdUri.js": {
+    "mtime": 1780166487.1810796,
+    "ast_hash": "41f96b62d1fab791e5ec20d483f75a07",
+    "semantic_hash": "41f96b62d1fab791e5ec20d483f75a07"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Backend/src/lib/logScriptRun.js": {
+    "mtime": 1779482298.5604718,
+    "ast_hash": "f80f9876fd9008057e70f75007cf198b",
+    "semantic_hash": "f80f9876fd9008057e70f75007cf198b"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Backend/src/lib/sanitizeTmdb.js": {
+    "mtime": 1778163236.0316036,
+    "ast_hash": "db307ff5cae7e3624b9f48c77c8aaf05",
+    "semantic_hash": "db307ff5cae7e3624b9f48c77c8aaf05"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Backend/src/middleware/auditLog.js": {
+    "mtime": 1778255986.0938241,
+    "ast_hash": "4c72133f2bd07964a27934e4a9f11eb5",
+    "semantic_hash": "4c72133f2bd07964a27934e4a9f11eb5"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Backend/src/middleware/requireAdmin.js": {
+    "mtime": 1779221472.8849528,
+    "ast_hash": "a2bf474e89fb533d3c865da68885ad81",
+    "semantic_hash": "a2bf474e89fb533d3c865da68885ad81"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Backend/src/middleware/requireAuth.js": {
+    "mtime": 1778255986.0928786,
+    "ast_hash": "07fbde4bdab6d094dc1b76121eab4e6e",
+    "semantic_hash": "07fbde4bdab6d094dc1b76121eab4e6e"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Backend/src/middleware/requireEditor.js": {
+    "mtime": 1779380762.1370785,
+    "ast_hash": "159ece11b7a3f79bb41e6939127ba27a",
+    "semantic_hash": "159ece11b7a3f79bb41e6939127ba27a"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Backend/src/routes/admin/announcements.js": {
+    "mtime": 1779382168.451307,
+    "ast_hash": "5f221cb604dc0d3631b71e9564c4c241",
+    "semantic_hash": "5f221cb604dc0d3631b71e9564c4c241"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Backend/src/routes/admin/auditLog.js": {
+    "mtime": 1779221472.8853173,
+    "ast_hash": "4993f9ec72ce002ed639d90aa807d168",
+    "semantic_hash": "4993f9ec72ce002ed639d90aa807d168"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Backend/src/routes/admin/referrals.js": {
+    "mtime": 1779221472.885646,
+    "ast_hash": "7b538a424606c274de588426beacc55b",
+    "semantic_hash": "7b538a424606c274de588426beacc55b"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Backend/src/routes/admin/resync.js": {
+    "mtime": 1780162083.425605,
+    "ast_hash": "702c78378bc6133a1cf02e0f742abb05",
+    "semantic_hash": "702c78378bc6133a1cf02e0f742abb05"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Backend/src/routes/admin/rewardCodes.js": {
+    "mtime": 1779383308.480418,
+    "ast_hash": "01903946d93cace02480ab9ae4c784c9",
+    "semantic_hash": "01903946d93cace02480ab9ae4c784c9"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Backend/src/routes/admin/scriptLogs.js": {
+    "mtime": 1779221472.8860505,
+    "ast_hash": "18c885ff7ad080fecc52b8ad5d99fad5",
+    "semantic_hash": "18c885ff7ad080fecc52b8ad5d99fad5"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Backend/src/routes/admin/stats.js": {
+    "mtime": 1780162971.191679,
+    "ast_hash": "ccfd7df185a78c54ec4812b0cd2b46fb",
+    "semantic_hash": "ccfd7df185a78c54ec4812b0cd2b46fb"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Backend/src/routes/admin/users.js": {
+    "mtime": 1780145940.2918491,
+    "ast_hash": "8c65ab80b576118d30672f24513c82c1",
+    "semantic_hash": "8c65ab80b576118d30672f24513c82c1"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Backend/src/routes/announcements.js": {
+    "mtime": 1779382459.3247807,
+    "ast_hash": "a245d0d87b670ee60fa8358ebe9f0e16",
+    "semantic_hash": "a245d0d87b670ee60fa8358ebe9f0e16"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Backend/src/routes/imageProxy.js": {
+    "mtime": 1780320059.1716027,
+    "ast_hash": "b5adbcf72c285383df5f9f541547a90f",
+    "semantic_hash": "b5adbcf72c285383df5f9f541547a90f"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Backend/src/routes/import.js": {
+    "mtime": 1780336134.1247425,
+    "ast_hash": "a71a4a255c6e8d11de73e5dddebb1631",
+    "semantic_hash": "a71a4a255c6e8d11de73e5dddebb1631"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Backend/src/routes/inject.js": {
+    "mtime": 1779482318.894059,
+    "ast_hash": "09fc2321818adf03d98f9dd6cf3538f1",
+    "semantic_hash": "09fc2321818adf03d98f9dd6cf3538f1"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Backend/src/routes/posters.js": {
+    "mtime": 1779221472.8867784,
+    "ast_hash": "36ada9112e4768032747ee794bde3508",
+    "semantic_hash": "36ada9112e4768032747ee794bde3508"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Backend/src/routes/referral.js": {
+    "mtime": 1779221472.8869615,
+    "ast_hash": "9823c2dc7a14ef75f52af9772e7b52b4",
+    "semantic_hash": "9823c2dc7a14ef75f52af9772e7b52b4"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Backend/src/routes/resolve.js": {
+    "mtime": 1779482336.4923234,
+    "ast_hash": "74c4d8ebf452d772124e671a3a32c917",
+    "semantic_hash": "74c4d8ebf452d772124e671a3a32c917"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Backend/src/routes/rewards.js": {
+    "mtime": 1779221472.8871505,
+    "ast_hash": "c23e207a3492589089e8c438c89e9ded",
+    "semantic_hash": "c23e207a3492589089e8c438c89e9ded"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Backend/src/routes/search.js": {
+    "mtime": 1778255986.0946085,
+    "ast_hash": "a0b9c6fa9861d5704bbaacf1c67bfb77",
+    "semantic_hash": "a0b9c6fa9861d5704bbaacf1c67bfb77"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Backend/src/routes/sitemap.js": {
+    "mtime": 1779481557.7006757,
+    "ast_hash": "d38b12169e07f828ef84648efc39c173",
+    "semantic_hash": "d38b12169e07f828ef84648efc39c173"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Backend/src/scripts/inject_changed_all_24h.js": {
+    "mtime": 1778088031.8581352,
+    "ast_hash": "bb70282c04e406b172bfaaee7b907cff",
+    "semantic_hash": "bb70282c04e406b172bfaaee7b907cff"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Backend/src/scripts/inject_changed_movies_24h.js": {
+    "mtime": 1778088019.5885854,
+    "ast_hash": "bb6ac559ddb6aed48430839a8792fcfe",
+    "semantic_hash": "bb6ac559ddb6aed48430839a8792fcfe"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Backend/src/scripts/inject_changed_people_24h.js": {
+    "mtime": 1778088119.0101085,
+    "ast_hash": "55aed77e495468aa88e4ce05b8afab99",
+    "semantic_hash": "55aed77e495468aa88e4ce05b8afab99"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Backend/src/scripts/inject_changed_shows_24h.js": {
+    "mtime": 1778088023.512627,
+    "ast_hash": "487b920ea0bb16b2368f048f64e69157",
+    "semantic_hash": "487b920ea0bb16b2368f048f64e69157"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Backend/src/scripts/inject_genres.js": {
+    "mtime": 1778083972.8291287,
+    "ast_hash": "fe524482c55c891f6161e3a96edb0efe",
+    "semantic_hash": "fe524482c55c891f6161e3a96edb0efe"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Backend/src/scripts/inject_jobs_and_departments.js": {
+    "mtime": 1778083829.5053866,
+    "ast_hash": "d82fc523631364a3619797f8c5a8fa81",
+    "semantic_hash": "d82fc523631364a3619797f8c5a8fa81"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Backend/src/scripts/inject_movie.js": {
+    "mtime": 1779481557.7009249,
+    "ast_hash": "00a6fddec918f90795220cdbfe5f4454",
+    "semantic_hash": "00a6fddec918f90795220cdbfe5f4454"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Backend/src/scripts/inject_person.js": {
+    "mtime": 1779481557.7011042,
+    "ast_hash": "ccf6aee787c32d7b4d734f356e0b650a",
+    "semantic_hash": "ccf6aee787c32d7b4d734f356e0b650a"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Backend/src/scripts/inject_popular_movies_today.js": {
+    "mtime": 1778085661.1418595,
+    "ast_hash": "98d6821ab14d868147d6109f8f40c29a",
+    "semantic_hash": "98d6821ab14d868147d6109f8f40c29a"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Backend/src/scripts/inject_popular_people_today.js": {
+    "mtime": 1778086175.869514,
+    "ast_hash": "331eb0589f2c3ef7cb48d9cebefcef8e",
+    "semantic_hash": "331eb0589f2c3ef7cb48d9cebefcef8e"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Backend/src/scripts/inject_popular_shows_today.js": {
+    "mtime": 1778086182.297221,
+    "ast_hash": "534e1fc2f7c2edcb8bab9a1bc6d20937",
+    "semantic_hash": "534e1fc2f7c2edcb8bab9a1bc6d20937"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Backend/src/scripts/inject_top_rated_movies.js": {
+    "mtime": 1778086189.2769449,
+    "ast_hash": "36038f33edeab3bf9252ecc33aa54872",
+    "semantic_hash": "36038f33edeab3bf9252ecc33aa54872"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Backend/src/scripts/inject_top_rated_shows.js": {
+    "mtime": 1778086195.650871,
+    "ast_hash": "396aa759802810eb0c0b0c88c314245c",
+    "semantic_hash": "396aa759802810eb0c0b0c88c314245c"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Backend/src/scripts/inject_tv_show.js": {
+    "mtime": 1779481557.7013078,
+    "ast_hash": "63262c7198721e647f7e2cb8baad540d",
+    "semantic_hash": "63262c7198721e647f7e2cb8baad540d"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Backend/src/scripts/resolve_job.js": {
+    "mtime": 1778085614.451258,
+    "ast_hash": "eadfdfd6294bf889c1c53ba9dc58581b",
+    "semantic_hash": "eadfdfd6294bf889c1c53ba9dc58581b"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Backend/src/scripts/tmdb_changes_fetch.js": {
+    "mtime": 1778088632.749869,
+    "ast_hash": "0b22dda8a5f6ec254acbc46ff881f24a",
+    "semantic_hash": "0b22dda8a5f6ec254acbc46ff881f24a"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Backend/src/scripts/tmdb_rate_limited_fetch.js": {
+    "mtime": 1777649652.8685086,
+    "ast_hash": "eee5e3806f2e4e98b8c3ad12b52e197a",
+    "semantic_hash": "eee5e3806f2e4e98b8c3ad12b52e197a"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Backend/src/scripts/update_tmdb_popularity.js": {
+    "mtime": 1778219410.902114,
+    "ast_hash": "3aa96c1565510d53879d2e3f2b310b3f",
+    "semantic_hash": "3aa96c1565510d53879d2e3f2b310b3f"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Backend/src/scripts/update_tmdb_popularity_movies.js": {
+    "mtime": 1778066005.1450171,
+    "ast_hash": "4123332007be7f3ac2317db5ea40c885",
+    "semantic_hash": "4123332007be7f3ac2317db5ea40c885"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Backend/src/scripts/update_tmdb_popularity_people.js": {
+    "mtime": 1778066005.1557372,
+    "ast_hash": "71f6b84e0f40a65cca5548ea014df39e",
+    "semantic_hash": "71f6b84e0f40a65cca5548ea014df39e"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Backend/src/scripts/update_tmdb_popularity_shows.js": {
+    "mtime": 1778066005.1820238,
+    "ast_hash": "21d7ae4eb1f68af424b186e81071f9f3",
+    "semantic_hash": "21d7ae4eb1f68af424b186e81071f9f3"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Backend/src/services/searchService.js": {
+    "mtime": 1779481557.7016284,
+    "ast_hash": "2dd7769ec30e6b9ebaa540ed9c14ee2c",
+    "semantic_hash": "2dd7769ec30e6b9ebaa540ed9c14ee2c"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/eslint.config.js": {
+    "mtime": 1777209510.932914,
+    "ast_hash": "3aa4b57d7f08181d86bde52a4dcb7f22",
+    "semantic_hash": "3aa4b57d7f08181d86bde52a4dcb7f22"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/package.json": {
+    "mtime": 1780339683.0301676,
+    "ast_hash": "e7d56bb7bdb41ff911f401b8d94a177d",
+    "semantic_hash": "e7d56bb7bdb41ff911f401b8d94a177d"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/postcss.config.js": {
+    "mtime": 1777226729.1319997,
+    "ast_hash": "acb6a0e1a1c8c4fc1d7fed634ee4eae0",
+    "semantic_hash": "acb6a0e1a1c8c4fc1d7fed634ee4eae0"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/App.jsx": {
+    "mtime": 1780335684.3745143,
+    "ast_hash": "5228b076a629aacc734e67107b2307b8",
+    "semantic_hash": "5228b076a629aacc734e67107b2307b8"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/components/AuthPromptModal.jsx": {
+    "mtime": 1780339683.0315797,
+    "ast_hash": "1b76b1d9948efd370408ff274a11e0a1",
+    "semantic_hash": "1b76b1d9948efd370408ff274a11e0a1"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/components/ScrollToTop.jsx": {
+    "mtime": 1779221472.887833,
+    "ast_hash": "0e176124caf58c88440e85a7554286fc",
+    "semantic_hash": "0e176124caf58c88440e85a7554286fc"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/components/auth/AdminRoute.jsx": {
+    "mtime": 1779221472.8881948,
+    "ast_hash": "c0a313be71dd55a7ef8f00f35b9157b4",
+    "semantic_hash": "c0a313be71dd55a7ef8f00f35b9157b4"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/components/detail/AdminResyncButton.jsx": {
+    "mtime": 1780339683.0327158,
+    "ast_hash": "17868e9f7ac3ef8c6519d4a4e7311f9b",
+    "semantic_hash": "17868e9f7ac3ef8c6519d4a4e7311f9b"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/components/detail/CastGrid.jsx": {
+    "mtime": 1780341102.5098217,
+    "ast_hash": "c46ba226a9368020a181b13034daff50",
+    "semantic_hash": "c46ba226a9368020a181b13034daff50"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/components/detail/ContentPanel.jsx": {
+    "mtime": 1780341038.3699994,
+    "ast_hash": "fd3570ad387d47468e3a3dea9ee6484a",
+    "semantic_hash": "fd3570ad387d47468e3a3dea9ee6484a"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/components/detail/CrewSection.jsx": {
+    "mtime": 1780341038.373489,
+    "ast_hash": "8dbc119341607217f44deb7ebe659154",
+    "semantic_hash": "8dbc119341607217f44deb7ebe659154"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/components/detail/DetailPageLayout.jsx": {
+    "mtime": 1780341083.3380396,
+    "ast_hash": "620da828054537856faaeb9a54bc32b8",
+    "semantic_hash": "620da828054537856faaeb9a54bc32b8"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/components/detail/FollowButton.jsx": {
+    "mtime": 1780341038.3766956,
+    "ast_hash": "a9d1a54df2210c29510033f8d90d9562",
+    "semantic_hash": "a9d1a54df2210c29510033f8d90d9562"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/components/detail/InjectingBanner.jsx": {
+    "mtime": 1779481557.7028852,
+    "ast_hash": "f11664738eb8f26da9fef7d1473e99d8",
+    "semantic_hash": "f11664738eb8f26da9fef7d1473e99d8"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/components/detail/PosterCard.jsx": {
+    "mtime": 1780341038.379926,
+    "ast_hash": "8ab5f7f4f6a6f27dfa71abfd7bb51910",
+    "semantic_hash": "8ab5f7f4f6a6f27dfa71abfd7bb51910"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/components/detail/SkeletonDetailPage.jsx": {
+    "mtime": 1780339683.0345285,
+    "ast_hash": "ef739c7109d1fb413a71e7c42840ba6b",
+    "semantic_hash": "ef739c7109d1fb413a71e7c42840ba6b"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/components/home/ContentHero.jsx": {
+    "mtime": 1780341915.6402721,
+    "ast_hash": "a476a3b1a6a04f5899cdf01ace3adc05",
+    "semantic_hash": "a476a3b1a6a04f5899cdf01ace3adc05"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/components/home/HeroBanner.jsx": {
+    "mtime": 1780339683.0347857,
+    "ast_hash": "94ba38a0a469d7d0513a1adf83e0939b",
+    "semantic_hash": "94ba38a0a469d7d0513a1adf83e0939b"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/components/home/MediaCard.jsx": {
+    "mtime": 1780341915.6404736,
+    "ast_hash": "4776b7a4a07de87e3b9c2c7f50850677",
+    "semantic_hash": "4776b7a4a07de87e3b9c2c7f50850677"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/components/home/MediaGrid.jsx": {
+    "mtime": 1780341915.6406631,
+    "ast_hash": "61ced66ad3fc8f63e425643c42dab4a8",
+    "semantic_hash": "61ced66ad3fc8f63e425643c42dab4a8"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/components/home/MediaRow.jsx": {
+    "mtime": 1780341915.6409082,
+    "ast_hash": "32026f8c48c1bcc9cd62a9d2bed33797",
+    "semantic_hash": "32026f8c48c1bcc9cd62a9d2bed33797"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/components/home/SearchBar.jsx": {
+    "mtime": 1780341915.641202,
+    "ast_hash": "aaaf987de798d531c69f373febaea3b8",
+    "semantic_hash": "aaaf987de798d531c69f373febaea3b8"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/components/layout/Breadcrumbs.jsx": {
+    "mtime": 1780341272.2979188,
+    "ast_hash": "92d851211a40c08a9f3fe89f52550340",
+    "semantic_hash": "92d851211a40c08a9f3fe89f52550340"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/components/layout/Footer.jsx": {
+    "mtime": 1780341915.6413996,
+    "ast_hash": "f873b11ba9ef822ea5ff62e89ed24ef0",
+    "semantic_hash": "f873b11ba9ef822ea5ff62e89ed24ef0"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/components/layout/Navbar.jsx": {
+    "mtime": 1780341915.6416268,
+    "ast_hash": "ec71d42e618bdb6bbbb45391e8c757d4",
+    "semantic_hash": "ec71d42e618bdb6bbbb45391e8c757d4"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/components/layout/NotificationBell.jsx": {
+    "mtime": 1780341272.2940319,
+    "ast_hash": "8cd5cf430fdb3dce41dbdf739a5673d9",
+    "semantic_hash": "8cd5cf430fdb3dce41dbdf739a5673d9"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/components/layout/PosterBackground.jsx": {
+    "mtime": 1780339683.0381813,
+    "ast_hash": "d08ba858ca5d1e852efa6a5e3a788a0b",
+    "semantic_hash": "d08ba858ca5d1e852efa6a5e3a788a0b"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/components/layout/ProfileMenu.jsx": {
+    "mtime": 1780341272.2919986,
+    "ast_hash": "5ea5c09e3927525dabe0d65c3ff45017",
+    "semantic_hash": "5ea5c09e3927525dabe0d65c3ff45017"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/components/observe/ObserveButton.jsx": {
+    "mtime": 1780339683.0386574,
+    "ast_hash": "172f8c6d522c7a9bffe49820274c4a83",
+    "semantic_hash": "172f8c6d522c7a9bffe49820274c4a83"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/components/observe/ObservedRatingsPanel.jsx": {
+    "mtime": 1780341272.3373325,
+    "ast_hash": "f8b0f0592e72f5c20d8c1aa52bd746e3",
+    "semantic_hash": "f8b0f0592e72f5c20d8c1aa52bd746e3"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/components/observe/UserResultRow.jsx": {
+    "mtime": 1780341272.3014355,
+    "ast_hash": "52af02f1f6168e39cb72aae7fc7dbb89",
+    "semantic_hash": "52af02f1f6168e39cb72aae7fc7dbb89"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/components/profile/FavouritesEditor.jsx": {
+    "mtime": 1780341272.3353767,
+    "ast_hash": "c6cdcc1a76e6f0625eb7d8ca29c08247",
+    "semantic_hash": "c6cdcc1a76e6f0625eb7d8ca29c08247"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/components/profile/ProfileFavourites.jsx": {
+    "mtime": 1780341272.333597,
+    "ast_hash": "32b7b46d77316af3c42333e002a331f3",
+    "semantic_hash": "32b7b46d77316af3c42333e002a331f3"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/components/profile/ProfileRatingCard.jsx": {
+    "mtime": 1780341272.3141284,
+    "ast_hash": "ffb0decc02eba3573a7c537a18a16d2d",
+    "semantic_hash": "ffb0decc02eba3573a7c537a18a16d2d"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/components/profile/ProfileShareCard.jsx": {
+    "mtime": 1780339683.04003,
+    "ast_hash": "bc5f1db6ffeb29e2ae7c809074bbafa1",
+    "semantic_hash": "bc5f1db6ffeb29e2ae7c809074bbafa1"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/components/profile/ProfileShareModal.jsx": {
+    "mtime": 1780341272.3032308,
+    "ast_hash": "534f92093b1044364ea289e57748338d",
+    "semantic_hash": "534f92093b1044364ea289e57748338d"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/components/profile/ProfileStats.jsx": {
+    "mtime": 1780341272.331816,
+    "ast_hash": "ce7b04770da15d39acc7a1909c103d92",
+    "semantic_hash": "ce7b04770da15d39acc7a1909c103d92"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/components/profile/generateShareCard.js": {
+    "mtime": 1780339683.040834,
+    "ast_hash": "ccb6c9cb38a011cd196f86d146bd0e4b",
+    "semantic_hash": "ccb6c9cb38a011cd196f86d146bd0e4b"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/components/rating/HeartDisplay.jsx": {
+    "mtime": 1780339683.0410898,
+    "ast_hash": "aec9311eb1d68967e19d0fa010d9a77b",
+    "semantic_hash": "aec9311eb1d68967e19d0fa010d9a77b"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/components/rating/RatingButton.jsx": {
+    "mtime": 1780341272.3257658,
+    "ast_hash": "099e06e18c668234610fc713703c3e37",
+    "semantic_hash": "099e06e18c668234610fc713703c3e37"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/components/rating/RatingHistogram.jsx": {
+    "mtime": 1780341272.3280444,
+    "ast_hash": "99a9ecd6b901e1b2b5b40748a866d184",
+    "semantic_hash": "99a9ecd6b901e1b2b5b40748a866d184"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/components/rating/RatingInput.jsx": {
+    "mtime": 1780339683.041615,
+    "ast_hash": "25a48e1ed568fd9f70162e287e9dd7c1",
+    "semantic_hash": "25a48e1ed568fd9f70162e287e9dd7c1"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/components/rating/RatingSidebar.jsx": {
+    "mtime": 1780341272.329904,
+    "ast_hash": "bc119aa6463544ec16b7baaf01e00ce0",
+    "semantic_hash": "bc119aa6463544ec16b7baaf01e00ce0"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/components/static/InfoPageShell.jsx": {
+    "mtime": 1780341331.3417878,
+    "ast_hash": "721c6a944df22b64184ef4b54bcba875",
+    "semantic_hash": "721c6a944df22b64184ef4b54bcba875"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/components/subscription/EarlyAdopterBanner.jsx": {
+    "mtime": 1779221472.8908,
+    "ast_hash": "890dafe0f199bfc0cc992607f99057cf",
+    "semantic_hash": "890dafe0f199bfc0cc992607f99057cf"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/components/subscription/UpgradePromptToast.jsx": {
+    "mtime": 1779221472.8909843,
+    "ast_hash": "cd158ff48f4b7432fcfce85c4478b506",
+    "semantic_hash": "cd158ff48f4b7432fcfce85c4478b506"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/components/ui/Button.jsx": {
+    "mtime": 1780340992.1668196,
+    "ast_hash": "1604e8d83572c4a31170f09c67847d2a",
+    "semantic_hash": "1604e8d83572c4a31170f09c67847d2a"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/components/ui/CookieConsentBanner.jsx": {
+    "mtime": 1780339683.0428267,
+    "ast_hash": "d3a1a934b091686176c65ab1091017d6",
+    "semantic_hash": "d3a1a934b091686176c65ab1091017d6"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/components/ui/FormField.jsx": {
+    "mtime": 1780339683.0430558,
+    "ast_hash": "701d63512bdc0d59dbf6beaef9d5844a",
+    "semantic_hash": "701d63512bdc0d59dbf6beaef9d5844a"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/components/ui/Input.jsx": {
+    "mtime": 1780339683.043224,
+    "ast_hash": "9700cb69026699c67deec7233ea843f4",
+    "semantic_hash": "9700cb69026699c67deec7233ea843f4"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/components/ui/MarkdownEditor.jsx": {
+    "mtime": 1780339683.043738,
+    "ast_hash": "f2496fd9b06044271da8d1cd1d6e7db2",
+    "semantic_hash": "f2496fd9b06044271da8d1cd1d6e7db2"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/components/ui/OtpInput.jsx": {
+    "mtime": 1780339683.0440075,
+    "ast_hash": "a9224024fff15c50d0e79e8a8844ec02",
+    "semantic_hash": "a9224024fff15c50d0e79e8a8844ec02"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/components/ui/OverLimitBanner.jsx": {
+    "mtime": 1780154252.677913,
+    "ast_hash": "58958223c40e45e07ba697448c0baf8a",
+    "semantic_hash": "58958223c40e45e07ba697448c0baf8a"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/components/ui/PageHead.jsx": {
+    "mtime": 1780332465.862208,
+    "ast_hash": "4baa414d001296659f2516df24062dd0",
+    "semantic_hash": "4baa414d001296659f2516df24062dd0"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/components/ui/ReportBugButton.jsx": {
+    "mtime": 1780339683.0443199,
+    "ast_hash": "c120c270eb1976a0cfe9a613ba4584d4",
+    "semantic_hash": "c120c270eb1976a0cfe9a613ba4584d4"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/components/ui/RichTextEditor.jsx": {
+    "mtime": 1780339683.0446565,
+    "ast_hash": "447c42c7c3ad912301e625bd729e2a2d",
+    "semantic_hash": "447c42c7c3ad912301e625bd729e2a2d"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/components/ui/Toggle.jsx": {
+    "mtime": 1780339683.0448415,
+    "ast_hash": "ce688820551dd025d7b46080178cf7be",
+    "semantic_hash": "ce688820551dd025d7b46080178cf7be"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/components/watchlist/AddToWatchlistButton.jsx": {
+    "mtime": 1780341272.3123705,
+    "ast_hash": "8f68a0bed7fb2aadd5b023b6bc4c29e3",
+    "semantic_hash": "8f68a0bed7fb2aadd5b023b6bc4c29e3"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/features/admin/adminFetch.js": {
+    "mtime": 1779221472.8912277,
+    "ast_hash": "90eb6b4d9db7c43146ba6f86164c857b",
+    "semantic_hash": "90eb6b4d9db7c43146ba6f86164c857b"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/features/admin/hooks/useAdminAnnouncements.js": {
+    "mtime": 1779382178.8094914,
+    "ast_hash": "281bc48299e2d9a2af268ea28d13e848",
+    "semantic_hash": "281bc48299e2d9a2af268ea28d13e848"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/features/admin/hooks/useAuditLog.js": {
+    "mtime": 1779221472.8918192,
+    "ast_hash": "7a39eace2a18814f9dcbbf4abaf855f5",
+    "semantic_hash": "7a39eace2a18814f9dcbbf4abaf855f5"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/features/admin/hooks/useCatalogStats.js": {
+    "mtime": 1780162199.9749103,
+    "ast_hash": "3baf9a88246f9126c006600eff479184",
+    "semantic_hash": "3baf9a88246f9126c006600eff479184"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/features/admin/hooks/useContentResync.js": {
+    "mtime": 1780161720.282406,
+    "ast_hash": "4ac38ea91e83041dffa95df720b80400",
+    "semantic_hash": "4ac38ea91e83041dffa95df720b80400"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/features/admin/hooks/useEarlyAdopterStats.js": {
+    "mtime": 1779383252.7499678,
+    "ast_hash": "e5cbe513dac612965a73542712ae5d3c",
+    "semantic_hash": "e5cbe513dac612965a73542712ae5d3c"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/features/admin/hooks/useIsAdmin.js": {
+    "mtime": 1780161639.0059934,
+    "ast_hash": "f1b49260bf13a43fead29408afd1962c",
+    "semantic_hash": "f1b49260bf13a43fead29408afd1962c"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/features/admin/hooks/useReferralLeaderboard.js": {
+    "mtime": 1779221472.8922987,
+    "ast_hash": "5686ca27eb7087e2cf6409ed681cf569",
+    "semantic_hash": "5686ca27eb7087e2cf6409ed681cf569"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/features/admin/hooks/useRewardCodes.js": {
+    "mtime": 1779383319.8163936,
+    "ast_hash": "84133477a25feb13fca8c520996f5227",
+    "semantic_hash": "84133477a25feb13fca8c520996f5227"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/features/admin/hooks/useScriptLogs.js": {
+    "mtime": 1779221472.8927116,
+    "ast_hash": "c0bb2aa72236a1b72ddf8caa5f640524",
+    "semantic_hash": "c0bb2aa72236a1b72ddf8caa5f640524"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/features/admin/hooks/useStaff.js": {
+    "mtime": 1779382715.682529,
+    "ast_hash": "ed32b474601828af9611b41e51db7c66",
+    "semantic_hash": "ed32b474601828af9611b41e51db7c66"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/features/admin/hooks/useTierStats.js": {
+    "mtime": 1779221472.8928747,
+    "ast_hash": "57da15f3db64ba1bfe4c628edff7af5b",
+    "semantic_hash": "57da15f3db64ba1bfe4c628edff7af5b"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/features/admin/hooks/useUserLookup.js": {
+    "mtime": 1780145949.2010913,
+    "ast_hash": "b883869425d3a3eefbdc2f841e544a37",
+    "semantic_hash": "b883869425d3a3eefbdc2f841e544a37"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/features/announcements/hooks/useAnnouncements.js": {
+    "mtime": 1779381910.0705314,
+    "ast_hash": "96e938f0cdb53ff7d0b8628b0d6ce360",
+    "semantic_hash": "96e938f0cdb53ff7d0b8628b0d6ce360"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/features/auth/components/CompleteUsernameForm.jsx": {
+    "mtime": 1780339683.045413,
+    "ast_hash": "ca757137b1d1431b33f5be1244e8cc33",
+    "semantic_hash": "ca757137b1d1431b33f5be1244e8cc33"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/features/auth/components/ForgotPasswordForm.jsx": {
+    "mtime": 1780339683.0458796,
+    "ast_hash": "62630ad21a4fab18246f4f857ff53ca0",
+    "semantic_hash": "62630ad21a4fab18246f4f857ff53ca0"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/features/auth/components/LoginForm.jsx": {
+    "mtime": 1780339683.0461564,
+    "ast_hash": "6f2c221fb9184a5460f17607bdf81f22",
+    "semantic_hash": "6f2c221fb9184a5460f17607bdf81f22"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/features/auth/components/RegisterForm.jsx": {
+    "mtime": 1780339683.0464232,
+    "ast_hash": "1a193488999667f309d4b13683074dac",
+    "semantic_hash": "1a193488999667f309d4b13683074dac"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/features/auth/components/ResetPasswordForm.jsx": {
+    "mtime": 1780339683.046659,
+    "ast_hash": "de994dc7a95218a256478ffec6c7fc72",
+    "semantic_hash": "de994dc7a95218a256478ffec6c7fc72"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/features/auth/components/VerifyEmailForm.jsx": {
+    "mtime": 1780339683.0469139,
+    "ast_hash": "6d5d88b472ca336e890a700de4f47779",
+    "semantic_hash": "6d5d88b472ca336e890a700de4f47779"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/features/auth/hooks/useAuth.js": {
+    "mtime": 1778151848.3411684,
+    "ast_hash": "7376c0f55407d7d9d4900e59820cb1e3",
+    "semantic_hash": "7376c0f55407d7d9d4900e59820cb1e3"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/features/calendar/components/ManageFollowsModal.jsx": {
+    "mtime": 1780339683.047194,
+    "ast_hash": "2af5b8e3bde8d54028828e26b16b0cf6",
+    "semantic_hash": "2af5b8e3bde8d54028828e26b16b0cf6"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/features/calendar/hooks/useCalendarData.js": {
+    "mtime": 1779481557.7039392,
+    "ast_hash": "9816de14cee19ae660b02bf94d8a29df",
+    "semantic_hash": "9816de14cee19ae660b02bf94d8a29df"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/features/episode/hooks/useEpisodeData.js": {
+    "mtime": 1779481557.7045276,
+    "ast_hash": "66693d2094cd79ebe6e99f178de191b4",
+    "semantic_hash": "66693d2094cd79ebe6e99f178de191b4"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/features/follows/hooks/useFollows.js": {
+    "mtime": 1780327742.0372224,
+    "ast_hash": "fa68b41b309442f53607c2158b2146aa",
+    "semantic_hash": "fa68b41b309442f53607c2158b2146aa"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/features/follows/hooks/useOverageStatus.js": {
+    "mtime": 1780157089.941342,
+    "ast_hash": "9f972c77e233cfca916cc549f5ee4d07",
+    "semantic_hash": "9f972c77e233cfca916cc549f5ee4d07"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/features/home/hooks/useHomeData.js": {
+    "mtime": 1779481557.7049348,
+    "ast_hash": "8930d790d833fb0ac37f6605b9732f85",
+    "semantic_hash": "8930d790d833fb0ac37f6605b9732f85"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/features/movie/hooks/useMovieData.js": {
+    "mtime": 1780327740.0784843,
+    "ast_hash": "2fb23f89f8a76289b21938c1e29d6619",
+    "semantic_hash": "2fb23f89f8a76289b21938c1e29d6619"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/features/movies/hooks/useMoviesPageData.js": {
+    "mtime": 1779481557.705588,
+    "ast_hash": "f666693f4c34e6ec9725154a67881c9d",
+    "semantic_hash": "f666693f4c34e6ec9725154a67881c9d"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/features/notifications/hooks/useNotifications.js": {
+    "mtime": 1780333856.0583522,
+    "ast_hash": "d59aa06707699fbb3af84494d3051d7e",
+    "semantic_hash": "d59aa06707699fbb3af84494d3051d7e"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/features/notifications/lib/notificationContent.js": {
+    "mtime": 1780334463.9387496,
+    "ast_hash": "07bd03617441c9baf4716b07c80f3041",
+    "semantic_hash": "07bd03617441c9baf4716b07c80f3041"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/features/observe/hooks/useActivityFeed.js": {
+    "mtime": 1780333840.7511342,
+    "ast_hash": "d7cd226bf734697a3492b3bd24e878b8",
+    "semantic_hash": "d7cd226bf734697a3492b3bd24e878b8"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/features/observe/hooks/useObserve.js": {
+    "mtime": 1780333813.565043,
+    "ast_hash": "97964cb16b8b2eb996f89d23e9974e7f",
+    "semantic_hash": "97964cb16b8b2eb996f89d23e9974e7f"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/features/observe/hooks/useObserveCounts.js": {
+    "mtime": 1780333819.5077055,
+    "ast_hash": "28d7ef46f79f19dd183c34d2880b8a24",
+    "semantic_hash": "28d7ef46f79f19dd183c34d2880b8a24"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/features/observe/hooks/useObserveList.js": {
+    "mtime": 1780333869.6451201,
+    "ast_hash": "cb25b1dfc233779c23498c2c7131c9bc",
+    "semantic_hash": "cb25b1dfc233779c23498c2c7131c9bc"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/features/observe/hooks/useObserveRequests.js": {
+    "mtime": 1780333864.0544255,
+    "ast_hash": "bb2ddf5f21b457b7e596dc6a68dc43d9",
+    "semantic_hash": "bb2ddf5f21b457b7e596dc6a68dc43d9"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/features/observe/hooks/useObservedRatings.js": {
+    "mtime": 1780333826.627318,
+    "ast_hash": "28d36521fdbe582e5f2aaf1e9189eef6",
+    "semantic_hash": "28d36521fdbe582e5f2aaf1e9189eef6"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/features/observe/hooks/useUserSearch.js": {
+    "mtime": 1780333833.4242516,
+    "ast_hash": "6cc4090a781615cfa5bd705e602b1c71",
+    "semantic_hash": "6cc4090a781615cfa5bd705e602b1c71"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/features/people/hooks/usePeoplePageData.js": {
+    "mtime": 1779481557.7058692,
+    "ast_hash": "2894f077bb2669721cc250747122f536",
+    "semantic_hash": "2894f077bb2669721cc250747122f536"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/features/person/hooks/usePersonData.js": {
+    "mtime": 1779481557.706104,
+    "ast_hash": "a457aeec3352c352d452abefa1dc30a8",
+    "semantic_hash": "a457aeec3352c352d452abefa1dc30a8"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/features/profile/hooks/useEditProfile.js": {
+    "mtime": 1780154014.295866,
+    "ast_hash": "48e34b952d5bcb4e31a9457d0af4fddb",
+    "semantic_hash": "48e34b952d5bcb4e31a9457d0af4fddb"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/features/profile/hooks/useProfileData.js": {
+    "mtime": 1780333891.4916644,
+    "ast_hash": "d13ae173ea2e2cd37fd3e6d18dc3abe1",
+    "semantic_hash": "d13ae173ea2e2cd37fd3e6d18dc3abe1"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/features/profile/hooks/useProfileRatings.js": {
+    "mtime": 1780167250.9196835,
+    "ast_hash": "a766047d819b2fcbf88c08fa6f059075",
+    "semantic_hash": "a766047d819b2fcbf88c08fa6f059075"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/features/profile/hooks/useProfileStats.js": {
+    "mtime": 1780155887.0712843,
+    "ast_hash": "dbb40ef97fdd264bae63ca225e605d6f",
+    "semantic_hash": "dbb40ef97fdd264bae63ca225e605d6f"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/features/rating/hooks/useCommunityRatings.js": {
+    "mtime": 1780333792.0021055,
+    "ast_hash": "234874aa61743db246013be9c87e3386",
+    "semantic_hash": "234874aa61743db246013be9c87e3386"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/features/rating/hooks/useRating.js": {
+    "mtime": 1780327743.69158,
+    "ast_hash": "6e3667941902bd84ac5e131fd4c48c48",
+    "semantic_hash": "6e3667941902bd84ac5e131fd4c48c48"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/features/search/hooks/useSearch.js": {
+    "mtime": 1780327739.6960182,
+    "ast_hash": "5e65fd198070c2b22a6b7494d7a374aa",
+    "semantic_hash": "5e65fd198070c2b22a6b7494d7a374aa"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/features/season/hooks/useSeasonData.js": {
+    "mtime": 1779481557.7067232,
+    "ast_hash": "e8ed141a1cddcee4d1758da96e3e15d2",
+    "semantic_hash": "e8ed141a1cddcee4d1758da96e3e15d2"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/features/show/hooks/useShowData.js": {
+    "mtime": 1780327740.583673,
+    "ast_hash": "102ce048e29ae45131cefcdbe3d7dc7d",
+    "semantic_hash": "102ce048e29ae45131cefcdbe3d7dc7d"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/features/show/hooks/useShowFollow.js": {
+    "mtime": 1780327741.016962,
+    "ast_hash": "6a5e30b7ef9bdf728263ad4bd6791432",
+    "semantic_hash": "6a5e30b7ef9bdf728263ad4bd6791432"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/features/shows/hooks/useShowsPageData.js": {
+    "mtime": 1779481557.7074182,
+    "ast_hash": "af3f6a08941b8e09c6b6d4b11b2205cf",
+    "semantic_hash": "af3f6a08941b8e09c6b6d4b11b2205cf"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/features/subscription/hooks/useSubscription.js": {
+    "mtime": 1779221472.8968709,
+    "ast_hash": "b2d531cae3faece9c23f97ce9aadcde7",
+    "semantic_hash": "b2d531cae3faece9c23f97ce9aadcde7"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/features/watchlist/hooks/useItemWatchlistStatus.js": {
+    "mtime": 1780327746.923877,
+    "ast_hash": "b17e5ad747a7633fde4eed9fef81cf93",
+    "semantic_hash": "b17e5ad747a7633fde4eed9fef81cf93"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/features/watchlist/hooks/useWatchlistItems.js": {
+    "mtime": 1780165626.0011442,
+    "ast_hash": "e36827af4b7d1f79c7cde3f271f18de6",
+    "semantic_hash": "e36827af4b7d1f79c7cde3f271f18de6"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/features/watchlist/hooks/useWatchlists.js": {
+    "mtime": 1780327745.161407,
+    "ast_hash": "195d3acc79ccf06c5a6b47400baf76fc",
+    "semantic_hash": "195d3acc79ccf06c5a6b47400baf76fc"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/features/watchlist/lib/removeFromWatchlistsOnRating.js": {
+    "mtime": 1780165595.4560578,
+    "ast_hash": "fac51660f8a701ab5f4bbe452e90b4e9",
+    "semantic_hash": "fac51660f8a701ab5f4bbe452e90b4e9"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/layouts/AppLayout.jsx": {
+    "mtime": 1780339683.047934,
+    "ast_hash": "36df1fcec88e39afc42486be684401df",
+    "semantic_hash": "36df1fcec88e39afc42486be684401df"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/layouts/AuthLayout.jsx": {
+    "mtime": 1780339683.048103,
+    "ast_hash": "6754cf278cffbf6f58b57bd4b0702d49",
+    "semantic_hash": "6754cf278cffbf6f58b57bd4b0702d49"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/lib/cn.js": {
+    "mtime": 1777226729.160288,
+    "ast_hash": "6eaed48adcfac748aee01f957c821c80",
+    "semantic_hash": "6eaed48adcfac748aee01f957c821c80"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/lib/constants.js": {
+    "mtime": 1779221472.8980997,
+    "ast_hash": "a33c01c9dd5aa371ff7b5794a8459424",
+    "semantic_hash": "a33c01c9dd5aa371ff7b5794a8459424"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/lib/cookieConsent.js": {
+    "mtime": 1777666955.4554038,
+    "ast_hash": "668419ba63400719599bc6c112b2b594",
+    "semantic_hash": "668419ba63400719599bc6c112b2b594"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/lib/credits.js": {
+    "mtime": 1779481557.7077608,
+    "ast_hash": "a9acf4055d431e273060e498730b931b",
+    "semantic_hash": "a9acf4055d431e273060e498730b931b"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/lib/supabase.js": {
+    "mtime": 1778156358.6870735,
+    "ast_hash": "080f3036ae4327867162971bec793afb",
+    "semantic_hash": "080f3036ae4327867162971bec793afb"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/lib/validate.js": {
+    "mtime": 1779221472.8984141,
+    "ast_hash": "bf1d6e43a75049f5898be04f5e7b839f",
+    "semantic_hash": "bf1d6e43a75049f5898be04f5e7b839f"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/main.jsx": {
+    "mtime": 1780339090.1591542,
+    "ast_hash": "6a8e0d6cc4bcd41af588ffa1b0df2019",
+    "semantic_hash": "6a8e0d6cc4bcd41af588ffa1b0df2019"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/pages/admin/AdminPage.jsx": {
+    "mtime": 1780339683.0483506,
+    "ast_hash": "2c11b7f1a1af111d9a7bbde4aadac8d5",
+    "semantic_hash": "2c11b7f1a1af111d9a7bbde4aadac8d5"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/pages/admin/AnnouncementsPage.jsx": {
+    "mtime": 1780339683.0485754,
+    "ast_hash": "e279bf0d4ff598b83a9e9654227043e5",
+    "semantic_hash": "e279bf0d4ff598b83a9e9654227043e5"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/pages/admin/AuditLogPage.jsx": {
+    "mtime": 1780341272.275998,
+    "ast_hash": "06e98b90b3df6bd5e3ab23ad9f4699c8",
+    "semantic_hash": "06e98b90b3df6bd5e3ab23ad9f4699c8"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/pages/admin/CatalogStatsPage.jsx": {
+    "mtime": 1780339683.0490344,
+    "ast_hash": "ef62de224519295e766dc10fca96a038",
+    "semantic_hash": "ef62de224519295e766dc10fca96a038"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/pages/admin/ContentResyncPage.jsx": {
+    "mtime": 1780341272.2844405,
+    "ast_hash": "1f3f3cbff92283b09044e794e9741f62",
+    "semantic_hash": "1f3f3cbff92283b09044e794e9741f62"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/pages/admin/EarlyAdoptersPage.jsx": {
+    "mtime": 1780341272.2821023,
+    "ast_hash": "f882b91c8ec16928cdad3806f57f7ac9",
+    "semantic_hash": "f882b91c8ec16928cdad3806f57f7ac9"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/pages/admin/QueuePage.jsx": {
+    "mtime": 1780339683.0496795,
+    "ast_hash": "51a41c0e620e329e0d87a5a32c20912c",
+    "semantic_hash": "51a41c0e620e329e0d87a5a32c20912c"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/pages/admin/ReferralLeaderboardPage.jsx": {
+    "mtime": 1780341272.277919,
+    "ast_hash": "c1b5546b32f6f5f19c77dcdd4ccb96a3",
+    "semantic_hash": "c1b5546b32f6f5f19c77dcdd4ccb96a3"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/pages/admin/RewardCodesPage.jsx": {
+    "mtime": 1780341272.2866724,
+    "ast_hash": "a778b124b399a6c2847126a4517819fc",
+    "semantic_hash": "a778b124b399a6c2847126a4517819fc"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/pages/admin/ScriptLogsPage.jsx": {
+    "mtime": 1780341272.279864,
+    "ast_hash": "8162e44b19c49732ad1bacfe86024486",
+    "semantic_hash": "8162e44b19c49732ad1bacfe86024486"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/pages/admin/StaffPage.jsx": {
+    "mtime": 1780339683.0506651,
+    "ast_hash": "d12b0b51df685954a2ea8827f2555df0",
+    "semantic_hash": "d12b0b51df685954a2ea8827f2555df0"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/pages/admin/StatsPage.jsx": {
+    "mtime": 1780339683.0508697,
+    "ast_hash": "952891863d205c4cca9735e7095ec735",
+    "semantic_hash": "952891863d205c4cca9735e7095ec735"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/pages/admin/UserLookupPage.jsx": {
+    "mtime": 1780339683.0510788,
+    "ast_hash": "4a6552e6cfdabfe7be454c9dc45a1863",
+    "semantic_hash": "4a6552e6cfdabfe7be454c9dc45a1863"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/pages/app/ActivityFeedPage.jsx": {
+    "mtime": 1780341272.2542033,
+    "ast_hash": "804cbd53410e875320130f85c878144b",
+    "semantic_hash": "804cbd53410e875320130f85c878144b"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/pages/app/AppHomePage.jsx": {
+    "mtime": 1780341915.6417994,
+    "ast_hash": "fb349c38509496ef7cb7a8620bb548c1",
+    "semantic_hash": "fb349c38509496ef7cb7a8620bb548c1"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/pages/app/EditProfilePage.jsx": {
+    "mtime": 1780341272.2457244,
+    "ast_hash": "ea9218ede5875465b944584dd8797408",
+    "semantic_hash": "ea9218ede5875465b944584dd8797408"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/pages/app/EpisodePage.jsx": {
+    "mtime": 1780341272.2371047,
+    "ast_hash": "1982da45cc4c539284a3c65ebd924366",
+    "semantic_hash": "1982da45cc4c539284a3c65ebd924366"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/pages/app/FollowsPage.jsx": {
+    "mtime": 1780341458.5519392,
+    "ast_hash": "bc3a8ddf3acf04d553ecc14944baf8b1",
+    "semantic_hash": "bc3a8ddf3acf04d553ecc14944baf8b1"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/pages/app/ImportPage.jsx": {
+    "mtime": 1780341357.3547907,
+    "ast_hash": "5045599ee138422e83999b46be1200c6",
+    "semantic_hash": "5045599ee138422e83999b46be1200c6"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/pages/app/MoviePage.jsx": {
+    "mtime": 1780339683.0527313,
+    "ast_hash": "49b303a0bda986683f7ee55e0f0b7b94",
+    "semantic_hash": "49b303a0bda986683f7ee55e0f0b7b94"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/pages/app/MoviesPage.jsx": {
+    "mtime": 1780341674.4981675,
+    "ast_hash": "f56b5be968e68877973d49bdd41dce15",
+    "semantic_hash": "f56b5be968e68877973d49bdd41dce15"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/pages/app/NotificationsPage.jsx": {
+    "mtime": 1780341272.2558777,
+    "ast_hash": "d4b16582dc873b2646f5ffea24989e0e",
+    "semantic_hash": "d4b16582dc873b2646f5ffea24989e0e"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/pages/app/ObserveListPage.jsx": {
+    "mtime": 1780341272.2343073,
+    "ast_hash": "95f1108f8b805923ec09b8d01eb073c4",
+    "semantic_hash": "95f1108f8b805923ec09b8d01eb073c4"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/pages/app/ObserveRequestsPage.jsx": {
+    "mtime": 1780341272.2410274,
+    "ast_hash": "c844e71731a0ef9dcd3e50792ca04367",
+    "semantic_hash": "c844e71731a0ef9dcd3e50792ca04367"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/pages/app/PeoplePage.jsx": {
+    "mtime": 1780341272.2721665,
+    "ast_hash": "5cbda4740470d597d3e774e7370deb64",
+    "semantic_hash": "5cbda4740470d597d3e774e7370deb64"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/pages/app/PersonPage.jsx": {
+    "mtime": 1780341272.2501755,
+    "ast_hash": "309630395549527d4100425b09c1fee0",
+    "semantic_hash": "309630395549527d4100425b09c1fee0"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/pages/app/ProfilePage.jsx": {
+    "mtime": 1780341272.3234308,
+    "ast_hash": "6b30de962c2ac9378cf11b191c9f6bb7",
+    "semantic_hash": "6b30de962c2ac9378cf11b191c9f6bb7"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/pages/app/ReleasesCalendarPage.jsx": {
+    "mtime": 1780341272.3211613,
+    "ast_hash": "4ca27bd533670d1e266bccc8bba55c7d",
+    "semantic_hash": "4ca27bd533670d1e266bccc8bba55c7d"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/pages/app/SearchPage.jsx": {
+    "mtime": 1780341203.0501819,
+    "ast_hash": "4b51216e66c17d97ca77a92b7891fb2a",
+    "semantic_hash": "4b51216e66c17d97ca77a92b7891fb2a"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/pages/app/SeasonPage.jsx": {
+    "mtime": 1780341272.2602265,
+    "ast_hash": "dc44b682c1e0646f3300cbcf355f403d",
+    "semantic_hash": "dc44b682c1e0646f3300cbcf355f403d"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/pages/app/SettingsPage.jsx": {
+    "mtime": 1780341357.3627973,
+    "ast_hash": "167206d231946f48255bf6cc64f2148e",
+    "semantic_hash": "167206d231946f48255bf6cc64f2148e"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/pages/app/ShowPage.jsx": {
+    "mtime": 1780341272.2435408,
+    "ast_hash": "686e71f146326f3c365b69dfa1c2cf5b",
+    "semantic_hash": "686e71f146326f3c365b69dfa1c2cf5b"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/pages/app/ShowsPage.jsx": {
+    "mtime": 1780341674.5012963,
+    "ast_hash": "1bcacd1966225d547c62b8f681671e0f",
+    "semantic_hash": "1bcacd1966225d547c62b8f681671e0f"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/pages/app/SubscriptionPage.jsx": {
+    "mtime": 1780341357.3589582,
+    "ast_hash": "50a67ceb1a36c18ade1d654025cea0f5",
+    "semantic_hash": "50a67ceb1a36c18ade1d654025cea0f5"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/pages/app/TmdbResolvePage.jsx": {
+    "mtime": 1780339683.056259,
+    "ast_hash": "37d04af13ceb16938c72d49b26031db1",
+    "semantic_hash": "37d04af13ceb16938c72d49b26031db1"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/pages/app/UpdatesPage.jsx": {
+    "mtime": 1780341272.2478435,
+    "ast_hash": "4779620c1d0b83ef41186e273ab5ffba",
+    "semantic_hash": "4779620c1d0b83ef41186e273ab5ffba"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/pages/app/UserSearchPage.jsx": {
+    "mtime": 1780339683.0567937,
+    "ast_hash": "c93dcd2ddd1cb577b795189afd1a80a9",
+    "semantic_hash": "c93dcd2ddd1cb577b795189afd1a80a9"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/pages/app/WatchlistsPage.jsx": {
+    "mtime": 1780341423.6078908,
+    "ast_hash": "71f3cc3185841455b5f8c0dfad8b4f2e",
+    "semantic_hash": "71f3cc3185841455b5f8c0dfad8b4f2e"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/pages/app/static/StaticInfoPages.jsx": {
+    "mtime": 1780341272.2643063,
+    "ast_hash": "20aa467aa30fc8604f23d0caef2296b2",
+    "semantic_hash": "20aa467aa30fc8604f23d0caef2296b2"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/pages/auth/CompleteUsernamePage.jsx": {
+    "mtime": 1777301434.3444593,
+    "ast_hash": "2376f260d4d9f13787041893749888ad",
+    "semantic_hash": "2376f260d4d9f13787041893749888ad"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/pages/auth/ForgotPasswordPage.jsx": {
+    "mtime": 1777226729.1321516,
+    "ast_hash": "1b98b3a38b4e628852c892a6f173bc9b",
+    "semantic_hash": "1b98b3a38b4e628852c892a6f173bc9b"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/pages/auth/LoginPage.jsx": {
+    "mtime": 1777226729.1322212,
+    "ast_hash": "148a461821b502271648aa25fa39d586",
+    "semantic_hash": "148a461821b502271648aa25fa39d586"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/pages/auth/RegisterPage.jsx": {
+    "mtime": 1777226729.1322703,
+    "ast_hash": "62a69e16f6f24e8502ee5486baf29d40",
+    "semantic_hash": "62a69e16f6f24e8502ee5486baf29d40"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/pages/auth/ResetPasswordPage.jsx": {
+    "mtime": 1777226729.1321218,
+    "ast_hash": "537e56bc85f9083405b6f2626325b998",
+    "semantic_hash": "537e56bc85f9083405b6f2626325b998"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/pages/auth/VerifyEmailPage.jsx": {
+    "mtime": 1777226729.1320305,
+    "ast_hash": "de7a812cf69578631d68e9ed6ee4460a",
+    "semantic_hash": "de7a812cf69578631d68e9ed6ee4460a"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/vite.config.js": {
+    "mtime": 1780327719.2289622,
+    "ast_hash": "f4b35224a0480c70b31dea8bb6cf49ab",
+    "semantic_hash": "f4b35224a0480c70b31dea8bb6cf49ab"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/app.js": {
+    "mtime": 1780336133.7915223,
+    "ast_hash": "55403c554114e4282db469b279a4237f",
+    "semantic_hash": "55403c554114e4282db469b279a4237f"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/index.js": {
+    "mtime": 1779221472.9045074,
+    "ast_hash": "a5eec389eb573ab3077ee86aab4333fd",
+    "semantic_hash": "a5eec389eb573ab3077ee86aab4333fd"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/package.json": {
+    "mtime": 1778693444.316915,
+    "ast_hash": "b3f634b42ef4557fb549fc94f57caf4a",
+    "semantic_hash": "b3f634b42ef4557fb549fc94f57caf4a"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/scripts/droplet-setup.sh": {
+    "mtime": 1778693444.3172238,
+    "ast_hash": "6c9eb39e7ec75829572ade81404f26c7",
+    "semantic_hash": "6c9eb39e7ec75829572ade81404f26c7"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/scripts/reboot-notify.sh": {
+    "mtime": 1780336134.2477996,
+    "ast_hash": "fe683691f917dae736d8b90b8257eb27",
+    "semantic_hash": "fe683691f917dae736d8b90b8257eb27"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/scripts/seed-manual.sh": {
+    "mtime": 1778693444.3176043,
+    "ast_hash": "d91a296b22fbec5327a886ccd7b46917",
+    "semantic_hash": "d91a296b22fbec5327a886ccd7b46917"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/tests/conftest.py": {
+    "mtime": 1778066005.1557782,
+    "ast_hash": "fa014bf5d5264d1a2588c4fa59273dc1",
+    "semantic_hash": "fa014bf5d5264d1a2588c4fa59273dc1"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/tests/injections_tests/changed_ingest_exports.test.js": {
+    "mtime": 1776967119.3012834,
+    "ast_hash": "de5369f7ef85ecc114dab9fab6f9a3a6",
+    "semantic_hash": "de5369f7ef85ecc114dab9fab6f9a3a6"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/tests/injections_tests/changes_classifier.test.js": {
+    "mtime": 1777396369.3579435,
+    "ast_hash": "059b4ea637a328139f54034f84efc635",
+    "semantic_hash": "059b4ea637a328139f54034f84efc635"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/tests/injections_tests/core_ingest_exports.test.js": {
+    "mtime": 1776967113.9182804,
+    "ast_hash": "4a1ffdf14d899eeb223a406f62106dc6",
+    "semantic_hash": "4a1ffdf14d899eeb223a406f62106dc6"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/tests/injections_tests/helpers/patch.js": {
+    "mtime": 1776961245.29482,
+    "ast_hash": "8e9ebb99e179f8726c359ebaa627fd80",
+    "semantic_hash": "8e9ebb99e179f8726c359ebaa627fd80"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/tests/injections_tests/helpers/script_runner.js": {
+    "mtime": 1776961250.1229765,
+    "ast_hash": "085ff8c8479d05544251d79e1a2a5698",
+    "semantic_hash": "085ff8c8479d05544251d79e1a2a5698"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/tests/injections_tests/helpers/signal_test_harness.js": {
+    "mtime": 1777148092.273121,
+    "ast_hash": "1d0e323871d45721346745f201651795",
+    "semantic_hash": "1d0e323871d45721346745f201651795"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/tests/injections_tests/injection_cli_guards.test.js": {
+    "mtime": 1777148092.2736714,
+    "ast_hash": "241c0d4c0fcf7b6471f38735ff49e8fe",
+    "semantic_hash": "241c0d4c0fcf7b6471f38735ff49e8fe"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/tests/injections_tests/popular_ingest_exports.test.js": {
+    "mtime": 1776961263.9263408,
+    "ast_hash": "9b3e33f8ebc984b3ad0400ae80e230a6",
+    "semantic_hash": "9b3e33f8ebc984b3ad0400ae80e230a6"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/tests/injections_tests/popularity_cli.test.js": {
+    "mtime": 1777395955.437402,
+    "ast_hash": "1cff9f7aa785c7311d68be4078d25d38",
+    "semantic_hash": "1cff9f7aa785c7311d68be4078d25d38"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/tests/injections_tests/resolve_job.test.js": {
+    "mtime": 1777036111.5561776,
+    "ast_hash": "43df31b80601e994a946deaacd6a04ec",
+    "semantic_hash": "43df31b80601e994a946deaacd6a04ec"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/tests/injections_tests/scoped_ingest.test.js": {
+    "mtime": 1777396655.8592322,
+    "ast_hash": "24ba9266f8f86acb21e7ab10f5d73e2b",
+    "semantic_hash": "24ba9266f8f86acb21e7ab10f5d73e2b"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/tests/rls_tests/rls_policy_isolation.test.js": {
+    "mtime": 1778066005.18797,
+    "ast_hash": "dec24811b999c7a5fbbc4893a0245f90",
+    "semantic_hash": "dec24811b999c7a5fbbc4893a0245f90"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/tests/test_environment.py": {
+    "mtime": 1778066005.182299,
+    "ast_hash": "ad7d36f8c8e9d1dfb6fe5d9086ce2624",
+    "semantic_hash": "ad7d36f8c8e9d1dfb6fe5d9086ce2624"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/.github/workflows/daily-sync.yml": {
+    "mtime": 1779221494.0826385,
+    "ast_hash": "b13c0cd35292bef1bd5befdb47d94690",
+    "semantic_hash": "b13c0cd35292bef1bd5befdb47d94690"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/.github/workflows/deploy.yml": {
+    "mtime": 1778693444.3112562,
+    "ast_hash": "a5280b5ba052b5bef3e4370eef61b484",
+    "semantic_hash": "a5280b5ba052b5bef3e4370eef61b484"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/.github/workflows/full-sync.yml": {
+    "mtime": 1778693444.311555,
+    "ast_hash": "1f1e2019b8d9e42a1a6a124e380fa0aa",
+    "semantic_hash": "1f1e2019b8d9e42a1a6a124e380fa0aa"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/.github/workflows/seed-one-off.yml": {
+    "mtime": 1778693444.3118725,
+    "ast_hash": "68132f08e8196352c58a77f20dd958f4",
+    "semantic_hash": "68132f08e8196352c58a77f20dd958f4"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/.github/workflows/weekly-sync.yml": {
+    "mtime": 1778693444.3124135,
+    "ast_hash": "f1b0da74af1048e6829582af1f48cf37",
+    "semantic_hash": "f1b0da74af1048e6829582af1f48cf37"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/CONTEXT.md": {
+    "mtime": 1780341510.152307,
+    "ast_hash": "322861f6fdaeac39d4073c11749d0053",
+    "semantic_hash": "322861f6fdaeac39d4073c11749d0053"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Documentation/announcements_system.md": {
+    "mtime": 1779382638.9684563,
+    "ast_hash": "afbac4afaa60bf2169b7b2907ea9be57",
+    "semantic_hash": "afbac4afaa60bf2169b7b2907ea9be57"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Documentation/releases.md": {
+    "mtime": 1780336133.166461,
+    "ast_hash": "e789510c012b34033669a8b6229b036b",
+    "semantic_hash": "e789510c012b34033669a8b6229b036b"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Documentation_temp/scripts_to_run.md": {
+    "mtime": 1779221472.887261,
+    "ast_hash": "91aeb7e70aef5d0cf99b866af77e6630",
+    "semantic_hash": "91aeb7e70aef5d0cf99b866af77e6630"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Documentation_temp/security_info.md": {
+    "mtime": 1779221473.0025327,
+    "ast_hash": "41b894cfb7209f70423a9ad72997611b",
+    "semantic_hash": "41b894cfb7209f70423a9ad72997611b"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/index.html": {
+    "mtime": 1780339683.0287375,
+    "ast_hash": "5bc4abb73c50f7c26eceb7c2218dbca1",
+    "semantic_hash": "5bc4abb73c50f7c26eceb7c2218dbca1"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/public/llms.txt": {
+    "mtime": 1780332470.464972,
+    "ast_hash": "195fe5871e90d31fab82bf60aa0bd6b6",
+    "semantic_hash": "195fe5871e90d31fab82bf60aa0bd6b6"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/public/robots.txt": {
+    "mtime": 1779385092.779705,
+    "ast_hash": "e02516acbc2f2766f4f8887d431f6d42",
+    "semantic_hash": "e02516acbc2f2766f4f8887d431f6d42"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/README.md": {
+    "mtime": 1780336163.6256702,
+    "ast_hash": "908a449eced2588ff0a9129a0a40d125",
+    "semantic_hash": "908a449eced2588ff0a9129a0a40d125"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/requirements-dev.txt": {
+    "mtime": 1776870655.367789,
+    "ast_hash": "2bbb5570534ab8969e732dd2ed24d092",
+    "semantic_hash": "2bbb5570534ab8969e732dd2ed24d092"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/public/assets/banner.png": {
+    "mtime": 1780319557.6919112,
+    "ast_hash": "cf4eb1b42d231ab415cc73aedb25c5ee",
+    "semantic_hash": "cf4eb1b42d231ab415cc73aedb25c5ee"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/public/assets/banner.svg": {
+    "mtime": 1780319557.69307,
+    "ast_hash": "99894dfe66b2dacb681afea4a02d5d96",
+    "semantic_hash": "99894dfe66b2dacb681afea4a02d5d96"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/public/assets/logo_v3.0.png": {
+    "mtime": 1780319557.692361,
+    "ast_hash": "589061aa42d390b57506694dd5f10e4f",
+    "semantic_hash": "589061aa42d390b57506694dd5f10e4f"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/public/assets/logo_v3.0.svg": {
+    "mtime": 1780319557.6934102,
+    "ast_hash": "df1b265d4edc6b12aaf81de96a4c42f5",
+    "semantic_hash": "df1b265d4edc6b12aaf81de96a4c42f5"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/public/assets/logo_v3.1.png": {
+    "mtime": 1780319557.6927688,
+    "ast_hash": "0fcdce0a8f7d3e95ba25863a35fd340f",
+    "semantic_hash": "0fcdce0a8f7d3e95ba25863a35fd340f"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/public/assets/logo_v3.1.svg": {
+    "mtime": 1780319557.6938386,
+    "ast_hash": "6f71d67b46eb052b8cfde0c94734e8c1",
+    "semantic_hash": "6f71d67b46eb052b8cfde0c94734e8c1"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/public/icons.svg": {
+    "mtime": 1777209510.9341016,
+    "ast_hash": "3b4fcfcf393eca4d264dca4a4663bc37",
+    "semantic_hash": "3b4fcfcf393eca4d264dca4a4663bc37"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/public/logo_v3.1.svg": {
+    "mtime": 1778178364.3867126,
+    "ast_hash": "6f71d67b46eb052b8cfde0c94734e8c1",
+    "semantic_hash": "6f71d67b46eb052b8cfde0c94734e8c1"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/assets/branding/tmdb-blue-short.svg": {
+    "mtime": 1777209990.6030993,
+    "ast_hash": "56fd61eec148690af48f876dfd5c8718",
+    "semantic_hash": "56fd61eec148690af48f876dfd5c8718"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/assets/branding/watchpapa-banner.svg": {
+    "mtime": 1778174475.283528,
+    "ast_hash": "99894dfe66b2dacb681afea4a02d5d96",
+    "semantic_hash": "99894dfe66b2dacb681afea4a02d5d96"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/assets/hero.png": {
+    "mtime": 1777209510.9355793,
+    "ast_hash": "aead493361b27e7510691c5d7072dfc1",
+    "semantic_hash": "aead493361b27e7510691c5d7072dfc1"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/assets/react.svg": {
+    "mtime": 1777209510.935949,
+    "ast_hash": "f0402b67b6ce880f65666bb49e841696",
+    "semantic_hash": "f0402b67b6ce880f65666bb49e841696"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/assets/vite.svg": {
+    "mtime": 1777209510.9362988,
+    "ast_hash": "9960a24288958394ac50e57ff638b036",
+    "semantic_hash": "9960a24288958394ac50e57ff638b036"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/public/assets/banner.png": {
+    "mtime": 1780319310.8152149,
+    "ast_hash": "cf4eb1b42d231ab415cc73aedb25c5ee",
+    "semantic_hash": "cf4eb1b42d231ab415cc73aedb25c5ee"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/public/assets/banner.svg": {
+    "mtime": 1780318013.992855,
+    "ast_hash": "99894dfe66b2dacb681afea4a02d5d96",
+    "semantic_hash": "99894dfe66b2dacb681afea4a02d5d96"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/public/assets/logo_v3.0.png": {
+    "mtime": 1780319312.0593288,
+    "ast_hash": "589061aa42d390b57506694dd5f10e4f",
+    "semantic_hash": "589061aa42d390b57506694dd5f10e4f"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/public/assets/logo_v3.0.svg": {
+    "mtime": 1780318085.9089363,
+    "ast_hash": "df1b265d4edc6b12aaf81de96a4c42f5",
+    "semantic_hash": "df1b265d4edc6b12aaf81de96a4c42f5"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/public/assets/logo_v3.1.png": {
+    "mtime": 1780319313.825426,
+    "ast_hash": "0fcdce0a8f7d3e95ba25863a35fd340f",
+    "semantic_hash": "0fcdce0a8f7d3e95ba25863a35fd340f"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/public/assets/logo_v3.1.svg": {
+    "mtime": 1780318087.2815013,
+    "ast_hash": "6f71d67b46eb052b8cfde0c94734e8c1",
+    "semantic_hash": "6f71d67b46eb052b8cfde0c94734e8c1"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/public/readme assets/DBPRO-public-diagram-2-05-2026.png": {
+    "mtime": 1777725888.685596,
+    "ast_hash": "59903900722d3104f7a7cf1bcb8b7693",
+    "semantic_hash": "59903900722d3104f7a7cf1bcb8b7693"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/public/readme assets/banner.png": {
+    "mtime": 1778174463.6791172,
+    "ast_hash": "cf4eb1b42d231ab415cc73aedb25c5ee",
+    "semantic_hash": "cf4eb1b42d231ab415cc73aedb25c5ee"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/public/readme assets/watchpapa.tv - MVP ER.png": {
+    "mtime": 1777560971.2353702,
+    "ast_hash": "1e1449493c8dd9540dbfe7696b46d6e6",
+    "semantic_hash": "1e1449493c8dd9540dbfe7696b46d6e6"
+  },
+  "/Users/dursky/Desktop/GitRepos/watchpapa/public/readme assets/watchpapa.tv-Threat Model-2:05:2026.png": {
+    "mtime": 1777719425.0381515,
+    "ast_hash": "8f968b5b1f357dbd346a43dcb40bcb7c",
+    "semantic_hash": "8f968b5b1f357dbd346a43dcb40bcb7c"
+  }
+}

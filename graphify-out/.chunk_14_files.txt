@@ -1,0 +1,17 @@
+/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/public/icons.svg
+/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/public/logo_v3.1.svg
+/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/assets/branding/tmdb-blue-short.svg
+/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/assets/branding/watchpapa-banner.svg
+/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/assets/hero.png
+/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/assets/react.svg
+/Users/dursky/Desktop/GitRepos/watchpapa/Frontend/src/assets/vite.svg
+/Users/dursky/Desktop/GitRepos/watchpapa/public/assets/banner.png
+/Users/dursky/Desktop/GitRepos/watchpapa/public/assets/banner.svg
+/Users/dursky/Desktop/GitRepos/watchpapa/public/assets/logo_v3.0.png
+/Users/dursky/Desktop/GitRepos/watchpapa/public/assets/logo_v3.0.svg
+/Users/dursky/Desktop/GitRepos/watchpapa/public/assets/logo_v3.1.png
+/Users/dursky/Desktop/GitRepos/watchpapa/public/assets/logo_v3.1.svg
+/Users/dursky/Desktop/GitRepos/watchpapa/public/readme assets/DBPRO-public-diagram-2-05-2026.png
+/Users/dursky/Desktop/GitRepos/watchpapa/public/readme assets/banner.png
+/Users/dursky/Desktop/GitRepos/watchpapa/public/readme assets/watchpapa.tv - MVP ER.png
+/Users/dursky/Desktop/GitRepos/watchpapa/public/readme assets/watchpapa.tv-Threat Model-2:05:2026.png
