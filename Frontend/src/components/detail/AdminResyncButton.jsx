@@ -93,16 +93,13 @@ function AdminResyncButton({ session, type, tmdbId }) {
   if (loading || !isAdmin || !tmdbId) return null;
 
   return (
-    <div className="rounded-xl border border-[#1e244a] bg-[#0a0d1f] px-4 py-3">
-      <div className="flex items-center gap-3">
-        <span className="text-[10px] font-semibold uppercase tracking-widest text-[#4a4a8a]">Admin</span>
-        <button
-          onClick={() => setOpen((v) => !v)}
-          className="rounded-lg border border-indigo-700/50 bg-indigo-900/30 px-3 py-1 text-xs font-medium text-indigo-300 transition hover:bg-indigo-800/40 hover:text-indigo-200"
-        >
-          {open ? "Cancel" : "Resync with TMDB"}
-        </button>
-      </div>
+    <div>
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="w-full rounded-lg border border-[#1e244a] bg-transparent px-3 py-1.5 text-[10px] font-medium uppercase tracking-widest text-[#3a3a6a] transition hover:border-[#2a3570] hover:text-[#5a5a8a]"
+      >
+        {open ? "Cancel" : "Resync with TMDB"}
+      </button>
       {open && (
         <AdminResyncPanel type={type} tmdbId={tmdbId} onClose={() => setOpen(false)} />
       )}

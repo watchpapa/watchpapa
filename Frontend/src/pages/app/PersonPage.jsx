@@ -103,21 +103,23 @@ function PersonPage({ session, showAdult }) {
         jsonLd={jsonLd}
       />
       <div className="mb-6"><InjectingBanner type="person" id={id} /></div>
-      <div className="mb-6"><AdminResyncButton session={session} type="person" tmdbId={person.tmdb_id} /></div>
       <DetailPageLayout
         title={person.name}
         sidebarTop={<ProfilePicture name={person.name} profilePath={person.profile_path} />}
         sidebarBottom={
-          <ul className="space-y-1.5 text-xs">
-            {[
-              ["Name", fmt(person.name)],
-              ["Birthday", fmtDate(person.birthday)],
-              ["Popularity", person.popularity?.toFixed(1) ?? "—"],
-            ].map(([k, v]) => (
-              <li key={k}><span className="font-bold text-[#8383e7]">{k}:</span> <span className="text-[#c0c0e8]">{v}</span></li>
-            ))}
-          </ul>
+          <>
+            <ul className="space-y-1.5 text-xs">
+              {[
+                ["Name", fmt(person.name)],
+                ["Birthday", fmtDate(person.birthday)],
+                ["Popularity", person.popularity?.toFixed(1) ?? "—"],
+              ].map(([k, v]) => (
+                <li key={k}><span className="font-bold text-[#8383e7]">{k}:</span> <span className="text-[#c0c0e8]">{v}</span></li>
+              ))}
+            </ul>
+          </>
         }
+        sidebarFooter={<AdminResyncButton session={session} type="person" tmdbId={person.tmdb_id} />}
       >
         <ContentPanel label="Details">
           <ul className="grid grid-cols-1 gap-1.5 text-sm sm:grid-cols-2">

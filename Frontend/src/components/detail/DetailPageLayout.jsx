@@ -1,4 +1,4 @@
-function DetailPageLayout({ title, followButton, sidebarTop, sidebarBottom, children }) {
+function DetailPageLayout({ title, followButton, sidebarTop, sidebarBottom, sidebarFooter, children }) {
   const hasSidebar = sidebarTop || sidebarBottom;
 
   const mobileSidebar = hasSidebar && (
@@ -13,6 +13,7 @@ function DetailPageLayout({ title, followButton, sidebarTop, sidebarBottom, chil
           {sidebarBottom}
         </div>
       )}
+      {sidebarFooter}
     </div>
   );
 
@@ -40,6 +41,7 @@ function DetailPageLayout({ title, followButton, sidebarTop, sidebarBottom, chil
                 {sidebarBottom}
               </div>
             )}
+            {sidebarFooter}
           </div>
         </aside>
 

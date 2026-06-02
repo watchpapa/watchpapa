@@ -12,11 +12,23 @@ function BarTip({ children }) {
   );
 }
 
-export function RatingHistogram({ mediaType, entityId }) {
+export function RatingHistogram({ mediaType, entityId, tmdbVoteAvg }) {
   const { histogram, avg, total, loading } = useCommunityRatings(mediaType, entityId);
 
   if (loading) return null;
   if (total < MIN_RATINGS) {
+    if (tmdbVoteAvg > 0) {
+      return (
+        <div className="mt-4 rounded-xl border border-[#2a3570]/50 bg-[#0a0c18] px-4 py-3">
+          <p className="text-[10px] font-semibold uppercase tracking-widest text-[#4a4a7a]">Community ratings</p>
+          <div className="mt-2 flex items-center gap-2">
+            <HeartDisplay value={Math.round(tmdbVoteAvg)} size="sm" />
+            <span className="text-xs font-semibold text-[#a090ff]">{tmdbVoteAvg.toFixed(1)}/10</span>
+          </div>
+          <p className="text-[9px] text-[#4a4a7a] mt-1">TMDB avg · {total} watchpapa rating{total !== 1 ? "s" : ""} so far</p>
+        </div>
+      );
+    }
     return (
       <div className="mt-4 rounded-xl border border-[#2a3570]/50 bg-[#0a0c18] px-4 py-3">
         <p className="text-[10px] font-semibold uppercase tracking-widest text-[#4a4a7a]">Community ratings</p>

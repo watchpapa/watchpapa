@@ -20,6 +20,7 @@ const initialState = {
   season: null,
   show: null,
   episodes: [],
+  seasons: [],
   cast: [],
   crew: [],
   isLoading: true,
@@ -47,7 +48,7 @@ export function useSeasonData(rawSeasonId, rawShowId) {
             .single(),
           supabase
             .from("show")
-            .select(`id, name, show_credits(title, person(id, name, profile_path), job(name, department(name)))`)
+            .select(`id, name, season(id, name, season_number), show_credits(title, person(id, name, profile_path), job(name, department(name)))`)
             .eq("id", showId)
             .single(),
         ]);
@@ -57,6 +58,7 @@ export function useSeasonData(rawSeasonId, rawShowId) {
         if (cancelled) return;
 
         const episodes = (seasonRes.data.episode ?? []).sort((a, b) => a.episode_number - b.episode_number);
+        const seasons = (showRes.data.season ?? []).sort((a, b) => a.season_number - b.season_number);
         const credits = showRes.data.show_credits ?? [];
 
         dispatch({
@@ -65,6 +67,7 @@ export function useSeasonData(rawSeasonId, rawShowId) {
             season: seasonRes.data,
             show: showRes.data,
             episodes,
+            seasons,
             cast: toCast(credits),
             crew: toCrew(credits),
           },

@@ -1,3 +1,5 @@
+import { useId } from "react";
+
 // Read-only heart display.
 // value: 1–10 (integers) or float for averages. null = no rating.
 // size: 'sm' | 'md' | 'lg'
@@ -7,8 +9,8 @@ const HEART_PATH = "M8 14.7C3.8 11.2 1 8.8 1 6.1 1 4 2.7 2.4 4.8 2.4c1.1 0 2.2.5
 
 function Heart({ fill, size }) {
   const px = SIZES[size] ?? SIZES.md;
-  const uid = Math.random().toString(36).slice(2, 7);
-  const clipId = `hc-${uid}`;
+  const id = useId();
+  const clipId = `hc${id.replace(/:/g, "")}`;
 
   return (
     <svg width={px} height={px} viewBox="0 0 16 16" fill="none" className="shrink-0">

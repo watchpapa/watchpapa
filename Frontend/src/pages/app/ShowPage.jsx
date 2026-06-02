@@ -127,7 +127,6 @@ function ShowPage({ session, showAdult }) {
       {showAuthPrompt && <AuthPromptModal onClose={() => setShowAuthPrompt(false)} />}
       {followLimitError && <UpgradePromptToast message={followLimitError} onDismiss={clearFollowLimitError} session={session} />}
       <div className="mb-6"><InjectingBanner type="show" id={id} /></div>
-      <div className="mb-6"><AdminResyncButton session={session} type="show" tmdbId={show.tmdb_id} /></div>
       <DetailPageLayout
         title={show.name}
         followButton={
@@ -155,11 +154,12 @@ function ShowPage({ session, showAdult }) {
                 <li key={k}><span className="font-bold text-[#8383e7]">{k}:</span> <span className="text-[#c0c0e8]">{v}</span></li>
               ))}
             </ul>
-            <RatingSidebar mediaType="show" entityId={show.id} session={session} onAuthPrompt={() => setShowAuthPrompt(true)} />
+            <RatingSidebar mediaType="show" entityId={show.id} session={session} onAuthPrompt={() => setShowAuthPrompt(true)} isUnreleased={!!(show.first_air_date && new Date(show.first_air_date) > new Date())} />
             <ObservedRatingsPanel mediaType="show" entityId={show.id} session={session} />
-            <RatingHistogram mediaType="show" entityId={show.id} />
+            <RatingHistogram mediaType="show" entityId={show.id} tmdbVoteAvg={show.tmdb_vote_avg} />
           </>
         }
+        sidebarFooter={<AdminResyncButton session={session} type="show" tmdbId={show.tmdb_id} />}
       >
         <ContentPanel label="Details">
           <ul className="grid grid-cols-1 gap-1.5 text-sm sm:grid-cols-2">

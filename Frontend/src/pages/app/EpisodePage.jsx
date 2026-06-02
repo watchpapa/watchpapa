@@ -82,6 +82,10 @@ function EpisodePage({ session }) {
   };
 
   const totalEps = (season.episode?.length ?? 0);
+  const allEps = [...(season.episode ?? [])].sort((a, b) => a.episode_number - b.episode_number);
+  const currentEpIdx = allEps.findIndex(e => e.id === episode.id);
+  const prevEp = currentEpIdx > 0 ? allEps[currentEpIdx - 1] : null;
+  const nextEp = currentEpIdx < allEps.length - 1 ? allEps[currentEpIdx + 1] : null;
 
   const details = [
     ["Episode runtime", episode.runtime ? `${episode.runtime}m` : "—"],
@@ -114,7 +118,7 @@ function EpisodePage({ session }) {
                 <li key={k}><span className="font-bold text-[#8383e7]">{k}:</span> <span className="text-[#c0c0e8]">{v}</span></li>
               ))}
             </ul>
-            <RatingSidebar mediaType="episode" entityId={episode.id} session={session} onAuthPrompt={() => setShowAuthPrompt(true)} />
+            <RatingSidebar mediaType="episode" entityId={episode.id} session={session} onAuthPrompt={() => setShowAuthPrompt(true)} isUnreleased={!!(episode.air_date && new Date(episode.air_date) > new Date())} />
             <ObservedRatingsPanel mediaType="episode" entityId={episode.id} session={session} />
             <RatingHistogram mediaType="episode" entityId={episode.id} />
           </>
@@ -132,6 +136,35 @@ function EpisodePage({ session }) {
           <ContentPanel label="Overview">
             <p className="text-sm leading-relaxed text-[#c0c0e8]">{episode.overview}</p>
           </ContentPanel>
+        )}
+
+        {(prevEp || nextEp) && (
+          <div className="flex gap-3">
+            {prevEp && (
+              <Link
+                to={`/shows/${showId}/seasons/${seasonId}/episodes/${prevEp.id}`}
+                className="flex-1 flex items-center gap-3 rounded-xl border border-[#2a3570]/50 bg-[#0d0f1e] p-3 transition hover:border-[#3a3a7a] hover:bg-[#141728]"
+              >
+                <svg className="flex-shrink-0 text-[#3a3a7a]" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M15 18l-6-6 6-6" /></svg>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[10px] text-[#6868b8]">Prev episode</p>
+                  <p className="text-xs font-semibold text-white line-clamp-1">Ep. {prevEp.episode_number}: {prevEp.name}</p>
+                </div>
+              </Link>
+            )}
+            {nextEp && (
+              <Link
+                to={`/shows/${showId}/seasons/${seasonId}/episodes/${nextEp.id}`}
+                className="flex-1 flex items-center gap-3 rounded-xl border border-[#2a3570]/50 bg-[#0d0f1e] p-3 transition hover:border-[#3a3a7a] hover:bg-[#141728]"
+              >
+                <div className="min-w-0 flex-1">
+                  <p className="text-[10px] text-[#6868b8]">Next episode</p>
+                  <p className="text-xs font-semibold text-white line-clamp-1">Ep. {nextEp.episode_number}: {nextEp.name}</p>
+                </div>
+                <svg className="flex-shrink-0 text-[#3a3a7a]" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M9 18l6-6-6-6" /></svg>
+              </Link>
+            )}
+          </div>
         )}
 
         {siblings.length > 0 && (

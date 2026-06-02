@@ -105,7 +105,6 @@ function MoviePage({ session, showAdult }) {
       {showAuthPrompt && <AuthPromptModal onClose={() => setShowAuthPrompt(false)} />}
       {followLimitError && <UpgradePromptToast message={followLimitError} onDismiss={clearFollowLimitError} session={session} />}
       <div className="mb-6"><InjectingBanner type="movie" id={id} /></div>
-      <div className="mb-6"><AdminResyncButton session={session} type="movie" tmdbId={movie.tmdb_id} /></div>
       <DetailPageLayout
         title={movie.title}
         followButton={
@@ -127,11 +126,12 @@ function MoviePage({ session, showAdult }) {
                 <li key={k}><span className="font-bold text-[#8383e7]">{k}:</span> <span className="text-[#c0c0e8]">{v}</span></li>
               ))}
             </ul>
-            <RatingSidebar mediaType="movie" entityId={movie.id} session={session} onAuthPrompt={() => setShowAuthPrompt(true)} />
+            <RatingSidebar mediaType="movie" entityId={movie.id} session={session} onAuthPrompt={() => setShowAuthPrompt(true)} isUnreleased={!!(movie.release_date && new Date(movie.release_date) > new Date())} />
             <ObservedRatingsPanel mediaType="movie" entityId={movie.id} session={session} />
-            <RatingHistogram mediaType="movie" entityId={movie.id} />
+            <RatingHistogram mediaType="movie" entityId={movie.id} tmdbVoteAvg={movie.tmdb_vote_avg} />
           </>
         }
+        sidebarFooter={<AdminResyncButton session={session} type="movie" tmdbId={movie.tmdb_id} />}
       >
         <ContentPanel label="Details">
           <ul className="grid grid-cols-1 gap-1.5 text-sm sm:grid-cols-2">

@@ -58,9 +58,13 @@ function EpisodeRow({ episode, showId, seasonId }) {
 function SeasonPage({ session }) {
   const { id: showId, seasonId } = useParams();
   const [showAuthPrompt, setShowAuthPrompt] = useState(false);
-  const { season, show, episodes, cast, crew, isLoading, error } = useSeasonData(seasonId, showId);
+  const { season, show, episodes, seasons, cast, crew, isLoading, error } = useSeasonData(seasonId, showId);
   const { isFollowing, toggleFollow, followLimitError, clearFollowLimitError } = useShowFollow(showId, session);
   const handleFollow = session ? toggleFollow : () => setShowAuthPrompt(true);
+
+  const currentSeasonIdx = seasons.findIndex(s => s.id === season?.id);
+  const prevSeason = currentSeasonIdx > 0 ? seasons[currentSeasonIdx - 1] : null;
+  const nextSeason = currentSeasonIdx < seasons.length - 1 ? seasons[currentSeasonIdx + 1] : null;
 
   const breadcrumbs = season && show ? [
     { label: "Shows", to: "/shows" },
@@ -102,7 +106,7 @@ function SeasonPage({ session }) {
                 <li key={k}><span className="font-bold text-[#8383e7]">{k}:</span> <span className="text-[#c0c0e8]">{v}</span></li>
               ))}
             </ul>
-            <RatingSidebar mediaType="season" entityId={season.id} session={session} onAuthPrompt={() => setShowAuthPrompt(true)} />
+            <RatingSidebar mediaType="season" entityId={season.id} session={session} onAuthPrompt={() => setShowAuthPrompt(true)} isUnreleased={!!(season.air_date && new Date(season.air_date) > new Date())} />
             <ObservedRatingsPanel mediaType="season" entityId={season.id} session={session} />
             <RatingHistogram mediaType="season" entityId={season.id} />
           </>
@@ -120,6 +124,35 @@ function SeasonPage({ session }) {
           <ContentPanel label="Overview">
             <p className="text-sm leading-relaxed text-[#c0c0e8]">{season.overview}</p>
           </ContentPanel>
+        )}
+
+        {(prevSeason || nextSeason) && (
+          <div className="flex gap-3">
+            {prevSeason && (
+              <Link
+                to={`/shows/${showId}/seasons/${prevSeason.id}`}
+                className="flex-1 flex items-center gap-3 rounded-xl border border-[#2a3570]/50 bg-[#0d0f1e] p-3 transition hover:border-[#3a3a7a] hover:bg-[#141728]"
+              >
+                <svg className="flex-shrink-0 text-[#3a3a7a]" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M15 18l-6-6 6-6" /></svg>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[10px] text-[#6868b8]">Prev season</p>
+                  <p className="text-xs font-semibold text-white line-clamp-1">{prevSeason.name}</p>
+                </div>
+              </Link>
+            )}
+            {nextSeason && (
+              <Link
+                to={`/shows/${showId}/seasons/${nextSeason.id}`}
+                className="flex-1 flex items-center gap-3 rounded-xl border border-[#2a3570]/50 bg-[#0d0f1e] p-3 transition hover:border-[#3a3a7a] hover:bg-[#141728]"
+              >
+                <div className="min-w-0 flex-1">
+                  <p className="text-[10px] text-[#6868b8]">Next season</p>
+                  <p className="text-xs font-semibold text-white line-clamp-1">{nextSeason.name}</p>
+                </div>
+                <svg className="flex-shrink-0 text-[#3a3a7a]" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M9 18l6-6-6-6" /></svg>
+              </Link>
+            )}
+          </div>
         )}
 
         {episodes.length > 0 && (

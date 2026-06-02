@@ -1,56 +1,26 @@
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { useRating } from "../../features/rating/hooks/useRating.js";
 
 // Always-visible sidebar rating widget.
 // 5 hearts shown at all times. Hover to preview, click to set.
 // Logged-out users: shows empty hearts; clicking triggers onAuthPrompt.
+// isUnreleased: when true, shows "Not yet released" instead of rating controls.
 // Inspired by Letterboxd's sidebar star rating.
 
 const HEART_PATH = "M8 14.7C3.8 11.2 1 8.8 1 6.1 1 4 2.7 2.4 4.8 2.4c1.1 0 2.2.5 3.2 1.8C9 2.9 10.1 2.4 11.2 2.4 13.3 2.4 15 4 15 6.1c0 2.7-2.8 5.1-7 8.6z";
 const SIZE = 28;
 
-function Heart({ fill, preview }) {
-  return (
-    <svg
-      width={SIZE}
-      height={SIZE}
-      viewBox="0 0 16 16"
-      fill="none"
-      className="shrink-0"
-    >
-      {fill === "half" && (
-        <defs>
-          <clipPath id={`sc-half-${Math.random().toString(36).slice(2)}`}>
-            <rect x="0" y="0" width="8" height="16" />
-          </clipPath>
-        </defs>
-      )}
-      <path
-        d={HEART_PATH}
-        stroke={fill === "empty" ? (preview ? "#6a6ab0" : "#3a3a7a") : "#a090ff"}
-        strokeWidth="1.2"
-        fill="none"
-        className="transition-colors"
-      />
-      {fill === "full" && (
-        <path d={HEART_PATH} fill="#a090ff" className="transition-all" />
-      )}
-      {fill === "half" && (
-        <path
-          d={HEART_PATH}
-          fill="#a090ff"
-          clipPath="url(#sc-half)"
-          className="transition-all"
-        />
-      )}
-    </svg>
-  );
-}
-
-export function RatingSidebar({ mediaType, entityId, session, onAuthPrompt }) {
+export function RatingSidebar({ mediaType, entityId, session, onAuthPrompt, isUnreleased }) {
   const { value, setRating, clearRating } = useRating(mediaType, entityId, session);
   const [preview, setPreview] = useState(null);
-  const containerRef = useRef(null);
+
+  if (isUnreleased) {
+    return (
+      <div className="mt-4 rounded-xl border border-[#2a3570]/50 bg-[#0a0c18] px-4 py-3">
+        <p className="text-xs text-[#5050a0] italic">Not yet released</p>
+      </div>
+    );
+  }
 
   const displayValue = preview ?? value ?? 0;
 
@@ -82,7 +52,6 @@ export function RatingSidebar({ mediaType, entityId, session, onAuthPrompt }) {
       </p>
 
       <div
-        ref={containerRef}
         className="flex items-center gap-1"
         onMouseLeave={() => setPreview(null)}
         title={session ? undefined : "Sign in to rate"}
