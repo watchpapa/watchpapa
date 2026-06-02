@@ -1,16 +1,70 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
+import { supabase } from "../../lib/supabase.js";
 import AppLayout from "../../layouts/AppLayout.jsx";
 import { PageHead } from "../../components/ui/PageHead.jsx";
 import { useProfileData } from "../../features/profile/hooks/useProfileData.js";
-import { useProfileRatings } from "../../features/profile/hooks/useProfileRatings.js";
 import { ProfileRatingCard } from "../../components/profile/ProfileRatingCard.jsx";
+
+function sortRatings(ratings, sort) {
+  const copies = [...ratings];
+  if (sort === "oldest") {
+    return copies.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+  } else if (sort === "rating_desc") {
+    return copies.sort((a, b) => b.value - a.value || new Date(b.created_at) - new Date(a.created_at));
+  } else if (sort === "rating_asc") {
+    return copies.sort((a, b) => a.value - b.value || new Date(b.created_at) - new Date(a.created_at));
+  } else if (sort === "release_desc") {
+    return copies.sort((a, b) => {
+      const dateA = a.movie?.release_date || a.show?.first_air_date || a.season?.air_date || a.episode?.air_date || "";
+      const dateB = b.movie?.release_date || b.show?.first_air_date || b.season?.air_date || b.episode?.air_date || "";
+      return dateB.localeCompare(dateA);
+    });
+  } else if (sort === "release_asc") {
+    return copies.sort((a, b) => {
+      const dateA = a.movie?.release_date || a.show?.first_air_date || a.season?.air_date || a.episode?.air_date || "";
+      const dateB = b.movie?.release_date || b.show?.first_air_date || b.season?.air_date || b.episode?.air_date || "";
+      return dateA.localeCompare(dateB);
+    });
+  }
+  return copies;
+}
 
 function ProfileRatingsPage({ session }) {
   const { username } = useParams();
   const { profile, isOwn, canViewRatings, loading, notFound } = useProfileData(username, session);
   const [sort, setSort] = useState("newest");
-  const { ratings, loading: ratingsLoading, hasMore, loadMore } = useProfileRatings(canViewRatings ? profile?.id : null, { sort });
+  const [ratings, setRatings] = useState([]);
+  const [ratingsLoading, setRatingsLoading] = useState(false);
+
+  useEffect(() => {
+    if (!canViewRatings || !profile?.id) {
+      setRatings([]);
+      return;
+    }
+
+    setRatingsLoading(true);
+    supabase
+      .from("user_rating")
+      .select(`
+        id, value, created_at,
+        movie_id, show_id, season_id, episode_id,
+        movie:movie_id(id, title, poster_path, release_date),
+        show:show_id(id, name, poster_path, first_air_date),
+        season:season_id(id, name, poster_path, air_date, show:show_id(id, name, poster_path)),
+        episode:episode_id(id, name, air_date, season:season_id(id, show:show_id(id, name, poster_path)))
+      `)
+      .eq("profile_id", profile.id)
+      .order("created_at", { ascending: false })
+      .then(({ data }) => {
+        let sorted = data ?? [];
+        if (sort !== "newest") {
+          sorted = sortRatings(sorted, sort);
+        }
+        setRatings(sorted);
+        setRatingsLoading(false);
+      });
+  }, [profile?.id, canViewRatings, sort]);
 
   const breadcrumbs = [{ label: username }];
 
@@ -51,7 +105,7 @@ function ProfileRatingsPage({ session }) {
             {isOwn ? "Your" : `@${username}'s`} Ratings
           </h1>
           <p className="text-sm text-[#5050a0]">
-            {ratings.length === 0 && !ratingsLoading ? "No ratings yet." : `${ratings.length}${hasMore ? "+" : ""} rating${ratings.length !== 1 ? "s" : ""}`}
+            {ratings.length === 0 && !ratingsLoading ? "No ratings yet." : `${ratings.length} rating${ratings.length !== 1 ? "s" : ""}`}
           </p>
         </div>
 
@@ -92,19 +146,9 @@ function ProfileRatingsPage({ session }) {
             )}
 
             {ratings.length > 0 && (
-              <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-5">
+              <div className="grid grid-cols-4 gap-2 sm:grid-cols-5 md:grid-cols-6">
                 {ratings.map((r) => <ProfileRatingCard key={r.id} rating={r} />)}
               </div>
-            )}
-
-            {hasMore && (
-              <button
-                onClick={loadMore}
-                disabled={ratingsLoading}
-                className="w-full rounded-xl border border-[#2a2f5a] py-2.5 text-sm font-semibold text-[#8383e7] transition hover:border-[#5a5aaa] hover:text-white disabled:opacity-50"
-              >
-                {ratingsLoading ? "Loading…" : "Load more"}
-              </button>
             )}
           </>
         )}
