@@ -95,7 +95,7 @@ function SettingsPage({ session }) {
     if (!uid) return;
     setLoading(true);
     const [profileRes, tierRes, subRes, blockedRes] = await Promise.all([
-      supabase.from("profile").select("username, is_adult, is_private, setting_display_adult_content, referral_code, username_changed_at").eq("id", uid).maybeSingle(),
+      supabase.from("profile").select("username, is_adult, is_private, setting_display_adult_content, setting_allow_profile_share, referral_code, username_changed_at").eq("id", uid).maybeSingle(),
       supabase.rpc("get_effective_tier", { p_profile_id: uid }),
       supabase.from("user_subscriptions").select("is_early_adopter, expires_at").eq("profile_id", uid).maybeSingle(),
       supabase.from("user_block").select("blocked_id, created_at, blocked:blocked_id(id, username)").eq("blocker_id", uid).order("created_at", { ascending: false }),
@@ -177,6 +177,18 @@ function SettingsPage({ session }) {
       .eq("id", uid);
     setPrivateBusy(false);
     if (error) setProfile((p) => ({ ...p, is_private: prev }));
+  };
+
+  const handleShareToggle = async (val) => {
+    if (privateBusy || !isValidBoolean(val)) return;
+    const prev = profile?.setting_allow_profile_share ?? false;
+    setProfile((p) => ({ ...p, setting_allow_profile_share: val }));
+    setPrivateBusy(true);
+    const { error } = await supabase.from("profile")
+      .update({ setting_allow_profile_share: val, updated_at: new Date().toISOString() })
+      .eq("id", uid);
+    setPrivateBusy(false);
+    if (error) setProfile((p) => ({ ...p, setting_allow_profile_share: prev }));
   };
 
   const handleUnblock = async (blockedId) => {
@@ -347,6 +359,18 @@ function SettingsPage({ session }) {
               />
               <p className="max-w-[16rem] text-[11px] text-[#5a5a78]">
                 When on, people must request to observe you and your ratings stay hidden until you approve.
+              </p>
+            </div>
+          </Row>
+          <Row label="Allow profile sharing">
+            <div className="flex flex-col items-end gap-1">
+              <Toggle
+                value={profile?.setting_allow_profile_share ?? false}
+                onChange={handleShareToggle}
+                disabled={privateBusy}
+              />
+              <p className="max-w-[16rem] text-[11px] text-[#5a5a78]">
+                Let anyone generate and download your profile card to share.
               </p>
             </div>
           </Row>
