@@ -86,15 +86,18 @@ watchpapa/
 │   │       └── hooks/                # useAdminAnnouncements, useScriptLogs, useIsAdmin (role check for non-admin pages), …
 │   ├── features/watchlist/hooks/     # useWatchlists, useWatchlistItems(watchlistId, session, refreshKey), useItemWatchlistStatus
 │   ├── features/rating/hooks/        # useRating(mediaType, entityId, session), useCommunityRatings(mediaType, entityId)
-│   ├── features/profile/hooks/       # useProfileData(username, session), useProfileRatings(profileId), useProfileStats(profileId, ownerTier), useEditProfile(session)
+│   ├── features/profile/hooks/       # useProfileData(username, session), useProfileRatings(profileId), useProfileStats(profileId, ownerTier), useEditProfile(session), useProfileRecapStats(profileId, tier) — fetches last 30 days of user_rating and aggregates into weekly/monthly windows client-side
 │   ├── features/follows/hooks/       # useFollows(session), useOverageStatus(session, refreshKey) — NOTE: ReleasesCalendarPage and FollowsPage derive overage live from reactive arrays instead of calling this hook
 │   ├── components/
 │   │   ├── watchlist/                # AddToWatchlistButton — auto-adds to first list, toast + checklist picker (multi-list); compact prop for WatchlistsPage
 │   │   ├── rating/                   # HeartDisplay, RatingInput, RatingButton, RatingSidebar (always-visible sidebar widget), RatingHistogram (bar tooltips on hover)
 │   │   ├── profile/
-│   │   │   ├── generateShareCard.js  # Canvas 2D renderer for 4K share cards (story 9:16, square 1:1, wide 16:9); tier-gated layouts + personality emoji; scale param for preview (1x) vs download (3x)
-│   │   │   └── ProfileShareModal.jsx # Format picker (3 pills), WYSIWYG preview (canvas at 1x scale), Download PNG + Share to Instagram/Stories (Web Share API mobile, fallback download on desktop)
+│   │   │   ├── generateShareCard.js  # Canvas 2D renderer for 4K share cards (story 9:16, square 1:1, wide 16:9); tier-gated layouts + personality emoji; scale param for preview (1x) vs download (3x). Exports generateRecapShareCard(format, recapData, profileData, scale) for weekly/monthly recap cards
+│   │   │   └── ProfileShareModal.jsx # Format picker (3 pills), cardType selector (Profile/Weekly/Monthly), WYSIWYG preview (canvas at 1x scale), Download PNG + Share (Web Share API mobile, fallback download on desktop). Recap tabs only show if recapStats has data
 │   │   │   # Also: ProfileFavourites, FavouritesEditor, ProfileStats (tier-gated blur), ProfileRatingCard
+│   │   ├── detail/
+│   │   │   ├── generateMediaShareCard.js # Canvas generator for movie/show share cards (3 formats: story 9:16, square 1:1, wide 16:9; 3 detail levels: minimal/standard/rich). Loads poster via TMDB + logo, renders hearts if user rated
+│   │   │   └── MediaShareModal.jsx # Format + detail level selectors (pill buttons), live preview, Download (4K) + Share buttons. Internally calls useRating to fetch user's rating for the media
 │   │   ├── layout/                   # Navbar, Footer, Breadcrumbs, ProfileMenu (hover→dropdown desktop / click→profile; click→dropdown mobile), PosterBackground
 │   │   ├── ui/                       # Button, Input, Toggle, OtpInput, PageHead, RichTextEditor, OverLimitBanner, …
 │   │   ├── detail/                   # DetailPageLayout, PosterCard, CastGrid, FollowButton, AdminResyncButton (admin-only, role 4; shown on Movie/Show/Person pages), …
