@@ -59,14 +59,14 @@ export function MediaShareModal({ mediaType, mediaData, session, onClose }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-2 sm:p-4">
-      <div className="w-full max-w-sm rounded-2xl border border-[#2a3570] bg-[#0d0f1e] p-4 sm:max-w-2xl sm:p-6">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-2 sm:p-4 overflow-y-auto">
+      <div className="w-full max-w-sm rounded-2xl border border-[#2a3570] bg-[#0d0f1e] p-4 sm:max-w-2xl sm:p-6 my-auto">
         <h2 className="mb-4 text-lg font-bold text-white sm:mb-6 sm:text-xl">Share {mediaType === "movie" ? "Movie" : "Show"}</h2>
 
         <div className="grid grid-cols-1 gap-4 sm:gap-6 lg:grid-cols-2">
           {/* Preview */}
           <div className="flex flex-col gap-3 sm:gap-4">
-            <div className="rounded-lg border border-[#2a3570]/50 bg-[#0a0c18] p-2 sm:p-3">
+            <div className="rounded-lg border border-[#2a3570]/50 bg-[#0a0c18] p-2 sm:p-3 max-w-48 sm:max-w-none mx-auto sm:mx-0">
               {preview ? (
                 <img src={preview} alt="Preview" className="w-full rounded" />
               ) : (
