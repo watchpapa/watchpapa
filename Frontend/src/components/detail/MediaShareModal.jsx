@@ -3,7 +3,7 @@ import { useRating } from "../../features/rating/hooks/useRating.js";
 import { generateMediaShareCard } from "./generateMediaShareCard.js";
 
 export function MediaShareModal({ mediaType, mediaData, session, onClose }) {
-  const [detailLevel, setDetailLevel] = useState("minimal");
+  const [detailLevel, setDetailLevel] = useState("rich");
   const [preview, setPreview] = useState(null);
   const [loading, setLoading] = useState(false);
   const format = "story";
