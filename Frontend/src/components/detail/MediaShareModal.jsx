@@ -10,7 +10,7 @@ export function MediaShareModal({ mediaType, mediaData, session, onClose }) {
 
   const { value: userRating } = useRating(mediaType, mediaData.entityId, session);
 
-  const mergedData = { ...mediaData, userRating };
+  const mergedData = { ...mediaData, userRating, username: session?.user?.user_metadata?.username || "user" };
 
   useEffect(() => {
     const generatePreview = async () => {
