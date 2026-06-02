@@ -18,6 +18,7 @@ import InjectingBanner from "../../components/detail/InjectingBanner.jsx";
 import AdminResyncButton from "../../components/detail/AdminResyncButton.jsx";
 import UpgradePromptToast from "../../components/subscription/UpgradePromptToast.jsx";
 import { PageHead } from "../../components/ui/PageHead.jsx";
+import { MediaShareModal } from "../../components/detail/MediaShareModal.jsx";
 
 const TMDB_IMG_BASE = "https://image.tmdb.org/t/p/";
 
@@ -45,6 +46,7 @@ function fmtRuntime(val) {
 function MoviePage({ session, showAdult }) {
   const { id } = useParams();
   const [showAuthPrompt, setShowAuthPrompt] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
   const { movie, genres, cast, crew, isFollowing, followLimitError, clearFollowLimitError, isLoading, error, toggleFollow } = useMovieData(id, session, showAdult);
   const handleFollow = session ? toggleFollow : () => setShowAuthPrompt(true);
 
@@ -129,6 +131,12 @@ function MoviePage({ session, showAdult }) {
             <RatingSidebar mediaType="movie" entityId={movie.id} session={session} onAuthPrompt={() => setShowAuthPrompt(true)} isUnreleased={!!(movie.release_date && new Date(movie.release_date) > new Date())} />
             <ObservedRatingsPanel mediaType="movie" entityId={movie.id} session={session} />
             <RatingHistogram mediaType="movie" entityId={movie.id} tmdbVoteAvg={movie.tmdb_vote_avg} />
+            <button
+              onClick={() => setShareOpen(true)}
+              className="mt-4 w-full rounded-lg border border-[#2a3570] bg-transparent px-3 py-2 text-xs font-medium uppercase tracking-widest text-[#6868b8] transition hover:border-[#3a3a7a] hover:text-white"
+            >
+              Share
+            </button>
           </>
         }
         sidebarFooter={<AdminResyncButton session={session} type="movie" tmdbId={movie.tmdb_id} />}
@@ -168,6 +176,21 @@ function MoviePage({ session, showAdult }) {
           </ContentPanel>
         )}
       </DetailPageLayout>
+      {shareOpen && (
+        <MediaShareModal
+          mediaType="movie"
+          mediaData={{
+            entityId: movie.id,
+            title: movie.title,
+            posterPath: movie.poster_path,
+            releaseYear: movie.release_date ? new Date(movie.release_date).getFullYear() : null,
+            genres: genres.map(g => g.name),
+            overview: movie.overview,
+          }}
+          session={session}
+          onClose={() => setShareOpen(false)}
+        />
+      )}
     </AppLayout>
   );
 }

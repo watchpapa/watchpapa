@@ -18,6 +18,7 @@ import InjectingBanner from "../../components/detail/InjectingBanner.jsx";
 import AdminResyncButton from "../../components/detail/AdminResyncButton.jsx";
 import UpgradePromptToast from "../../components/subscription/UpgradePromptToast.jsx";
 import { PageHead } from "../../components/ui/PageHead.jsx";
+import { MediaShareModal } from "../../components/detail/MediaShareModal.jsx";
 
 const TMDB_IMG = "https://image.tmdb.org/t/p/w185";
 const TMDB_IMG_BASE = "https://image.tmdb.org/t/p/";
@@ -66,6 +67,7 @@ function ShowPage({ session, showAdult }) {
   const { id } = useParams();
   const [showAllSeasons, setShowAllSeasons] = useState(false);
   const [showAuthPrompt, setShowAuthPrompt] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
   const { show, genres, seasons, cast, crew, isFollowing, followLimitError, clearFollowLimitError, isLoading, error, toggleFollow } = useShowData(id, session, showAdult);
   const handleFollow = session ? toggleFollow : () => setShowAuthPrompt(true);
 
@@ -157,6 +159,12 @@ function ShowPage({ session, showAdult }) {
             <RatingSidebar mediaType="show" entityId={show.id} session={session} onAuthPrompt={() => setShowAuthPrompt(true)} isUnreleased={!!(show.first_air_date && new Date(show.first_air_date) > new Date())} />
             <ObservedRatingsPanel mediaType="show" entityId={show.id} session={session} />
             <RatingHistogram mediaType="show" entityId={show.id} tmdbVoteAvg={show.tmdb_vote_avg} />
+            <button
+              onClick={() => setShareOpen(true)}
+              className="mt-4 w-full rounded-lg border border-[#2a3570] bg-transparent px-3 py-2 text-xs font-medium uppercase tracking-widest text-[#6868b8] transition hover:border-[#3a3a7a] hover:text-white"
+            >
+              Share
+            </button>
           </>
         }
         sidebarFooter={<AdminResyncButton session={session} type="show" tmdbId={show.tmdb_id} />}
@@ -212,6 +220,21 @@ function ShowPage({ session, showAdult }) {
           </ContentPanel>
         )}
       </DetailPageLayout>
+      {shareOpen && (
+        <MediaShareModal
+          mediaType="show"
+          mediaData={{
+            entityId: show.id,
+            title: show.name,
+            posterPath: show.poster_path,
+            releaseYear: show.first_air_date ? new Date(show.first_air_date).getFullYear() : null,
+            genres: genres.map(g => g.name),
+            overview: show.overview,
+          }}
+          session={session}
+          onClose={() => setShareOpen(false)}
+        />
+      )}
     </AppLayout>
   );
 }
