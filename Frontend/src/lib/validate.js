@@ -46,3 +46,11 @@ export function isValidId(id) {
 export function isValidBoolean(val) {
   return typeof val === "boolean";
 }
+
+export function validateMinAge(dateOfBirth, minYears = 16) {
+  if (!dateOfBirth) return false;
+  const dob = new Date(dateOfBirth);
+  const cutoff = new Date();
+  cutoff.setFullYear(cutoff.getFullYear() - minYears);
+  return dob <= cutoff;
+}

@@ -137,7 +137,7 @@ function TermsPage({ session }) {
       <h2>Acceptance</h2>
       <p>
         By accessing or using watchpapa (&ldquo;the Service&rdquo;), you confirm that you are at
-        least 13 years old, located in Europe, and agree to be bound by these Terms of Use. If you
+        least 16 years old, located in Europe, and agree to be bound by these Terms of Use. If you
         do not meet these requirements or do not agree, do not use the Service.
       </p>
 
@@ -158,6 +158,7 @@ function TermsPage({ session }) {
         <li>Attempt to gain unauthorised access to any part of the platform.</li>
         <li>Use the Service for any unlawful purpose or in violation of applicable law.</li>
         <li>Misrepresent your identity or impersonate another person or organisation.</li>
+        <li>Post offensive, defamatory, or harassing content in your profile or comments.</li>
       </ul>
 
       <h2>Accounts</h2>
@@ -167,11 +168,31 @@ function TermsPage({ session }) {
         if you suspect unauthorised access to your account.
       </p>
 
-      <h2>Modifications</h2>
+      <h2>User-generated content</h2>
       <p>
-        We reserve the right to update these Terms at any time. Continued use of the Service after
-        changes are posted constitutes acceptance of the revised Terms. The date of the most recent
-        revision is shown below.
+        Your username, bio, ratings, and watchlists (&ldquo;your content&rdquo;) are created and
+        owned by you. By submitting them to the Service, you grant watchpapa a non-exclusive,
+        royalty-free licence to display, distribute, and archive your content on the platform and
+        in backups. Ratings and favourites are public by default; you can mark your profile as
+        private in Settings to restrict visibility of your activity to other users.
+      </p>
+
+      <h2>Suspension and termination</h2>
+      <p>
+        We reserve the right to suspend or terminate your account and access to the Service at any
+        time, with or without notice, if we determine in our sole discretion that you have violated
+        these Terms or engaged in behaviour that is illegal, abusive, or harmful to other users or
+        the platform.
+      </p>
+
+      <h2>Changes to the Service and these Terms</h2>
+      <p>
+        We reserve the right to modify, suspend, or discontinue the Service (or any part of it) at
+        any time. We reserve the right to update these Terms at any time. For material changes
+        (additions to restrictions, changes to liability, or other significant modifications), we
+        will notify you by email at least 14 days before the changes take effect. Continued use
+        after that period constitutes acceptance. For minor updates or clarifications, we may update
+        the date below without prior notice.
       </p>
 
       <h2>Geographic availability</h2>
@@ -183,15 +204,32 @@ function TermsPage({ session }) {
         risk and you are responsible for compliance with local laws.
       </p>
 
+      <h2>Limitation of liability</h2>
+      <p>
+        To the extent permitted by applicable law, watchpapa and its operators shall not be liable
+        for any indirect, incidental, special, consequential, or punitive damages arising from your
+        use of or inability to use the Service, including loss of data, lost profits, or interruption
+        of business, even if advised of the possibility of such damages. Our total liability for any
+        claim arising under these Terms shall be limited to the direct damages actually incurred,
+        capped at €50.
+      </p>
+
+      <h2>Governing law</h2>
+      <p>
+        These Terms of Use are governed by and construed in accordance with the laws of the European
+        Union and the Republic of Poland. Any legal action or proceeding arising out of these Terms
+        shall be subject to the exclusive jurisdiction of the competent courts of Poland.
+      </p>
+
       <h2>Disclaimer</h2>
       <p>
         The Service is provided &ldquo;as is&rdquo; without warranties of any kind, express or
-        implied. We do not guarantee uninterrupted availability or the accuracy of third-party
-        metadata.
+        implied. We do not guarantee uninterrupted availability, timely updates, or the accuracy of
+        third-party metadata. Your use of the Service is at your own risk.
       </p>
 
       <p className="muted">
-        Last updated: <time dateTime="2026-05-21">21 May 2026</time>
+        Last updated: <time dateTime="2026-06-03">3 June 2026</time>
       </p>
     </InfoPageShell>
     </>
@@ -279,59 +317,140 @@ function PrivacyPage({ session }) {
       title="Privacy Policy"
       lead="We collect as little data as possible and never sell it."
     >
+      <h2>Data controller</h2>
+      <p>
+        <strong>Krzysztof Durski</strong> is the data controller responsible for your personal data.
+        You can contact the controller at <a href="mailto:support@watchpapa.tv">support@watchpapa.tv</a>.
+      </p>
+
       <h2>What we collect</h2>
       <p>
-        When you create an account we store your <strong>email address</strong>, a securely hashed
-        password, and your <strong>date of birth</strong> (used to personalise age-appropriate
-        content). We do not collect names, addresses, or payment information.
+        When you create an account, we store your email address, username, and securely hashed password.
+        We also collect your date of birth (to verify you are at least 16 and to personalise age-appropriate content),
+        your bio text (up to 200 characters), and your display preferences.
+      </p>
+      <p>
+        Your user activity is stored: film and TV show ratings (1–10 scale), watchlists, followed titles, and favourite items.
+        We also store your adult content display setting and authentication tokens as browser storage
+        (localStorage with your consent, or sessionStorage without consent).
+      </p>
+      <p>
+        For security and abuse prevention, we log your IP address and request metadata (method, path, timestamp).
+      </p>
+      <p>
+        We do not collect names, postal addresses, phone numbers, or payment information.
       </p>
 
-      <h2>How it is used</h2>
+      <h2>How we use your data</h2>
+      <p>
+        Your email and password hash enable you to sign in across devices. Your date of birth confirms you meet
+        the age requirement (16+) and helps us filter adult content if you choose.
+      </p>
+      <p>
+        Ratings, watchlists, follows, and favourites are stored so you can manage your activity. Your username,
+        bio, ratings, and favourites are public and visible to other users unless you mark your profile as private.
+      </p>
+      <p>
+        IP logs and audit events help us detect and prevent unauthorized access and abuse. localStorage keeps you
+        signed in across tabs and browser restarts (with your consent); sessionStorage logs you out when the tab
+        closes (without consent).
+      </p>
+      <p>
+        We do not build advertising profiles or sell data to third parties. If you opt in during registration
+        or in Settings, we may send occasional product updates and announcements to your email. You can change
+        this preference at any time in your Settings.
+      </p>
+
+      <h2>Legal basis for processing</h2>
+      <p>
+        We process your data under the following legal bases (GDPR Article 6): account creation, authentication, and
+        all features tied to your account (ratings, watchlists, follows) are based on contract performance. Age
+        verification is required by GDPR Article 8 (protection of children's data). Persistent session storage
+        (localStorage) requires your consent, which you provide via the cookie banner on first visit. Security logging
+        (IP addresses and request metadata) is based on our legitimate interest in preventing abuse and detecting threats.
+      </p>
+
+      <h2>Data processors and third-party services</h2>
+      <p>Your data is processed by the following services:</p>
       <ul>
-        <li>Your email is used for authentication and, if you opt in, product updates.</li>
-        <li>We do not build advertising profiles or sell data to third parties.</li>
+        <li><strong>Supabase</strong> (auth and database, EU) — stores your account data and user activity</li>
+        <li><strong>DigitalOcean</strong> (backend API, Netherlands) — handles requests on our application servers</li>
+        <li><strong>Cloudflare</strong> (CDN, USA) — caches static content and terminates SSL connections</li>
+        <li><strong>Resend</strong> (transactional email, USA) — sends password resets and account notifications</li>
+        <li><strong>Google</strong> (optional social sign-in, USA) — processes your email and basic profile information if you choose this method</li>
+        <li><strong>GitHub</strong> (optional social sign-in, USA) — processes your email and basic profile information if you choose this method</li>
+        <li><strong>TMDB</strong> (content metadata, USA) — provides film and TV show information. Your watchpapa data is not shared with TMDB</li>
       </ul>
-
-      <h2>Third-party services</h2>
       <p>
-        Watchpapa fetches media content from{" "}
-        <a href="https://www.themoviedb.org/" target="_blank" rel="noopener noreferrer">
-          TMDB
-        </a>
-        . Your watchpapa account data is <strong>not</strong> shared with TMDB. We use{" "}
-        <a href="https://supabase.com/" target="_blank" rel="noopener noreferrer">
-          Supabase
-        </a>{" "}
-        to store account data; all data is stored in the EU and subject to their{" "}
-        <a href="https://supabase.com/privacy" target="_blank" rel="noopener noreferrer">
-          Privacy Policy
-        </a>
-        .
+        All transfers to USA-based processors (Cloudflare, Resend, Google, GitHub) are protected by Standard Contractual Clauses approved by the European Commission.
+        Changes to our data processors will be announced in the <a href="/updates">Updates</a> section of the platform.
       </p>
 
-      <h2>Cookies</h2>
+      <h2>International data transfers</h2>
       <p>
-        We use <strong>essential cookies only</strong> — to keep you signed in and to remember
-        filter preferences across sessions. We do not use tracking or advertising cookies.
+        Some of our processors are located in the USA (Cloudflare, Resend, Google, GitHub). Transfers
+        to the USA are protected by Standard Contractual Clauses approved by the European Commission
+        under GDPR Article 46(2)(c). This ensures your data receives adequate protection even though
+        US data protection laws differ from EU standards.
       </p>
 
-      <h2>Data retention & your rights</h2>
+      <h2>Session storage and cookies</h2>
       <p>
-        You may delete your account and all associated data at any time from your account settings.
-        On deletion, your personal data is permanently removed within 30 days. You may also request
-        a copy of your data or ask us to correct inaccuracies by emailing{" "}
+        When you sign in, we store your authentication token in your browser. You control where it is stored:
+      </p>
+      <ul>
+        <li><strong>With consent</strong> (Accept on the banner): token stored in localStorage — persists across tabs and browser restarts until you sign out</li>
+        <li><strong>Without consent</strong> (Decline on the banner): token stored in sessionStorage — cleared when you close the tab</li>
+      </ul>
+      <p>
+        We also store a consent preference cookie so we remember your choice. These are essential to operating
+        the service and do not require explicit consent under the ePrivacy Directive.
+      </p>
+      <p>We do not use tracking, advertising, or analytics cookies.</p>
+
+      <h2>Data retention</h2>
+      <p>
+        Account data (email, username, bio, ratings, watchlists) is retained until you delete your account,
+        then permanently removed within 30 days. Security audit logs (IP address, request details) are retained
+        for 90 days, then automatically deleted. Session tokens are cleared on logout or when the browser tab
+        closes (depending on consent).
+      </p>
+
+      <h2>Your rights under GDPR</h2>
+      <p>
+        You have the right to access a copy of your personal data (available via Settings → Export as CSV),
+        to correct inaccurate or incomplete data, and to delete your account and all associated data
+        (available via Settings → Delete Account). You can also request that we limit how your data is used,
+        receive your data in a portable format (CSV export available in Settings), or object to processing
+        for legitimate interests.
+      </p>
+      <p>
+        If your data is used for automated decisions, you have the right to request human review. If you believe
+        watchpapa has violated your data protection rights, you have the right to lodge a complaint with your local
+        data protection supervisory authority.
+      </p>
+      <p>
+        To exercise any of these rights, email{" "}
         <a href="mailto:support@watchpapa.tv">support@watchpapa.tv</a>.
       </p>
 
-      <h2>Changes</h2>
+      <h2>Data protection supervisory authority</h2>
       <p>
-        We may update this policy at any time. When we do, we will revise the date below. We
-        recommend checking this page periodically. We cannot guarantee that change notifications
-        will be delivered by email.
+        If you believe watchpapa has violated your data protection rights, you have the right to lodge a complaint
+        with the data protection supervisory authority in your EU member state. These authorities have the power
+        to investigate and take enforcement action on your behalf, at no cost to you.
+      </p>
+
+      <h2>Changes to this policy</h2>
+      <p>
+        We may update this policy from time to time. For material changes (changes that expand what data we collect
+        or how we use it), we will announce them in the <a href="/updates">Updates</a> section at least 14 days before
+        the changes take effect. Continued use of the service after that period constitutes acceptance of the updated
+        policy. For minor clarifications or corrections, we will update the date below without prior notice.
       </p>
 
       <p className="muted">
-        Last updated: <time dateTime="2026-05-13">13 May 2026</time>
+        Last updated: <time dateTime="2026-06-03">3 June 2026</time>
       </p>
     </InfoPageShell>
     </>

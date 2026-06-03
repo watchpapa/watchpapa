@@ -22,9 +22,9 @@ function CookieConsentBanner() {
     <div className="fixed bottom-0 left-0 right-0 z-[9999] border-t-2 border-[#4a4aaa] bg-[#0b0d1c] shadow-[0_-4px_32px_rgba(0,0,0,0.6)]">
       <div className="mx-auto flex max-w-5xl flex-col gap-4 px-6 py-5 sm:flex-row sm:items-center sm:gap-8">
         <div className="flex-1">
-          <p className="mb-1 text-sm font-semibold text-white">Cookie consent</p>
+          <p className="mb-1 text-sm font-semibold text-white">Session storage</p>
           <p className="text-sm text-[#b0b0d8] leading-relaxed">
-            We use cookies to keep you signed in across tabs. If you decline, your session will end
+            Accept to keep you signed in across tabs and browser restarts. If you decline, your session will end
             when you close the tab.{" "}
             <a href="/privacy" className="text-[#8888e8] underline underline-offset-2 hover:text-white transition">
               Privacy policy

@@ -63,6 +63,9 @@ function SettingsPage({ session }) {
   // Adult toggle
   const [adultBusy, setAdultBusy] = useState(false);
 
+  // Marketing opt-in toggle
+  const [marketingBusy, setMarketingBusy] = useState(false);
+
   // Privacy
   const [privateBusy, setPrivateBusy] = useState(false);
   const [blocked, setBlocked] = useState([]);
@@ -95,7 +98,7 @@ function SettingsPage({ session }) {
     if (!uid) return;
     setLoading(true);
     const [profileRes, tierRes, subRes, blockedRes] = await Promise.all([
-      supabase.from("profile").select("username, is_adult, is_private, setting_display_adult_content, setting_allow_profile_share, referral_code, username_changed_at").eq("id", uid).maybeSingle(),
+      supabase.from("profile").select("username, is_adult, is_private, setting_display_adult_content, setting_allow_profile_share, email_marketing_opt_in, referral_code, username_changed_at").eq("id", uid).maybeSingle(),
       supabase.rpc("get_effective_tier", { p_profile_id: uid }),
       supabase.from("user_subscriptions").select("is_early_adopter, expires_at").eq("profile_id", uid).maybeSingle(),
       supabase.from("user_block").select("blocked_id, created_at, blocked:blocked_id(id, username)").eq("blocker_id", uid).order("created_at", { ascending: false }),
@@ -165,6 +168,18 @@ function SettingsPage({ session }) {
       .eq("id", uid);
     setAdultBusy(false);
     if (error) setProfile((p) => ({ ...p, setting_display_adult_content: prev }));
+  };
+
+  const handleMarketingOptIn = async (val) => {
+    if (marketingBusy || !isValidBoolean(val)) return;
+    const prev = profile?.email_marketing_opt_in ?? false;
+    setProfile((p) => ({ ...p, email_marketing_opt_in: val }));
+    setMarketingBusy(true);
+    const { error } = await supabase.from("profile")
+      .update({ email_marketing_opt_in: val, updated_at: new Date().toISOString() })
+      .eq("id", uid);
+    setMarketingBusy(false);
+    if (error) setProfile((p) => ({ ...p, email_marketing_opt_in: prev }));
   };
 
   const handlePrivateToggle = async (val) => {
@@ -336,8 +351,8 @@ function SettingsPage({ session }) {
         </Section>
 
         {/* Preferences */}
-        {profile?.is_adult && (
-          <Section title="Preferences">
+        <Section title="Preferences">
+          {profile?.is_adult && (
             <Row label="Show adult content">
               <Toggle
                 value={profile?.setting_display_adult_content ?? false}
@@ -345,8 +360,15 @@ function SettingsPage({ session }) {
                 disabled={adultBusy}
               />
             </Row>
-          </Section>
-        )}
+          )}
+          <Row label="Product updates & announcements">
+            <Toggle
+              value={profile?.email_marketing_opt_in ?? false}
+              onChange={handleMarketingOptIn}
+              disabled={marketingBusy}
+            />
+          </Row>
+        </Section>
 
         {/* Privacy */}
         <Section title="Privacy">

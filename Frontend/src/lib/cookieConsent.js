@@ -18,11 +18,21 @@ export function getConsentStatus() {
 }
 
 export function hasAccepted() {
-  return readCookie() === CONSENT.ACCEPTED;
+  const cookie = readCookie();
+  if (cookie !== null) return cookie === CONSENT.ACCEPTED;
+  if (browserRequestsNoTracking()) return false;
+  return false;
+}
+
+export function browserRequestsNoTracking() {
+  return navigator.doNotTrack === "1" || navigator.doNotTrack === "yes";
 }
 
 export function hasMadeChoice() {
-  return readCookie() !== null;
+  const cookie = readCookie();
+  if (cookie !== null) return true;
+  if (browserRequestsNoTracking()) return true;
+  return false;
 }
 
 function writeCookie(value) {

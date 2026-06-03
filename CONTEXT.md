@@ -326,14 +326,21 @@ The `/api/import/resolve` endpoint also accepts Letterboxd CSV format (auto-dete
 | 011 | `username_change_limit` | Rate-limits username changes |
 | 012 | `ea_banner_dismissed` | Adds `ea_banner_dismissed` column to `user_subscriptions` |
 | 013 | `analytics` | Creates analytics tables + `track_presence`, `track_page_view`, `track_content_click` RPCs |
+| 013b | `analytics_rollback` | Rollback for migration 013: drops analytics tables and RPC functions |
 | 014 | `announcements` | Creates `announcements` table |
 | 015 | `announcements_archive_tracking` | Adds `archived_by`, `archived_at` columns for archive audit trail |
 | 016 | `watchlists` | Creates `watchlist` and `watchlist_item` tables with RLS and `enforce_watchlist_limit` trigger |
 | 017 | `ratings_and_profiles` | Creates `user_rating`, `profile_favourite`; adds `profile.bio`; RLS; `get_profile_genre_stats(UUID)` and `get_limit_status(UUID)` functions |
 | 018 | `security_hardening` | `SET search_path` on tier/watchlist functions; REVOKE analytics RPCs from anon/authenticated |
 | 019 | `drop_analytics` | Drops analytics tables and `track_*` RPCs (product analytics removed from app) |
+| 020 | `social_observe` | Social features: user "observe" (follow) with public/private accounts, blocking, notifications; adds RLS tables and SECURITY DEFINER RPCs for visibility gating |
+| 021 | `profile_share_setting` | Adds `setting_allow_profile_share` boolean column to `profile` table |
+| 023 | `audit_log_retention` | Enables `pg_cron` extension; schedules daily cleanup of `audit_events` rows older than 90 days (GDPR compliance) |
+| 024 | `account_deletion_hardening` | Adds `ON DELETE CASCADE` to `user_followed_movies` and `user_followed_shows` FKs; adds trigger to delete audit_events on profile deletion |
+| 025 | `marketing_email_opt_in` | Adds `email_marketing_opt_in` boolean column to `profile` table for GDPR-compliant product announcement opt-in |
+| 026 | `handle_new_user_trigger` | Updates `handle_new_user()` function to copy `email_marketing_opt_in` from auth metadata to profile (persists registration opt-in checkbox value) |
 
-To add the next migration: create `Backend/src/db/migrations/020_<name>.sql`, apply via Supabase migration workflow.
+To add the next migration: create `Backend/src/db/migrations/027_<name>.sql`, apply via Supabase migration workflow.
 
 ---
 

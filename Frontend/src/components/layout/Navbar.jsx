@@ -173,7 +173,7 @@ function Navbar({ session }) {
             {session ? (
               <ProfileMenu session={session} />
             ) : (
-              <div className="ml-1 flex items-center gap-1 sm:gap-1.5">
+              <div className="hidden items-center gap-1 sm:flex sm:gap-1.5">
                 <Link
                   to="/login"
                   className="rounded-xl px-2.5 py-1.5 text-xs font-semibold text-[#8888c8] transition hover:text-white sm:px-3"

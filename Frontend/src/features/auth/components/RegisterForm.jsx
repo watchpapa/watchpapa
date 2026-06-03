@@ -3,7 +3,7 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import FormField from "../../../components/ui/FormField.jsx";
 import Input from "../../../components/ui/Input.jsx";
 import { useAuth } from "../hooks/useAuth.js";
-import { normalizeDateInput } from "../../../lib/validate.js";
+import { normalizeDateInput, validateMinAge } from "../../../lib/validate.js";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "";
 
@@ -14,6 +14,7 @@ const initialState = {
   repeatPassword: "",
   dateOfBirth: "",
   acceptedTerms: false,
+  emailMarketingOptIn: false,
 };
 
 
@@ -72,6 +73,8 @@ function validate(state) {
 
   if (!state.dateOfBirth) {
     errors.dateOfBirth = "Date of birth is required.";
+  } else if (!validateMinAge(state.dateOfBirth, 16)) {
+    errors.dateOfBirth = "You must be at least 16 years old to register.";
   }
 
   if (!state.acceptedTerms) {
@@ -130,6 +133,7 @@ function RegisterForm() {
         username: formState.username.trim(),
         date_of_birth: formState.dateOfBirth,
         show_adult_content: false,
+        email_marketing_opt_in: formState.emailMarketingOptIn,
       },
     });
     setIsSubmitting(false);
@@ -390,6 +394,22 @@ function RegisterForm() {
         {errors.acceptedTerms ? (
           <p className="text-[11px] font-semibold text-pink-300">{errors.acceptedTerms}</p>
         ) : null}
+      </div>
+
+      <div className="mt-[14px] flex flex-col gap-[4px]">
+        <label className="flex cursor-pointer items-start gap-[10px]">
+          <input
+            id="emailMarketingOptIn"
+            name="emailMarketingOptIn"
+            type="checkbox"
+            checked={formState.emailMarketingOptIn}
+            onChange={onChangeField("emailMarketingOptIn")}
+            className="mt-[3px] h-[16px] w-[16px] shrink-0 cursor-pointer accent-[#8383e7]"
+          />
+          <span className="text-[13px] font-semibold leading-snug text-[#a0a0f7]">
+            I'd like to receive occasional product updates and announcements (optional)
+          </span>
+        </label>
       </div>
 
       {submitError ? (
