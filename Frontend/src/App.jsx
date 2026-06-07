@@ -170,7 +170,7 @@ function App() {
       .then(({ data, error }) => {
       if (!isMounted) return;
       if (error) {
-        setNeedsUsernameSetup(false);
+        setNeedsUsernameSetup(true);
         setInitialUsername("");
         setIsProfileLoading(false);
         return;

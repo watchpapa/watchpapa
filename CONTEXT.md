@@ -339,8 +339,10 @@ The `/api/import/resolve` endpoint also accepts Letterboxd CSV format (auto-dete
 | 024 | `account_deletion_hardening` | Adds `ON DELETE CASCADE` to `user_followed_movies` and `user_followed_shows` FKs; adds trigger to delete audit_events on profile deletion |
 | 025 | `marketing_email_opt_in` | Adds `email_marketing_opt_in` boolean column to `profile` table for GDPR-compliant product announcement opt-in |
 | 026 | `handle_new_user_trigger` | Updates `handle_new_user()` function to copy `email_marketing_opt_in` from auth metadata to profile (persists registration opt-in checkbox value) |
+| 027 | `username_nullable` | Drops NOT NULL on `profile.username` so OAuth signups succeed. Google/GitHub metadata has no `username` key, so the trigger was inserting NULL into a NOT NULL column → "Database error saving new user". NULL username is detected by the frontend as `needsUsernameSetup = true` and gates the user to `/complete-username`. Also nullifies the one stuck user who had `username = ''`. |
+| 028 | `date_of_birth_nullable` | Drops NOT NULL on `profile.date_of_birth`. Same root cause as 027 — OAuth metadata has no `date_of_birth`, so the trigger still failed after 027. OAuth users provide their DOB on the `/complete-username` page. |
 
-To add the next migration: create `Backend/src/db/migrations/027_<name>.sql`, apply via Supabase migration workflow.
+To add the next migration: create `Backend/src/db/migrations/029_<name>.sql`, apply via Supabase migration workflow.
 
 ---
 
