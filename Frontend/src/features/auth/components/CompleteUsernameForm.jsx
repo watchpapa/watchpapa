@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import FormField from "../../../components/ui/FormField.jsx";
 import Input from "../../../components/ui/Input.jsx";
 import Toggle from "../../../components/ui/Toggle.jsx";
@@ -28,6 +28,8 @@ function CompleteUsernameForm({ userId, initialUsername = "", onCompleted }) {
   const [username, setUsername] = useState(initialUsername);
   const [dateOfBirth, setDateOfBirth] = useState("");
   const [showAdultContent, setShowAdultContent] = useState(false);
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [emailMarketingOptIn, setEmailMarketingOptIn] = useState(false);
   const [submitError, setSubmitError] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -55,6 +57,11 @@ function CompleteUsernameForm({ userId, initialUsername = "", onCompleted }) {
       return;
     }
 
+    if (!acceptedTerms) {
+      setSubmitError("You must accept the Terms and Conditions to continue.");
+      return;
+    }
+
     setIsSubmitting(true);
     const now = new Date().toISOString();
     const { error: profileError } = await supabase.from("profile").upsert(
@@ -64,6 +71,7 @@ function CompleteUsernameForm({ userId, initialUsername = "", onCompleted }) {
         date_of_birth: dateOfBirth,
         is_adult: adult,
         setting_display_adult_content: adult ? showAdultContent : false,
+        email_marketing_opt_in: emailMarketingOptIn,
         updated_at: now,
       },
       { onConflict: "id" },
@@ -132,7 +140,6 @@ function CompleteUsernameForm({ userId, initialUsername = "", onCompleted }) {
       <FormField
         label="username"
         htmlFor="oauth-username"
-        error={submitError}
         labelClassName="text-[18px] sm:text-[22px]"
       >
         <Input
@@ -143,7 +150,7 @@ function CompleteUsernameForm({ userId, initialUsername = "", onCompleted }) {
           placeholder="username"
           value={username}
           onChange={(event) => setUsername(event.target.value)}
-          aria-invalid={Boolean(submitError)}
+          aria-invalid={Boolean(usernameError && submitError)}
           disabled={isSubmitting}
         />
       </FormField>
@@ -171,6 +178,63 @@ function CompleteUsernameForm({ userId, initialUsername = "", onCompleted }) {
         >
           <Toggle value={showAdultContent} onChange={setShowAdultContent} />
         </FormField>
+      ) : null}
+
+      <div className="mt-[14px] flex flex-col gap-[4px]">
+        <label className="flex cursor-pointer items-start gap-[10px]">
+          <input
+            id="oauth-acceptedTerms"
+            name="acceptedTerms"
+            type="checkbox"
+            checked={acceptedTerms}
+            onChange={(e) => setAcceptedTerms(e.target.checked)}
+            className="mt-[3px] h-[16px] w-[16px] shrink-0 cursor-pointer accent-[#8383e7]"
+            disabled={isSubmitting}
+          />
+          <span className="text-[13px] font-semibold leading-snug text-[#a0a0f7]">
+            I agree to the{" "}
+            <Link
+              to="/terms"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline transition hover:text-white"
+            >
+              Terms and Conditions
+            </Link>{" "}
+            and{" "}
+            <Link
+              to="/privacy"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline transition hover:text-white"
+            >
+              Privacy Policy
+            </Link>
+          </span>
+        </label>
+      </div>
+
+      <div className="mt-[8px] flex flex-col gap-[4px]">
+        <label className="flex cursor-pointer items-start gap-[10px]">
+          <input
+            id="oauth-emailMarketingOptIn"
+            name="emailMarketingOptIn"
+            type="checkbox"
+            checked={emailMarketingOptIn}
+            onChange={(e) => setEmailMarketingOptIn(e.target.checked)}
+            className="mt-[3px] h-[16px] w-[16px] shrink-0 cursor-pointer accent-[#8383e7]"
+            disabled={isSubmitting}
+          />
+          <span className="text-[13px] font-semibold leading-snug text-[#a0a0f7]">
+            I'd like to receive occasional product updates and announcements (optional)
+          </span>
+        </label>
+      </div>
+
+      {submitError ? (
+        <p className="mt-[10px] text-center text-[12px] font-semibold text-pink-300">
+          {submitError}
+        </p>
       ) : null}
 
       <button
