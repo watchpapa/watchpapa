@@ -9,20 +9,16 @@
 	"observability": {
 		"enabled": true
 	},
-	// Cutover: route on the existing (proxied) api.watchpapa.tv A record. Rollback = delete
-	// this route → traffic returns to the droplet. After the droplet is gone, delete the A
-	// record and switch this to `"api.watchpapa.tv": { "custom_domain": true }`.
-	//
-	// *** COMMENTED OUT FOR STAGING *** — with no route + workers_dev:true, `wrangler deploy`
-	// publishes to watchpapa-api.<subdomain>.workers.dev ONLY and does not touch
-	// api.watchpapa.tv. UNCOMMENT the routes block (and you may drop workers_dev) at the
-	// Phase 4 cutover.
-	// "routes": [
-	// 	{
-	// 		"pattern": "api.watchpapa.tv/*",
-	// 		"zone_name": "watchpapa.tv"
-	// 	}
-	// ],
+	// Worker serves api.watchpapa.tv via this route (on the existing proxied A record).
+	// Rollback = comment this out + `wrangler deploy` → traffic returns to the droplet.
+	// After the droplet is gone: delete the A record, switch to `"custom_domain": true`.
+	"routes": [
+		{
+			"pattern": "api.watchpapa.tv/*",
+			"zone_name": "watchpapa.tv"
+		}
+	],
+	// keep workers.dev reachable as a debugging fallback
 	"workers_dev": true,
 	// `wrangler hyperdrive create watchpapa-supabase --caching-disabled \
 	//    --connection-string="<supabase session pooler URL>?sslmode=require"`
