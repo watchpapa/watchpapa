@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { supabase } from "../../lib/supabase.js";
-
-const TMDB_IMG = "https://image.tmdb.org/t/p/w185";
+import { apiFetch } from "../../lib/api.js";
+import { tmdbImg } from "../../lib/tmdbImage.js";
 
 function SearchModal({ onSelect, onClose }) {
   const [query, setQuery] = useState("");
@@ -12,35 +11,29 @@ function SearchModal({ onSelect, onClose }) {
   useEffect(() => { inputRef.current?.focus(); }, []);
 
   useEffect(() => {
-    if (!query.trim()) { setResults([]); return; }
+    if (query.trim().length < 2) { setResults([]); return; }
     let cancelled = false;
     setSearching(true);
-    const q = query.trim().toLowerCase();
-
-    Promise.all([
-      supabase
-        .from("movie")
-        .select("id, title, poster_path, release_date")
-        .ilike("title", `%${q}%`)
-        .is("deleted_at", null)
-        .order("tmdb_popularity", { ascending: false })
-        .limit(6),
-      supabase
-        .from("show")
-        .select("id, name, poster_path, first_air_date")
-        .ilike("name", `%${q}%`)
-        .is("deleted_at", null)
-        .order("tmdb_popularity", { ascending: false })
-        .limit(6),
-    ]).then(([movies, shows]) => {
-      if (cancelled) return;
-      setSearching(false);
-      const m = (movies.data ?? []).map((r) => ({ ...r, mediaType: "movie", title: r.title, year: r.release_date?.slice(0, 4) }));
-      const s = (shows.data ?? []).map((r) => ({ ...r, title: r.name, year: r.first_air_date?.slice(0, 4), mediaType: "show" }));
-      setResults([...m, ...s].slice(0, 10));
-    });
-
-    return () => { cancelled = true; };
+    const t = setTimeout(() => {
+      apiFetch(`/api/search?q=${encodeURIComponent(query.trim())}`)
+        .then((d) => {
+          if (cancelled) return;
+          setSearching(false);
+          setResults(
+            (d.results ?? [])
+              .filter((r) => r.type === "movie" || r.type === "show")
+              .slice(0, 10)
+              .map((r) => ({ id: r.tmdbId, mediaType: r.type, title: r.title, year: r.year, poster_path: r.posterPath })),
+          );
+        })
+        .catch(() => {
+          if (!cancelled) setSearching(false);
+        });
+    }, 250);
+    return () => {
+      cancelled = true;
+      clearTimeout(t);
+    };
   }, [query]);
 
   return (
@@ -68,7 +61,7 @@ function SearchModal({ onSelect, onClose }) {
             >
               <div className="h-12 w-8 shrink-0 overflow-hidden rounded border border-[#2a3570] bg-[#0a0c18]">
                 {item.poster_path && (
-                  <img src={`${TMDB_IMG}${item.poster_path}`} alt={item.title} className="h-full w-full object-cover" />
+                  <img src={tmdbImg(item.poster_path, "w185")} alt={item.title} className="h-full w-full object-cover" />
                 )}
               </div>
               <div className="min-w-0">
@@ -122,7 +115,7 @@ export function FavouritesEditor({ favourites, setFavourite }) {
                   className="group relative block aspect-[2/3] w-full overflow-hidden rounded-xl border border-dashed border-[#2a2f5a] bg-[#0a0c18] transition hover:border-[#5a5aaa]"
                 >
                   {poster ? (
-                    <img src={`${TMDB_IMG}${poster}`} alt={title} className="h-full w-full object-cover" loading="lazy" />
+                    <img src={tmdbImg(poster, "w185")} alt={title} className="h-full w-full object-cover" loading="lazy" />
                   ) : (
                     <div className="flex h-full w-full items-center justify-center">
                       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#3a3a7a" strokeWidth="1.5">

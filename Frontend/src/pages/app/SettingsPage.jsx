@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import AppLayout from "../../layouts/AppLayout.jsx";
 import { supabase } from "../../lib/supabase.js";
+import { apiFetch } from "../../lib/api.js";
 import { validateUsername, isValidBoolean } from "../../lib/validate.js";
 import Toggle from "../../components/ui/Toggle.jsx";
 
@@ -85,8 +86,6 @@ function SettingsPage({ session }) {
   const [exportError, setExportError] = useState(null);
 
   // Sync status
-  const [syncStatus, setSyncStatus] = useState(null);
-  const [syncLoading, setSyncLoading] = useState(false);
 
   // Delete
   const [deleteConfirm, setDeleteConfirm] = useState(false);
@@ -113,47 +112,61 @@ function SettingsPage({ session }) {
 
   useEffect(() => { load(); }, [load]);
 
-  const loadSyncStatus = useCallback(async () => {
-    setSyncLoading(true);
-    try {
-      const token = await getToken();
-      const res = await fetch(`${API_BASE}/api/import/sync-status`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (res.ok) setSyncStatus(await res.json());
-    } catch {
-      // silently ignore — row just won't render
-    } finally {
-      setSyncLoading(false);
-    }
-  }, []);
-
-  useEffect(() => { if (!loading) loadSyncStatus(); }, [loading, loadSyncStatus]);
-
   const handleExport = async () => {
     setExporting(true);
     setExportError(null);
     try {
-      const token = await getToken();
-      const res = await fetch(`${API_BASE}/api/import/export`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        setExportError(body.error ?? "Export failed. Please try again.");
-        setExporting(false);
-        return;
+      // The Worker returns rows keyed by tmdb_id; hydrate title/year here, then
+      // compose the watchpapa CSV client-side.
+      const { ratings, watchlistItems } = await apiFetch("/api/import/export", { session });
+
+      const ids = [
+        ...new Set([...ratings, ...watchlistItems].map((r) => Number(r.tmdb_id))),
+      ].map((id) => ({ type: "movie", id }));
+
+      const cards = {};
+      for (let i = 0; i < ids.length; i += 18) {
+        const { cards: c } = await apiFetch("/api/content/batch", {
+          session,
+          method: "POST",
+          body: JSON.stringify({ items: ids.slice(i, i + 18) }),
+        });
+        Object.assign(cards, c);
       }
-      const blob = await res.blob();
+      const meta = (tmdbId) => cards[`movie:${Number(tmdbId)}`] ?? {};
+
+      const esc = (v) => {
+        const s = String(v ?? "");
+        return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+      };
+      const rows = [];
+      const ratedByTmdb = new Map(ratings.map((r) => [Number(r.tmdb_id), r]));
+      const seen = new Set();
+      for (const w of watchlistItems) {
+        const m = meta(w.tmdb_id);
+        seen.add(Number(w.tmdb_id));
+        const rating = ratedByTmdb.get(Number(w.tmdb_id));
+        rows.push([(w.added_at ?? "").slice(0, 10), m.title ?? "", m.year ?? "", "movie", w.watchlist_name, rating?.value ?? "", w.watched ? "true" : "false"]);
+      }
+      for (const r of ratings) {
+        if (seen.has(Number(r.tmdb_id))) continue;
+        const m = meta(r.tmdb_id);
+        rows.push([(r.created_at ?? "").slice(0, 10), m.title ?? "", m.year ?? "", "movie", "", r.value, ""]);
+      }
+
+      const csv =
+        "Date,Name,Year,MediaType,WatchlistName,Rating,Watched\n" +
+        rows.map((row) => row.map(esc).join(",")).join("\n");
+
       const today = new Date().toISOString().slice(0, 10);
-      const url = URL.createObjectURL(blob);
+      const url = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
       const a = document.createElement("a");
       a.href = url;
       a.download = `watchpapa-export-${today}.csv`;
       a.click();
       URL.revokeObjectURL(url);
-    } catch {
-      setExportError("Network error. Please try again.");
+    } catch (e) {
+      setExportError(e?.message ?? "Export failed. Please try again.");
     }
     setExporting(false);
   };
@@ -511,31 +524,6 @@ function SettingsPage({ session }) {
             >
               Import from Letterboxd or watchpapa CSV
             </Link>
-          </Row>
-          <Row label="Background sync">
-            <div className="flex flex-col items-end gap-1">
-              {syncLoading ? (
-                <span className="text-xs text-[#5a5a78]">Checking…</span>
-              ) : syncStatus ? (
-                <div className="flex items-center gap-3">
-                  <span className="text-sm text-[#b0b0d4]">
-                    {syncStatus.success > 0 || syncStatus.failure > 0 ? (
-                      <>
-                        <span className="text-emerald-400 font-semibold">{syncStatus.success}</span>
-                        {syncStatus.failure > 0 && (
-                          <> · <span className="text-red-400 font-semibold">{syncStatus.failure} failed</span></>
-                        )}
-                        <span className="text-[#5a5a78]"> films synced</span>
-                      </>
-                    ) : (
-                      <span className="text-[#5a5a78]">No recent sync activity</span>
-                    )}
-                  </span>
-                  <button onClick={loadSyncStatus} className="text-xs text-[#6868b8] underline hover:text-white">Refresh</button>
-                </div>
-              ) : null}
-              <p className="text-[11px] text-[#5a5a78]">Cast & crew data synced in the last 24 h.</p>
-            </div>
           </Row>
           <Row label="Export my data">
             <div className="flex flex-col items-end gap-1">

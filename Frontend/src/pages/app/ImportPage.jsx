@@ -2,13 +2,16 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import AppLayout from "../../layouts/AppLayout.jsx";
 import { supabase } from "../../lib/supabase.js";
+import { apiFetch } from "../../lib/api.js";
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "";
+const RESOLVE_CHUNK = 10;
 
-async function getToken() {
-  const { data: { session } } = await supabase.auth.getSession();
-  return session?.access_token ?? null;
+function chunk(arr, n) {
+  const out = [];
+  for (let i = 0; i < arr.length; i += n) out.push(arr.slice(i, i + n));
+  return out;
 }
+const filmKey = (i) => i.uri?.trim().toLowerCase() || `${i.name.toLowerCase()}|||${i.year}`;
 
 // ── CSV parser ────────────────────────────────────────────────────────────────
 
@@ -160,10 +163,11 @@ export default function ImportPage({ session }) {
   const [newWatchlistName, setNewWatchlistName] = useState("");
   const [watchlistsLoading, setWatchlistsLoading] = useState(false);
 
-  // Start (fire-and-forget)
+  // Resolve + commit
   const [starting, setStarting] = useState(false);
   const [startError, setStartError] = useState(null);
-  const [startCounts, setStartCounts] = useState(null); // { uniqueFilms, ratings, watchlistItems }
+  const [progress, setProgress] = useState(null); // { done, total }
+  const [startCounts, setStartCounts] = useState(null); // { ratingsImported, watchlistAdded, unresolved }
 
   const fileInputRef = useRef(null);
 
@@ -272,46 +276,95 @@ export default function ImportPage({ session }) {
   }, [handleFiles]);
 
   const handleStart = async () => {
-    const ratings = includeRatings
-      ? lbRatings.map(({ name, year, rating, uri, ratedAt }) => ({ name, year, value: rating, uri, ratedAt }))
+    const ratingSrc = includeRatings
+      ? lbRatings.map(({ name, year, rating, uri, ratedAt }) => ({ name, year, value: rating, uri: uri ?? null, ratedAt: ratedAt ?? null }))
       : [];
-    const watchlistItems = [
-      ...(includeWatchlist ? lbWatchlist.map(({ name, year, uri }) => ({ name, year, watched: false, uri })) : []),
-      ...(includeWatched  ? lbWatched.map(({ name, year, uri })  => ({ name, year, watched: true, uri })) : []),
+    const watchlistSrc = [
+      ...(includeWatchlist ? lbWatchlist.map(({ name, year, uri }) => ({ name, year, watched: false, uri: uri ?? null })) : []),
+      ...(includeWatched ? lbWatched.map(({ name, year, uri }) => ({ name, year, watched: true, uri: uri ?? null })) : []),
     ];
 
-    if (ratings.length === 0 && watchlistItems.length === 0) {
+    if (ratingSrc.length === 0 && watchlistSrc.length === 0) {
       setStartError("Nothing to import. Select at least one data type above.");
       return;
     }
 
+    const session_ = session;
     const watchlistId = selectedWatchlistId === "new" ? null : parseInt(selectedWatchlistId, 10);
-    const watchlistName = selectedWatchlistId === "new" ? (newWatchlistName.trim() || "Imported List") : null;
+    const newWatchlistName_ = selectedWatchlistId === "new" ? (newWatchlistName.trim() || "Imported List") : null;
+
+    // 1. Unique films → resolve to tmdb ids in chunks.
+    const uniqueMap = new Map(); // filmKey -> { name, year, uri }
+    for (const it of [...ratingSrc, ...watchlistSrc]) {
+      const k = filmKey(it);
+      if (!uniqueMap.has(k)) uniqueMap.set(k, { name: it.name, year: it.year, uri: it.uri });
+    }
+    const uniqueFilms = [...uniqueMap.values()];
 
     setStarting(true);
     setStartError(null);
+    setProgress({ done: 0, total: uniqueFilms.length });
+
+    const resolved = new Map(); // filmKey -> tmdbId
+    const unresolved = [];
     try {
-      const token = await getToken();
-      const res = await fetch(`${API_BASE}/api/import/run`, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ ratings, watchlistItems, watchlistId, newWatchlistName: watchlistName, conflictMode }),
-      });
-      const body = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        setStartError(body.error ?? "Failed to start import.");
+      for (const group of chunk(uniqueFilms, RESOLVE_CHUNK)) {
+        const { resolved: r, unresolved: u } = await apiFetch("/api/import/resolve", {
+          session: session_,
+          method: "POST",
+          body: JSON.stringify({ items: group }),
+        });
+        for (const item of r ?? []) {
+          const src = group.find((g) => g.name === item.name && g.year === item.year);
+          if (src) resolved.set(filmKey(src), item.tmdbId);
+        }
+        for (const item of u ?? []) unresolved.push(`${item.name} (${item.year})`);
+        setProgress((p) => ({ ...p, done: p.done + group.length }));
+      }
+
+      // 2. Build commit payload from resolved ids.
+      const ratings = [];
+      for (const it of ratingSrc) {
+        const id = resolved.get(filmKey(it));
+        if (id) ratings.push({ tmdbId: id, value: it.value, ratedAt: it.ratedAt });
+      }
+      const watchlistItems = [];
+      for (const it of watchlistSrc) {
+        const id = resolved.get(filmKey(it));
+        if (id) watchlistItems.push({ tmdbId: id, watched: it.watched });
+      }
+
+      if (ratings.length === 0 && watchlistItems.length === 0) {
+        setStartError("None of the films could be matched on TMDB.");
         setStarting(false);
         return;
       }
-      const uniqueFilms = new Set(
-        [...ratings, ...watchlistItems].map((i) => i.uri?.toLowerCase() || `${i.name.toLowerCase()}|||${i.year}`)
-      ).size;
-      setStartCounts({ uniqueFilms, ratings: ratings.length, watchlistItems: watchlistItems.length });
+
+      // 3. Commit once.
+      const body = await apiFetch("/api/import/commit", {
+        session: session_,
+        method: "POST",
+        body: JSON.stringify({
+          ratings,
+          watchlistItems,
+          watchlistId,
+          newWatchlistName: newWatchlistName_,
+          conflictMode,
+        }),
+      });
+      setStartCounts({
+        ratingsImported: body.ratingsImported ?? 0,
+        ratingsSkipped: body.ratingsSkipped ?? 0,
+        watchlistAdded: body.watchlistAdded ?? 0,
+        watchlistSkipped: body.watchlistSkipped ?? 0,
+        unresolved,
+      });
       setStep(STEPS.DONE);
-    } catch {
-      setStartError("Network error. Please try again.");
+    } catch (e) {
+      setStartError(e?.message ?? "Import failed. Please try again.");
     }
     setStarting(false);
+    setProgress(null);
   };
 
   const hasWatchlistData = (lbWatchlist.length > 0) || (lbWatched.length > 0);
@@ -553,7 +606,7 @@ export default function ImportPage({ session }) {
                 {starting ? (
                   <span className="flex items-center gap-2">
                     <span className="h-4 w-4 animate-spin rounded-full border-2 border-[#3a3a7a] border-t-[#8383e7]" />
-                    Starting…
+                    {progress ? `Matching ${progress.done}/${progress.total}…` : "Importing…"}
                   </span>
                 ) : "Start import"}
               </button>
@@ -571,22 +624,28 @@ export default function ImportPage({ session }) {
         {step === STEPS.DONE && (
           <div className="space-y-4">
             <div className="rounded-2xl border border-emerald-800/40 bg-emerald-950/20 p-5 space-y-2">
-              <p className="font-semibold text-emerald-400">Import started</p>
+              <p className="font-semibold text-emerald-400">Import complete</p>
               <p className="text-sm text-[#8888c8]">
                 {startCounts ? (
                   <>
-                    <span className="text-white font-medium">{startCounts.uniqueFilms}</span> unique film{startCounts.uniqueFilms !== 1 ? "s" : ""}
-                    {startCounts.ratings > 0 && <> · <span className="text-white font-medium">{startCounts.ratings}</span> ratings</>}
-                    {startCounts.watchlistItems > 0 && <> · <span className="text-white font-medium">{startCounts.watchlistItems}</span> watchlist items</>}
-                    {" "}queued.
+                    <span className="text-white font-medium">{startCounts.ratingsImported}</span> rating{startCounts.ratingsImported !== 1 ? "s" : ""} imported
+                    {startCounts.ratingsSkipped > 0 && <> ({startCounts.ratingsSkipped} skipped)</>}
+                    {" · "}
+                    <span className="text-white font-medium">{startCounts.watchlistAdded}</span> watchlist item{startCounts.watchlistAdded !== 1 ? "s" : ""} added
+                    {startCounts.watchlistSkipped > 0 && <> ({startCounts.watchlistSkipped} skipped)</>}.
                   </>
-                ) : "Your data has been queued."}{" "}
-                Everything is running in the background — ratings, watchlist, and cast &amp; crew data.
+                ) : "Your data has been imported."}
               </p>
-              <p className="text-sm text-[#6868b8]">
-                You can leave this page now. Check progress in{" "}
-                <Link to="/settings" className="underline hover:text-white">Settings → Background sync</Link>.
-              </p>
+              {startCounts?.unresolved?.length > 0 && (
+                <details className="text-xs text-[#6868b8]">
+                  <summary className="cursor-pointer">
+                    {startCounts.unresolved.length} film{startCounts.unresolved.length !== 1 ? "s" : ""} couldn&apos;t be matched on TMDB
+                  </summary>
+                  <ul className="mt-2 max-h-40 space-y-0.5 overflow-y-auto">
+                    {startCounts.unresolved.map((u) => <li key={u}>{u}</li>)}
+                  </ul>
+                </details>
+              )}
             </div>
 
             <div className="flex flex-wrap gap-3">

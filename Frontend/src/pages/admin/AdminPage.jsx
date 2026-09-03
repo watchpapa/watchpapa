@@ -28,15 +28,12 @@ const NAV = [
     links: [
       { to: "/admin/catalog-stats",  label: "Catalog Stats" },
       { to: "/admin/announcements",  label: "Announcements" },
-      { to: "/admin/resync",         label: "Content Resync" },
     ],
   },
   {
     section: "Logs",
     links: [
       { to: "/admin/audit-log",    label: "Audit Log" },
-      { to: "/admin/script-logs",  label: "Script Logs" },
-      { to: "/admin/queue",        label: "Queue" },
     ],
   },
 ];

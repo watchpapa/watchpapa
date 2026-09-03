@@ -31,22 +31,14 @@ function CatalogStatsPage() {
 
   useEffect(() => { refresh(); }, [refresh]);
 
-  const c = stats?.content;
-  const cr = stats?.credits;
   const a = stats?.activity;
-
-  const totalContent = c
-    ? c.movies.active + c.shows + c.seasons + c.episodes + c.people.active
-    : 0;
-
-  const totalCredits = cr ? cr.movie + cr.show + cr.episode : 0;
 
   return (
     <div>
       <div className="mb-6 flex items-center justify-between">
         <div>
           <h1 className="text-lg font-semibold text-white">Catalog Stats</h1>
-          <p className="mt-0.5 text-xs text-[#6868b8]">Row counts across all content and activity tables</p>
+          <p className="mt-0.5 text-xs text-[#6868b8]">User activity row counts (content is served live from TMDB)</p>
         </div>
         <button
           onClick={refresh}
@@ -67,39 +59,15 @@ function CatalogStatsPage() {
         <p className="text-sm text-[#6868b8]">Loading…</p>
       )}
 
-      {stats && (
+      {stats && a && (
         <div className="space-y-8">
 
           {/* Summary row */}
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-            <StatCard label="Total catalog rows" value={n(totalContent)} accent />
-            <StatCard label="Total credit rows" value={n(totalCredits)} accent />
+            <StatCard label="Profiles" value={n(a.profiles)} accent />
             <StatCard label="Total ratings" value={n(a.ratings)} accent />
+            <StatCard label="Total follows" value={n(a.followedMovies + a.followedShows)} accent />
           </div>
-
-          <Section title="Content">
-            <StatCard
-              label="Movies"
-              value={n(c.movies.active)}
-              sub={c.movies.deleted > 0 ? `+ ${n(c.movies.deleted)} soft-deleted` : undefined}
-            />
-            <StatCard label="TV Shows" value={n(c.shows)} />
-            <StatCard label="Seasons" value={n(c.seasons)} />
-            <StatCard label="Episodes" value={n(c.episodes)} />
-            <StatCard
-              label="People"
-              value={n(c.people.active)}
-              sub={c.people.deleted > 0 ? `+ ${n(c.people.deleted)} soft-deleted` : undefined}
-            />
-            <StatCard label="Person AKAs" value={n(cr.personAkas)} />
-            <StatCard label="Genres" value={n(c.genres)} />
-          </Section>
-
-          <Section title="Credits">
-            <StatCard label="Movie credits" value={n(cr.movie)} />
-            <StatCard label="Show credits" value={n(cr.show)} />
-            <StatCard label="Episode credits" value={n(cr.episode)} />
-          </Section>
 
           <Section title="User Activity">
             <StatCard label="Ratings" value={n(a.ratings)} />
