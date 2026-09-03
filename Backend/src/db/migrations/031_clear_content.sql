@@ -68,10 +68,11 @@ ALTER TABLE public.profile_favourite
 ALTER TABLE public.user_followed_movies ALTER COLUMN tmdb_id SET NOT NULL, DROP COLUMN movie_id;
 ALTER TABLE public.user_followed_shows  ALTER COLUMN tmdb_id SET NOT NULL, DROP COLUMN show_id;
 
--- 4. Drop functions that only made sense with the mirror; promote _v2.
+-- 4. Drop functions that only made sense with the mirror. get_activity_feed_v2
+--    keeps its name (the live frontend calls it by that name — renaming would 404
+--    the activity feed until a paired frontend deploy).
 DROP FUNCTION IF EXISTS public.get_activity_feed(integer, integer, boolean);
 DROP FUNCTION IF EXISTS public.get_profile_genre_stats(uuid);
-ALTER FUNCTION public.get_activity_feed_v2(integer, integer) RENAME TO get_activity_feed;
 
 -- 5. Clear the mirror. Tables, indexes, RLS policies and tmdb_id constraints all
 --    stay; only the rows go. CASCADE handles the FKs *among* these 15 tables
