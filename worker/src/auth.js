@@ -48,7 +48,7 @@ export async function requireAdmin(c, next) {
   const sql = getSql(c);
   try {
     const rows = await sql`SELECT role FROM public.profile WHERE id = ${user.id}`;
-    if (rows[0]?.role !== 4) return c.json({ error: "Forbidden" }, 403);
+    if (Number(rows[0]?.role) !== 4) return c.json({ error: "Forbidden" }, 403);
     c.set("role", 4);
   } catch {
     return c.json({ error: "Internal server error" }, 500);
@@ -64,7 +64,7 @@ export async function requireEditor(c, next) {
   const sql = getSql(c);
   try {
     const rows = await sql`SELECT role FROM public.profile WHERE id = ${user.id}`;
-    const role = rows[0]?.role;
+    const role = Number(rows[0]?.role);
     if (role !== 3 && role !== 4) return c.json({ error: "Forbidden" }, 403);
     c.set("role", role);
   } catch {

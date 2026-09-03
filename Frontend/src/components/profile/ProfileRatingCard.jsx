@@ -11,7 +11,7 @@ const TYPE_BADGE = {
 };
 
 function getItemMeta(rating) {
-  if (rating.movie_id && rating.movie) {
+  if (rating.media_type === "movie" && rating.movie) {
     return {
       type: "movie",
       title: rating.movie.title,
@@ -20,7 +20,7 @@ function getItemMeta(rating) {
       to: `/movies/${rating.movie.id}`,
     };
   }
-  if (rating.show_id && rating.show) {
+  if (rating.media_type === "show" && rating.show) {
     return {
       type: "show",
       title: rating.show.name,
@@ -29,25 +29,32 @@ function getItemMeta(rating) {
       to: `/shows/${rating.show.id}`,
     };
   }
-  if (rating.season_id && rating.season) {
+  if (rating.media_type === "season" && rating.season) {
     const show = rating.season.show;
     return {
       type: "season",
       title: `${show?.name ?? "Unknown Show"} — ${rating.season.name}`,
       poster: rating.season.poster_path ?? show?.poster_path,
       year: rating.season.air_date?.slice(0, 4),
-      to: `/shows/${show?.id}/seasons/${rating.season.id}`,
+      to: `/shows/${show?.id}/seasons/${rating.season.season_number}`,
     };
   }
-  if (rating.episode_id && rating.episode) {
+  if (rating.media_type === "episode" && rating.episode) {
     const show = rating.episode.season?.show;
     return {
       type: "episode",
       title: `${show?.name ?? "Unknown Show"} — ${rating.episode.name}`,
       poster: show?.poster_path,
       year: rating.episode.air_date?.slice(0, 4),
-      to: `/shows/${show?.id}`,
+      to: show?.id
+        ? `/shows/${show.id}/seasons/${rating.episode.season_number}/episodes/${rating.episode.episode_number}`
+        : "/",
     };
+  }
+  // Not yet hydrated (card still loading) — render a lightweight placeholder so
+  // the grid doesn't collapse.
+  if (rating.media_type) {
+    return { type: rating.media_type, title: "…", poster: null, year: null, to: "/" };
   }
   return null;
 }

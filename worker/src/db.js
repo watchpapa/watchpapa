@@ -16,6 +16,17 @@ export function getSql(c) {
     fetch_types: false,
     prepare: false,
     idle_timeout: 20,
+    // Parse int8/bigint as JS numbers (tmdb ids + our bigint PKs are all well
+    // within Number.MAX_SAFE_INTEGER). Without this, postgres.js returns them as
+    // strings, which breaks numeric comparisons like `role !== 4`.
+    types: {
+      bigint: {
+        to: 20,
+        from: [20],
+        parse: (x) => (x === null ? null : Number(x)),
+        serialize: (x) => x.toString(),
+      },
+    },
   });
 }
 
