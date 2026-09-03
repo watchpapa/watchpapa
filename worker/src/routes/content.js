@@ -1,0 +1,334 @@
+import { Hono } from "hono";
+import { config } from "../env.js";
+import { tmdbFetch, tmdbFetchAllSettled, TmdbNotFound } from "../tmdb/client.js";
+import { LIST_KINDS, TTL } from "../tmdb/lists.js";
+import {
+  normalizeMovie,
+  normalizeShow,
+  normalizeSeason,
+  normalizeEpisode,
+  normalizePerson,
+  toCard,
+} from "../tmdb/normalize.js";
+
+export const content = new Hono();
+
+const cache = (ttl) => ({ "Cache-Control": `public, s-maxage=${ttl}, max-age=60` });
+
+function posInt(raw) {
+  const n = Number.parseInt(raw, 10);
+  return Number.isInteger(n) && n > 0 ? n : null;
+}
+function nonNegInt(raw) {
+  const n = Number.parseInt(raw, 10);
+  return Number.isInteger(n) && n >= 0 ? n : null;
+}
+
+// --- detail endpoints -------------------------------------------------------
+
+content.get("/movie/:id", async (c) => {
+  const id = posInt(c.req.param("id"));
+  if (!id) return c.json({ error: "Bad id" }, 400);
+  const raw = await tmdbFetch(c.env, `/movie/${id}`, { append_to_response: "credits" }, { ttl: TTL.movie });
+  return c.json(normalizeMovie(raw), 200, cache(TTL.movie));
+});
+
+content.get("/show/:id", async (c) => {
+  const id = posInt(c.req.param("id"));
+  if (!id) return c.json({ error: "Bad id" }, 400);
+  const raw = await tmdbFetch(c.env, `/tv/${id}`, { append_to_response: "aggregate_credits" }, { ttl: TTL.show });
+  return c.json(normalizeShow(raw), 200, cache(TTL.show));
+});
+
+content.get("/show/:id/season/:n", async (c) => {
+  const id = posInt(c.req.param("id"));
+  const n = nonNegInt(c.req.param("n"));
+  if (!id || n === null) return c.json({ error: "Bad id" }, 400);
+  const raw = await tmdbFetch(c.env, `/tv/${id}/season/${n}`, {}, { ttl: TTL.season });
+  return c.json(normalizeSeason(raw, id), 200, cache(TTL.season));
+});
+
+content.get("/show/:id/season/:n/episode/:m", async (c) => {
+  const id = posInt(c.req.param("id"));
+  const n = nonNegInt(c.req.param("n"));
+  const m = posInt(c.req.param("m"));
+  if (!id || n === null || !m) return c.json({ error: "Bad id" }, 400);
+  const raw = await tmdbFetch(
+    c.env,
+    `/tv/${id}/season/${n}/episode/${m}`,
+    { append_to_response: "credits" },
+    { ttl: TTL.episode },
+  );
+  return c.json(normalizeEpisode(raw, id), 200, cache(TTL.episode));
+});
+
+content.get("/person/:id", async (c) => {
+  const id = posInt(c.req.param("id"));
+  if (!id) return c.json({ error: "Bad id" }, 400);
+  const raw = await tmdbFetch(c.env, `/person/${id}`, { append_to_response: "combined_credits" }, { ttl: TTL.person });
+  return c.json(normalizePerson(raw), 200, cache(TTL.person));
+});
+
+// --- browse endpoints ------------------------------------------------------
+
+content.get("/genres", async (c) => {
+  const [movie, tv] = await tmdbFetchAllSettled(c.env, [
+    { path: "/genre/movie/list", opts: { ttl: TTL.genres } },
+    { path: "/genre/tv/list", opts: { ttl: TTL.genres } },
+  ]);
+  return c.json({ movie: movie?.genres ?? [], tv: tv?.genres ?? [] }, 200, cache(TTL.genres));
+});
+
+content.get("/list/:kind", async (c) => {
+  const spec = LIST_KINDS[c.req.param("kind")];
+  if (!spec) return c.json({ error: "Unknown list kind" }, 404);
+  const page = posInt(c.req.query("page")) ?? 1;
+  const includeAdult = c.req.query("include_adult") === "true";
+  const raw = await tmdbFetch(c.env, spec.path, { page, include_adult: includeAdult }, { ttl: spec.ttl });
+  let results = raw.results ?? [];
+  if (!includeAdult) results = results.filter((r) => !r.adult);
+  return c.json(
+    {
+      page: raw.page ?? page,
+      total_pages: raw.total_pages ?? 1,
+      results: results.map((r) => toCard(spec.media, r)),
+    },
+    200,
+    cache(spec.ttl),
+  );
+});
+
+content.get("/discover/:type", async (c) => {
+  const type = c.req.param("type");
+  if (type !== "movie" && type !== "tv") return c.json({ error: "Bad type" }, 400);
+  const page = posInt(c.req.query("page")) ?? 1;
+  const includeAdult = c.req.query("include_adult") === "true";
+  const withGenres = c.req.query("with_genres");
+  const upcoming = c.req.query("upcoming") === "1";
+  const today = new Date().toISOString().slice(0, 10);
+
+  const params = {
+    page,
+    include_adult: includeAdult,
+    sort_by: "popularity.desc", // "coming soon" = popular AND upcoming, not date-ordered
+    with_genres: withGenres || undefined,
+  };
+  if (upcoming) {
+    if (type === "movie") {
+      params["primary_release_date.gte"] = today;
+      params["with_release_type"] = "2|3"; // theatrical / theatrical-limited
+    } else {
+      params["first_air_date.gte"] = today;
+    }
+  }
+
+  const raw = await tmdbFetch(c.env, `/discover/${type}`, params, { ttl: TTL.discover });
+  let results = raw.results ?? [];
+  if (!includeAdult) results = results.filter((r) => !r.adult);
+  return c.json(
+    {
+      page: raw.page ?? page,
+      total_pages: raw.total_pages ?? 1,
+      results: results.map((r) => toCard(type === "tv" ? "show" : "movie", r)),
+    },
+    200,
+    cache(TTL.discover),
+  );
+});
+
+// --- batch card hydration --------------------------------------------------
+//
+// Body: { items: [{ type, id, showId?, seasonNumber?, episodeNumber? }] }
+// Returns: { cards: { "<key>": card }, missing: ["<key>"] }
+// key: movie:ID | show:ID | person:ID | season:SHOW:N | episode:SHOW:N:M
+
+function itemKey(it) {
+  if (it.type === "season") return `season:${it.showId}:${it.seasonNumber}`;
+  if (it.type === "episode") return `episode:${it.showId}:${it.seasonNumber}:${it.episodeNumber}`;
+  return `${it.type}:${it.id}`;
+}
+
+content.post("/batch", async (c) => {
+  const cfg = config(c.env);
+  let body;
+  try {
+    body = await c.req.json();
+  } catch {
+    return c.json({ error: "Bad JSON" }, 400);
+  }
+  const items = Array.isArray(body?.items) ? body.items.slice(0, cfg.batchMax) : [];
+  if (items.length === 0) return c.json({ cards: {}, missing: [] });
+
+  const cards = {};
+  const missing = [];
+  let fetches = 0;
+
+  // Per-request memo so repeated show/season fetches within a batch cost once.
+  const memo = new Map();
+  const memoFetch = (key, path, params, ttl) => {
+    if (!memo.has(key)) {
+      fetches += 1;
+      memo.set(
+        key,
+        tmdbFetch(c.env, path, params, { ttl }).catch((e) => {
+          if (e instanceof TmdbNotFound) return null;
+          throw e;
+        }),
+      );
+    }
+    return memo.get(key);
+  };
+
+  for (const it of items) {
+    const key = itemKey(it);
+    const cost =
+      it.type === "movie" || it.type === "show" || it.type === "person" ? 1 : 2;
+    if (fetches + cost > cfg.batchSubreqBudget) {
+      missing.push(key);
+      continue;
+    }
+    try {
+      if (it.type === "movie") {
+        const m = await memoFetch(`movie:${it.id}`, `/movie/${it.id}`, {}, TTL.movie);
+        if (m) cards[key] = toCard("movie", m);
+        else missing.push(key);
+      } else if (it.type === "show") {
+        const s = await memoFetch(`tv:${it.id}`, `/tv/${it.id}`, {}, TTL.show);
+        if (s) cards[key] = toCard("show", s);
+        else missing.push(key);
+      } else if (it.type === "person") {
+        const p = await memoFetch(`person:${it.id}`, `/person/${it.id}`, {}, TTL.person);
+        if (p) cards[key] = toCard("person", p);
+        else missing.push(key);
+      } else if (it.type === "season") {
+        const [show, se] = await Promise.all([
+          memoFetch(`tv:${it.showId}`, `/tv/${it.showId}`, {}, TTL.show),
+          memoFetch(
+            `season:${it.showId}:${it.seasonNumber}`,
+            `/tv/${it.showId}/season/${it.seasonNumber}`,
+            {},
+            TTL.season,
+          ),
+        ]);
+        if (se) {
+          cards[key] = toCard("season", se, {
+            showId: it.showId,
+            showTitle: show?.name ?? null,
+            adult: Boolean(show?.adult),
+          });
+        } else missing.push(key);
+      } else if (it.type === "episode") {
+        const [show, se] = await Promise.all([
+          memoFetch(`tv:${it.showId}`, `/tv/${it.showId}`, {}, TTL.show),
+          memoFetch(
+            `season:${it.showId}:${it.seasonNumber}`,
+            `/tv/${it.showId}/season/${it.seasonNumber}`,
+            {},
+            TTL.season,
+          ),
+        ]);
+        const ep = se?.episodes?.find((e) => e.episode_number === it.episodeNumber);
+        if (ep) {
+          cards[key] = toCard("episode", ep, {
+            showId: it.showId,
+            showTitle: show?.name ?? null,
+            adult: Boolean(show?.adult),
+          });
+        } else missing.push(key);
+      } else {
+        missing.push(key);
+      }
+    } catch {
+      missing.push(key);
+    }
+  }
+
+  return c.json({ cards, missing }, 200, cache(3600));
+});
+
+// --- calendar releases ---------------------------------------------------------
+//
+// Body: { showIds: number[], year, month }  (month 1-12)
+// Returns: { entries: { "YYYY-MM-DD": [{ type:'episode', showId, showName, seasonNumber, episodeNumber, name, runtime }] } }
+//
+// Bounded: base /tv fetch per show + at most 2 season fetches per show.
+
+content.post("/releases", async (c) => {
+  const cfg = config(c.env);
+  let body;
+  try {
+    body = await c.req.json();
+  } catch {
+    return c.json({ error: "Bad JSON" }, 400);
+  }
+  const showIds = [...new Set((body?.showIds ?? []).filter((n) => Number.isInteger(n) && n > 0))].slice(
+    0,
+    cfg.releasesMaxShows,
+  );
+  const yr = posInt(String(body?.year));
+  const mo = posInt(String(body?.month));
+  if (!yr || !mo || mo > 12) return c.json({ error: "Bad year/month" }, 400);
+
+  const monthStart = `${yr}-${String(mo).padStart(2, "0")}-01`;
+  const lastDay = new Date(yr, mo, 0).getDate();
+  const monthEnd = `${yr}-${String(mo).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
+
+  const entries = {};
+  const addEntry = (date, entry) => {
+    (entries[date] ??= []).push(entry);
+  };
+
+  await Promise.all(
+    showIds.map(async (showId) => {
+      let show;
+      try {
+        show = await tmdbFetch(c.env, `/tv/${showId}`, {}, { ttl: TTL.show });
+      } catch (e) {
+        if (e instanceof TmdbNotFound) return;
+        throw e;
+      }
+
+      const nextAir = show.next_episode_to_air?.air_date ?? null;
+      const canSkip =
+        show.last_air_date &&
+        show.last_air_date < monthStart &&
+        (!nextAir || nextAir > monthEnd);
+      if (canSkip) return;
+
+      const candidates = (show.seasons ?? [])
+        .filter((se) => se.season_number > 0)
+        .filter((se) => !se.air_date || se.air_date <= monthEnd)
+        .sort((a, b) => b.season_number - a.season_number)
+        .slice(0, 2);
+
+      const seasons = await Promise.all(
+        candidates.map((se) =>
+          tmdbFetch(c.env, `/tv/${showId}/season/${se.season_number}`, {}, { ttl: TTL.season }).catch(
+            (e) => {
+              if (e instanceof TmdbNotFound) return null;
+              throw e;
+            },
+          ),
+        ),
+      );
+
+      for (const se of seasons) {
+        if (!se) continue;
+        for (const ep of se.episodes ?? []) {
+          if (!ep.air_date || ep.air_date < monthStart || ep.air_date > monthEnd) continue;
+          addEntry(ep.air_date, {
+            type: "episode",
+            showId,
+            showName: show.name ?? "",
+            seasonNumber: ep.season_number ?? se.season_number,
+            episodeNumber: ep.episode_number,
+            name: ep.name ?? "",
+            runtime: ep.runtime ?? null,
+          });
+        }
+      }
+    }),
+  );
+
+  return c.json({ entries }, 200, cache(6 * 3600));
+});

@@ -1,0 +1,42 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "watchpapa-api",
+  "main": "src/index.js",
+  "compatibility_date": "2026-09-03",
+  "compatibility_flags": ["nodejs_compat"],
+  "observability": { "enabled": true },
+
+  // Cutover: route on the existing (proxied) api.watchpapa.tv A record. Rollback = delete
+  // this route → traffic returns to the droplet. After the droplet is gone, delete the A
+  // record and switch this to `"api.watchpapa.tv": { "custom_domain": true }` via `routes`
+  // or the `routes` array with `custom_domain`.
+  "routes": [{ "pattern": "api.watchpapa.tv/*", "zone_name": "watchpapa.tv" }],
+
+  // `wrangler hyperdrive create watchpapa-supabase --caching-disabled \
+  //    --connection-string="<supabase session pooler URL>?sslmode=require"`
+  // then paste the id below. User data is read-write per user → caching must stay disabled.
+  "hyperdrive": [
+    {
+      "binding": "HYPERDRIVE",
+      "id": "REPLACE_WITH_HYPERDRIVE_ID"
+    }
+  ],
+
+  "vars": {
+    "ALLOWED_ORIGINS": "https://watchpapa.tv,http://localhost:5173,http://localhost:4173",
+    "SUPABASE_URL": "https://slflrvbmlrpwbndzhsjp.supabase.co",
+    "BATCH_MAX": "18",
+    "BATCH_SUBREQ_BUDGET": "36",
+    "IMPORT_CHUNK_MAX": "10",
+    "RELEASES_MAX_SHOWS": "12",
+    "SITEMAP_PAGES": "8"
+  },
+
+  // `env.RL_*.limit({ key })` → { success }. period must be 10 or 60.
+  // If unavailable on the Free plan, delete this block (src/ratelimit.js no-ops gracefully)
+  // and add one Cloudflare WAF rate-limiting rule on api.watchpapa.tv instead.
+  "ratelimits": [
+    { "name": "RL_GLOBAL", "namespace_id": "1001", "simple": { "limit": 240, "period": 60 } },
+    { "name": "RL_MUTATION", "namespace_id": "1002", "simple": { "limit": 30, "period": 60 } }
+  ]
+}
