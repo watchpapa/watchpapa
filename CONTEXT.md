@@ -1,24 +1,31 @@
 # CONTEXT.md — watchpapa.tv Codebase Reference
 
-Monorepo for watchpapa.tv — a web app for tracking movie/TV show releases. Co-located Express backend (root) and Vite React frontend (`Frontend/`). For product narrative, setup, and ER diagram see `README.md`; for architecture deep-dives see `docs/`; for recent releases see `releases.md`.
+Monorepo for watchpapa.tv — a web app for tracking movie/TV show releases. Vite React frontend (`Frontend/`, Cloudflare Pages) + a Cloudflare Worker API (`worker/`, Hono). Content is read live from TMDB v3; only user data is stored (Supabase). For product narrative see `README.md`; for recent releases see `releases.md`.
 
 ---
 
 ## Tech Stack
 
+> **2026-09 architecture change** — the TMDB content mirror is gone. Movies / shows /
+> seasons / episodes / people / credits / genres are now read **live from TMDB v3**
+> through a Cloudflare Worker (`worker/`), which also replaced the Express API. The
+> DigitalOcean droplet, its self-hosted runner, and the ingestion scripts are
+> decommissioned. User tables key on `tmdb_id`. The 15 mirror tables still exist as
+> **empty scaffolding** (migration 031 `TRUNCATE`d them). See migrations 029–031 and
+> the plan at `~/.claude/plans/big-job-ahead-of-crystalline-journal.md`.
+
 | Layer | Technology |
 |---|---|
-| Frontend | React 19, Vite 5, React Router 7, Tailwind CSS 4 |
-| Backend | Node.js ESM, Express 4, Helmet, express-rate-limit |
-| ORM / DB access | Sequelize 6 driver-mode only — `sequelize.query()` with named `replacements:`. Never model CRUD. |
-| Database | Supabase PostgreSQL (managed). SSL required. |
-| Auth | Supabase Auth — JWT bearer tokens. Backend uses service-role key to verify. |
-| Image CDN | TMDB CDN direct: `https://image.tmdb.org/t/p/{size}{path}`. DB stores path only. |
-| Deployment | DigitalOcean Droplet, Ubuntu 24.04, systemd (`watchpapa` service), Nginx reverse proxy |
-| Frontend host | Cloudflare Pages (`watchpapa.tv`). API at `api.watchpapa.tv` (Cloudflare proxy → Droplet, SSL Flexible). |
-| CI/CD | GitHub Actions — 5 workflows, self-hosted runner |
+| Frontend | React 19, Vite 5, React Router 7, Tailwind CSS 4 — Cloudflare Pages (`watchpapa.tv`) |
+| API | **Cloudflare Worker** (`worker/`), Hono 4, JS ESM. Reads TMDB v3 live with edge caching; user data via Hyperdrive → Supabase. Served at `api.watchpapa.tv` (Worker route on the proxied A record) + `watchpapa-api.dursky-k.workers.dev` |
+| Worker DB access | `postgres.js` over the `HYPERDRIVE` binding (caching disabled), raw tagged-template SQL. int8 parsed as JS number. |
+| Frontend DB access | supabase-js directly (RLS-gated) for user tables; the Worker for all content + the few multi-table endpoints |
+| Database | Supabase PostgreSQL (managed, `slflrvbmlrpwbndzhsjp`, eu-west-1). SSL required. |
+| Auth | Supabase Auth — JWT bearer. Worker verifies **locally** via JWKS (`jose`, ES256) — no service-role round-trip. |
+| Image CDN | TMDB CDN direct: `https://image.tmdb.org/t/p/{size}{path}`. `Frontend/src/lib/tmdbImage.js` builds URLs. Canvas/share cards go through the Worker `/api/image-proxy`. |
+| CI/CD | Cloudflare Pages git build (`watchpapa`, `production` branch) + Cloudflare Workers Builds (`watchpapa-api`, `production`, root `worker/`). `.github/workflows/deploy-worker.yml` is a manual-dispatch backup. |
 | Email | Supabase Auth SMTP via Resend |
-| Testing | Node built-in test runner (injection tests), pytest (RLS tests) |
+| Testing | Worker: `vitest` (`worker/test/`). Root: `node --test` (`tests/rls_tests/`), pytest (`tests/test_environment.py`). |
 
 ---
 
@@ -26,50 +33,28 @@ Monorepo for watchpapa.tv — a web app for tracking movie/TV show releases. Co-
 
 ```
 watchpapa/
-├── index.js                          # HTTP server entry — connects DB, calls app.listen()
-├── app.js                            # Express app factory — all routes/middleware mounted here
-├── package.json                      # npm scripts: start, dev, seed:tmdb:*, test:*
-├── Backend/src/
-│   ├── db/
-│   │   ├── database.js               # Sequelize instance (DATABASE_URL + SSL)
-│   │   └── migrations/               # 001–015 SQL migration files — apply via Supabase MCP
-│   ├── routes/
-│   │   ├── search.js                 # GET /api/search — local + TMDB fallback
-│   │   ├── posters.js                # GET /api/posters — random poster paths for auth BG
-│   │   ├── inject.js                 # POST /api/inject — background TMDB ingest
-│   │   ├── resolve.js                # POST /api/resolve — stub upsert + background ingest
-│   │   ├── referral.js               # POST /api/referral/use/:code
-│   │   ├── rewards.js                # POST /api/rewards/claim
-│   │   ├── announcements.js          # GET (public) + POST/PATCH (requireEditor inside)
-│   │   └── sitemap.js                # /sitemap*.xml handlers (5 sitemaps)
-│   │   └── admin/                    # All require adminLimiter + requireAuth + requireAdmin
-│   │       ├── rewardCodes.js        # /api/admin/reward-codes CRUD
-│   │       ├── stats.js              # /api/admin/stats
-│   │       ├── users.js              # /api/admin/users
-│   │       ├── referrals.js          # /api/admin/referrals
-│   │       ├── auditLog.js           # /api/admin/audit-log
-│   │       ├── scriptLogs.js         # /api/admin/script-logs
-│   │       ├── announcements.js      # /api/admin/announcements
-│   │       └── resync.js             # /api/admin/resync
-│   ├── middleware/
-│   │   ├── requireAuth.js            # Validates Bearer JWT via Supabase service-role client
-│   │   ├── requireAdmin.js           # Requires profile.role = 4
-│   │   ├── requireEditor.js          # Requires profile.role >= 3
-│   │   └── auditLog.js               # Writes selected request fields to audit_events
-│   ├── services/
-│   │   └── searchService.js          # Local DB search + TMDB fallback + fast-upsert helpers
-│   ├── lib/
-│   │   ├── ingestionQueue.js         # dedupIngest(key, fn) — deduplicates concurrent ingest jobs
-│   │   ├── logScriptRun.js           # Writes outcome rows to script_logs
-│   │   ├── sanitizeTmdb.js           # Normalises TMDB API payloads before DB writes
-│   │   ├── tmdb_rate_limited_fetch.js # fetch() wrapper, ~40 req/s rate limit
-│   │   └── tmdb_changes_fetch.js     # Fetches entity change lists from TMDB
-│   └── scripts/                      # ~44 TMDB ingestion scripts (npm run seed:tmdb:*)
-│       ├── inject_{movie,tv_show,person,genres,jobs_and_departments}.js
-│       ├── inject_popular_{movies,shows,people}_today.js
-│       ├── inject_top_rated_{movies,shows}.js
-│       ├── inject_changed_{all,movies,shows,people}_24h.js
-│       └── update_tmdb_popularity_{movies,shows,people}.js
+├── package.json                      # root: DB-migration home + RLS tests only (test:rls, test:py)
+├── worker/                           # ── Cloudflare Worker API (Hono) ──
+│   ├── wrangler.jsonc                # bindings: HYPERDRIVE, RL_GLOBAL/RL_MUTATION; route api.watchpapa.tv/*
+│   ├── src/
+│   │   ├── index.js                 # Hono app — CORS, rate limits, route mounts, error handlers
+│   │   ├── env.js                   # parse wrangler vars → typed caps (BATCH_MAX, etc.)
+│   │   ├── db.js                    # getSql(c) / withSql(c, fn) — postgres.js over HYPERDRIVE, int8→number
+│   │   ├── auth.js                  # requireAuth (jose JWKS, ES256) / requireAdmin / requireEditor
+│   │   ├── audit.js                 # auditLog(action, fields) → executionCtx.waitUntil INSERT
+│   │   ├── ratelimit.js             # RL_GLOBAL / RL_MUTATION wrappers (no-op if binding absent)
+│   │   ├── tmdb/
+│   │   │   ├── client.js            # tmdbFetch(env, path, params, {ttl}) — fetch + cf cache + 429 retry
+│   │   │   ├── normalize.js         # TMDB payloads → the field names the UI reads (id === tmdb_id)
+│   │   │   └── lists.js             # list-kind → TMDB endpoint + TTL map
+│   │   ├── routes/
+│   │   │   ├── content.js           # /api/content/* — detail, list, discover, genres, POST batch, POST releases
+│   │   │   ├── publicContent.js     # /api/search, /api/posters, /api/image-proxy, /sitemap*.xml
+│   │   │   ├── referral.js  rewards.js  announcements.js  import.js
+│   │   │   └── admin/{index,users,stats,rewardCodes,referrals,auditLog,announcements}.js
+│   │   └── lib/{letterboxdUri,csv}.js
+│   └── test/                        # vitest — normalize / csv fixtures
+├── Backend/src/db/migrations/        # 001–031 SQL — apply via Supabase MCP (only thing left under Backend/)
 ├── Frontend/src/
 │   ├── main.jsx                      # Vite entry — mounts <App /> inside <BrowserRouter>
 │   ├── App.jsx                       # Full route tree + auth/session bootstrap
@@ -81,11 +66,14 @@ watchpapa/
 │   │   ├── auth/                     # Auth flow pages (see route map below)
 │   │   └── admin/                    # Admin dashboard pages (AdminRoute guard)
 │   ├── features/                     # Per-domain hooks — one hooks/ subfolder per domain
-│   │   └── admin/
-│   │       ├── adminFetch.js         # Fetch helper that auto-attaches session Bearer token
-│   │       └── hooks/                # useAdminAnnouncements, useScriptLogs, useIsAdmin (role check for non-admin pages), …
-│   ├── features/watchlist/hooks/     # useWatchlists, useWatchlistItems(watchlistId, session, refreshKey), useItemWatchlistStatus
-│   ├── features/rating/hooks/        # useRating(mediaType, entityId, session), useCommunityRatings(mediaType, entityId)
+│   │   ├── content/                  # ── all TMDB-content reads go through here ──
+│   │   │   ├── hooks/useContent.js   # useMovie/useShow/useSeason/useEpisode/usePerson/useContentList/useDiscover/useGenres
+│   │   │   ├── hooks/useContentBatch.js  # POST /api/content/batch — hydrate cards for user-data rows
+│   │   │   ├── hooks/useMediaBrowse.js   # shared engine for /movies + /shows (popular + coming-soon + genre rows)
+│   │   │   └── lib/keys.js           # cardKey(item), itemFromRow(row) — map a (media_type, tmdb_id) row to a batch item
+│   │   └── admin/hooks/              # useAdminAnnouncements, useIsAdmin, … (via adminFetch.js Bearer helper)
+│   ├── features/watchlist/hooks/     # useWatchlistItems (selects tmdb_id, hydrates via useContentBatch), useItemWatchlistStatus
+│   ├── features/rating/hooks/        # useRating(mediaType, tmdbId, session, {tmdbShowId,seasonNumber,episodeNumber}), useCommunityRatings(mediaType, tmdbId)
 │   ├── features/profile/hooks/       # useProfileData(username, session), useProfileRatings(profileId), useProfileStats(profileId, ownerTier), useEditProfile(session), useProfileRecapStats(profileId, tier) — fetches last 30 days of user_rating and aggregates into weekly/monthly windows client-side
 │   ├── features/follows/hooks/       # useFollows(session), useOverageStatus(session, refreshKey) — NOTE: ReleasesCalendarPage and FollowsPage derive overage live from reactive arrays instead of calling this hook
 │   ├── components/
@@ -107,16 +95,13 @@ watchpapa/
 │   │   └── static/                   # InfoPageShell
 │   └── lib/
 │       ├── supabase.js               # Supabase JS client (anon key, consent-aware storage)
-│       ├── cookieConsent.js          # Cookie consent state helpers
-│       ├── constants.js              # App-wide constants
-│       ├── cn.js                     # Tailwind class merger
-│       └── validate.js               # Form validation utilities
-├── tests/
-│   ├── injections_tests/             # Node test runner — ingestion pipeline tests
-│   └── rls_tests/                    # RLS policy enforcement tests
-├── .github/workflows/                # deploy, daily-sync, weekly-sync, full-sync, seed-one-off
-├── scripts/                          # Nginx config, systemd service, droplet setup, seed-manual.sh
-└── docs/                             # Architecture/security/DB deep-dive markdown files
+│       ├── api.js                    # apiFetch(path, {session}) + API_BASE — calls the Worker
+│       ├── tmdbImage.js              # tmdbImg(path, size) / tmdbImgProxied(...) — replaces 21 hard-coded URLs
+│       ├── credits.js                # toCast/toCrew — shape the Worker's flat cast/crew arrays
+│       ├── cookieConsent.js  cn.js  validate.js  constants.js
+├── tests/rls_tests/                  # RLS policy tests (node --test) — retarget follow inserts to tmdb_id
+├── .github/workflows/deploy-worker.yml  # manual-dispatch backup; primary deploy = Cloudflare Workers/Pages Builds
+└── docs/                             # (gitignored) architecture/security deep-dives — mostly pre-migration
 ```
 
 ---
@@ -125,50 +110,45 @@ watchpapa/
 
 **Backend (root `.env`):**
 
-| Variable | Purpose |
-|---|---|
-| `DATABASE_URL` | Supabase session pooler PostgreSQL URL (IPv4, port 5432) |
-| `SUPABASE_URL` | `https://xxxx.supabase.co` |
-| `SUPABASE_SERVICE_ROLE_KEY` | Service-role key — used by backend auth middleware and admin DB access |
-| `TMDB_API_KEY_SECRET` | TMDB v3 API key for all ingestion and resolve calls |
-| `ALLOWED_ORIGINS` | Comma-separated CORS origins; defaults to `localhost:5173,4173` |
-| `PORT` | HTTP port; defaults to `3000` |
-| `NODE_ENV` | Set to `production` on server |
+**Worker** — `wrangler.jsonc` `vars`: `ALLOWED_ORIGINS`, `SUPABASE_URL` (for JWKS), `BATCH_MAX`, `BATCH_SUBREQ_BUDGET`, `IMPORT_CHUNK_MAX`, `RELEASES_MAX_SHOWS`, `SITEMAP_PAGES`. Secret (`wrangler secret put`): `TMDB_API_KEY_SECRET`. Binding: `HYPERDRIVE`. Local dev also needs the shell var `CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE` (= the Supabase pooler URL) + `worker/.dev.vars` with `TMDB_API_KEY_SECRET`.
 
-**Frontend (`Frontend/.env`):**
+**Frontend** — Pages production env vars: `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY` (or `VITE_SUPABASE_ANON_KEY`), **`VITE_API_BASE_URL=https://api.watchpapa.tv`** (must be set — the frontend calls the Worker cross-origin). Local dev: `Frontend/.env` + `vite.config.js` proxies `/api` → `localhost:8787`.
 
-| Variable | Purpose |
-|---|---|
-| `VITE_SUPABASE_URL` | Passed to Supabase JS client |
-| `VITE_SUPABASE_PUBLISHABLE_KEY` | Anon/publishable key (also accepted as `VITE_SUPABASE_ANON_KEY`) |
-| `VITE_API_BASE_URL` | Backend origin; empty string in production (Cloudflare routes) |
+**RLS tests** — root `.env`: `DATABASE_URL`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `TMDB_API_KEY_SECRET`.
 
 ---
 
-## API Route Map
+## API Route Map (Worker — `worker/src/`)
 
-**Public / user routes** (all under global rate limit 120 req/min):
+**Content** (public, edge-cached — `routes/content.js` + `routes/publicContent.js`):
 
-| Method | Path | Auth | Description |
+| Method | Path | Notes |
+|---|---|---|
+| `GET` | `/api/content/movie/:id` · `/show/:id` · `/show/:id/season/:n` · `/show/:id/season/:n/episode/:m` · `/person/:id` | `:id` = TMDB id. `append_to_response` credits / aggregate_credits / combined_credits |
+| `GET` | `/api/content/list/:kind?page&include_adult` | kind ∈ movies-popular / shows-popular / movies-top-rated / … (see `tmdb/lists.js`) |
+| `GET` | `/api/content/discover/:type?with_genres&upcoming&page` | `:type` = movie \| tv — powers genre rows + "coming soon" |
+| `GET` | `/api/content/genres` | `{movie:[], tv:[]}` |
+| `POST` | `/api/content/batch` | `{items:[…]}` → `{cards, missing}` — card hydration |
+| `POST` | `/api/content/releases` | `{showIds, year, month}` → episode air dates |
+| `GET` | `/api/search?q=&includeAdult=` | TMDB multi-search → `{results:[{type,tmdbId,title,posterPath,year,adult}]}` |
+| `GET` | `/api/posters` | 80 popular poster paths (auth-page wall) |
+| `GET` | `/api/image-proxy?path=&size=` | streamed, CORS, edge-cached — for canvas/share cards |
+| `GET` | `/sitemap.xml` · `/sitemap-{static,movies,shows,people}.xml` | from TMDB lists, 24h cache |
+| `GET` | `/health` | `{status:"ok"}` |
+
+**User data** (`routes/referral.js`, `rewards.js`, `announcements.js`, `import.js`, `admin/*`):
+
+| Method | Path | Auth | Notes |
 |---|---|---|---|
-| `GET` | `/api/search` | None | `?q=&limit=&localPerType=&includeAdult=` — local catalog + TMDB |
-| `GET` | `/api/image-proxy` | None | `?path=&size=` — CORS-compliant TMDB poster proxy for canvas rendering; used by profile share card generator |
-| `GET` | `/api/posters` | None | Random poster paths for auth page background |
-| `POST` | `/api/inject` | JWT + perUser rateLimit + auditLog | Background-ingest TMDB entity `{type, tmdbId}` |
-| `POST` | `/api/resolve` | JWT + perUser rateLimit + auditLog | Stub upsert + background ingest; returns local `id` |
-| `POST` | `/api/referral/use/:code` | JWT + perUser rateLimit + auditLog | Apply referral code |
-| `POST` | `/api/rewards/claim` | JWT + perUser rateLimit + auditLog | Claim reward code, apply tier upgrade |
-| `POST` | `/api/import/resolve` | JWT + perUser rateLimit | Resolve `[{name, year}]` to local movie IDs; TMDB fallback + fast-upsert for unmatched |
-| `POST` | `/api/import/commit` | JWT + perUser rateLimit | Batch-insert `user_rating` + `watchlist_item`; ON CONFLICT skip or overwrite per `conflictMode` |
-| `POST` | `/api/import/run` | JWT + perUser rateLimit | Fire-and-forget import: validates + creates watchlist synchronously, returns 202, then processes each unique film in the background — stub-upsert → commit user data immediately → fire full ingest. Resilient to mid-run crashes; 5 MB body limit. |
-| `GET` | `/api/import/export` | JWT + perUser rateLimit | Stream watchpapa CSV (ratings + watchlist) as `watchpapa-export-YYYY-MM-DD.csv` |
-| `GET` | `/api/announcements` | None | Active (non-archived) announcements |
-| `POST` | `/api/announcements` | JWT + requireEditor (inside router) | Create announcement |
-| `PATCH` | `/api/announcements/:id` | JWT + requireEditor | Edit announcement |
-| `PATCH` | `/api/announcements/:id/archive` | JWT + requireEditor | Archive announcement |
-| `GET` | `/sitemap.xml` | None | Sitemap index |
-| `GET` | `/sitemap-{static,movies,shows,people}.xml` | None | Per-entity sitemaps |
-| `GET` | `/health` | None | `{ status: "ok" }` |
+| `POST` | `/api/referral/use/:code` | JWT + mutation limit + audit | |
+| `POST` | `/api/rewards/claim` | JWT + mutation limit + audit | `sql.begin()` transaction |
+| `GET`/`POST`/`PATCH` | `/api/announcements[/…]` | public GET; JWT + requireEditor writes | SQL on `announcements` |
+| `POST` | `/api/import/resolve` | JWT | `{items:[{name,year,uri?}]}` ≤ IMPORT_CHUNK_MAX → `{resolved:[{tmdbId,…}], unresolved}`. No DB writes |
+| `POST` | `/api/import/commit` | JWT | insert `user_rating` / `watchlist_item` by `tmdb_id`; `WATCHLIST_LIMIT_REACHED → 422` |
+| `GET` | `/api/import/export` | JWT | **JSON** `{ratings, watchlistItems}` keyed by tmdb_id — frontend composes the CSV |
+| `*` | `/api/admin/{users,stats,reward-codes,referrals,audit-log,announcements}/*` | JWT + requireAdmin (role 4) | |
+
+Dropped vs the old Express API: `/api/inject`, `/api/resolve`, `/api/import/run`, `/api/import/sync-status`, `/api/admin/resync`, `/api/admin/script-logs`, `/api/admin/stats/queue`.
 
 **Admin routes** (all: adminLimiter + requireAuth + requireAdmin, role = 4):
 
@@ -205,16 +185,14 @@ watchpapa/
 | `/` | Public | `AppHomePage` | |
 | `/search` | Public | `SearchPage` | |
 | `/movies` | Public | `MoviesPage` | |
-| `/movies/:id` | Public | `MoviePage` | Local DB `id` |
-| `/movies/tmdb/:tmdbId` | Public | `TmdbResolvePage` | Resolves TMDB id → redirect to `/movies/:id` |
+| `/movies/:id` | Public | `MoviePage` | `:id` = TMDB id (everywhere now) |
 | `/shows` | Public | `ShowsPage` | |
 | `/shows/:id` | Public | `ShowPage` | |
-| `/shows/:id/seasons/:seasonId` | Public | `SeasonPage` | |
-| `/shows/:id/seasons/:seasonId/episodes/:episodeId` | Public | `EpisodePage` | |
-| `/shows/tmdb/:tmdbId` | Public | `TmdbResolvePage` | |
+| `/shows/:id/seasons/:seasonNumber` | Public | `SeasonPage` | |
+| `/shows/:id/seasons/:seasonNumber/episodes/:episodeNumber` | Public | `EpisodePage` | |
+| `/{movies,shows,people}/tmdb/:tmdbId` | Public | `TmdbRedirect` | legacy → `<Navigate>` to `/{kind}/:tmdbId` |
 | `/people` | Public | `PeoplePage` | |
 | `/people/:id` | Public | `PersonPage` | |
-| `/people/tmdb/:tmdbId` | Public | `TmdbResolvePage` | |
 | `/calendar` | Public | `ReleasesCalendarPage` | Today's releases highlighted amber; multiple episodes from same season collapse to "Season X"; hovered day scales 6% with purple border; calendar blocked (overage gate) when follow count exceeds tier limit — computed live from reactive arrays |
 | `/updates` | Public | `UpdatesPage` | Announcements feed |
 | `/subscription` | Public | `SubscriptionPage` | |
@@ -245,35 +223,17 @@ Route guards defined in `App.jsx`: `PublicOnlyRoute`, `ProtectedRoute`, `PublicR
 
 ## Database Schema Summary
 
-**Content tables (public schema):**
+**Content tables** — `movie`, `show`, `season`, `episode`, `person`, `person_aka`, `genres`, `department`, `job`, `movie_credits`, `show_credits`, `episode_credits`, `movie_genre`, `show_genre`, `script_logs` still exist but are **empty** (migration 031 `TRUNCATE`d them; schema/indexes/RLS/`tmdb_id` unique constraints kept). Nothing reads or writes them — all content is live from TMDB via the Worker.
+
+**User / auth tables** — content is now referenced by **`tmdb_id`**, not a local FK:
 
 | Table | PK | Key columns | Notes |
 |---|---|---|---|
-| `movie` | `bigint` identity | `tmdb_id` (unique), `title`, `adult`, `tmdb_popularity`, `poster_path`, `deleted_at` | Soft-delete: filter `deleted_at IS NULL` |
-| `show` | `bigint` identity | `tmdb_id` (unique), `name`, `adult`, `in_production`, `tmdb_popularity`, `poster_path` | |
-| `season` | `bigint` identity | `tmdb_id` (unique), `show_id` FK, `season_number` | |
-| `episode` | `bigint` identity | `tmdb_id` (unique), `season_id` FK, `episode_number`, `air_date` | |
-| `person` | `bigint` identity | `tmdb_id` (unique), `name`, `adult`, `profile_path`, `deleted_at` | Soft-delete |
-| `person_aka` | `bigint` identity | `person_id` FK, `nickname`, `deleted_at` | Soft-delete for delta sync |
-| `genres` | `bigint` identity | `tmdb_id` (unique), `name` | |
-| `department` | `bigint` identity | `name` | TMDB department |
-| `job` | `bigint` identity | `department_id` FK, `name` | |
-| `movie_credits` | `bigint` identity | `movie_id`, `person_id`, `job_id` FKs, `character_name` | Full-replace per movie on ingest |
-| `show_credits` | `bigint` identity | `show_id`, `person_id`, `job_id` FKs | Full-replace per show |
-| `episode_credits` | `bigint` identity | `episode_id`, `person_id`, `job_id` FKs | Full-replace per episode |
-| `movie_genre` | `bigint` identity | `movie_id`, `genres_id` | |
-| `show_genre` | `bigint` identity | `show_id`, `genres_id` | |
-| `script_logs` | `uuid` | `script_name`, `status`, `batch_size`, `started_at`, `finished_at` | Ingestion run audit |
-
-**User / auth tables:**
-
-| Table | PK | Key columns | Notes |
-|---|---|---|---|
-| `profile` | `uuid` (= `auth.users.id`) | `username` (unique), `role`, `bio`, `is_adult`, `date_of_birth`, `setting_display_adult_content`, `referral_code` | role: 0=user, 3=editor, 4=admin; bio≤200 chars |
-| `user_rating` | `bigint` identity | `profile_id`, `movie_id`/`show_id`/`season_id`/`episode_id` FK (exactly one), `value` (1–10), `created_at` | All ratings public (anon readable). Partial unique indexes per content type. |
-| `profile_favourite` | `bigint` identity | `profile_id`, `position` (1–5), `movie_id`/`show_id` FK (exactly one) | Up to 5 pinned items per user. Unique on (profile_id, position). |
-| `user_followed_movies` | `bigint` identity | `profile_id`, `movie_id` (unique pair) | |
-| `user_followed_shows` | `bigint` identity | `profile_id`, `show_id` (unique pair) | |
+| `profile` | `uuid` (= `auth.users.id`) | `username` (unique, nullable), `role`, `bio`, `date_of_birth` (nullable), `setting_display_adult_content`, `referral_code`, `email_marketing_opt_in` | role: 0=user, 3=editor, 4=admin |
+| `user_rating` | `bigint` identity | `profile_id`, `media_type` ('movie'\|'show'\|'season'\|'episode'), `tmdb_id`, `tmdb_show_id`+`season_number`(+`episode_number`) for season/episode, `value` (1–10) | UNIQUE `(profile_id, media_type, tmdb_id)`. RLS read via `can_view_ratings()`. |
+| `profile_favourite` | `bigint` identity | `profile_id`, `position` (1–5), `media_type`, `tmdb_id` | UNIQUE `(profile_id, position)` |
+| `user_followed_movies` | `bigint` identity | `profile_id`, `tmdb_id` | UNIQUE `(profile_id, tmdb_id)` |
+| `user_followed_shows` | `bigint` identity | `profile_id`, `tmdb_id` | UNIQUE `(profile_id, tmdb_id)` |
 | `user_subscriptions` | `uuid` | `profile_id`, `tier`, `is_early_adopter`, `expires_at`, `ea_banner_dismissed` | Use `get_effective_tier()` RPC — never raw `tier` |
 | `reward_codes` | `uuid` | `code`, `tier`, `duration_days`, `max_uses`, `is_active` | |
 | `reward_code_claims` | `uuid` | `code_id`, `profile_id` | Prevents duplicate claims |
@@ -281,7 +241,7 @@ Route guards defined in `App.jsx`: `PublicOnlyRoute`, `ProtectedRoute`, `PublicR
 | `audit_events` | `uuid` | `action`, `user_id`, `ip`, `method`, `path`, `body`, `created_at` | Written by `auditLog` middleware |
 | `announcements` | `uuid` | `title`, `body`, `archived`, `author_id`, `archived_by`, `archived_at` | |
 | `watchlist` | `bigint` identity | `profile_id`, `name`, `created_at`, `updated_at` | Per-tier limit enforced by `enforce_watchlist_limit` trigger |
-| `watchlist_item` | `bigint` identity | `watchlist_id` FK, `media_type` ('movie'|'show'), `movie_id`/`show_id` FK, `watched`, `added_at` | Partial unique indexes prevent duplicate items per list |
+| `watchlist_item` | `bigint` identity | `watchlist_id` FK, `media_type` ('movie'\|'show'), `tmdb_id`, `watched`, `added_at` | UNIQUE `(watchlist_id, media_type, tmdb_id)`. Rating an item auto-removes it. |
 
 ---
 
@@ -342,12 +302,11 @@ The `/api/import/resolve` endpoint also accepts Letterboxd CSV format (auto-dete
 | 027 | `username_nullable` | Drops NOT NULL on `profile.username` so OAuth signups succeed. Google/GitHub metadata has no `username` key, so the trigger was inserting NULL into a NOT NULL column → "Database error saving new user". NULL username is detected by the frontend as `needsUsernameSetup = true` and gates the user to `/complete-username`. Also nullifies the one stuck user who had `username = ''`. |
 | 028 | `date_of_birth_nullable` | Drops NOT NULL on `profile.date_of_birth`. Same root cause as 027 — OAuth metadata has no `date_of_birth`, so the trigger still failed after 027. OAuth users provide their DOB on the `/complete-username` page. |
 | 029 | `tmdb_ids` | **TMDB-live migration, Phase 2 (applied 2026-09-03, additive).** Adds `media_type`/`tmdb_id` (+ `tmdb_show_id`/`season_number`/`episode_number` for season+episode ratings) to `user_rating`, `watchlist_item`, `profile_favourite`, `user_followed_movies`, `user_followed_shows`; backfills all from the content tables (0 unmapped). New plain-unique indexes `*_media_uniq` / `*_profile_tmdb_uniq` for PostgREST onConflict. Adds `get_activity_feed_v2(int,int)` (content-join-free; distinct name to avoid overload ambiguity with the all-default-arg 3-arg version). Unschedules the stale `cleanup-analytics` pg_cron job. **Nothing dropped — old columns/CHECKs/indexes/functions all intact.** |
-| 030 | `swap_functions` (pending — cutover) | `CREATE OR REPLACE` `get_community_rating_stats` / `get_observed_ratings_for_entity` / `audit_user_follow_change` to key on `tmdb_id`; drops the exclusive-or CHECKs. `030_swap_functions_down.sql` reverses it. |
-| 031 | `drop_content` (pending — after soak) | Re-backfill stragglers, NOT NULL + replacement CHECKs, drop old id columns, drop `get_activity_feed(int,int,bool)` + `get_profile_genre_stats`, rename `get_activity_feed_v2` → `get_activity_feed`, **drop the 15 mirrored content tables** (`movie`/`show`/`season`/`episode`/`person`/`person_aka`/`genres`/`department`/`job`/`*_credits`/`*_genre`/`script_logs`). |
+| 030a | `drop_xor_checks` | **Applied 2026-09-03.** Drops `user_rating_one_media` / `watchlist_item_one_media` / `profile_favourite_one_media` CHECKs so the new frontend can write `(media_type, tmdb_id)`-only rows. Split from 030 for Phase 3 dev testing; old frontend unaffected. |
+| 030 | `swap_functions` | **Applied 2026-09-03 (cutover).** `CREATE OR REPLACE` `get_community_rating_stats` / `get_observed_ratings_for_entity` / `audit_user_follow_change` to key on `tmdb_id`. `030_swap_functions_down.sql` reverses it (rollback path until 031). |
+| 031 | `clear_content` (**pending — after soak**) | Re-backfill stragglers, NOT NULL + replacement CHECKs, **drop the old id columns** (`user_rating.movie_id`/`show_id`/`season_id`/`episode_id`, etc. — their FKs would block the truncate), drop `get_activity_feed(int,int,bool)` + `get_profile_genre_stats`, rename `get_activity_feed_v2` → `get_activity_feed`, then **`TRUNCATE … CASCADE` the 15 mirror tables** (`movie`/`show`/`season`/`episode`/`person`/`person_aka`/`genres`/`department`/`job`/`*_credits`/`*_genre`/`script_logs`) — schema/indexes/RLS/`tmdb_id` constraints kept as empty scaffolding, ~1.3 GB reclaimed. Irreversible for the row data (but it's all re-fetchable from TMDB). |
 
-**TMDB-live + Cloudflare Worker migration in progress** — see `/Users/dursky/.claude/plans/big-job-ahead-of-crystalline-journal.md`. New `worker/` package (Hono API on Cloudflare, reads TMDB live via edge cache, user data over Hyperdrive → Supabase). Branch `feat/tmdb-live-worker`.
-
-To add the next migration: create `Backend/src/db/migrations/032_<name>.sql`, apply via Supabase migration workflow.
+To add the next migration: create `Backend/src/db/migrations/032_<name>.sql`, apply via `mcp__claude_ai_Supabase__apply_migration`.
 
 ---
 
@@ -401,81 +360,74 @@ Locked widgets show **fake seeded data** under a blur overlay + upgrade CTA (not
 - `showAdult` is read from `profile.setting_display_adult_content` and passed as a prop through the route tree.
 - Storage is consent-aware: `localStorage` if cookie consent accepted, `sessionStorage` otherwise.
 
-**Backend (per-request):**
-- `requireAuth`: validates `Authorization: Bearer <token>` via `supabase.auth.getUser(token)` with service-role client; attaches `req.user`.
-- `requireAdmin`: queries `profile.role` from DB; requires `role = 4`.
-- `requireEditor`: queries `profile.role`; requires `role = 3 or 4`.
+**Worker (per-request), `worker/src/auth.js`:**
+- `requireAuth`: verifies the Bearer JWT **locally** against the Supabase JWKS (`jose`, ES256; issuer `${SUPABASE_URL}/auth/v1`, audience `authenticated`). No network round-trip. Sets `c.get('user') = { id: sub, email }`.
+- `requireAdmin`: `SELECT role FROM public.profile WHERE id = $1` over Hyperdrive; requires `role = 4` (int8 is parsed as a JS number — see `db.js`).
+- `requireEditor`: same, `role IN (3, 4)`.
 
 ---
 
-## TMDB Ingestion Architecture
+## TMDB Content Architecture
 
-**Three ingest paths:**
-1. **Scheduled batch** — GitHub Actions cron workflows run popular/top-rated/changed scripts nightly or weekly.
-2. **On-demand `/api/resolve`** — upserts a stub row immediately (returns local `id`), then fires full ingest in background via `dedupIngest`.
-3. **On-demand `/api/inject`** — fires full background ingest without the stub-first step; used when the frontend navigates to a TMDB-keyed URL.
+**No mirror.** All movie/show/season/episode/person/credit/genre data is fetched **live from TMDB v3** by the Worker (`worker/src/tmdb/client.js` → `fetch(url, { cf: { cacheEverything, cacheTtl } })`, per-endpoint TTLs 6h–7d) and normalized (`normalize.js`) into the exact field names the UI reads — `id === tmdb_id`, season/episode `still_path` aliased to `poster_path`, `aggregate_credits` roles[]/jobs[] flattened.
 
-**Key library files:**
-- `Backend/src/lib/ingestionQueue.js` — `dedupIngest(key, fn)`: prevents concurrent duplicate ingestion of the same entity. Always use when triggering background ingest from an API route.
-- `Backend/src/lib/tmdb_rate_limited_fetch.js` — wraps `fetch` at ~40 req/s.
-- `Backend/src/lib/logScriptRun.js` — writes outcome to `script_logs` after each run.
-- `Backend/src/lib/sanitizeTmdb.js` — normalises TMDB API payloads before DB writes.
+- **Detail:** `GET /api/content/{movie,show,season,episode,person}/:id`
+- **Browse:** `GET /api/content/{list/:kind,discover/:type,genres}` (list kinds map to `/movie/popular` etc. in `lists.js`)
+- **Card hydration:** `POST /api/content/batch` `{items:[{type,id,showId?,seasonNumber?,episodeNumber?}]}` → `{cards, missing}` — used to attach title/poster/date/genres to user-data rows (`user_rating`, `watchlist_item`, favourites, follows) that store only `(media_type, tmdb_id)`. Frontend: `features/content/hooks/useContentBatch.js` + `lib/keys.js`.
+- **Calendar:** `POST /api/content/releases` `{showIds,year,month}` → episode air dates for followed shows (bounded ≤3 TMDB calls/show).
+- Free-plan caps (50 subrequests / 10 ms CPU per request) are `wrangler.jsonc` `vars` (`BATCH_MAX`, `BATCH_SUBREQ_BUDGET`, `RELEASES_MAX_SHOWS`, `SITEMAP_PAGES`, `IMPORT_CHUNK_MAX`).
+- **Sitemaps** (`worker/src/routes/publicContent.js`): built from TMDB popular + top-rated list pages, cached 24h. `Frontend/public/_redirects` 301s `/sitemap*.xml` → `api.watchpapa.tv`.
 
-**Ingest pattern (all entity types):**
-1. Upsert top-level row by `tmdb_id` using `ON CONFLICT (tmdb_id) DO UPDATE`.
-2. Replace related rows (credits, genres, aliases) via delete-then-bulk-insert in a transaction.
-3. Log run outcome to `script_logs` via `logScriptRun`.
+The 15 mirror tables still exist as **empty scaffolding** (migration 031 `TRUNCATE`d them, kept schema/indexes/RLS/`tmdb_id` constraints). Nothing reads or writes them.
 
 ---
 
 ## CI/CD & Deployment
 
-| Workflow | Trigger | What it does |
+| Target | Mechanism | Trigger |
 |---|---|---|
-| `deploy.yml` | Push to `production` branch | SSH → Droplet, `git reset --hard`, `npm install --omit=dev`, restart systemd |
-| `daily-sync.yml` | Cron `0 0 * * *` (midnight UTC) | Popular + top-rated ingest (100 each), update popularity scores |
-| `weekly-sync.yml` | Cron `0 0 * * 1` (Monday midnight) | Refresh all changed entities (7-day window) |
-| `full-sync.yml` | `workflow_dispatch` | Changed + popular + top-rated + popularity update |
-| `seed-one-off.yml` | `workflow_dispatch` | Run any single seed script with configurable args (`--id`, `--limit`, `--force`) |
+| Frontend (`watchpapa` Pages) | Cloudflare Pages git build — `cd Frontend && npm run build`, publish `Frontend/dist` | push to `production` |
+| Worker (`watchpapa-api`) | Cloudflare Workers Builds — root `worker/`, `npx wrangler deploy` | push to `production` |
+| Worker (backup) | `.github/workflows/deploy-worker.yml` — `npm ci && npm test && wrangler deploy` | `workflow_dispatch` only |
 
-All sync workflows run on `self-hosted` runner. Deploy runs on `ubuntu-latest`.
+**Pages production env vars** (dashboard): `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY`, **`VITE_API_BASE_URL=https://api.watchpapa.tv`** (the frontend calls the Worker cross-origin directly — the `_redirects` `/api/*` proxy does not forward).
 
-**Required GitHub Secrets:** `DATABASE_URL`, `TMDB_API_KEY_SECRET`, `DROPLET_HOST`, `DROPLET_SSH_KEY`, `SMTP_SERVER`, `SMTP_USERNAME`, `SMTP_PASSWORD`
+**Worker secret** (`wrangler secret put`): `TMDB_API_KEY_SECRET`. **Worker binding**: `HYPERDRIVE` id `1b02c04c106949288724ad2a003ee046` (→ Supabase session pooler, caching disabled).
 
-**Production:** Frontend `https://watchpapa.tv` (Cloudflare Pages). API `https://api.watchpapa.tv` (Cloudflare proxy → DigitalOcean, SSL Flexible).
+**deploy-worker.yml GitHub secrets** (if used): `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`.
+
+**Production:** Frontend `https://watchpapa.tv` (Pages). API `https://api.watchpapa.tv` (Worker route on the still-proxied A record; also `watchpapa-api.dursky-k.workers.dev`). No origin server — the droplet is decommissioned.
 
 ---
 
 ## Common Workflow Patterns
 
 **New app feature page:**
-1. Page component → `Frontend/src/pages/app/`
-2. Domain hook → `Frontend/src/features/<domain>/hooks/use<Name>.js`
-3. Register route in `App.jsx` under `PublicRoute` or `ProtectedRoute`
-4. Supabase data: query via `supabase` client in the hook
-5. Express API data: `fetch(\`${import.meta.env.VITE_API_BASE_URL}/api/...\`, { headers: { Authorization: \`Bearer ${session.access_token}\` } })`
-
-**New API endpoint:**
-1. Route file → `Backend/src/routes/` (or `routes/admin/`)
-2. Mount in `app.js` with the appropriate middleware chain
-3. All DB queries: `sequelize.query(sql, { replacements: {...}, type: QueryTypes.SELECT })`
+1. Page component → `Frontend/src/pages/app/`; domain hook → `Frontend/src/features/<domain>/hooks/`
+2. Register route in `App.jsx`
+3. Content data → the content hooks in `features/content/hooks/` (never a content table)
+4. User data → `supabase` client in the hook (RLS-gated), keyed by `tmdb_id`
+5. Worker data → `apiFetch(path, { session })` from `Frontend/src/lib/api.js`
 
 **New admin feature:**
-1. Backend route → `Backend/src/routes/admin/`
-2. Mount in `app.js` with `adminLimiter, requireAuth, requireAdmin`
-3. Frontend hook → `Frontend/src/features/admin/hooks/` using `adminFetch(path, options)` helper
-4. Page → `Frontend/src/pages/admin/`
-5. Register as nested child of `/admin` in `App.jsx`
+1. Worker route → `worker/src/routes/admin/<name>.js` (Hono sub-app), mount in `admin/index.js`
+2. Frontend hook → `Frontend/src/features/admin/hooks/` using `adminFetch(path, options)`
+3. Page → `Frontend/src/pages/admin/`, register as nested child of `/admin` in `App.jsx`
+
+**New content endpoint (Worker):**
+1. Route → `worker/src/routes/content.js` (or a new file mounted in `index.js`)
+2. TMDB call via `tmdbFetch(env, path, params, { ttl })`; shape the response in `tmdb/normalize.js`
+3. Watch the Free-plan subrequest budget; add a cap `var` if it can fan out
+
+**Worker user-data endpoint:**
+1. Route file → `worker/src/routes/`, mount in `index.js`
+2. `return withSql(c, async (sql) => { const rows = await sql\`SELECT ...\`; ... })` — raw tagged-template SQL, `sql.begin()` for transactions
+3. `requireAuth` / `requireAdmin` / `mutationRateLimit` / `auditLog(...)` middleware as needed
 
 **Schema change (new migration):**
-1. Create `Backend/src/db/migrations/016_<name>.sql`
+1. Create `Backend/src/db/migrations/032_<name>.sql`
 2. Apply via `mcp__claude_ai_Supabase__apply_migration`
 3. Update the Migration History table in this file
-
-**New TMDB ingestion script:**
-1. Script → `Backend/src/scripts/`
-2. Add npm script to `package.json` (`"seed:tmdb:<name>": "node Backend/src/scripts/<name>.js"`)
-3. Wire into the appropriate GitHub Actions workflow if recurring
 
 ---
 
@@ -483,12 +435,11 @@ All sync workflows run on `self-hosted` runner. Deploy runs on `ubuntu-latest`.
 
 | Service | Role | Config |
 |---|---|---|
-| TMDB API v3 | Content metadata source | `TMDB_API_KEY_SECRET`; all calls via `tmdb_rate_limited_fetch.js` |
-| Supabase Auth | Email/OTP auth, JWT issuance | `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` (backend); `VITE_SUPABASE_*` (frontend) |
-| Supabase PostgreSQL | Primary database | `DATABASE_URL` (session pooler, SSL) |
-| Cloudflare Pages | Frontend hosting | Build: `cd Frontend && npm run build`; publish dir: `Frontend/dist` |
-| Cloudflare Proxy | SSL termination for API | `api.watchpapa.tv` A record, SSL mode: Flexible |
-| DigitalOcean Droplet | Backend hosting | Ubuntu 24.04, Amsterdam (ams3); app runs as `watchpapa` user |
+| TMDB API v3 | Live content source | `TMDB_API_KEY_SECRET` (Worker secret); all calls via `worker/src/tmdb/client.js` |
+| Supabase Auth | Email/OTP + OAuth, JWT issuance | Worker verifies JWTs locally via JWKS (`${SUPABASE_URL}/auth/v1/.well-known/jwks.json`, ES256); `VITE_SUPABASE_*` (frontend) |
+| Supabase PostgreSQL | Primary database | Worker: `HYPERDRIVE` binding. RLS tests: `DATABASE_URL` (session pooler, SSL) |
+| Cloudflare Pages | Frontend hosting (`watchpapa`) | Build `cd Frontend && npm run build`; publish `Frontend/dist` |
+| Cloudflare Workers | API (`watchpapa-api`) | Route `api.watchpapa.tv/*`; Hyperdrive; rate-limit bindings |
 | Resend SMTP | Transactional email | Configured in Supabase Auth SMTP settings |
 
 ---
@@ -522,14 +473,14 @@ palette pushed vivid. Key recurring conventions introduced:
 
 ## Key Conventions
 
-- **Raw SQL only.** All DB writes use `sequelize.query()` with named `replacements:`. Never introduce Sequelize model-level CRUD.
-- **Soft delete.** Always filter `deleted_at IS NULL` on queries against `movie`, `show`, `person`, `person_aka`, `profile`.
-- **PK types.** `profile.id` is UUID = `auth.users.id`. All other public schema tables use `bigint` identity PKs.
-- **Frontend data split.** Supabase JS client for table/RLS-gated data. `fetch()` to Express API for search, inject, resolve, rewards, referral, announcements.
-- **Admin fetches.** Use `adminFetch()` helper at `Frontend/src/features/admin/adminFetch.js` — it auto-attaches the session Bearer token.
-- **Analytics are consent-gated.** `trackPresence`, `trackPageView`, `trackContentClick` are no-ops if cookie consent has not been given.
-- **Background ingest deduplication.** Always use `dedupIngest(key, fn)` from `ingestionQueue.js` when triggering background ingest from an API route.
-- **Migrations are one-way.** Never modify an applied migration file. Create a new numbered file instead.
+- **No content in the DB.** Movies/shows/etc. are always fetched live from TMDB via the Worker (`features/content/hooks/*` on the frontend, `tmdbFetch` in the Worker). The 15 mirror tables are empty and unused.
+- **Content is keyed by `tmdb_id`.** User rows (`user_rating`, `watchlist_item`, `profile_favourite`, `user_followed_*`) store `(media_type, tmdb_id)` — no FK to any table. Hydrate cards via `useContentBatch`.
+- **Raw SQL only (Worker).** `worker/src/db.js` `withSql(c, sql => …)` with `postgres.js` tagged templates + `sql.begin()` for transactions. int8 is parsed as a JS number.
+- **PK types.** `profile.id` is UUID = `auth.users.id`. Other user tables use `bigint` identity PKs.
+- **Frontend data split.** `supabase` client for user tables (RLS-gated). `apiFetch()` (`lib/api.js`) → Worker for content, search, import, rewards, referral, announcements, admin.
+- **Admin fetches.** `adminFetch()` at `Frontend/src/features/admin/adminFetch.js` — auto-attaches the Bearer token.
+- **Free-plan awareness (Worker).** 50 subrequests + 10 ms CPU per request. Cache API calls share that budget → use `fetch(url, { cf: { cacheEverything, cacheTtl } })`, not `caches.default`. Fan-out endpoints cap by a wrangler `var`.
+- **Migrations are one-way.** Never modify an applied migration file. Create a new numbered file.
 
 ---
 

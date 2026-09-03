@@ -1,43 +1,16 @@
 {
   "name": "watchpapa",
-  "version": "1.0.0",
-  "description": "watchpapa",
+  "version": "2.0.0",
+  "description": "watchpapa — root holds DB migrations + RLS tests. App = Frontend/ (Cloudflare Pages) + worker/ (Cloudflare Worker API).",
   "type": "module",
-  "main": "index.js",
+  "private": true,
   "scripts": {
-    "start": "node index.js",
-    "dev": "node --watch index.js",
-    "seed:tmdb:jobs": "node Backend/src/scripts/inject_jobs_and_departments.js",
-    "seed:tmdb:genres": "node Backend/src/scripts/inject_genres.js",
-    "seed:tmdb:person": "node Backend/src/scripts/inject_person.js",
-    "seed:tmdb:tv-show": "node Backend/src/scripts/inject_tv_show.js",
-    "seed:tmdb:movie": "node Backend/src/scripts/inject_movie.js",
-    "seed:tmdb:popular-movies-today": "node Backend/src/scripts/inject_popular_movies_today.js",
-    "seed:tmdb:popular-people-today": "node Backend/src/scripts/inject_popular_people_today.js",
-    "seed:tmdb:popular-shows-today": "node Backend/src/scripts/inject_popular_shows_today.js",
-    "seed:tmdb:top-rated-movies": "node Backend/src/scripts/inject_top_rated_movies.js",
-    "seed:tmdb:top-rated-shows": "node Backend/src/scripts/inject_top_rated_shows.js",
-    "seed:tmdb:changed-movies-24h": "node Backend/src/scripts/inject_changed_movies_24h.js",
-    "seed:tmdb:changed-shows-24h": "node Backend/src/scripts/inject_changed_shows_24h.js",
-    "seed:tmdb:changed-people-24h": "node Backend/src/scripts/inject_changed_people_24h.js",
-    "seed:tmdb:changed-all-24h": "node Backend/src/scripts/inject_changed_all_24h.js",
-    "seed:tmdb:update-popularity": "node Backend/src/scripts/update_tmdb_popularity.js",
-    "seed:tmdb:update-popularity:movies": "node Backend/src/scripts/update_tmdb_popularity_movies.js",
-    "seed:tmdb:update-popularity:shows": "node Backend/src/scripts/update_tmdb_popularity_shows.js",
-    "seed:tmdb:update-popularity:people": "node Backend/src/scripts/update_tmdb_popularity_people.js",
-    "test:injections": "node --test \"tests/injections_tests/**/*.test.js\"",
-    "test:injections:watch": "node --test --watch \"tests/injections_tests/**/*.test.js\"",
     "test:rls": "node --test \"tests/rls_tests/**/*.test.js\"",
     "test:py": "pytest"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.104.1",
     "dotenv": "^16.4.5",
-    "express": "^4.21.0",
-    "express-rate-limit": "^8.4.1",
-    "helmet": "^8.1.0",
-    "pg": "^8.13.0",
-    "pg-hstore": "^2.3.4",
-    "sequelize": "^6.37.8"
+    "pg": "^8.13.0"
   }
 }

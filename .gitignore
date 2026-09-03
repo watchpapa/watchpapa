@@ -55,3 +55,6 @@ sql/
 docs/
 .docs
 temp/
+# Worker local state
+worker/.wrangler/
+worker/.dev.vars
