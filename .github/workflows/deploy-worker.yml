@@ -1,0 +1,41 @@
+name: Deploy Worker
+
+on:
+  push:
+    branches: [production]
+    paths:
+      - "worker/**"
+      - ".github/workflows/deploy-worker.yml"
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: worker
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: worker/package-lock.json
+
+      - run: npm ci
+
+      - run: npm test
+
+      - name: Deploy
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: worker
+          # Secrets that must be set on the Worker (once, via `wrangler secret put`):
+          #   TMDB_API_KEY_SECRET
+          # Repo secrets this workflow needs:
+          #   CLOUDFLARE_API_TOKEN  — Workers Scripts:Edit + Account Hyperdrive:Read
+          #                           + Zone Workers Routes:Edit (for the api.watchpapa.tv route)
+          #   CLOUDFLARE_ACCOUNT_ID
