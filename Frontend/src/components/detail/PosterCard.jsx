@@ -1,7 +1,7 @@
-const TMDB_IMG = "https://image.tmdb.org/t/p/w342";
 
+import { tmdbImg } from "../../lib/tmdbImage.js";
 function PosterCard({ title, posterPath }) {
-  const imgSrc = posterPath ? `${TMDB_IMG}${posterPath}` : null;
+  const imgSrc = posterPath ? tmdbImg(posterPath, "w342") : null;
 
   return (
     <div className="relative overflow-hidden rounded-2xl border border-[#2a3570] bg-[#12163a] aspect-[2/3] w-full shadow-[0_18px_40px_-16px_rgba(0,0,0,0.7)]">

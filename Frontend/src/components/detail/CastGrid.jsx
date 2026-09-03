@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
+import { tmdbImg } from "../../lib/tmdbImage.js";
 
-const TMDB_IMG = "https://image.tmdb.org/t/p/w185";
 
 function CastGrid({ credits = [] }) {
   if (!credits.length) return null;
@@ -16,7 +16,7 @@ function CastGrid({ credits = [] }) {
           <div className="h-16 w-16 overflow-hidden rounded-full border border-[#2a3570] bg-[#12163a] transition group-hover:border-[#6f6fdc]">
             {credit.profilePath ? (
               <img
-                src={`${TMDB_IMG}${credit.profilePath}`}
+                src={tmdbImg(credit.profilePath, "w185")}
                 alt={credit.name}
                 className="h-full w-full object-cover"
                 loading="lazy"

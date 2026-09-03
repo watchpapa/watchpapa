@@ -1,6 +1,7 @@
 // Preview-only component — displayed inside the modal at scaled-down size.
 // Not used for image capture; generateShareCard.js handles canvas output.
 import { FORMATS } from "./generateShareCard.js";
+import { tmdbImg } from "../../lib/tmdbImage.js";
 
 const TIER_LABELS = { free: "Free", premium: "Premium", pro: "Pro", pro_plus: "Pro+", god: "God" };
 const TIER_COLORS = {
@@ -190,7 +191,7 @@ export function ProfileShareCard({ format = "square", profile, tier, favourites,
           return (
             <div key={i} style={{ flex:1, height:posterH, borderRadius:fs.posterR, overflow:"hidden", background:"#0d0f20", border:"1px solid #1a1f3a" }}>
               {posterPath ? (
-                <img src={`https://image.tmdb.org/t/p/w342${posterPath}`} alt={title ?? ""} style={{ width:"100%", height:"100%", objectFit:"contain", display:"block" }} />
+                <img src={tmdbImg(posterPath, "w342")} alt={title ?? ""} style={{ width:"100%", height:"100%", objectFit:"contain", display:"block" }} />
               ) : (
                 <div style={{ width:"100%", height:"100%", display:"flex", alignItems:"center", justifyContent:"center", color:"#2a2f5a", fontSize:14 }}>{title ?? "?"}</div>
               )}

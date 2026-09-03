@@ -1,122 +1,113 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../../../lib/supabase.js";
+import { useContentBatch } from "../../content/hooks/useContentBatch.js";
+import { cardKey } from "../../content/lib/keys.js";
 
 const PRO_TIERS = new Set(["pro", "pro_plus", "god"]);
 const PREMIUM_TIERS = new Set(["premium", "pro", "pro_plus", "god"]);
 
-// Fetches stats for a profile. The owner's tier determines which stats are available.
-// Tier-locked stats return null (caller renders fake blur instead of fetching).
+// Owner tier decides which stats are computed. Genre + decade breakdowns are now
+// derived client-side from hydrated TMDB cards (get_profile_genre_stats is gone).
 export function useProfileStats(profileId, ownerTier) {
-  const [basic, setBasic] = useState(null);
-  const [genreStats, setGenreStats] = useState(null);
-  const [decadeStats, setDecadeStats] = useState(null);
-  const [monthlyStats, setMonthlyStats] = useState(null);
+  const [rows, setRows] = useState([]); // [{ value, created_at, media_type, tmdb_id }]
   const [loading, setLoading] = useState(false);
+
+  const wantsContent = PREMIUM_TIERS.has(ownerTier); // genre needs premium+, decade needs pro+
 
   useEffect(() => {
     if (!profileId || !ownerTier) return;
     let cancelled = false;
     setLoading(true);
-
-    const fetches = [
-      // Basic stats: always fetch
-      supabase
-        .from("user_rating")
-        .select("value, created_at, movie_id, show_id, season_id, episode_id")
-        .eq("profile_id", profileId),
-
-      // Genre stats: premium+
-      PREMIUM_TIERS.has(ownerTier)
-        ? supabase.rpc("get_profile_genre_stats", { p_profile_id: profileId })
-        : Promise.resolve({ data: null }),
-
-      // Decade stats: pro+
-      PRO_TIERS.has(ownerTier)
-        ? supabase
-            .from("user_rating")
-            .select(`
-              value,
-              movie:movie_id(release_date),
-              show:show_id(first_air_date),
-              season:season_id(air_date),
-              episode:episode_id(air_date)
-            `)
-            .eq("profile_id", profileId)
-        : Promise.resolve({ data: null }),
-
-      // Monthly activity: pro+
-      PRO_TIERS.has(ownerTier)
-        ? supabase
-            .from("user_rating")
-            .select("created_at")
-            .eq("profile_id", profileId)
-            .order("created_at", { ascending: true })
-        : Promise.resolve({ data: null }),
-    ];
-
-    Promise.all(fetches).then(([basicRes, genreRes, decadeRaw, monthlyRaw]) => {
-      if (cancelled) return;
-      setLoading(false);
-
-      // Basic
-      const rows = basicRes.data ?? [];
-      const histogram = {};
-      let sum = 0;
-      for (const r of rows) {
-        histogram[r.value] = (histogram[r.value] ?? 0) + 1;
-        sum += r.value;
-      }
-      setBasic({
-        total: rows.length,
-        avg: rows.length ? Math.round((sum / rows.length) * 10) / 10 : null,
-        histogram,
-        movieCount: rows.filter((r) => r.movie_id).length,
-        showCount: rows.filter((r) => r.show_id).length,
-        seasonCount: rows.filter((r) => r.season_id).length,
-        episodeCount: rows.filter((r) => r.episode_id).length,
+    supabase
+      .from("user_rating")
+      .select("value, created_at, media_type, tmdb_id")
+      .eq("profile_id", profileId)
+      .then(({ data }) => {
+        if (cancelled) return;
+        setRows((data ?? []).map((r) => ({ ...r, tmdb_id: Number(r.tmdb_id) })));
+        setLoading(false);
       });
-
-      // Genre
-      setGenreStats(genreRes.data ?? null);
-
-      // Decade: aggregate from raw rows
-      if (decadeRaw.data) {
-        const decadeMap = {};
-        for (const r of decadeRaw.data) {
-          const date = r.movie?.release_date ?? r.show?.first_air_date ?? r.season?.air_date ?? r.episode?.air_date;
-          if (!date) continue;
-          const decade = Math.floor(new Date(date).getFullYear() / 10) * 10;
-          decadeMap[decade] = (decadeMap[decade] ?? 0) + 1;
-        }
-        setDecadeStats(
-          Object.entries(decadeMap)
-            .map(([decade, count]) => ({ decade: parseInt(decade), count }))
-            .sort((a, b) => a.decade - b.decade)
-        );
-      } else {
-        setDecadeStats(null);
-      }
-
-      // Monthly: aggregate from raw rows
-      if (monthlyRaw.data) {
-        const monthMap = {};
-        for (const r of monthlyRaw.data) {
-          const m = r.created_at.slice(0, 7); // "YYYY-MM"
-          monthMap[m] = (monthMap[m] ?? 0) + 1;
-        }
-        setMonthlyStats(
-          Object.entries(monthMap)
-            .map(([month, count]) => ({ month, count }))
-            .sort((a, b) => a.month.localeCompare(b.month))
-            .slice(-24)
-        );
-      } else {
-        setMonthlyStats(null);
-      }
-    });
-
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [profileId, ownerTier]);
+
+  // Hydrate only movie + show ratings, and only if the tier can see genre/decade.
+  const batchItems = useMemo(
+    () =>
+      wantsContent
+        ? rows.filter((r) => r.media_type === "movie" || r.media_type === "show").map((r) => ({ type: r.media_type, id: r.tmdb_id }))
+        : [],
+    [rows, wantsContent],
+  );
+  const { cards } = useContentBatch(batchItems);
+
+  const basic = useMemo(() => {
+    if (rows.length === 0 && !loading) return { total: 0, avg: null, histogram: {}, movieCount: 0, showCount: 0, seasonCount: 0, episodeCount: 0 };
+    if (loading && rows.length === 0) return null;
+    const histogram = {};
+    let sum = 0;
+    for (const r of rows) {
+      histogram[r.value] = (histogram[r.value] ?? 0) + 1;
+      sum += r.value;
+    }
+    return {
+      total: rows.length,
+      avg: rows.length ? Math.round((sum / rows.length) * 10) / 10 : null,
+      histogram,
+      movieCount: rows.filter((r) => r.media_type === "movie").length,
+      showCount: rows.filter((r) => r.media_type === "show").length,
+      seasonCount: rows.filter((r) => r.media_type === "season").length,
+      episodeCount: rows.filter((r) => r.media_type === "episode").length,
+    };
+  }, [rows, loading]);
+
+  const genreStats = useMemo(() => {
+    if (!PREMIUM_TIERS.has(ownerTier)) return null;
+    const agg = new Map();
+    for (const r of rows) {
+      if (r.media_type !== "movie" && r.media_type !== "show") continue;
+      const card = cards[cardKey({ type: r.media_type, id: r.tmdb_id })];
+      for (const g of card?.genres ?? []) {
+        const e = agg.get(g.name) ?? { count: 0, sum: 0 };
+        e.count += 1;
+        e.sum += r.value;
+        agg.set(g.name, e);
+      }
+    }
+    return [...agg.entries()]
+      .map(([genre_name, e]) => ({ genre_name, rating_count: e.count, avg_value: Math.round((e.sum / e.count) * 10) / 10 }))
+      .sort((a, b) => b.rating_count - a.rating_count)
+      .slice(0, 20);
+  }, [rows, cards, ownerTier]);
+
+  const decadeStats = useMemo(() => {
+    if (!PRO_TIERS.has(ownerTier)) return null;
+    const map = {};
+    for (const r of rows) {
+      if (r.media_type !== "movie" && r.media_type !== "show") continue;
+      const card = cards[cardKey({ type: r.media_type, id: r.tmdb_id })];
+      if (!card?.year) continue;
+      const decade = Math.floor(Number(card.year) / 10) * 10;
+      map[decade] = (map[decade] ?? 0) + 1;
+    }
+    return Object.entries(map)
+      .map(([decade, count]) => ({ decade: parseInt(decade, 10), count }))
+      .sort((a, b) => a.decade - b.decade);
+  }, [rows, cards, ownerTier]);
+
+  const monthlyStats = useMemo(() => {
+    if (!PRO_TIERS.has(ownerTier)) return null;
+    const map = {};
+    for (const r of rows) {
+      const m = r.created_at.slice(0, 7);
+      map[m] = (map[m] ?? 0) + 1;
+    }
+    return Object.entries(map)
+      .map(([month, count]) => ({ month, count }))
+      .sort((a, b) => a.month.localeCompare(b.month))
+      .slice(-24);
+  }, [rows, ownerTier]);
 
   return { basic, genreStats, decadeStats, monthlyStats, loading };
 }

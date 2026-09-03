@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
+import { tmdbImg } from "../../../lib/tmdbImage.js";
 
-const TMDB_IMG = "https://image.tmdb.org/t/p/w92";
 
 const SORT_OPTIONS = [
   { value: "release_asc", label: "Release / first air (soonest first)" },
@@ -223,7 +223,7 @@ function ManageFollowsModal({
                   >
                     <div className="h-14 w-10 flex-shrink-0 overflow-hidden rounded-lg border border-[#2a3570] bg-[#12163a] sm:h-16 sm:w-11">
                       {r.poster_path ? (
-                        <img src={`${TMDB_IMG}${r.poster_path}`} alt="" className="h-full w-full object-cover" loading="lazy" />
+                        <img src={tmdbImg(r.poster_path, "w92")} alt="" className="h-full w-full object-cover" loading="lazy" />
                       ) : (
                         <div className="flex h-full w-full items-center justify-center text-[#3a3a7a]">
                           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">

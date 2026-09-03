@@ -1,11 +1,11 @@
 import { useRef, useState } from "react";
 import { Link } from "react-router-dom";
 
-const TMDB_IMG = "https://image.tmdb.org/t/p/w92";
 import AppLayout from "../../layouts/AppLayout.jsx";
 import { PageHead } from "../../components/ui/PageHead.jsx";
 import { useCalendarData } from "../../features/calendar/hooks/useCalendarData.js";
 import { useSubscription } from "../../features/subscription/hooks/useSubscription.js";
+import { tmdbImg } from "../../lib/tmdbImage.js";
 
 const TIER_LIMITS = {
   free:     { type: "separate", shows: 3, movies: 1 },
@@ -66,8 +66,8 @@ function collapseEntries(entries) {
   const order = [];
 
   for (const entry of entries) {
-    if (entry.type === "episode" && entry.seasonId != null) {
-      const key = `${entry.showId}-${entry.seasonId}`;
+    if (entry.type === "episode" && entry.seasonNumber != null) {
+      const key = `${entry.showId}-${entry.seasonNumber}`;
       if (!seasonMap.has(key)) {
         seasonMap.set(key, { representative: entry, count: 0 });
         order.push({ kind: "season", key });
@@ -86,7 +86,6 @@ function collapseEntries(entries) {
       type: "season_group",
       showId: representative.showId,
       showName: representative.showName,
-      seasonId: representative.seasonId,
       seasonNumber: representative.seasonNumber,
       count,
     };
@@ -106,7 +105,7 @@ function CalendarEntry({ entry, isToday }) {
     const label = entry.seasonNumber != null ? `Season ${entry.seasonNumber}` : "Season";
     return (
       <Link
-        to={`/shows/${entry.showId}/seasons/${entry.seasonId}`}
+        to={`/shows/${entry.showId}/seasons/${entry.seasonNumber}`}
         className={episodeCls}
         title={`${entry.showName} — ${label} (${entry.count} episodes)`}
       >
@@ -121,7 +120,7 @@ function CalendarEntry({ entry, isToday }) {
       : `E${entry.episodeNumber}`;
     return (
       <Link
-        to={`/shows/${entry.showId}/seasons/${entry.seasonId}/episodes/${entry.id}`}
+        to={`/shows/${entry.showId}/seasons/${entry.seasonNumber}/episodes/${entry.episodeNumber}`}
         className={episodeCls}
         title={`${entry.showName}: ${entry.name}`}
       >
@@ -313,7 +312,7 @@ function PosterThumb({ src, alt, isMovie }) {
   return (
     <div className="h-10 w-7 flex-shrink-0 overflow-hidden rounded border border-[#2a3570] bg-[#12163a]">
       {src ? (
-        <img src={`${TMDB_IMG}${src}`} alt={alt} className="h-full w-full object-cover" loading="lazy" />
+        <img src={tmdbImg(src, "w92")} alt={alt} className="h-full w-full object-cover" loading="lazy" />
       ) : (
         <div className="flex h-full w-full items-center justify-center text-[#3a3a7a]">
           <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">

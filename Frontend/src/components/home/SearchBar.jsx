@@ -1,8 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useSearch } from "../../features/search/hooks/useSearch.js";
-
-const TMDB_IMG = "https://image.tmdb.org/t/p/w92";
+import { tmdbImg } from "../../lib/tmdbImage.js";
 
 function SearchIcon() {
   return (
@@ -48,9 +47,9 @@ function ArrowRightIcon() {
 }
 
 function routeFor(item) {
-  if (item.type === "movie") return item.localId ? `/movies/${item.localId}` : `/movies/tmdb/${item.tmdbId}`;
-  if (item.type === "show") return item.localId ? `/shows/${item.localId}` : `/shows/tmdb/${item.tmdbId}`;
-  return item.localId ? `/people/${item.localId}` : `/people/tmdb/${item.tmdbId}`;
+  if (item.type === "movie") return `/movies/${item.tmdbId}`;
+  if (item.type === "show") return `/shows/${item.tmdbId}`;
+  return `/people/${item.tmdbId}`;
 }
 
 function SkeletonRows({ count = 4 }) {
@@ -78,7 +77,7 @@ function GroupLabel({ label }) {
 }
 
 function ResultRow({ item, isActive, onSelect }) {
-  const imgSrc = item.posterPath ? `${TMDB_IMG}${item.posterPath}` : null;
+  const imgSrc = tmdbImg(item.posterPath, "w92");
 
   return (
     <div
@@ -178,7 +177,7 @@ function SearchBar({ value, onChange }) {
       if (!isOpen || trimmed.length < 2) return;
       if (activeIndex >= 0 && activeIndex < flatResults.length) {
         const item = flatResults[activeIndex];
-        if (item?.localId) handleSelect(item);
+        if (item) handleSelect(item);
       } else {
         // no item selected, or "Explore more" is selected
         goToSearchPage();

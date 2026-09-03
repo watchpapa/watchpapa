@@ -5,8 +5,7 @@ import MediaCard from "../../components/home/MediaCard.jsx";
 import SearchBar from "../../components/home/SearchBar.jsx";
 import { useSearch } from "../../features/search/hooks/useSearch.js";
 import { PageHead } from "../../components/ui/PageHead.jsx";
-
-const TMDB_IMG = "https://image.tmdb.org/t/p/w185";
+import { tmdbImg } from "../../lib/tmdbImage.js";
 
 function PersonIcon() {
   return (
@@ -41,7 +40,7 @@ function SkeletonGrid() {
 }
 
 function PersonCard({ person }) {
-  const to = person.localId ? `/people/${person.localId}` : `/people/tmdb/${person.tmdbId}`;
+  const to = `/people/${person.tmdbId}`;
   return (
     <Link
       to={to}
@@ -50,7 +49,7 @@ function PersonCard({ person }) {
       <div className="aspect-[2/3] overflow-hidden rounded-2xl border border-[#2a3570] bg-[#12163a]">
         {person.posterPath ? (
           <img
-            src={`${TMDB_IMG}${person.posterPath}`}
+            src={tmdbImg(person.posterPath, "w185")}
             alt={person.title}
             className="h-full w-full object-cover"
             loading="lazy"
@@ -81,7 +80,7 @@ function SearchPage({ session, showAdult }) {
     setBarValue(qFromUrl);
   }, [qFromUrl]);
 
-  const { results, isLoading, status } = useSearch(q, { perTypeLimit: 20, backendLimit: 20, showAdult });
+  const { results, isLoading, status } = useSearch(q, { showAdult });
 
   const movieResults = results.filter((r) => r.type === "movie");
   const showResults = results.filter((r) => r.type === "show");
@@ -139,8 +138,7 @@ function SearchPage({ session, showAdult }) {
                   {movieResults.map((item) => (
                     <MediaCard
                       key={`movie-${item.tmdbId}`}
-                      id={item.localId}
-                      customTo={item.localId ? undefined : `/movies/tmdb/${item.tmdbId}`}
+                      id={item.tmdbId}
                       type="movie"
                       title={item.title}
                       posterPath={item.posterPath}
@@ -158,8 +156,7 @@ function SearchPage({ session, showAdult }) {
                   {showResults.map((item) => (
                     <MediaCard
                       key={`show-${item.tmdbId}`}
-                      id={item.localId}
-                      customTo={item.localId ? undefined : `/shows/tmdb/${item.tmdbId}`}
+                      id={item.tmdbId}
                       type="show"
                       title={item.title}
                       posterPath={item.posterPath}

@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import AuthPromptModal from "../AuthPromptModal.jsx";
+import { tmdbImg } from "../../lib/tmdbImage.js";
 
-const TMDB_IMG = "https://image.tmdb.org/t/p/w300";
 
 function PlusIcon() {
   return (
@@ -29,7 +29,7 @@ function CheckIcon() {
 }
 
 function MediaCard({ id, type, title, posterPath, isFollowing = false, onFollowToggle, isAuthenticated, customTo, releaseLabel, genreIds = [], trackSource = "browse" }) {
-  const imgSrc = posterPath ? `${TMDB_IMG}${posterPath}` : null;
+  const imgSrc = posterPath ? tmdbImg(posterPath, "w300") : null;
   const to = customTo ?? (type === "movie" ? `/movies/${id}` : `/shows/${id}`);
   const isMovie = type === "movie";
   const upcoming = releaseLabel && releaseLabel !== "Airing";

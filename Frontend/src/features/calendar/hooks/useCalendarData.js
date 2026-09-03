@@ -1,14 +1,20 @@
 // Used by:
 // - Frontend/src/pages/app/ReleasesCalendarPage.jsx
-import { useCallback, useEffect, useReducer } from "react";
+//
+// Follows live in Supabase (tmdb_id + created_at). Followed-title metadata is
+// hydrated from the Worker; episode air dates for the month come from
+// POST /api/content/releases; movie releases from the hydrated movie card date.
+import { useCallback, useEffect, useMemo, useReducer } from "react";
 import { supabase } from "../../../lib/supabase.js";
 import { isValidId } from "../../../lib/validate.js";
+import { useContentBatch } from "../../content/hooks/useContentBatch.js";
+import { useReleases } from "./useReleases.js";
+import { cardKey } from "../../content/lib/keys.js";
 
-// Apply state updates for calendar data loaded from the database.
 function reducer(state, action) {
   switch (action.type) {
-    case "LOADED":
-      return { ...state, ...action.payload, isLoading: false, error: null };
+    case "FOLLOWS":
+      return { ...state, ...action.payload, isLoading: false };
     case "ERROR":
       return { ...state, isLoading: false, error: action.error };
     case "TOGGLE_SHOW": {
@@ -27,175 +33,166 @@ function reducer(state, action) {
 }
 
 const initialState = {
-  followedShows: [],
-  followedMovies: [],
+  showRows: [], // [{ tmdb_id, created_at }]
+  movieRows: [],
   followedShowIds: new Set(),
   followedMovieIds: new Set(),
-  calendarEntries: {},
   isLoading: true,
   error: null,
 };
 
-// Load followed shows/movies and build calendar entries for a month.
 export function useCalendarData(session, year, month) {
   const [state, dispatch] = useReducer(reducer, initialState);
+  const uid = session?.user?.id;
 
   useEffect(() => {
-    if (!session?.user?.id) return;
+    if (!uid) return;
     let cancelled = false;
-
-    // Fetch followed media and episode schedules from the database.
-    async function load() {
+    (async () => {
       try {
-        const profileId = session.user.id;
-
-        // Read followed shows and movies for the current profile.
-        const [fsRes, fmRes] = await Promise.all([
-          supabase
-            .from("user_followed_shows")
-            .select("show_id, created_at, show(id, name, poster_path, first_air_date, last_air_date, status)")
-            .eq("profile_id", profileId),
-          supabase
-            .from("user_followed_movies")
-            .select("movie_id, created_at, movie(id, title, poster_path, release_date)")
-            .eq("profile_id", profileId),
+        const [fs, fm] = await Promise.all([
+          supabase.from("user_followed_shows").select("tmdb_id, created_at").eq("profile_id", uid),
+          supabase.from("user_followed_movies").select("tmdb_id, created_at").eq("profile_id", uid),
         ]);
-
-        if (fsRes.error) throw fsRes.error;
-        if (fmRes.error) throw fmRes.error;
-
-        const followedShows = (fsRes.data ?? [])
-          .map((r) => (r.show ? { ...r.show, followed_at: r.created_at } : null))
-          .filter(Boolean);
-        const followedMovies = (fmRes.data ?? [])
-          .map((r) => (r.movie ? { ...r.movie, followed_at: r.created_at } : null))
-          .filter(Boolean);
-        const followedShowIds = new Set(followedShows.map((s) => s.id));
-        const followedMovieIds = new Set(followedMovies.map((m) => m.id));
-
-        const startDate = `${year}-${String(month).padStart(2, "0")}-01`;
-        const lastDay = new Date(year, month, 0).getDate();
-        const endDate = `${year}-${String(month).padStart(2, "0")}-${lastDay}`;
-
-        const calendarEntries = {};
-
-        if (followedShowIds.size > 0) {
-          // Read episodes that air during this month from the episode table.
-          const { data: episodes, error: epErr } = await supabase
-            .from("episode")
-            .select("id, name, air_date, runtime, episode_number, season(id, show_id, season_number, show(id, name))")
-            .gte("air_date", startDate)
-            .lte("air_date", endDate)
-            .is("deleted_at", null);
-
-          if (epErr) throw epErr;
-
-          for (const ep of episodes ?? []) {
-            const showId = ep.season?.show_id;
-            if (!followedShowIds.has(showId)) continue;
-            const dateKey = ep.air_date;
-            if (!calendarEntries[dateKey]) calendarEntries[dateKey] = [];
-            calendarEntries[dateKey].push({
-              type: "episode",
-              id: ep.id,
-              name: ep.name,
-              showName: ep.season?.show?.name ?? "",
-              showId,
-              seasonId: ep.season?.id,
-              seasonNumber: ep.season?.season_number,
-              episodeNumber: ep.episode_number,
-            });
-          }
-        }
-
-        for (const movie of followedMovies) {
-          if (!movie.release_date) continue;
-          const d = movie.release_date.slice(0, 10);
-          if (d < startDate || d > endDate) continue;
-          if (!calendarEntries[d]) calendarEntries[d] = [];
-          calendarEntries[d].push({
-            type: "movie",
-            id: movie.id,
-            name: movie.title,
-            movieId: movie.id,
-          });
-        }
-
         if (cancelled) return;
-
+        const showRows = (fs.data ?? []).map((r) => ({ ...r, tmdb_id: Number(r.tmdb_id) }));
+        const movieRows = (fm.data ?? []).map((r) => ({ ...r, tmdb_id: Number(r.tmdb_id) }));
         dispatch({
-          type: "LOADED",
-          payload: { followedShows, followedMovies, followedShowIds, followedMovieIds, calendarEntries },
+          type: "FOLLOWS",
+          payload: {
+            showRows,
+            movieRows,
+            followedShowIds: new Set(showRows.map((r) => r.tmdb_id)),
+            followedMovieIds: new Set(movieRows.map((r) => r.tmdb_id)),
+          },
         });
       } catch (err) {
         if (!cancelled) dispatch({ type: "ERROR", error: err.message });
       }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [uid]);
+
+  const batchItems = useMemo(
+    () => [
+      ...state.showRows.map((r) => ({ type: "show", id: r.tmdb_id })),
+      ...state.movieRows.map((r) => ({ type: "movie", id: r.tmdb_id })),
+    ],
+    [state.showRows, state.movieRows],
+  );
+  const { cards } = useContentBatch(batchItems);
+
+  const followedShows = useMemo(
+    () =>
+      state.showRows
+        .map((r) => {
+          const c = cards[cardKey({ type: "show", id: r.tmdb_id })];
+          if (!c) return null;
+          return {
+            id: r.tmdb_id,
+            name: c.title,
+            poster_path: c.poster_path,
+            first_air_date: c.date,
+            last_air_date: c.last_air_date ?? null,
+            status: c.status ?? null,
+            followed_at: r.created_at,
+          };
+        })
+        .filter(Boolean),
+    [state.showRows, cards],
+  );
+  const followedMovies = useMemo(
+    () =>
+      state.movieRows
+        .map((r) => {
+          const c = cards[cardKey({ type: "movie", id: r.tmdb_id })];
+          if (!c) return null;
+          return {
+            id: r.tmdb_id,
+            title: c.title,
+            poster_path: c.poster_path,
+            release_date: c.date,
+            followed_at: r.created_at,
+          };
+        })
+        .filter(Boolean),
+    [state.movieRows, cards],
+  );
+
+  const visibleShowIds = useMemo(
+    () => followedShows.map((s) => s.id).filter((id) => state.followedShowIds.has(id)),
+    [followedShows, state.followedShowIds],
+  );
+  const { entries: episodeEntries } = useReleases(visibleShowIds, year, month);
+
+  const monthStart = `${year}-${String(month).padStart(2, "0")}-01`;
+  const lastDay = new Date(year, month, 0).getDate();
+  const monthEnd = `${year}-${String(month).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
+
+  const calendarEntries = useMemo(() => {
+    const out = {};
+    // Episodes (only for still-followed shows).
+    for (const [date, list] of Object.entries(episodeEntries)) {
+      for (const ep of list) {
+        if (!state.followedShowIds.has(ep.showId)) continue;
+        (out[date] ??= []).push({
+          type: "episode",
+          id: `${ep.showId}-${ep.seasonNumber}-${ep.episodeNumber}`,
+          name: ep.name,
+          showName: ep.showName,
+          showId: ep.showId,
+          seasonNumber: ep.seasonNumber,
+          episodeNumber: ep.episodeNumber,
+        });
+      }
     }
+    // Movie releases.
+    for (const m of followedMovies) {
+      if (!state.followedMovieIds.has(m.id) || !m.release_date) continue;
+      const d = m.release_date.slice(0, 10);
+      if (d < monthStart || d > monthEnd) continue;
+      (out[d] ??= []).push({ type: "movie", id: m.id, name: m.title, movieId: m.id });
+    }
+    return out;
+  }, [episodeEntries, followedMovies, state.followedShowIds, state.followedMovieIds, monthStart, monthEnd]);
 
-    load();
-    return () => { cancelled = true; };
-  }, [session?.user?.id, year, month]);
+  const mutate = useCallback(
+    (table, col, idsKey, toggleType) => async (id) => {
+      if (!uid || !isValidId(id)) return;
+      dispatch({ type: toggleType, id });
+      const { error } = await supabase.from(table).delete().eq("profile_id", uid).eq(col, id);
+      if (error) dispatch({ type: toggleType, id });
+    },
+    [uid],
+  );
+  const reAdd = useCallback(
+    (table, col, toggleType) => async (id) => {
+      if (!uid || !isValidId(id)) return;
+      dispatch({ type: toggleType, id });
+      const { error } = await supabase.from(table).insert({ profile_id: uid, [col]: id });
+      if (error) dispatch({ type: toggleType, id });
+    },
+    [uid],
+  );
 
-  // Remove a followed show in the database with optimistic UI update.
-  const unfollowShow = useCallback(async (showId) => {
-    if (!session?.user?.id || !isValidId(showId)) return;
-    dispatch({ type: "TOGGLE_SHOW", id: showId });
-    // Delete the profile-show follow relation from the join table.
-    const { error } = await supabase
-      .from("user_followed_shows")
-      .delete()
-      .eq("profile_id", session.user.id)
-      .eq("show_id", showId);
-    if (error) dispatch({ type: "TOGGLE_SHOW", id: showId });
-  }, [session?.user?.id]);
+  const visibleShows = followedShows.filter((s) => state.followedShowIds.has(s.id));
+  const visibleMovies = followedMovies.filter((m) => state.followedMovieIds.has(m.id));
 
-  // Remove a followed movie in the database with optimistic UI update.
-  const unfollowMovie = useCallback(async (movieId) => {
-    if (!session?.user?.id || !isValidId(movieId)) return;
-    dispatch({ type: "TOGGLE_MOVIE", id: movieId });
-    // Delete the profile-movie follow relation from the join table.
-    const { error } = await supabase
-      .from("user_followed_movies")
-      .delete()
-      .eq("profile_id", session.user.id)
-      .eq("movie_id", movieId);
-    if (error) dispatch({ type: "TOGGLE_MOVIE", id: movieId });
-  }, [session?.user?.id]);
-
-  // Re-follow a show that was previously unfollowed (used by undo).
-  const refollowShow = useCallback(async (showId) => {
-    if (!session?.user?.id || !isValidId(showId)) return;
-    dispatch({ type: "TOGGLE_SHOW", id: showId });
-    const { error } = await supabase
-      .from("user_followed_shows")
-      .insert({ profile_id: session.user.id, show_id: showId });
-    if (error) dispatch({ type: "TOGGLE_SHOW", id: showId });
-  }, [session?.user?.id]);
-
-  // Re-follow a movie that was previously unfollowed (used by undo).
-  const refollowMovie = useCallback(async (movieId) => {
-    if (!session?.user?.id || !isValidId(movieId)) return;
-    dispatch({ type: "TOGGLE_MOVIE", id: movieId });
-    const { error } = await supabase
-      .from("user_followed_movies")
-      .insert({ profile_id: session.user.id, movie_id: movieId });
-    if (error) dispatch({ type: "TOGGLE_MOVIE", id: movieId });
-  }, [session?.user?.id]);
-
-  const visibleShows = state.followedShows.filter((s) => state.followedShowIds.has(s.id));
-  const visibleMovies = state.followedMovies.filter((m) => state.followedMovieIds.has(m.id));
-
-  // Derive calendar entries filtered by current followed IDs so the calendar
-  // updates immediately when a show or movie is unfollowed or re-followed.
-  const calendarEntries = {};
-  for (const [date, entries] of Object.entries(state.calendarEntries)) {
-    const filtered = entries.filter((e) => {
-      if (e.type === "episode") return state.followedShowIds.has(e.showId);
-      if (e.type === "movie") return state.followedMovieIds.has(e.movieId);
-      return true;
-    });
-    if (filtered.length > 0) calendarEntries[date] = filtered;
-  }
-
-  return { ...state, calendarEntries, visibleShows, visibleMovies, unfollowShow, unfollowMovie, refollowShow, refollowMovie };
+  return {
+    followedShows,
+    followedMovies,
+    followedShowIds: state.followedShowIds,
+    followedMovieIds: state.followedMovieIds,
+    calendarEntries,
+    isLoading: state.isLoading,
+    error: state.error,
+    visibleShows,
+    visibleMovies,
+    unfollowShow: mutate("user_followed_shows", "tmdb_id", "followedShowIds", "TOGGLE_SHOW"),
+    unfollowMovie: mutate("user_followed_movies", "tmdb_id", "followedMovieIds", "TOGGLE_MOVIE"),
+    refollowShow: reAdd("user_followed_shows", "tmdb_id", "TOGGLE_SHOW"),
+    refollowMovie: reAdd("user_followed_movies", "tmdb_id", "TOGGLE_MOVIE"),
+  };
 }

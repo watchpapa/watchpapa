@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 import { HeartDisplay } from "../rating/HeartDisplay.jsx";
+import { tmdbImg } from "../../lib/tmdbImage.js";
 
-const TMDB_IMG = "https://image.tmdb.org/t/p/w185";
 
 const TYPE_BADGE = {
   movie: { label: "Movie", color: "text-sky-400 border-sky-900/50 bg-sky-900/20" },
@@ -68,7 +68,7 @@ export function ProfileRatingCard({ rating }) {
       <div className="relative aspect-[2/3] w-full overflow-hidden bg-[#0d0f1e]">
         {meta.poster ? (
           <img
-            src={`${TMDB_IMG}${meta.poster}`}
+            src={tmdbImg(meta.poster, "w185")}
             alt={meta.title}
             className="h-full w-full object-cover transition group-hover:scale-105"
             loading="lazy"

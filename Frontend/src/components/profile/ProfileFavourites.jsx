@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
+import { tmdbImg } from "../../lib/tmdbImage.js";
 
-const TMDB_IMG = "https://image.tmdb.org/t/p/w185";
 
 function FavSlot({ fav }) {
   if (!fav) {
@@ -22,7 +22,7 @@ function FavSlot({ fav }) {
     >
       {poster ? (
         <img
-          src={`${TMDB_IMG}${poster}`}
+          src={tmdbImg(poster, "w185")}
           alt={title}
           className="h-full w-full object-cover transition group-hover:scale-105"
           loading="lazy"

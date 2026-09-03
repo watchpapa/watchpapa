@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
+import { tmdbImg } from "../../lib/tmdbImage.js";
 
-const TMDB_IMG = "https://image.tmdb.org/t/p/w185";
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "";
 const COLS = 6;
 const PER_COL = 9;
@@ -62,7 +62,7 @@ function PosterBackground() {
                   {[...col, ...col].map((path, j) => (
                     <div key={j} className="mb-[6px] aspect-[2/3]">
                       <img
-                        src={`${TMDB_IMG}${path}`}
+                        src={tmdbImg(path, "w185")}
                         alt=""
                         className="h-full w-full rounded-[6px] object-cover"
                         loading="lazy"

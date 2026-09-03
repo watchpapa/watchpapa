@@ -5,6 +5,7 @@ import { PageHead } from "../../components/ui/PageHead.jsx";
 import { useFollows } from "../../features/follows/hooks/useFollows.js";
 import { useSubscription } from "../../features/subscription/hooks/useSubscription.js";
 import { OverLimitBanner } from "../../components/ui/OverLimitBanner.jsx";
+import { tmdbImg } from "../../lib/tmdbImage.js";
 
 const TIER_LIMITS = {
   free:     { type: "separate", shows: 3, movies: 1 },
@@ -14,7 +15,6 @@ const TIER_LIMITS = {
   god:      { type: "unlimited" },
 };
 
-const TMDB_IMG = "https://image.tmdb.org/t/p/w185";
 
 function UnfollowIcon() {
   return (
@@ -30,7 +30,7 @@ function FollowCard({ title, poster, year, to, onUnfollow, unfollowing }) {
       <Link to={to} className="shrink-0">
         <div className="h-16 w-11 overflow-hidden rounded-lg border border-[#2a3570] bg-[#0d0f1e]">
           {poster ? (
-            <img src={`${TMDB_IMG}${poster}`} alt={title} className="h-full w-full object-cover" loading="lazy" />
+            <img src={tmdbImg(poster, "w185")} alt={title} className="h-full w-full object-cover" loading="lazy" />
           ) : (
             <div className="flex h-full items-center justify-center text-[#3a3a7a]">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">

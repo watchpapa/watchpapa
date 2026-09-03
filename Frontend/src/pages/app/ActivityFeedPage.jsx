@@ -3,19 +3,19 @@ import AppLayout from "../../layouts/AppLayout.jsx";
 import { PageHead } from "../../components/ui/PageHead.jsx";
 import { useActivityFeed } from "../../features/observe/hooks/useActivityFeed.js";
 import { HeartDisplay } from "../../components/rating/HeartDisplay.jsx";
+import { tmdbImg } from "../../lib/tmdbImage.js";
 
-const TMDB_IMG = "https://image.tmdb.org/t/p/w154";
 
 function entityLink(item) {
   switch (item.media_type) {
     case "movie":
-      return `/movies/${item.movie_id}`;
+      return `/movies/${item.tmdbId}`;
     case "show":
-      return `/shows/${item.show_id}`;
+      return `/shows/${item.showId}`;
     case "season":
-      return `/shows/${item.show_id}/seasons/${item.season_id}`;
+      return `/shows/${item.showId}/seasons/${item.seasonNumber}`;
     case "episode":
-      return `/shows/${item.show_id}/seasons/${item.season_id}/episodes/${item.episode_id}`;
+      return `/shows/${item.showId}/seasons/${item.seasonNumber}/episodes/${item.episodeNumber}`;
     default:
       return "/";
   }
@@ -39,7 +39,7 @@ function FeedRow({ item }) {
       <Link to={entityLink(item)} className="shrink-0">
         <div className="h-[84px] w-14 overflow-hidden rounded-lg border border-[#2a3570] bg-[#12163a]">
           {item.poster_path ? (
-            <img src={`${TMDB_IMG}${item.poster_path}`} alt={item.title} className="h-full w-full object-cover" loading="lazy" />
+            <img src={tmdbImg(item.poster_path, "w154")} alt={item.title} className="h-full w-full object-cover" loading="lazy" />
           ) : (
             <div className="h-full w-full" />
           )}

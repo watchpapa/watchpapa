@@ -8,8 +8,8 @@ import { OverLimitBanner } from "../../components/ui/OverLimitBanner.jsx";
 import { useWatchlists } from "../../features/watchlist/hooks/useWatchlists.js";
 import { useWatchlistItems } from "../../features/watchlist/hooks/useWatchlistItems.js";
 import { useOverageStatus } from "../../features/follows/hooks/useOverageStatus.js";
+import { tmdbImg } from "../../lib/tmdbImage.js";
 
-const TMDB_IMG = "https://image.tmdb.org/t/p/w300";
 const SORT_OPTIONS = [
   { id: "added", label: "Date added" },
   { id: "rating", label: "Rating" },
@@ -83,7 +83,7 @@ function ItemGridCard({ item, onRemove, session, onMembershipChange }) {
   const title = media?.title ?? media?.name ?? "Unknown";
   const year = media?.release_date ?? media?.first_air_date;
   const displayYear = year ? new Date(year).getFullYear() : null;
-  const posterSrc = media?.poster_path ? `${TMDB_IMG}${media.poster_path}` : null;
+  const posterSrc = media?.poster_path ? tmdbImg(media.poster_path, "w300") : null;
   const tmdbVote = media?.tmdb_vote_avg;
   const detailPath = item.media_type === "movie"
     ? `/movies/${item.movie_id}`

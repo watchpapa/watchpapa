@@ -1,8 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
+import { tmdbImg } from "../../lib/tmdbImage.js";
 
-const TMDB_BG = "https://image.tmdb.org/t/p/w780";
-const TMDB_POSTER = "https://image.tmdb.org/t/p/w342";
 const ROTATE_MS = 8000;
 
 function StarIcon() {
@@ -77,7 +76,7 @@ function ContentHero({ items = [], isAuthenticated }) {
       <div className="absolute -inset-8 overflow-hidden">
         <img
           key={current.id}
-          src={`${TMDB_BG}${current.posterPath}`}
+          src={tmdbImg(current.posterPath, "w780")}
           alt=""
           aria-hidden
           className="h-full w-full object-cover opacity-50 blur-2xl saturate-[1.6]"
@@ -96,7 +95,7 @@ function ContentHero({ items = [], isAuthenticated }) {
         >
           <img
             key={`p-${current.id}`}
-            src={`${TMDB_POSTER}${current.posterPath}`}
+            src={tmdbImg(current.posterPath, "w342")}
             alt={current.title}
             className="aspect-[2/3] h-full w-full object-cover"
             style={{ animation: "heroBannerFadeIn 0.5s ease-out both" }}
@@ -165,7 +164,7 @@ function ContentHero({ items = [], isAuthenticated }) {
                       : "border-white/15 opacity-55 hover:opacity-100"
                   }`}
                 >
-                  <img src={`${TMDB_POSTER}${it.posterPath}`} alt="" className="h-full w-full object-cover" />
+                  <img src={tmdbImg(it.posterPath, "w342")} alt="" className="h-full w-full object-cover" />
                 </button>
               ))}
             </div>
