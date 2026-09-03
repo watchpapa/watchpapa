@@ -1,36 +1,25 @@
 import { supabase } from "../../../lib/supabase.js";
 
-async function resolveWatchlistTarget(mediaType, entityId) {
-  if (mediaType === "movie") return { mediaType: "movie", entityId };
-  if (mediaType === "show") return { mediaType: "show", entityId };
+// Rating means watched — remove the matching movie/show from all of the user's
+// watchlists. Watchlists only hold movies + shows, so a season/episode rating maps
+// to its parent show (tmdb_show_id, passed in from the rating context — no lookup).
+export async function removeFromWatchlistsOnRating(mediaType, tmdbId, tmdbShowId) {
+  let target;
+  if (mediaType === "movie") target = { mediaType: "movie", tmdbId };
+  else if (mediaType === "show") target = { mediaType: "show", tmdbId };
+  else if ((mediaType === "season" || mediaType === "episode") && tmdbShowId) {
+    target = { mediaType: "show", tmdbId: tmdbShowId };
+  } else return;
 
-  if (mediaType === "season") {
-    const { data } = await supabase.from("season").select("show_id").eq("id", entityId).maybeSingle();
-    return data?.show_id ? { mediaType: "show", entityId: data.show_id } : null;
-  }
+  await supabase
+    .from("watchlist_item")
+    .delete()
+    .eq("media_type", target.mediaType)
+    .eq("tmdb_id", target.tmdbId);
 
-  if (mediaType === "episode") {
-    const { data } = await supabase
-      .from("episode")
-      .select("season:season_id(show_id)")
-      .eq("id", entityId)
-      .maybeSingle();
-    const showId = data?.season?.show_id;
-    return showId ? { mediaType: "show", entityId: showId } : null;
-  }
-
-  return null;
-}
-
-// Rating means watched — remove matching movie/show from all of the user's watchlists.
-export async function removeFromWatchlistsOnRating(mediaType, entityId) {
-  const target = await resolveWatchlistTarget(mediaType, entityId);
-  if (!target) return;
-
-  const idCol = target.mediaType === "movie" ? "movie_id" : "show_id";
-  await supabase.from("watchlist_item").delete().eq(idCol, target.entityId);
-
-  window.dispatchEvent(new CustomEvent("watchpapa:watchlist-item-removed", {
-    detail: { mediaType: target.mediaType, entityId: target.entityId },
-  }));
+  window.dispatchEvent(
+    new CustomEvent("watchpapa:watchlist-item-removed", {
+      detail: { mediaType: target.mediaType, tmdbId: target.tmdbId },
+    }),
+  );
 }

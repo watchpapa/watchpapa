@@ -1,8 +1,10 @@
-// Used by:
-// - Frontend/src/features/episode/hooks/useEpisodeData.js
-// - Frontend/src/features/movie/hooks/useMovieData.js
-// - Frontend/src/features/season/hooks/useSeasonData.js
-// - Frontend/src/features/show/hooks/useShowData.js
+// Shapes the Worker's flat cast/crew arrays for the detail-page components.
+// Used by: MoviePage, ShowPage, SeasonPage, EpisodePage (via their hooks).
+//
+// Worker emits:
+//   cast: [{ personId, name, profilePath, character, order }]
+//   crew: [{ personId, name, profilePath, job, department }]
+
 const DEPT_ORDER = [
   "Directing",
   "Writing",
@@ -17,41 +19,41 @@ const DEPT_ORDER = [
   "Crew",
 ];
 
-// Convert raw credit rows from database joins into cast items.
-export function toCast(rows) {
-  return rows
-    .filter((r) => r.person && r.job?.name === "Actor")
-    .map((r) => ({
-      id: `${r.person.id}-${r.title ?? ""}`,
-      personId: r.person.id,
-      name: r.person.name,
-      profilePath: r.person.profile_path ?? null,
-      character: r.title ?? null,
+// Cast list, ordered by TMDB billing order.
+export function toCast(cast) {
+  return (cast ?? [])
+    .filter((c) => c.personId != null)
+    .slice()
+    .sort((a, b) => (a.order ?? 999) - (b.order ?? 999))
+    .map((c) => ({
+      id: `${c.personId}-${c.character ?? ""}`,
+      personId: c.personId,
+      name: c.name,
+      profilePath: c.profilePath ?? null,
+      character: c.character ?? null,
     }));
 }
 
-// Group raw database credit rows into department/job crew sections.
-export function toCrew(rows) {
+// Crew grouped department → job → people, departments in DEPT_ORDER.
+export function toCrew(crew) {
   const deptMap = new Map();
 
-  for (const r of rows) {
-    if (!r.person || r.job?.name === "Actor") continue;
-    const dept = r.job?.department?.name ?? "Crew";
-    const job = r.job?.name ?? "Unknown";
+  for (const c of crew ?? []) {
+    if (c.personId == null) continue;
+    const dept = c.department ?? "Crew";
+    const job = c.job ?? "Unknown";
 
     if (!deptMap.has(dept)) deptMap.set(dept, new Map());
     const jobMap = deptMap.get(dept);
-
     if (!jobMap.has(job)) jobMap.set(job, new Map());
     const peopleMap = jobMap.get(job);
 
-    // deduplicate by person id within a job
-    if (!peopleMap.has(r.person.id)) {
-      peopleMap.set(r.person.id, {
-        id: `${r.person.id}-${job}`,
-        personId: r.person.id,
-        name: r.person.name,
-        profilePath: r.person.profile_path ?? null,
+    if (!peopleMap.has(c.personId)) {
+      peopleMap.set(c.personId, {
+        id: `${c.personId}-${job}`,
+        personId: c.personId,
+        name: c.name,
+        profilePath: c.profilePath ?? null,
       });
     }
   }

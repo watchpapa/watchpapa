@@ -16,8 +16,7 @@ import { useSeasonData } from "../../features/season/hooks/useSeasonData.js";
 import { useShowFollow } from "../../features/show/hooks/useShowFollow.js";
 import UpgradePromptToast from "../../components/subscription/UpgradePromptToast.jsx";
 import { PageHead } from "../../components/ui/PageHead.jsx";
-
-const TMDB_IMG = "https://image.tmdb.org/t/p/w185";
+import { tmdbImg } from "../../lib/tmdbImage.js";
 
 function fmt(val, fallback = "—") { return val ?? fallback; }
 
@@ -26,13 +25,12 @@ function fmtDate(val) {
   return new Date(val).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
 }
 
-
-function EpisodeRow({ episode, showId, seasonId }) {
-  const imgSrc = episode.poster_path ? `${TMDB_IMG}${episode.poster_path}` : null;
+function EpisodeRow({ episode, showId, seasonNumber }) {
+  const imgSrc = tmdbImg(episode.poster_path, "w185");
 
   return (
     <Link
-      to={`/shows/${showId}/seasons/${seasonId}/episodes/${episode.id}`}
+      to={`/shows/${showId}/seasons/${seasonNumber}/episodes/${episode.episode_number}`}
       className="flex items-center gap-3 rounded-xl border border-[#2a3570]/50 bg-[#0d0f1e] p-3 transition hover:border-[#3a3a7a] hover:bg-[#141728]"
     >
       <div className="h-14 w-24 flex-shrink-0 overflow-hidden rounded-lg border border-[#2a3570] bg-[#12163a]">
@@ -56,15 +54,15 @@ function EpisodeRow({ episode, showId, seasonId }) {
 }
 
 function SeasonPage({ session }) {
-  const { id: showId, seasonId } = useParams();
+  const { id: showId, seasonNumber } = useParams();
   const [showAuthPrompt, setShowAuthPrompt] = useState(false);
-  const { season, show, episodes, seasons, cast, crew, isLoading, error } = useSeasonData(seasonId, showId);
+  const { season, show, episodes, seasons, cast, crew, isLoading, error } = useSeasonData(showId, seasonNumber);
   const { isFollowing, toggleFollow, followLimitError, clearFollowLimitError } = useShowFollow(showId, session);
   const handleFollow = session ? toggleFollow : () => setShowAuthPrompt(true);
 
-  const currentSeasonIdx = seasons.findIndex(s => s.id === season?.id);
-  const prevSeason = currentSeasonIdx > 0 ? seasons[currentSeasonIdx - 1] : null;
-  const nextSeason = currentSeasonIdx < seasons.length - 1 ? seasons[currentSeasonIdx + 1] : null;
+  const currentIdx = seasons.findIndex((s) => s.season_number === season?.season_number);
+  const prevSeason = currentIdx > 0 ? seasons[currentIdx - 1] : null;
+  const nextSeason = currentIdx >= 0 && currentIdx < seasons.length - 1 ? seasons[currentIdx + 1] : null;
 
   const breadcrumbs = season && show ? [
     { label: "Shows", to: "/shows" },
@@ -78,7 +76,7 @@ function SeasonPage({ session }) {
 
   const details = [
     ["Air date", fmtDate(season.air_date)],
-    ["Number of episodes", fmt(episodes.length || season.episode?.length)],
+    ["Number of episodes", fmt(episodes.length || season.episodes?.length)],
     ["Season number", fmt(season.season_number)],
   ];
 
@@ -87,7 +85,7 @@ function SeasonPage({ session }) {
       <PageHead
         title={`${show.name} — ${season.name}`}
         description={season.overview?.slice(0, 155) || `Season ${season.season_number} of ${show.name} on watchpapa.`}
-        path={`/shows/${showId}/seasons/${seasonId}`}
+        path={`/shows/${showId}/seasons/${seasonNumber}`}
       />
       {showAuthPrompt && <AuthPromptModal onClose={() => setShowAuthPrompt(false)} />}
       {followLimitError && <UpgradePromptToast message={followLimitError} onDismiss={clearFollowLimitError} session={session} />}
@@ -106,7 +104,15 @@ function SeasonPage({ session }) {
                 <li key={k}><span className="font-bold text-[#8383e7]">{k}:</span> <span className="text-[#c0c0e8]">{v}</span></li>
               ))}
             </ul>
-            <RatingSidebar mediaType="season" entityId={season.id} session={session} onAuthPrompt={() => setShowAuthPrompt(true)} isUnreleased={!!(season.air_date && new Date(season.air_date) > new Date())} />
+            <RatingSidebar
+              mediaType="season"
+              entityId={season.id}
+              tmdbShowId={show.tmdb_id}
+              seasonNumber={season.season_number}
+              session={session}
+              onAuthPrompt={() => setShowAuthPrompt(true)}
+              isUnreleased={!!(season.air_date && new Date(season.air_date) > new Date())}
+            />
             <ObservedRatingsPanel mediaType="season" entityId={season.id} session={session} />
             <RatingHistogram mediaType="season" entityId={season.id} />
           </>
@@ -130,7 +136,7 @@ function SeasonPage({ session }) {
           <div className="flex gap-3">
             {prevSeason && (
               <Link
-                to={`/shows/${showId}/seasons/${prevSeason.id}`}
+                to={`/shows/${showId}/seasons/${prevSeason.season_number}`}
                 className="flex-1 flex items-center gap-3 rounded-xl border border-[#2a3570]/50 bg-[#0d0f1e] p-3 transition hover:border-[#3a3a7a] hover:bg-[#141728]"
               >
                 <svg className="flex-shrink-0 text-[#3a3a7a]" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M15 18l-6-6 6-6" /></svg>
@@ -142,7 +148,7 @@ function SeasonPage({ session }) {
             )}
             {nextSeason && (
               <Link
-                to={`/shows/${showId}/seasons/${nextSeason.id}`}
+                to={`/shows/${showId}/seasons/${nextSeason.season_number}`}
                 className="flex-1 flex items-center gap-3 rounded-xl border border-[#2a3570]/50 bg-[#0d0f1e] p-3 transition hover:border-[#3a3a7a] hover:bg-[#141728]"
               >
                 <div className="min-w-0 flex-1">
@@ -159,7 +165,7 @@ function SeasonPage({ session }) {
           <ContentPanel label="Episodes">
             <div className="space-y-2">
               {episodes.map((ep) => (
-                <EpisodeRow key={ep.id} episode={ep} showId={showId} seasonId={seasonId} />
+                <EpisodeRow key={ep.id} episode={ep} showId={showId} seasonNumber={seasonNumber} />
               ))}
             </div>
           </ContentPanel>

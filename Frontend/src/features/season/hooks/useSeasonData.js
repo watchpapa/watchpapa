@@ -1,85 +1,32 @@
 // Used by:
 // - Frontend/src/pages/app/SeasonPage.jsx
-import { useEffect, useReducer } from "react";
-import { supabase } from "../../../lib/supabase.js";
+//
+// URL is /shows/:id/seasons/:seasonNumber (both TMDB-keyed). Show header + sibling
+// seasons + credits from useShow; the season + its episodes from useSeason.
 import { toCast, toCrew } from "../../../lib/credits.js";
+import { useShow, useSeason } from "../../content/hooks/useContent.js";
 
-// Apply state updates for season data loaded from the database.
-function reducer(state, action) {
-  switch (action.type) {
-    case "LOADED":
-      return { ...state, ...action.payload, isLoading: false, error: null };
-    case "ERROR":
-      return { ...state, isLoading: false, error: action.error };
-    default:
-      return state;
-  }
-}
-
-const initialState = {
-  season: null,
-  show: null,
-  episodes: [],
-  seasons: [],
-  cast: [],
-  crew: [],
-  isLoading: true,
-  error: null,
-};
-
-// Load season details, show details, and credits for the Season page.
-export function useSeasonData(rawSeasonId, rawShowId) {
-  const seasonId = rawSeasonId ? parseInt(rawSeasonId, 10) : null;
+export function useSeasonData(rawShowId, rawSeasonNumber) {
   const showId = rawShowId ? parseInt(rawShowId, 10) : null;
-  const [state, dispatch] = useReducer(reducer, initialState);
+  const seasonNumber = rawSeasonNumber != null ? parseInt(rawSeasonNumber, 10) : null;
 
-  useEffect(() => {
-    if (!seasonId || !showId) return;
-    let cancelled = false;
+  const showQ = useShow(showId);
+  const seasonQ = useSeason(showId, seasonNumber);
 
-    // Read season episodes and show metadata/credits from the database.
-    async function load() {
-      try {
-        const [seasonRes, showRes] = await Promise.all([
-          supabase
-            .from("season")
-            .select(`*, episode(id, name, episode_number, air_date, runtime, poster_path)`)
-            .eq("id", seasonId)
-            .single(),
-          supabase
-            .from("show")
-            .select(`id, name, season(id, name, season_number), show_credits(title, person(id, name, profile_path), job(name, department(name)))`)
-            .eq("id", showId)
-            .single(),
-        ]);
+  const show = showQ.data;
+  const season = seasonQ.data;
 
-        if (seasonRes.error) throw seasonRes.error;
-        if (showRes.error) throw showRes.error;
-        if (cancelled) return;
+  const episodes = (season?.episodes ?? []).slice().sort((a, b) => a.episode_number - b.episode_number);
+  const seasons = (show?.seasons ?? []).slice().sort((a, b) => a.season_number - b.season_number);
 
-        const episodes = (seasonRes.data.episode ?? []).sort((a, b) => a.episode_number - b.episode_number);
-        const seasons = (showRes.data.season ?? []).sort((a, b) => a.season_number - b.season_number);
-        const credits = showRes.data.show_credits ?? [];
-
-        dispatch({
-          type: "LOADED",
-          payload: {
-            season: seasonRes.data,
-            show: showRes.data,
-            episodes,
-            seasons,
-            cast: toCast(credits),
-            crew: toCrew(credits),
-          },
-        });
-      } catch (err) {
-        if (!cancelled) dispatch({ type: "ERROR", error: err.message });
-      }
-    }
-
-    load();
-    return () => { cancelled = true; };
-  }, [seasonId, showId]);
-
-  return state;
+  return {
+    season,
+    show,
+    episodes,
+    seasons,
+    cast: toCast(show?.cast),
+    crew: toCrew(show?.crew),
+    isLoading: showQ.loading || seasonQ.loading,
+    error: showQ.error?.message ?? seasonQ.error?.message ?? null,
+  };
 }

@@ -19,8 +19,6 @@ export function useItemWatchlistStatus(mediaType, entityId, session) {
     let cancelled = false;
     setIsLoading(true);
 
-    const idCol = mediaType === "movie" ? "movie_id" : "show_id";
-
     Promise.all([
       supabase
         .from("watchlist")
@@ -30,7 +28,8 @@ export function useItemWatchlistStatus(mediaType, entityId, session) {
       supabase
         .from("watchlist_item")
         .select("id, watchlist_id")
-        .eq(idCol, entityId),
+        .eq("media_type", mediaType)
+        .eq("tmdb_id", entityId),
     ]).then(([listsResult, itemsResult]) => {
       if (cancelled) return;
       const lists = listsResult.data ?? [];
@@ -54,7 +53,7 @@ export function useItemWatchlistStatus(mediaType, entityId, session) {
 
   useEffect(() => {
     function handleRemoved(e) {
-      const { mediaType: mt, entityId: eid } = e.detail ?? {};
+      const { mediaType: mt, tmdbId: eid } = e.detail ?? {};
       if (mt !== mediaType || String(eid) !== String(entityId)) return;
       setMembershipMap((prev) => {
         const next = { ...prev };
@@ -82,10 +81,9 @@ export function useItemWatchlistStatus(mediaType, entityId, session) {
         setMembershipMap((prev) => ({ ...prev, [watchlistId]: null }));
       }
     } else {
-      const idCol = mediaType === "movie" ? "movie_id" : "show_id";
       const { data, error } = await supabase
         .from("watchlist_item")
-        .insert({ watchlist_id: watchlistId, media_type: mediaType, [idCol]: entityId })
+        .insert({ watchlist_id: watchlistId, media_type: mediaType, tmdb_id: entityId })
         .select("id")
         .single();
 

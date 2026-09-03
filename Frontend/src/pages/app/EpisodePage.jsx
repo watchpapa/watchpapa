@@ -2,7 +2,6 @@ import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import AppLayout from "../../layouts/AppLayout.jsx";
 import DetailPageLayout from "../../components/detail/DetailPageLayout.jsx";
-import PosterCard from "../../components/detail/PosterCard.jsx";
 import ContentPanel from "../../components/detail/ContentPanel.jsx";
 import CastGrid from "../../components/detail/CastGrid.jsx";
 import CrewSection from "../../components/detail/CrewSection.jsx";
@@ -16,8 +15,7 @@ import { useEpisodeData } from "../../features/episode/hooks/useEpisodeData.js";
 import { useShowFollow } from "../../features/show/hooks/useShowFollow.js";
 import UpgradePromptToast from "../../components/subscription/UpgradePromptToast.jsx";
 import { PageHead } from "../../components/ui/PageHead.jsx";
-
-const TMDB_IMG = "https://image.tmdb.org/t/p/w185";
+import { tmdbImg } from "../../lib/tmdbImage.js";
 
 function fmt(val, fallback = "—") { return val ?? fallback; }
 
@@ -26,12 +24,11 @@ function fmtDate(val) {
   return new Date(val).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
 }
 
-
-function SiblingRow({ ep, showId, seasonId }) {
-  const imgSrc = ep.poster_path ? `${TMDB_IMG}${ep.poster_path}` : null;
+function SiblingRow({ ep, showId, seasonNumber }) {
+  const imgSrc = tmdbImg(ep.poster_path, "w185");
   return (
     <Link
-      to={`/shows/${showId}/seasons/${seasonId}/episodes/${ep.id}`}
+      to={`/shows/${showId}/seasons/${seasonNumber}/episodes/${ep.episode_number}`}
       className="flex items-center gap-3 rounded-xl border border-[#2a3570]/50 bg-[#0d0f1e] p-3 transition hover:border-[#3a3a7a] hover:bg-[#141728]"
     >
       <div className="h-12 w-20 flex-shrink-0 overflow-hidden rounded-lg border border-[#2a3570] bg-[#12163a]">
@@ -53,16 +50,16 @@ function SiblingRow({ ep, showId, seasonId }) {
 }
 
 function EpisodePage({ session }) {
-  const { id: showId, seasonId, episodeId } = useParams();
+  const { id: showId, seasonNumber, episodeNumber } = useParams();
   const [showAuthPrompt, setShowAuthPrompt] = useState(false);
-  const { episode, season, show, siblings, cast, crew, isLoading, error } = useEpisodeData(episodeId, seasonId, showId);
+  const { episode, season, show, siblings, cast, crew, isLoading, error } = useEpisodeData(showId, seasonNumber, episodeNumber);
   const { isFollowing, toggleFollow, followLimitError, clearFollowLimitError } = useShowFollow(showId, session);
   const handleFollow = session ? toggleFollow : () => setShowAuthPrompt(true);
 
   const breadcrumbs = episode && season && show ? [
     { label: "Shows", to: "/shows" },
     { label: show.name, to: `/shows/${showId}` },
-    { label: season.name, to: `/shows/${showId}/seasons/${seasonId}` },
+    { label: season.name, to: `/shows/${showId}/seasons/${seasonNumber}` },
     { label: episode.name },
   ] : undefined;
 
@@ -81,11 +78,11 @@ function EpisodePage({ session }) {
     ...(episode.air_date && { datePublished: episode.air_date }),
   };
 
-  const totalEps = (season.episode?.length ?? 0);
-  const allEps = [...(season.episode ?? [])].sort((a, b) => a.episode_number - b.episode_number);
-  const currentEpIdx = allEps.findIndex(e => e.id === episode.id);
+  const allEps = [...(season.episodes ?? [])].sort((a, b) => a.episode_number - b.episode_number);
+  const totalEps = allEps.length;
+  const currentEpIdx = allEps.findIndex((e) => e.episode_number === episode.episode_number);
   const prevEp = currentEpIdx > 0 ? allEps[currentEpIdx - 1] : null;
-  const nextEp = currentEpIdx < allEps.length - 1 ? allEps[currentEpIdx + 1] : null;
+  const nextEp = currentEpIdx >= 0 && currentEpIdx < allEps.length - 1 ? allEps[currentEpIdx + 1] : null;
 
   const details = [
     ["Episode runtime", episode.runtime ? `${episode.runtime}m` : "—"],
@@ -93,12 +90,14 @@ function EpisodePage({ session }) {
     ["Episode number", `${episode.episode_number}${totalEps ? ` / ${totalEps}` : ""}`],
   ];
 
+  const epThumb = (path) => tmdbImg(path, "w185");
+
   return (
     <AppLayout session={session} breadcrumbs={breadcrumbs}>
       <PageHead
         title={`${show.name} S${String(season.season_number).padStart(2, "0")}E${String(episode.episode_number).padStart(2, "0")} — ${episode.name}`}
         description={episode.overview?.slice(0, 155) || `${episode.name} · ${show.name}`}
-        path={`/shows/${showId}/seasons/${seasonId}/episodes/${episodeId}`}
+        path={`/shows/${showId}/seasons/${seasonNumber}/episodes/${episodeNumber}`}
         jsonLd={episodeJsonLd}
       />
       {showAuthPrompt && <AuthPromptModal onClose={() => setShowAuthPrompt(false)} />}
@@ -109,7 +108,7 @@ function EpisodePage({ session }) {
         sidebarTop={
           <div className="relative overflow-hidden rounded-2xl border border-[#2a3570] bg-[#12163a] aspect-video w-full">
             {episode.poster_path ? (
-              <img src={`${TMDB_IMG}${episode.poster_path}`} alt={episode.name} className="h-full w-full object-cover" loading="lazy" />
+              <img src={epThumb(episode.poster_path)} alt={episode.name} className="h-full w-full object-cover" loading="lazy" />
             ) : (
               <div className="flex h-full w-full flex-col items-center justify-center gap-3 bg-gradient-to-b from-[#181d40] to-[#0e1128]">
                 <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#3a3a7a" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
@@ -131,7 +130,16 @@ function EpisodePage({ session }) {
                 <li key={k}><span className="font-bold text-[#8383e7]">{k}:</span> <span className="text-[#c0c0e8]">{v}</span></li>
               ))}
             </ul>
-            <RatingSidebar mediaType="episode" entityId={episode.id} session={session} onAuthPrompt={() => setShowAuthPrompt(true)} isUnreleased={!!(episode.air_date && new Date(episode.air_date) > new Date())} />
+            <RatingSidebar
+              mediaType="episode"
+              entityId={episode.id}
+              tmdbShowId={show.tmdb_id}
+              seasonNumber={season.season_number}
+              episodeNumber={episode.episode_number}
+              session={session}
+              onAuthPrompt={() => setShowAuthPrompt(true)}
+              isUnreleased={!!(episode.air_date && new Date(episode.air_date) > new Date())}
+            />
             <ObservedRatingsPanel mediaType="episode" entityId={episode.id} session={session} />
             <RatingHistogram mediaType="episode" entityId={episode.id} />
           </>
@@ -155,12 +163,12 @@ function EpisodePage({ session }) {
           <div className="flex gap-3">
             {prevEp && (
               <Link
-                to={`/shows/${showId}/seasons/${seasonId}/episodes/${prevEp.id}`}
+                to={`/shows/${showId}/seasons/${seasonNumber}/episodes/${prevEp.episode_number}`}
                 className="flex-1 flex items-center gap-3 rounded-xl border border-[#2a3570]/50 bg-[#0d0f1e] p-3 transition hover:border-[#3a3a7a] hover:bg-[#141728]"
               >
                 <div className="h-16 w-28 flex-shrink-0 overflow-hidden rounded-lg border border-[#2a3570] bg-[#12163a]">
                   {prevEp.poster_path ? (
-                    <img src={`${TMDB_IMG}${prevEp.poster_path}`} alt={prevEp.name} className="h-full w-full object-cover" loading="lazy" />
+                    <img src={epThumb(prevEp.poster_path)} alt={prevEp.name} className="h-full w-full object-cover" loading="lazy" />
                   ) : (
                     <div className="flex h-full w-full items-center justify-center text-[#3a3a7a]">
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="2" y="6" width="20" height="14" rx="2" /><path d="M8 6V4M16 6V4M2 10h20" /></svg>
@@ -176,7 +184,7 @@ function EpisodePage({ session }) {
             )}
             {nextEp && (
               <Link
-                to={`/shows/${showId}/seasons/${seasonId}/episodes/${nextEp.id}`}
+                to={`/shows/${showId}/seasons/${seasonNumber}/episodes/${nextEp.episode_number}`}
                 className="flex-1 flex items-center gap-3 rounded-xl border border-[#2a3570]/50 bg-[#0d0f1e] p-3 transition hover:border-[#3a3a7a] hover:bg-[#141728]"
               >
                 <svg className="flex-shrink-0 text-[#3a3a7a]" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M9 18l6-6-6-6" /></svg>
@@ -186,7 +194,7 @@ function EpisodePage({ session }) {
                 </div>
                 <div className="h-16 w-28 flex-shrink-0 overflow-hidden rounded-lg border border-[#2a3570] bg-[#12163a]">
                   {nextEp.poster_path ? (
-                    <img src={`${TMDB_IMG}${nextEp.poster_path}`} alt={nextEp.name} className="h-full w-full object-cover" loading="lazy" />
+                    <img src={epThumb(nextEp.poster_path)} alt={nextEp.name} className="h-full w-full object-cover" loading="lazy" />
                   ) : (
                     <div className="flex h-full w-full items-center justify-center text-[#3a3a7a]">
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="2" y="6" width="20" height="14" rx="2" /><path d="M8 6V4M16 6V4M2 10h20" /></svg>
@@ -202,7 +210,7 @@ function EpisodePage({ session }) {
           <ContentPanel label="Other Episodes">
             <div className="space-y-2 max-h-80 overflow-y-auto pr-1">
               {siblings.map((ep) => (
-                <SiblingRow key={ep.id} ep={ep} showId={showId} seasonId={seasonId} />
+                <SiblingRow key={ep.id} ep={ep} showId={showId} seasonNumber={seasonNumber} />
               ))}
             </div>
           </ContentPanel>

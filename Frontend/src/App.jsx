@@ -19,7 +19,7 @@ import ShowPage from "./pages/app/ShowPage.jsx";
 import SeasonPage from "./pages/app/SeasonPage.jsx";
 import EpisodePage from "./pages/app/EpisodePage.jsx";
 import PersonPage from "./pages/app/PersonPage.jsx";
-import TmdbResolvePage from "./pages/app/TmdbResolvePage.jsx";
+import TmdbRedirect from "./components/TmdbRedirect.jsx";
 import CookieConsentBanner from "./components/ui/CookieConsentBanner.jsx";
 import ReportBugButton from "./components/ui/ReportBugButton.jsx";
 import ReleasesCalendarPage from "./pages/app/ReleasesCalendarPage.jsx";
@@ -34,12 +34,9 @@ import StatsPage from "./pages/admin/StatsPage.jsx";
 import UserLookupPage from "./pages/admin/UserLookupPage.jsx";
 import ReferralLeaderboardPage from "./pages/admin/ReferralLeaderboardPage.jsx";
 import AuditLogPage from "./pages/admin/AuditLogPage.jsx";
-import ScriptLogsPage from "./pages/admin/ScriptLogsPage.jsx";
 import AdminRoute from "./components/auth/AdminRoute.jsx";
 import StaffPage from "./pages/admin/StaffPage.jsx";
-import ContentResyncPage from "./pages/admin/ContentResyncPage.jsx";
 import CatalogStatsPage from "./pages/admin/CatalogStatsPage.jsx";
-import QueuePage from "./pages/admin/QueuePage.jsx";
 import WatchlistsPage from "./pages/app/WatchlistsPage.jsx";
 import ProfilePage from "./pages/app/ProfilePage.jsx";
 import ProfileRatingsPage from "./pages/app/ProfileRatingsPage.jsx";
@@ -318,7 +315,7 @@ function App() {
         }
       />
       <Route
-        path="/shows/:id/seasons/:seasonId"
+        path="/shows/:id/seasons/:seasonNumber"
         element={
           <PublicRoute session={session} needsUsernameSetup={needsUsernameSetup}>
             <SeasonPage session={session} showAdult={showAdult} />
@@ -326,7 +323,7 @@ function App() {
         }
       />
       <Route
-        path="/shows/:id/seasons/:seasonId/episodes/:episodeId"
+        path="/shows/:id/seasons/:seasonNumber/episodes/:episodeNumber"
         element={
           <PublicRoute session={session} needsUsernameSetup={needsUsernameSetup}>
             <EpisodePage session={session} showAdult={showAdult} />
@@ -349,30 +346,9 @@ function App() {
           </PublicRoute>
         }
       />
-      <Route
-        path="/movies/tmdb/:tmdbId"
-        element={
-          <PublicRoute session={session} needsUsernameSetup={needsUsernameSetup}>
-            <TmdbResolvePage type="movie" session={session} showAdult={showAdult} />
-          </PublicRoute>
-        }
-      />
-      <Route
-        path="/shows/tmdb/:tmdbId"
-        element={
-          <PublicRoute session={session} needsUsernameSetup={needsUsernameSetup}>
-            <TmdbResolvePage type="show" session={session} showAdult={showAdult} />
-          </PublicRoute>
-        }
-      />
-      <Route
-        path="/people/tmdb/:tmdbId"
-        element={
-          <PublicRoute session={session} needsUsernameSetup={needsUsernameSetup}>
-            <TmdbResolvePage type="person" session={session} showAdult={showAdult} />
-          </PublicRoute>
-        }
-      />
+      <Route path="/movies/tmdb/:tmdbId" element={<TmdbRedirect kind="movies" />} />
+      <Route path="/shows/tmdb/:tmdbId" element={<TmdbRedirect kind="shows" />} />
+      <Route path="/people/tmdb/:tmdbId" element={<TmdbRedirect kind="people" />} />
       <Route
         path="/calendar"
         element={
@@ -555,12 +531,9 @@ function App() {
         <Route path="users" element={<UserLookupPage />} />
         <Route path="referrals" element={<ReferralLeaderboardPage />} />
         <Route path="audit-log" element={<AuditLogPage />} />
-        <Route path="script-logs" element={<ScriptLogsPage />} />
         <Route path="announcements" element={<AnnouncementsPage />} />
         <Route path="staff" element={<StaffPage />} />
         <Route path="catalog-stats" element={<CatalogStatsPage />} />
-        <Route path="resync" element={<ContentResyncPage />} />
-        <Route path="queue" element={<QueuePage />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

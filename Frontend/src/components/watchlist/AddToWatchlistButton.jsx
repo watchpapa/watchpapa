@@ -144,10 +144,9 @@ export default function AddToWatchlistButton({ mediaType, entityId, session, onA
         setMembershipMap((prev) => ({ ...prev, [data.id]: null }));
       }
 
-      const idCol = mediaType === "movie" ? "movie_id" : "show_id";
       const { data: item, error: itemErr } = await supabase
         .from("watchlist_item")
-        .insert({ watchlist_id: target.id, media_type: mediaType, [idCol]: entityId })
+        .insert({ watchlist_id: target.id, media_type: mediaType, tmdb_id: entityId })
         .select("id")
         .single();
       if (itemErr) throw itemErr;

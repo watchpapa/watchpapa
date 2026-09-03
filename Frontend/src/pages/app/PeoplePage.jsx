@@ -3,8 +3,7 @@ import { Link } from "react-router-dom";
 import AppLayout from "../../layouts/AppLayout.jsx";
 import SearchBar from "../../components/home/SearchBar.jsx";
 import { usePeoplePageData } from "../../features/people/hooks/usePeoplePageData.js";
-
-const TMDB_IMG = "https://image.tmdb.org/t/p/w185";
+import { tmdbImg } from "../../lib/tmdbImage.js";
 
 function fmtDate(val) {
   if (!val) return null;
@@ -31,7 +30,7 @@ function PersonRow({ person, rank }) {
       <div className="h-32 w-[86px] flex-shrink-0 overflow-hidden rounded-xl border border-[#2a3570] bg-[#12163a]">
         {person.profile_path ? (
           <img
-            src={`${TMDB_IMG}${person.profile_path}`}
+            src={tmdbImg(person.profile_path, "w185")}
             alt={person.name}
             className="h-full w-full object-cover"
             loading="lazy"

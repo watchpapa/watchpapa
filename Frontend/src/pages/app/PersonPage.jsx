@@ -4,12 +4,8 @@ import DetailPageLayout from "../../components/detail/DetailPageLayout.jsx";
 import ContentPanel from "../../components/detail/ContentPanel.jsx";
 import SkeletonDetailPage from "../../components/detail/SkeletonDetailPage.jsx";
 import { usePersonData } from "../../features/person/hooks/usePersonData.js";
-import InjectingBanner from "../../components/detail/InjectingBanner.jsx";
-import AdminResyncButton from "../../components/detail/AdminResyncButton.jsx";
 import { PageHead } from "../../components/ui/PageHead.jsx";
-
-const TMDB_IMG_PROFILE = "https://image.tmdb.org/t/p/w342";
-const TMDB_IMG_POSTER = "https://image.tmdb.org/t/p/w185";
+import { tmdbImg } from "../../lib/tmdbImage.js";
 
 function fmt(val, fallback = "—") { return val ?? fallback; }
 
@@ -20,7 +16,7 @@ function fmtDate(val) {
 
 
 function ProfilePicture({ name, profilePath }) {
-  const imgSrc = profilePath ? `${TMDB_IMG_PROFILE}${profilePath}` : null;
+  const imgSrc = tmdbImg(profilePath, "w342");
   return (
     <div className="relative overflow-hidden rounded-2xl border border-[#2a3570] bg-[#12163a] aspect-[2/3] w-full">
       {imgSrc ? (
@@ -39,7 +35,7 @@ function ProfilePicture({ name, profilePath }) {
 }
 
 function FilmographyCard({ credit }) {
-  const imgSrc = credit.posterPath ? `${TMDB_IMG_POSTER}${credit.posterPath}` : null;
+  const imgSrc = tmdbImg(credit.posterPath, "w185");
   const to = credit.type === "movie" ? `/movies/${credit.mediaId}` : `/shows/${credit.mediaId}`;
 
   return (
@@ -77,13 +73,13 @@ function PersonPage({ session, showAdult }) {
   if (error) return <AppLayout session={session}><p className="text-center text-red-400 mt-12">{error}</p></AppLayout>;
   if (!person) return null;
 
-  const personOgImage = person.profile_path ? `${TMDB_IMG_PROFILE}${person.profile_path}` : null;
+  const personOgImage = tmdbImg(person.profile_path, "w342");
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "Person",
     name: person.name,
     ...(person.biography && { description: person.biography.slice(0, 500) }),
-    ...(person.profile_path && { image: `${TMDB_IMG_PROFILE}${person.profile_path}` }),
+    ...(person.profile_path && { image: tmdbImg(person.profile_path, "w342") }),
     ...(person.birthday && { birthDate: person.birthday }),
     ...(person.place_of_birth && { birthPlace: { "@type": "Place", name: person.place_of_birth } }),
     ...(knownForDepartment && { jobTitle: knownForDepartment }),
@@ -102,7 +98,6 @@ function PersonPage({ session, showAdult }) {
         path={`/people/${id}`}
         jsonLd={jsonLd}
       />
-      <div className="mb-6"><InjectingBanner type="person" id={id} /></div>
       <DetailPageLayout
         title={person.name}
         sidebarTop={<ProfilePicture name={person.name} profilePath={person.profile_path} />}
@@ -119,7 +114,6 @@ function PersonPage({ session, showAdult }) {
             </ul>
           </>
         }
-        sidebarFooter={<AdminResyncButton session={session} type="person" tmdbId={person.tmdb_id} />}
       >
         <ContentPanel label="Details">
           <ul className="grid grid-cols-1 gap-1.5 text-sm sm:grid-cols-2">

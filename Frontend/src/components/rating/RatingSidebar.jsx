@@ -10,8 +10,12 @@ import { useRating } from "../../features/rating/hooks/useRating.js";
 const HEART_PATH = "M8 14.7C3.8 11.2 1 8.8 1 6.1 1 4 2.7 2.4 4.8 2.4c1.1 0 2.2.5 3.2 1.8C9 2.9 10.1 2.4 11.2 2.4 13.3 2.4 15 4 15 6.1c0 2.7-2.8 5.1-7 8.6z";
 const SIZE = 28;
 
-export function RatingSidebar({ mediaType, entityId, session, onAuthPrompt, isUnreleased }) {
-  const { value, setRating, clearRating } = useRating(mediaType, entityId, session);
+export function RatingSidebar({ mediaType, entityId, session, onAuthPrompt, isUnreleased, tmdbShowId, seasonNumber, episodeNumber }) {
+  const { value, setRating, clearRating } = useRating(mediaType, entityId, session, {
+    tmdbShowId,
+    seasonNumber,
+    episodeNumber,
+  });
   const [preview, setPreview] = useState(null);
 
   if (isUnreleased) {

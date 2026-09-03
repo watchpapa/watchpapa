@@ -1,107 +1,34 @@
 // Used by:
 // - Frontend/src/pages/app/PersonPage.jsx
-import { useEffect, useReducer } from "react";
-import { supabase } from "../../../lib/supabase.js";
+//
+// Person + combined credits come live from the watchpapa Worker (TMDB).
+import { usePerson } from "../../content/hooks/useContent.js";
 
-// Apply state updates for person data loaded from the database.
-function reducer(state, action) {
-  switch (action.type) {
-    case "LOADED":
-      return { ...state, ...action.payload, isLoading: false, error: null };
-    case "ERROR":
-      return { ...state, isLoading: false, error: action.error };
-    default:
-      return state;
-  }
-}
-
-const initialState = {
-  person: null,
-  knownForDepartment: null,
-  nicknames: [],
-  movieCredits: [],
-  showCredits: [],
-  isLoading: true,
-  error: null,
-};
-
-// Load person details and credits for the Person page.
 export function usePersonData(rawPersonId, showAdult = false) {
-  const personId = rawPersonId ? parseInt(rawPersonId, 10) : null;
-  const [state, dispatch] = useReducer(reducer, initialState);
+  const tmdbId = rawPersonId ? parseInt(rawPersonId, 10) : null;
+  const { data: person, loading, error } = usePerson(tmdbId);
 
-  useEffect(() => {
-    if (!personId) return;
-    let cancelled = false;
+  const restricted = person && !showAdult && person.adult;
 
-    // Read person profile, aliases, and credits from related tables.
-    async function load() {
-      try {
-        const { data, error } = await supabase
-          .from("person")
-          .select(`
-            *,
-            known_for:known_for_department_id(name),
-            person_aka(nickname),
-            movie_credits(title, job(name, department(name)), movie(id, title, poster_path, adult)),
-            show_credits(title, job(name, department(name)), show(id, name, poster_path, adult))
-          `)
-          .eq("id", personId)
-          .is("deleted_at", null)
-          .single();
+  const credits = (person?.credits ?? []).filter((c) => showAdult || !c.adult);
+  const shape = (c, i) => ({
+    id: `${c.type[0]}-${c.mediaId}-${c.role ?? c.job ?? i}`,
+    mediaId: c.mediaId,
+    type: c.type,
+    title: c.title,
+    posterPath: c.posterPath ?? null,
+    role: c.role ?? null,
+    job: c.job ?? null,
+    department: c.department ?? null,
+  });
 
-        if (error) throw error;
-        if (cancelled) return;
-
-        if (!showAdult && data.adult) {
-          dispatch({ type: "ERROR", error: "This content is restricted." });
-          return;
-        }
-
-        const movieCredits = (data.movie_credits ?? [])
-          .filter((c) => c.movie && (showAdult || !c.movie.adult))
-          .map((c) => ({
-            id: `m-${c.movie.id}-${c.title}`,
-            mediaId: c.movie.id,
-            type: "movie",
-            title: c.movie.title,
-            posterPath: c.movie.poster_path ?? null,
-            role: c.title ?? null,
-            job: c.job?.name ?? null,
-            department: c.job?.department?.name ?? null,
-          }));
-
-        const showCredits = (data.show_credits ?? [])
-          .filter((c) => c.show && (showAdult || !c.show.adult))
-          .map((c) => ({
-            id: `s-${c.show.id}-${c.title}`,
-            mediaId: c.show.id,
-            type: "show",
-            title: c.show.name,
-            posterPath: c.show.poster_path ?? null,
-            role: c.title ?? null,
-            job: c.job?.name ?? null,
-            department: c.job?.department?.name ?? null,
-          }));
-
-        dispatch({
-          type: "LOADED",
-          payload: {
-            person: data,
-            knownForDepartment: data.known_for?.name ?? null,
-            nicknames: (data.person_aka ?? []).map((a) => a.nickname),
-            movieCredits,
-            showCredits,
-          },
-        });
-      } catch (err) {
-        if (!cancelled) dispatch({ type: "ERROR", error: err.message });
-      }
-    }
-
-    load();
-    return () => { cancelled = true; };
-  }, [personId, showAdult]);
-
-  return state;
+  return {
+    person: restricted ? null : person,
+    knownForDepartment: person?.known_for_department ?? null,
+    nicknames: person?.also_known_as ?? [],
+    movieCredits: credits.filter((c) => c.type === "movie").map(shape),
+    showCredits: credits.filter((c) => c.type === "show").map(shape),
+    isLoading: loading,
+    error: restricted ? "This content is restricted." : error?.message ?? null,
+  };
 }

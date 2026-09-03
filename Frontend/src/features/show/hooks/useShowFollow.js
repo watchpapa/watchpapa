@@ -23,7 +23,7 @@ export function useShowFollow(rawShowId, session) {
       .from("user_followed_shows")
       .select("id")
       .eq("profile_id", session.user.id)
-      .eq("show_id", showId)
+      .eq("tmdb_id", showId)
       .maybeSingle()
       .then(({ data }) => {
         if (!cancelled) setIsFollowing(!!data);
@@ -44,10 +44,10 @@ export function useShowFollow(rawShowId, session) {
           .from("user_followed_shows")
           .delete()
           .eq("profile_id", session.user.id)
-          .eq("show_id", showId)
+          .eq("tmdb_id", showId)
       : await supabase
           .from("user_followed_shows")
-          .insert({ profile_id: session.user.id, show_id: showId });
+          .insert({ profile_id: session.user.id, tmdb_id: showId });
 
     if (error) {
       setIsFollowing(was);

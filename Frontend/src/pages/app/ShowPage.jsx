@@ -14,14 +14,10 @@ import CastGrid from "../../components/detail/CastGrid.jsx";
 import CrewSection from "../../components/detail/CrewSection.jsx";
 import AuthPromptModal from "../../components/AuthPromptModal.jsx";
 import { useShowData } from "../../features/show/hooks/useShowData.js";
-import InjectingBanner from "../../components/detail/InjectingBanner.jsx";
-import AdminResyncButton from "../../components/detail/AdminResyncButton.jsx";
 import UpgradePromptToast from "../../components/subscription/UpgradePromptToast.jsx";
 import { PageHead } from "../../components/ui/PageHead.jsx";
 import { MediaShareModal } from "../../components/detail/MediaShareModal.jsx";
-
-const TMDB_IMG = "https://image.tmdb.org/t/p/w185";
-const TMDB_IMG_BASE = "https://image.tmdb.org/t/p/";
+import { tmdbImg } from "../../lib/tmdbImage.js";
 
 function fmt(val, fallback = "—") {
   return val ?? fallback;
@@ -34,12 +30,12 @@ function fmtDate(val) {
 
 
 function SeasonCard({ season, showId }) {
-  const episodeCount = season.episode?.length ?? 0;
-  const imgSrc = season.poster_path ? `${TMDB_IMG}${season.poster_path}` : null;
+  const episodeCount = season.episode_count ?? 0;
+  const imgSrc = tmdbImg(season.poster_path, "w185");
 
   return (
     <Link
-      to={`/shows/${showId}/seasons/${season.id}`}
+      to={`/shows/${showId}/seasons/${season.season_number}`}
       className="flex items-center gap-3 rounded-xl border border-[#2a3570]/50 bg-[#0d0f1e] p-3 transition hover:border-[#3a3a7a] hover:bg-[#141728]"
     >
       <div className="h-16 w-11 flex-shrink-0 overflow-hidden rounded-lg border border-[#2a3570] bg-[#12163a]">
@@ -82,11 +78,7 @@ function ShowPage({ session, showAdult }) {
   const yearRange = firstYear
     ? (show.status === "Ended" && lastYear && lastYear !== firstYear ? `${firstYear}–${lastYear}` : `${firstYear}–`)
     : null;
-  const ogImage = show.backdrop_path
-    ? `${TMDB_IMG_BASE}w1280${show.backdrop_path}`
-    : show.poster_path
-      ? `${TMDB_IMG_BASE}w500${show.poster_path}`
-      : null;
+  const ogImage = tmdbImg(show.backdrop_path, "w1280") ?? tmdbImg(show.poster_path, "w500");
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "TVSeries",
@@ -94,7 +86,7 @@ function ShowPage({ session, showAdult }) {
     ...(show.overview && { description: show.overview }),
     ...(show.first_air_date && { datePublished: show.first_air_date }),
     ...(show.status === "Ended" && show.last_air_date && { endDate: show.last_air_date }),
-    ...(show.poster_path && { image: `${TMDB_IMG_BASE}w500${show.poster_path}` }),
+    ...(show.poster_path && { image: tmdbImg(show.poster_path, "w500") }),
     ...(show.number_of_seasons && { numberOfSeasons: show.number_of_seasons }),
     ...(show.number_of_episodes && { numberOfEpisodes: show.number_of_episodes }),
     ...(genres.length > 0 && { genre: genres.map(g => g.name) }),
@@ -111,7 +103,7 @@ function ShowPage({ session, showAdult }) {
     ["Original title", fmt(show.original_name)],
     ["Original language", fmt(show.original_language)],
     ["Tagline", fmt(show.tagline)],
-    ["Type", fmt(show.type)],
+    ["Type", fmt(show.type_label)],
   ];
 
   const visibleSeasons = showAllSeasons ? seasons : seasons.slice(0, 5);
@@ -128,7 +120,6 @@ function ShowPage({ session, showAdult }) {
       />
       {showAuthPrompt && <AuthPromptModal onClose={() => setShowAuthPrompt(false)} />}
       {followLimitError && <UpgradePromptToast message={followLimitError} onDismiss={clearFollowLimitError} session={session} />}
-      <div className="mb-6"><InjectingBanner type="show" id={id} /></div>
       <DetailPageLayout
         title={show.name}
         followButton={
@@ -167,7 +158,6 @@ function ShowPage({ session, showAdult }) {
             </button>
           </>
         }
-        sidebarFooter={<AdminResyncButton session={session} type="show" tmdbId={show.tmdb_id} />}
       >
         <ContentPanel label="Details">
           <ul className="grid grid-cols-1 gap-1.5 text-sm sm:grid-cols-2">
