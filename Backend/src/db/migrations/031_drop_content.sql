@@ -3,8 +3,6 @@
 --
 -- Run only after the Worker + new frontend have been live and healthy for a few days.
 
-BEGIN;
-
 -- 1. Idempotent re-backfill for any rows a stale client wrote between 029 and the
 --    Pages deploy (old columns still set, new columns NULL).
 UPDATE public.user_rating r SET media_type = 'movie', tmdb_id = m.tmdb_id
@@ -64,9 +62,11 @@ ALTER TABLE public.profile_favourite
 ALTER TABLE public.user_followed_movies ALTER COLUMN tmdb_id SET NOT NULL, DROP COLUMN movie_id;
 ALTER TABLE public.user_followed_shows  ALTER COLUMN tmdb_id SET NOT NULL, DROP COLUMN show_id;
 
--- 4. Drop functions that only made sense with the mirror.
+-- 4. Drop functions that only made sense with the mirror; promote _v2 to the
+--    canonical name now that the old overload is gone.
 DROP FUNCTION IF EXISTS public.get_activity_feed(integer, integer, boolean);
 DROP FUNCTION IF EXISTS public.get_profile_genre_stats(uuid);  -- genre stats now computed client-side from batch cards
+ALTER FUNCTION public.get_activity_feed_v2(integer, integer) RENAME TO get_activity_feed;
 
 -- 5. Drop the mirror. CASCADE also removes their public_read_* RLS policies and any
 --    remaining FKs.
@@ -87,9 +87,6 @@ DROP TABLE IF EXISTS
   public.genres,
   public.script_logs
 CASCADE;
-
-COMMIT;
-
 -- Post-checks:
 --   SELECT pg_size_pretty(pg_database_size(current_database()));   -- expect ~1.3 GB smaller
 --   \d+ public.user_rating   -- no movie_id/show_id/season_id/episode_id

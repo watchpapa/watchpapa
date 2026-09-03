@@ -341,8 +341,13 @@ The `/api/import/resolve` endpoint also accepts Letterboxd CSV format (auto-dete
 | 026 | `handle_new_user_trigger` | Updates `handle_new_user()` function to copy `email_marketing_opt_in` from auth metadata to profile (persists registration opt-in checkbox value) |
 | 027 | `username_nullable` | Drops NOT NULL on `profile.username` so OAuth signups succeed. Google/GitHub metadata has no `username` key, so the trigger was inserting NULL into a NOT NULL column → "Database error saving new user". NULL username is detected by the frontend as `needsUsernameSetup = true` and gates the user to `/complete-username`. Also nullifies the one stuck user who had `username = ''`. |
 | 028 | `date_of_birth_nullable` | Drops NOT NULL on `profile.date_of_birth`. Same root cause as 027 — OAuth metadata has no `date_of_birth`, so the trigger still failed after 027. OAuth users provide their DOB on the `/complete-username` page. |
+| 029 | `tmdb_ids` | **TMDB-live migration, Phase 2 (applied 2026-09-03, additive).** Adds `media_type`/`tmdb_id` (+ `tmdb_show_id`/`season_number`/`episode_number` for season+episode ratings) to `user_rating`, `watchlist_item`, `profile_favourite`, `user_followed_movies`, `user_followed_shows`; backfills all from the content tables (0 unmapped). New plain-unique indexes `*_media_uniq` / `*_profile_tmdb_uniq` for PostgREST onConflict. Adds `get_activity_feed_v2(int,int)` (content-join-free; distinct name to avoid overload ambiguity with the all-default-arg 3-arg version). Unschedules the stale `cleanup-analytics` pg_cron job. **Nothing dropped — old columns/CHECKs/indexes/functions all intact.** |
+| 030 | `swap_functions` (pending — cutover) | `CREATE OR REPLACE` `get_community_rating_stats` / `get_observed_ratings_for_entity` / `audit_user_follow_change` to key on `tmdb_id`; drops the exclusive-or CHECKs. `030_swap_functions_down.sql` reverses it. |
+| 031 | `drop_content` (pending — after soak) | Re-backfill stragglers, NOT NULL + replacement CHECKs, drop old id columns, drop `get_activity_feed(int,int,bool)` + `get_profile_genre_stats`, rename `get_activity_feed_v2` → `get_activity_feed`, **drop the 15 mirrored content tables** (`movie`/`show`/`season`/`episode`/`person`/`person_aka`/`genres`/`department`/`job`/`*_credits`/`*_genre`/`script_logs`). |
 
-To add the next migration: create `Backend/src/db/migrations/029_<name>.sql`, apply via Supabase migration workflow.
+**TMDB-live + Cloudflare Worker migration in progress** — see `/Users/dursky/.claude/plans/big-job-ahead-of-crystalline-journal.md`. New `worker/` package (Hono API on Cloudflare, reads TMDB live via edge cache, user data over Hyperdrive → Supabase). Branch `feat/tmdb-live-worker`.
+
+To add the next migration: create `Backend/src/db/migrations/032_<name>.sql`, apply via Supabase migration workflow.
 
 ---
 

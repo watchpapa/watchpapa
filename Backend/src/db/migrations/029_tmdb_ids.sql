@@ -9,8 +9,6 @@
 -- 030 swaps the semantics-changing functions at cutover; 031 drops the old columns
 -- and the content tables after a soak.
 
-BEGIN;
-
 -- ---------------------------------------------------------------------------
 -- user_rating
 -- ---------------------------------------------------------------------------
@@ -99,11 +97,14 @@ CREATE UNIQUE INDEX user_followed_shows_profile_tmdb_uniq
   ON public.user_followed_shows (profile_id, tmdb_id);
 
 -- ---------------------------------------------------------------------------
--- get_activity_feed: add a 2-arg overload with no content joins. The existing
--- 3-arg (int,int,bool) version keeps working until 031 (content tables present).
--- The new frontend calls this one; adult filtering moves client-side (card.adult).
+-- get_activity_feed_v2: new content-join-free version. A distinct NAME (not an
+-- overload) because the existing get_activity_feed(int,int,bool) has defaults on
+-- every arg — a 2-arg overload would make every call ambiguous. The old function
+-- keeps working for the currently-deployed frontend until 031, which drops it and
+-- renames this to get_activity_feed. The new frontend calls _v2; adult filtering
+-- moves client-side (card.adult).
 -- ---------------------------------------------------------------------------
-CREATE OR REPLACE FUNCTION public.get_activity_feed(p_limit int DEFAULT 30, p_offset int DEFAULT 0)
+CREATE OR REPLACE FUNCTION public.get_activity_feed_v2(p_limit int DEFAULT 30, p_offset int DEFAULT 0)
 RETURNS TABLE (
   rating_id      bigint,
   profile_id     uuid,
@@ -136,8 +137,8 @@ AS $$
   OFFSET GREATEST(COALESCE(p_offset, 0), 0);
 $$;
 
-REVOKE ALL ON FUNCTION public.get_activity_feed(int, int) FROM public;
-GRANT EXECUTE ON FUNCTION public.get_activity_feed(int, int) TO anon, authenticated;
+REVOKE ALL ON FUNCTION public.get_activity_feed_v2(int, int) FROM public;
+GRANT EXECUTE ON FUNCTION public.get_activity_feed_v2(int, int) TO anon, authenticated;
 
 -- ---------------------------------------------------------------------------
 -- Stale pg_cron job left over from the removed analytics feature (targets tables
@@ -148,9 +149,6 @@ BEGIN
   PERFORM cron.unschedule('cleanup-analytics');
 EXCEPTION WHEN OTHERS THEN NULL;
 END $$;
-
-COMMIT;
-
 -- Post-checks (run manually, all must be 0):
 --   SELECT count(*) FROM public.user_rating       WHERE tmdb_id IS NULL;
 --   SELECT count(*) FROM public.watchlist_item    WHERE tmdb_id IS NULL;

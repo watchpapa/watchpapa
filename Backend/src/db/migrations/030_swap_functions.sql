@@ -9,8 +9,6 @@
 -- which restores the local-id function bodies and re-adds the CHECKs. Safe because
 -- 029 left every old column in place.
 
-BEGIN;
-
 -- get_community_rating_stats(text, bigint) — p_entity_id now means tmdb_id.
 -- anon + authenticated (public detail-page histogram).
 CREATE OR REPLACE FUNCTION public.get_community_rating_stats(p_media_type text, p_entity_id bigint)
@@ -102,5 +100,3 @@ $$;
 ALTER TABLE public.user_rating       DROP CONSTRAINT IF EXISTS user_rating_one_media;
 ALTER TABLE public.watchlist_item    DROP CONSTRAINT IF EXISTS watchlist_item_one_media;
 ALTER TABLE public.profile_favourite DROP CONSTRAINT IF EXISTS profile_favourite_one_media;
-
-COMMIT;

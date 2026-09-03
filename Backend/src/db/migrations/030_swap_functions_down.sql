@@ -2,8 +2,6 @@
 -- bodies and re-adds the exclusive-or CHECKs. Only valid before 031 has run
 -- (needs the content tables + old id columns, which 029 kept in place).
 
-BEGIN;
-
 CREATE OR REPLACE FUNCTION public.get_community_rating_stats(p_media_type text, p_entity_id bigint)
 RETURNS jsonb
 LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, pg_temp
@@ -93,5 +91,3 @@ ALTER TABLE public.watchlist_item ADD CONSTRAINT watchlist_item_one_media CHECK 
 ALTER TABLE public.profile_favourite ADD CONSTRAINT profile_favourite_one_media CHECK (
   ((movie_id IS NOT NULL AND show_id IS NULL) OR (movie_id IS NULL AND show_id IS NOT NULL))
 );
-
-COMMIT;
