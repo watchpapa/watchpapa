@@ -25,8 +25,14 @@ export function config(env) {
     // Sitemap: TMDB list pages fetched per sitemap file
     sitemapPages: int(env.SITEMAP_PAGES, 8),
     // Recommendations: seed titles fetched (1 subrequest each) + how many ranked
-    // candidates get a watch/providers lookup when filtering by "my services"
+    // candidates get a watch/providers lookup when filtering by "my services".
+    // Kept low enough that seeds + status backfill (below) + this always stays
+    // under the Free-plan 50-subrequest ceiling in the same request.
     recommendationsMaxSeeds: int(env.RECOMMENDATIONS_MAX_SEEDS, 8),
-    recommendationsProviderCheckMax: int(env.RECOMMENDATIONS_PROVIDER_CHECK_MAX, 25),
+    recommendationsProviderCheckMax: int(env.RECOMMENDATIONS_PROVIDER_CHECK_MAX, 15),
+    // Show cards from list/discover/recommendations never carry `status` (TMDB
+    // detail-only field) — backfilled with one extra /tv/{id} lookup per show,
+    // capped here, so "Follow" can correctly detect an ended/canceled show.
+    showStatusBackfillMax: int(env.SHOW_STATUS_BACKFILL_MAX, 20),
   };
 }

@@ -27,6 +27,7 @@ function cardToItem(c, followedSet) {
     isFollowing: followedSet.has(c.id),
     date: c.date ?? null,
     followBlockedLabel: followBlock(c.type, c),
+    nsfw: Boolean(c.nsfw),
   };
 }
 

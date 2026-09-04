@@ -20,6 +20,7 @@ import ShowPage from "./pages/app/ShowPage.jsx";
 import SeasonPage from "./pages/app/SeasonPage.jsx";
 import EpisodePage from "./pages/app/EpisodePage.jsx";
 import PersonPage from "./pages/app/PersonPage.jsx";
+import AdultPage from "./pages/app/AdultPage.jsx";
 import TmdbRedirect from "./components/TmdbRedirect.jsx";
 import CookieConsentBanner from "./components/ui/CookieConsentBanner.jsx";
 import ReportBugButton from "./components/ui/ReportBugButton.jsx";
@@ -163,7 +164,7 @@ function App() {
     supabase
       .from("profile")
       .select(
-        "username, is_adult, date_of_birth, setting_display_adult_content, setting_language, setting_title_mode, setting_region, setting_watch_regions, setting_watch_providers, setting_home_row_order, setting_home_hidden_rows",
+        "username, is_adult, date_of_birth, setting_display_adult_content, setting_language, setting_title_mode, setting_region, setting_watch_regions, setting_watch_providers, setting_home_row_order, setting_home_hidden_rows, setting_blur_nsfw_posters, setting_show_adult_tab",
       )
       .eq("id", session.user.id)
       .maybeSingle()
@@ -188,6 +189,8 @@ function App() {
         watchProviders: data?.setting_watch_providers ?? [],
         homeRowOrder: data?.setting_home_row_order ?? [],
         homeHiddenRows: data?.setting_home_hidden_rows ?? [],
+        blurNsfw: data?.setting_blur_nsfw_posters ?? true,
+        showAdultTab: data?.setting_show_adult_tab ?? false,
       });
       setIsProfileLoading(false);
 
@@ -309,6 +312,17 @@ function RouteTree({ session, needsUsernameSetup, initialUsername, onUsernameCom
         element={
           <PublicRoute session={session} needsUsernameSetup={needsUsernameSetup}>
             <SearchPage session={session} showAdult={showAdult} />
+          </PublicRoute>
+        }
+      />
+      {/* Not linked anywhere unless showAdult is on (Navbar) — AdultPage also
+          self-guards (redirects to "/" if showAdult is off), since a direct
+          URL visit skips the Navbar entirely. */}
+      <Route
+        path="/adult"
+        element={
+          <PublicRoute session={session} needsUsernameSetup={needsUsernameSetup}>
+            <AdultPage session={session} showAdult={showAdult} />
           </PublicRoute>
         }
       />

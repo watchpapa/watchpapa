@@ -24,6 +24,8 @@ const COLUMNS = {
   watchProviders: "setting_watch_providers",
   homeRowOrder: "setting_home_row_order",
   homeHiddenRows: "setting_home_hidden_rows",
+  blurNsfw: "setting_blur_nsfw_posters",
+  showAdultTab: "setting_show_adult_tab",
 };
 
 export const DEFAULT_PREFERENCES = {
@@ -35,6 +37,14 @@ export const DEFAULT_PREFERENCES = {
   watchProviders: [],
   homeRowOrder: [], // empty = app default order, see lib/homeRows.js
   homeHiddenRows: [],
+  // Blurs a card's poster wherever an nsfw-flagged title shows up alongside
+  // regular content (only relevant once showAdult is on). Defaults to true —
+  // see migration 036.
+  blurNsfw: true,
+  // The hidden "Adult" header tab + /adult page. Separate opt-in on top of
+  // showAdult (which only controls nsfw titles appearing inline) — the tab is
+  // never shown unless BOTH are on. See migration 037.
+  showAdultTab: false,
 };
 
 const ANON_REGION_KEY = "wp:watchRegion";

@@ -4,28 +4,48 @@ import { tmdbFetch, tmdbFetchAllSettled } from "../tmdb/client.js";
 import { TTL } from "../tmdb/lists.js";
 import { normalizeSearchResults } from "../tmdb/normalize.js";
 import { readLocale } from "../tmdb/locale.js";
+import { backfillShowStatus } from "../tmdb/discover.js";
 
 // Search, posters, image proxy, sitemaps — the remaining public TMDB-backed routes.
 
 export const search = new Hono();
 
-// GET /api/search?q=&include_adult=&lang=&native=  (also accepts includeAdult=, kept
-// for backward compatibility)
+function posInt(raw) {
+  const n = Number.parseInt(raw, 10);
+  return Number.isInteger(n) && n > 0 ? n : null;
+}
+
+// GET /api/search?q=&page=&include_adult=&lang=&native=  (also accepts includeAdult=,
+// kept for backward compatibility). Backed by TMDB's /search/multi — a single call
+// that already returns movies/shows/people mixed together in TMDB's own relevance
+// order (not split by type), and supports pagination, unlike running three separate
+// typed searches and merging them ourselves.
 search.get("/", async (c) => {
   const q = (c.req.query("q") ?? "").trim();
-  if (q.length < 2) return c.json({ results: [] });
+  if (q.length < 2) return c.json({ results: [], page: 1, total_pages: 1 });
   if (q.length > 100) return c.json({ error: "Query too long" }, 400);
   const loc = readLocale(c);
-  const { includeAdult } = loc;
+  const page = posInt(c.req.query("page")) ?? 1;
 
-  const [movie, tv, person] = await tmdbFetchAllSettled(c.env, [
-    { path: "/search/movie", params: { query: q, page: 1, include_adult: includeAdult }, opts: { ttl: TTL.search, language: loc.language } },
-    { path: "/search/tv", params: { query: q, page: 1, include_adult: includeAdult }, opts: { ttl: TTL.search, language: loc.language } },
-    { path: "/search/person", params: { query: q, page: 1, include_adult: includeAdult }, opts: { ttl: TTL.search, language: loc.language } },
-  ]);
+  const raw = await tmdbFetch(
+    c.env,
+    "/search/multi",
+    { query: q, page, include_adult: loc.includeAdult },
+    { ttl: TTL.search, language: loc.language },
+  );
 
-  const results = normalizeSearchResults({ movie, tv, person }, includeAdult, { native: loc.native });
-  return c.json({ results }, 200, { "Cache-Control": `public, s-maxage=${TTL.search}, max-age=30` });
+  const results = normalizeSearchResults(raw, loc.includeAdult, { native: loc.native });
+  // TMDB's /search/multi rows never carry a show's `status` (only the full
+  // /tv/{id} detail payload does) — without it, the frontend's follow-gating
+  // can't tell an ended/canceled show from an active one. Same backfill used
+  // for browse/discover rows (worker/src/tmdb/discover.js), keyed on
+  // `tmdbId` since search results don't use the `id` field name.
+  await backfillShowStatus(c.env, results, loc.language, config(c.env).showStatusBackfillMax, "tmdbId");
+  return c.json(
+    { results, page: raw.page ?? page, total_pages: raw.total_pages ?? 1 },
+    200,
+    { "Cache-Control": `public, s-maxage=${TTL.search}, max-age=30` },
+  );
 });
 
 // GET /api/posters — poster paths for the auth-page background wall.

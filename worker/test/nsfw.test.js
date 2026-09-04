@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { isNsfw, filterNsfw, withoutKeywordsParam, NSFW_KEYWORD_IDS, NSFW_ALLOW_IDS } from "../src/tmdb/nsfw.js";
+import { isNsfw, filterNsfw, withoutKeywordsParam, withKeywordsParam, parseNsfwKeywordIds, NSFW_CATEGORIES, NSFW_KEYWORD_IDS, NSFW_ALLOW_IDS } from "../src/tmdb/nsfw.js";
 
 describe("isNsfw", () => {
   it("flags adult=true regardless of anything else", () => {
@@ -60,5 +60,27 @@ describe("withoutKeywordsParam", () => {
     const param = withoutKeywordsParam();
     expect(param.split("|").map(Number).sort((a, b) => a - b)).toEqual([...NSFW_KEYWORD_IDS].sort((a, b) => a - b));
     expect(param).not.toContain(",");
+  });
+});
+
+describe("withKeywordsParam", () => {
+  it("is the same curated id set as withoutKeywordsParam, just used for inclusion (the hidden /adult page)", () => {
+    expect(withKeywordsParam()).toBe(withoutKeywordsParam());
+  });
+});
+
+describe("NSFW_CATEGORIES / parseNsfwKeywordIds", () => {
+  it("every category id is in the curated set, and the categories cover the whole set", () => {
+    const all = new Set(NSFW_CATEGORIES.flatMap((c) => c.ids.split("|").map(Number)));
+    for (const id of all) expect(NSFW_KEYWORD_IDS.has(id)).toBe(true);
+    expect([...all].sort((a, b) => a - b)).toEqual([...NSFW_KEYWORD_IDS].sort((a, b) => a - b));
+  });
+
+  it("keeps only ids from the curated set; nothing valid -> null", () => {
+    expect(parseNsfwKeywordIds("198385|155477")).toBe("198385|155477");
+    expect(parseNsfwKeywordIds("198385|28")).toBe("198385"); // 28 = Action genre id, not a keyword we allow
+    expect(parseNsfwKeywordIds("28")).toBeNull();
+    expect(parseNsfwKeywordIds("")).toBeNull();
+    expect(parseNsfwKeywordIds(undefined)).toBeNull();
   });
 });

@@ -8,9 +8,11 @@ import {
   runDiscover,
   parseProviderIds,
   parseMonetization,
+  parseDiscoverSort,
   isValidRegion,
+  backfillShowStatus,
 } from "../tmdb/discover.js";
-import { filterNsfw, isNsfw } from "../tmdb/nsfw.js";
+import { filterNsfw, isNsfw, NSFW_CATEGORIES, parseNsfwKeywordIds } from "../tmdb/nsfw.js";
 import {
   normalizeMovie,
   normalizeShow,
@@ -149,6 +151,7 @@ content.get("/genres", async (c) => {
 content.get("/list/:kind", async (c) => {
   const spec = LIST_KINDS[c.req.param("kind")];
   if (!spec) return c.json({ error: "Unknown list kind" }, 404);
+  const cfg = config(c.env);
   const loc = readLocale(c);
   const page = posInt(c.req.query("page")) ?? 1;
 
@@ -171,11 +174,15 @@ content.get("/list/:kind", async (c) => {
   );
   let results = raw.results ?? [];
   results = filterNsfw(results, loc.includeAdult, spec.media === "show" ? "tv" : "movie");
+  const cards = results.map((r) => toCard(spec.media, r, { native: loc.native, region: loc.region }));
+  if (spec.media === "show") {
+    await backfillShowStatus(c.env, cards, loc.language, cfg.showStatusBackfillMax);
+  }
   return c.json(
     {
       page: raw.page ?? page,
       total_pages: raw.total_pages ?? 1,
-      results: results.map((r) => toCard(spec.media, r, { native: loc.native, region: loc.region })),
+      results: cards,
     },
     200,
     cache(spec.ttl),
@@ -197,6 +204,13 @@ content.get("/discover/:type", async (c) => {
     return c.json({ error: "with_watch_providers requires a valid watch_region" }, 400);
   }
 
+  // /adult page: adult_only=1 selects the curated NSFW keyword set instead of
+  // excluding it; keyword= narrows to one category (validated subset), sort=
+  // picks popular|rated|newest. Empty by construction when include_adult is off.
+  const adultOnly = c.req.query("adult_only") === "1";
+  const keywordIds = adultOnly ? parseNsfwKeywordIds(c.req.query("keyword") ?? "") : null;
+  const sort = parseDiscoverSort(c.req.query("sort") ?? "");
+
   const params = discoverParams({
     type,
     page,
@@ -206,10 +220,19 @@ content.get("/discover/:type", async (c) => {
     providerIds,
     watchRegion,
     monetization,
+    adultOnly,
+    keywordIds,
+    sort,
   });
   const out = await runDiscover(c.env, type, params, loc);
   return c.json(out, 200, cache(TTL.discover));
 });
+
+// GET /api/content/adult/categories — the NSFW keyword groups the /adult page
+// offers as a category filter. Static (from nsfw.js), so cache aggressively.
+content.get("/adult/categories", (c) =>
+  c.json({ categories: NSFW_CATEGORIES }, 200, cache(TTL.genres)),
+);
 
 // --- watch providers ---------------------------------------------------------
 
@@ -569,6 +592,10 @@ content.post("/recommendations", async (c) => {
   const results = candidates
     .slice(0, RECOMMENDATION_DISPLAY_CAP)
     .map((cnd) => toCard(cnd.type, cnd.raw, cardOpts));
+  // `cnd.raw` is TMDB's list-shaped /recommendations item, which never carries
+  // `status` — without it a finished show like a series that's already ended
+  // stays "followable" client-side. Backfill it (bounded to what's on screen).
+  await backfillShowStatus(c.env, results, loc.language, RECOMMENDATION_DISPLAY_CAP);
 
   let resultsOnMyServices;
   if (wantProviders) {
@@ -586,7 +613,9 @@ content.post("/recommendations", async (c) => {
           { ttl: TTL.movie, language: loc.language },
         );
         if (providerMatch(raw, watchRegion, providers)) {
-          onServices.push(toCard(cnd.type, cnd.raw, cardOpts));
+          // Use the just-fetched full detail (has `status`, unlike cnd.raw) so
+          // this list doesn't need its own separate backfill pass.
+          onServices.push(toCard(cnd.type, raw, cardOpts));
         }
       } catch {
         /* skip this candidate */

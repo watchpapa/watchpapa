@@ -7,6 +7,9 @@
 // get language/region/adult/NSFW-keyword filtering consistently with the rest of the
 // app. Kinds with no `discover` key stay on the plain list endpoint (Worker-side NSFW
 // post-filtering only); `regional: true` marks the ones TMDB accepts a `region` on.
+//
+// The hidden /adult page is NOT a list kind — it goes through /discover/:type
+// with `adult_only=1` (+ optional `keyword`/`sort`), see tmdb/discover.js.
 
 export const LIST_KINDS = {
   "movies-popular": {

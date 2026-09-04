@@ -38,7 +38,8 @@
 		"RELEASES_MAX_SHOWS": "12",
 		"SITEMAP_PAGES": "8",
 		"RECOMMENDATIONS_MAX_SEEDS": "8",
-		"RECOMMENDATIONS_PROVIDER_CHECK_MAX": "25"
+		"RECOMMENDATIONS_PROVIDER_CHECK_MAX": "15",
+		"SHOW_STATUS_BACKFILL_MAX": "20"
 	},
 	// `env.RL_*.limit({ key })` → { success }. period must be 10 or 60.
 	// If unavailable on the Free plan, delete this block (src/ratelimit.js no-ops gracefully)

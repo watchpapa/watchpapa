@@ -3,7 +3,7 @@ import { useNavigate, Link } from "react-router-dom";
 import AppLayout from "../../layouts/AppLayout.jsx";
 import { supabase } from "../../lib/supabase.js";
 import { apiFetch } from "../../lib/api.js";
-import { validateUsername, isValidBoolean, isValidLocale, isValidTitleMode, isValidRegionList, isValidProviderIds } from "../../lib/validate.js";
+import { validateUsername, isValidBoolean, isValidLocale, isValidTitleMode, isValidRegionList, isValidProviderIds, validateMinAge } from "../../lib/validate.js";
 import Toggle from "../../components/ui/Toggle.jsx";
 import Select from "../../components/ui/Select.jsx";
 import { usePreferences } from "../../features/preferences/PreferencesContext.jsx";
@@ -276,6 +276,14 @@ function SettingsPage({ session }) {
   const [usernameError, setUsernameError] = useState(null);
   const [usernameSaving, setUsernameSaving] = useState(false);
 
+  // Date of birth — write-once (no UI to change it after saving). Some
+  // accounts (older OAuth sign-ups, mainly) can have this blank; without it
+  // is_adult can never become true, which is what actually unlocks "Show
+  // adult content" (and, in turn, the hidden Adult tab) below.
+  const [dobInput, setDobInput] = useState("");
+  const [dobError, setDobError] = useState(null);
+  const [dobSaving, setDobSaving] = useState(false);
+
   // Content preferences (adult / language / title mode / region / watch providers)
   const prefs = usePreferences();
   const [prefsBusy, setPrefsBusy] = useState(false);
@@ -322,7 +330,7 @@ function SettingsPage({ session }) {
     if (!uid) return;
     setLoading(true);
     const [profileRes, tierRes, subRes, blockedRes] = await Promise.all([
-      supabase.from("profile").select("username, is_adult, is_private, setting_display_adult_content, setting_allow_profile_share, email_marketing_opt_in, referral_code, username_changed_at").eq("id", uid).maybeSingle(),
+      supabase.from("profile").select("username, is_adult, is_private, date_of_birth, setting_display_adult_content, setting_allow_profile_share, email_marketing_opt_in, referral_code, username_changed_at").eq("id", uid).maybeSingle(),
       supabase.rpc("get_effective_tier", { p_profile_id: uid }),
       supabase.from("user_subscriptions").select("is_early_adopter, expires_at").eq("profile_id", uid).maybeSingle(),
       supabase.from("user_block").select("blocked_id, created_at, blocked:blocked_id(id, username)").eq("blocker_id", uid).order("created_at", { ascending: false }),
@@ -464,6 +472,21 @@ function SettingsPage({ session }) {
     setUsernameError(null);
   };
 
+  const handleSaveDob = async () => {
+    if (!dobInput) { setDobError("Please enter a date of birth."); return; }
+    if (new Date(dobInput) > new Date()) { setDobError("Date of birth can't be in the future."); return; }
+    if (!validateMinAge(dobInput, 16)) { setDobError("You must be at least 16 years old to use watchpapa."); return; }
+    setDobError(null);
+    setDobSaving(true);
+    const isAdult = validateMinAge(dobInput, 18);
+    const { error } = await supabase.from("profile")
+      .update({ date_of_birth: dobInput, is_adult: isAdult, updated_at: new Date().toISOString() })
+      .eq("id", uid);
+    setDobSaving(false);
+    if (error) { setDobError(error.message); return; }
+    setProfile((p) => ({ ...p, date_of_birth: dobInput, is_adult: isAdult }));
+  };
+
   const handleClaimReward = async () => {
     const code = rewardInput.trim().toUpperCase();
     if (!code) { setRewardError("Please enter a reward code."); return; }
@@ -574,6 +597,45 @@ function SettingsPage({ session }) {
               );
             })()}
           </Row>
+          <Row label="Date of birth">
+            {profile?.date_of_birth ? (
+              <div className="flex flex-col items-end gap-1">
+                <span className="text-sm text-[#b0b0d4]">
+                  {new Date(profile.date_of_birth).toLocaleDateString()}
+                </span>
+                <p className="max-w-[16rem] text-right text-[11px] text-[#5a5a78]">
+                  {profile.is_adult
+                    ? "Verified 18+ — unlocks \"Show adult content\" below."
+                    : "On file, but under 18 — adult content stays unavailable."}
+                </p>
+              </div>
+            ) : (
+              <div className="flex flex-col items-end gap-2">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="date"
+                    value={dobInput}
+                    onChange={(e) => setDobInput(e.target.value)}
+                    max={new Date().toISOString().slice(0, 10)}
+                    disabled={dobSaving}
+                    className="rounded-xl border border-[#2a3570] bg-[#12163a] px-3 py-2 text-sm text-white outline-none transition focus:border-[#6868b8]"
+                  />
+                  <button
+                    onClick={handleSaveDob}
+                    disabled={dobSaving || !dobInput}
+                    className="rounded-lg border border-[#6868b8] bg-[#12163a] px-3 py-1.5 text-xs font-semibold text-[#a0a0e8] transition hover:border-[#9b9bf0] hover:text-white disabled:opacity-50"
+                  >
+                    {dobSaving ? "Saving…" : "Save"}
+                  </button>
+                </div>
+                {dobError && <p className="text-xs text-red-400">{dobError}</p>}
+                <p className="max-w-[16rem] text-right text-[11px] text-[#5a5a78]">
+                  Not on file yet — some accounts (mainly older sign-ins with Google/GitHub) never
+                  collected one. Required to unlock "Show adult content"; can't be changed once saved.
+                </p>
+              </div>
+            )}
+          </Row>
         </Section>
 
         {/* Preferences */}
@@ -585,6 +647,38 @@ function SettingsPage({ session }) {
                 onChange={(v) => isValidBoolean(v) && updatePref({ showAdult: v })}
                 disabled={prefsBusy}
               />
+            </Row>
+          )}
+          {profile?.is_adult && prefs.showAdult && (
+            <Row label="Adult tab in header">
+              <div className="flex flex-col items-end gap-1">
+                <Toggle
+                  value={prefs.showAdultTab}
+                  onChange={(v) => isValidBoolean(v) && updatePref({ showAdultTab: v })}
+                  disabled={prefsBusy}
+                />
+                <p className="max-w-[16rem] text-right text-[11px] text-[#5a5a78]">
+                  Adds a dedicated "Adult" page to the header — a browse of adult/erotica titles
+                  only, with categories and sorting. Separate from the switch above, which just
+                  lets those titles appear inline elsewhere.
+                </p>
+              </div>
+            </Row>
+          )}
+          {profile?.is_adult && prefs.showAdult && (
+            <Row label="Blur NSFW posters">
+              <div className="flex flex-col items-end gap-1">
+                <Toggle
+                  value={prefs.blurNsfw}
+                  onChange={(v) => isValidBoolean(v) && updatePref({ blurNsfw: v })}
+                  disabled={prefsBusy}
+                />
+                <p className="max-w-[16rem] text-right text-[11px] text-[#5a5a78]">
+                  Blurs the poster wherever an adult/erotica title turns up (tap to reveal a single
+                  card). Doesn't affect the hidden Adult page, which is unblurred behind its own
+                  warning.
+                </p>
+              </div>
             </Row>
           )}
           <Row label="Product updates & announcements">

@@ -117,11 +117,18 @@ function ResultRow({ item, isActive, onSelect }) {
   );
 }
 
-function SearchBar({ value, onChange }) {
+function SearchBar({ value, onChange, autoFocus = false, maxWidthClass = "max-w-[560px]", dense = false, showDropdown = true }) {
   const navigate = useNavigate();
   const { results, isLoading, status } = useSearch(value);
   const [activeIndex, setActiveIndex] = useState(-1);
   const [isOpen, setIsOpen] = useState(false);
+  // Gates the dropdown behind an actual user action (typing or focusing the
+  // field) rather than just "there happens to be a valid query + results".
+  // Without this, a page that mounts SearchBar with a query already in its
+  // value (SearchPage, reading ?q= from the URL) would pop the suggestions
+  // dropdown open immediately on load/navigation, on top of the full results
+  // already shown below it.
+  const [hasInteracted, setHasInteracted] = useState(false);
   const wrapperRef = useRef(null);
   const inputRef = useRef(null);
 
@@ -129,10 +136,13 @@ function SearchBar({ value, onChange }) {
   const searchPath = `/search?q=${encodeURIComponent(trimmed)}`;
 
   useEffect(() => {
-    const shouldOpen = trimmed.length >= 2 && status !== "idle";
+    // On the /search page itself the full results grid is already right below
+    // the field, so the typeahead dropdown would just duplicate it — that
+    // instance passes showDropdown={false} to suppress it entirely.
+    const shouldOpen = showDropdown && hasInteracted && trimmed.length >= 2 && status !== "idle";
     setIsOpen(shouldOpen);
     setActiveIndex(-1);
-  }, [trimmed, status]);
+  }, [trimmed, status, hasInteracted, showDropdown]);
 
   useEffect(() => {
     function onPointerDown(e) {
@@ -155,7 +165,10 @@ function SearchBar({ value, onChange }) {
     return () => document.removeEventListener("keydown", onKey);
   }, []);
 
-  const flatResults = [...results].sort((a, b) => (b.popularity ?? 0) - (a.popularity ?? 0));
+  // Worker already returns TMDB's own relevance order (via /search/multi) —
+  // no client-side re-sort here. Cap the preview list; the full, uncapped set
+  // lives on /search.
+  const flatResults = results.slice(0, 8);
 
   // total navigable slots: flatResults + 1 for "Explore more"
   const totalSlots = flatResults.length + 1;
@@ -197,8 +210,8 @@ function SearchBar({ value, onChange }) {
   }
 
   return (
-    <div ref={wrapperRef} className="relative mx-auto w-full max-w-[560px]">
-      <span className="pointer-events-none absolute inset-y-0 left-4 flex items-center text-[#5a5a9a]">
+    <div ref={wrapperRef} className={`relative mx-auto w-full ${maxWidthClass}`}>
+      <span className={`pointer-events-none absolute inset-y-0 flex items-center text-[#5a5a9a] ${dense ? "left-3" : "left-4"}`}>
         <SearchIcon />
       </span>
 
@@ -206,21 +219,28 @@ function SearchBar({ value, onChange }) {
         ref={inputRef}
         type="search"
         value={value}
-        onChange={onChange}
+        onChange={(e) => {
+          setHasInteracted(true);
+          onChange(e);
+        }}
         onKeyDown={handleKeyDown}
         onFocus={() => {
+          setHasInteracted(true);
           if (trimmed.length >= 2 && status !== "idle") setIsOpen(true);
         }}
+        autoFocus={autoFocus}
         placeholder="Search movies, shows, people…"
         autoComplete="off"
         role="combobox"
         aria-expanded={isOpen}
         aria-autocomplete="list"
-        className="w-full rounded-2xl border border-[#2a3570] bg-[#141728]/90 py-3.5 pl-11 pr-10 text-sm text-white placeholder-[#5a5a9a] shadow-[0_8px_24px_-14px_rgba(0,0,0,0.8)] outline-none transition focus:border-[#6f6fdc] focus:bg-[#161a32] focus:ring-2 focus:ring-[#6f6fdc]/50"
+        className={`w-full border border-[#2a3570] bg-[#141728]/90 text-sm text-white placeholder-[#5a5a9a] shadow-[0_8px_24px_-14px_rgba(0,0,0,0.8)] outline-none transition focus:border-[#6f6fdc] focus:bg-[#161a32] focus:ring-2 focus:ring-[#6f6fdc]/50 ${
+          dense ? "rounded-xl py-1.5 pl-9 pr-8 text-[13px]" : "rounded-2xl py-3.5 pl-11 pr-10"
+        }`}
       />
 
       {isLoading && (
-        <span className="pointer-events-none absolute inset-y-0 right-4 flex items-center text-[#5a5a9a]">
+        <span className={`pointer-events-none absolute inset-y-0 flex items-center text-[#5a5a9a] ${dense ? "right-3" : "right-4"}`}>
           <SpinnerIcon />
         </span>
       )}
@@ -228,7 +248,7 @@ function SearchBar({ value, onChange }) {
       {isOpen && (
         <div
           role="listbox"
-          className="absolute left-0 right-0 top-full z-50 mt-1.5 max-h-[480px] overflow-y-auto rounded-2xl border border-[#2a3570] bg-[#141728]/95 shadow-2xl backdrop-blur-md"
+          className="absolute left-0 right-0 top-full z-50 mt-1.5 max-h-[480px] overflow-y-auto rounded-2xl border border-[#2a3570] bg-[#141728] shadow-2xl"
         >
           {status === "loading" && results.length === 0 ? (
             <SkeletonRows count={4} />

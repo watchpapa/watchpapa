@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from "react";
-import { Link, NavLink } from "react-router-dom";
+import { Link, NavLink, useLocation } from "react-router-dom";
 import AuthPromptModal from "../AuthPromptModal.jsx";
 import ProfileMenu from "./ProfileMenu.jsx";
 import NotificationBell from "./NotificationBell.jsx";
+import SearchBar from "../home/SearchBar.jsx";
+import { usePreferences } from "../../features/preferences/PreferencesContext.jsx";
 import watchpapaBanner from "../../assets/branding/watchpapa-banner.svg";
 
 const NAV_LINKS = [
@@ -56,6 +58,15 @@ const SESSION_ACTIONS = [
   { label: "Releases Radar", to: "/calendar", Icon: CalendarIcon },
 ];
 
+function SearchIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <circle cx="11" cy="11" r="8" />
+      <path d="m21 21-4.35-4.35" />
+    </svg>
+  );
+}
+
 function MenuIcon() {
   return (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
@@ -93,17 +104,53 @@ function NavIconLink({ to, label, children, onClick }) {
 function Navbar({ session }) {
   const [showAuthPrompt, setShowAuthPrompt] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchValue, setSearchValue] = useState("");
   const headerRef = useRef(null);
+  const location = useLocation();
+  const { showAdult, showAdultTab } = usePreferences();
+
+  // Hidden unless BOTH "show adult content" (general) and the separate
+  // "Adult tab" opt-in are on — AdultPage also self-guards (redirects home)
+  // for a direct URL visit.
+  const navLinks = showAdult && showAdultTab ? [...NAV_LINKS, { label: "Adult", to: "/adult" }] : NAV_LINKS;
 
   useEffect(() => {
     function onPointerdown(e) {
       if (headerRef.current && !headerRef.current.contains(e.target)) {
         setMobileOpen(false);
+        setSearchOpen(false);
       }
     }
-    if (mobileOpen) document.addEventListener("pointerdown", onPointerdown);
+    if (mobileOpen || searchOpen) document.addEventListener("pointerdown", onPointerdown);
     return () => document.removeEventListener("pointerdown", onPointerdown);
-  }, [mobileOpen]);
+  }, [mobileOpen, searchOpen]);
+
+  // Close the search dropdown whenever the route changes — covers picking a
+  // result, hitting Enter to "explore all results", and any other navigation.
+  useEffect(() => {
+    setSearchOpen(false);
+    setSearchValue("");
+  }, [location.pathname]);
+
+  useEffect(() => {
+    if (!searchOpen) return;
+    function onKey(e) {
+      if (e.key === "Escape") setSearchOpen(false);
+    }
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [searchOpen]);
+
+  function toggleSearch() {
+    setSearchOpen((v) => !v);
+    setMobileOpen(false);
+  }
+
+  function toggleMobileMenu() {
+    setMobileOpen((v) => !v);
+    setSearchOpen(false);
+  }
 
   return (
     <>
@@ -114,22 +161,28 @@ function Navbar({ session }) {
           {/* Left: menu + catalog links */}
           <div className="flex min-w-0 items-center gap-1">
             <button
-              onClick={() => setMobileOpen((v) => !v)}
+              onClick={toggleMobileMenu}
               className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-[#8888c8] transition hover:bg-[#1a1d35] hover:text-white sm:hidden"
               aria-label={mobileOpen ? "Close menu" : "Open menu"}
             >
               {mobileOpen ? <XIcon /> : <MenuIcon />}
             </button>
 
-            <nav className="hidden min-w-0 items-center gap-3 md:gap-4 sm:flex">
-              {NAV_LINKS.map(({ label, to }) => (
+            <nav className="hidden min-w-0 shrink-0 items-center gap-3 md:gap-4 sm:flex">
+              {navLinks.map(({ label, to }) => (
                 <NavLink
                   key={label}
                   to={to}
                   end
                   className={({ isActive }) =>
                     `whitespace-nowrap text-sm font-semibold tracking-wide transition-colors ${
-                      isActive ? "text-white" : "text-[#8888c8] hover:text-white"
+                      to === "/adult"
+                        ? isActive
+                          ? "text-red-400"
+                          : "text-red-500/70 hover:text-red-400"
+                        : isActive
+                          ? "text-white"
+                          : "text-[#8888c8] hover:text-white"
                     }`
                   }
                 >
@@ -149,7 +202,28 @@ function Navbar({ session }) {
           </Link>
 
           {/* Right: session tools + auth */}
-          <div className="flex min-w-0 items-center justify-end gap-0.5 sm:gap-1">
+          <div className="flex min-w-0 items-center justify-end gap-1 sm:gap-1.5">
+            {/* Desktop: search field is always visible, not a toggle — the
+                icon+dropdown pattern below is for phone/tablet only, where
+                there isn't room for it inline. Thin/compact to fit alongside
+                the icon cluster. */}
+            <div className="hidden min-w-0 flex-1 lg:block">
+              <SearchBar
+                value={searchValue}
+                onChange={(e) => setSearchValue(e.target.value)}
+                maxWidthClass="max-w-[200px] xl:max-w-[260px]"
+                dense
+              />
+            </div>
+            <button
+              onClick={toggleSearch}
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-[#8888c8] transition hover:bg-[#1a1d35] hover:text-white lg:hidden"
+              aria-label={searchOpen ? "Close search" : "Search"}
+              aria-expanded={searchOpen}
+            >
+              {searchOpen ? <XIcon /> : <SearchIcon />}
+            </button>
+
             {session && (
               <div className="hidden items-center sm:flex">
                 {SESSION_ACTIONS.map(({ label, to, Icon }) => (
@@ -191,6 +265,14 @@ function Navbar({ session }) {
           </div>
         </div>
 
+        {/* Search dropdown — phone/tablet only; lg+ shows the always-visible
+            inline field in the right column instead (see above). */}
+        {searchOpen && (
+          <div className="border-t border-[#2a3570]/50 bg-[#0d0f1e] px-3 py-3 sm:px-5 lg:hidden animate-[slideDown_0.18s_ease-out]">
+            <SearchBar value={searchValue} onChange={(e) => setSearchValue(e.target.value)} autoFocus />
+          </div>
+        )}
+
         {/* Mobile dropdown */}
         {mobileOpen && (
           <div className="border-t border-[#2a3570]/50 px-5 pb-3 sm:hidden animate-[slideDown_0.18s_ease-out]">
@@ -207,7 +289,7 @@ function Navbar({ session }) {
                 </Link>
               ))}
 
-            {NAV_LINKS.map(({ label, to }) => (
+            {navLinks.map(({ label, to }) => (
               <NavLink
                 key={label}
                 to={to}
@@ -215,7 +297,13 @@ function Navbar({ session }) {
                 onClick={() => setMobileOpen(false)}
                 className={({ isActive }) =>
                   `block border-b border-[#2a3570]/50 py-3 text-sm font-semibold transition last:border-0 ${
-                    isActive ? "text-white" : "text-[#8888c8]"
+                    to === "/adult"
+                      ? isActive
+                        ? "text-red-400"
+                        : "text-red-500/70"
+                      : isActive
+                        ? "text-white"
+                        : "text-[#8888c8]"
                   }`
                 }
               >

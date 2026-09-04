@@ -176,6 +176,7 @@ export function useMediaBrowse(mediaKind, session, showAdult = false) {
       onFollowToggle: () => toggleFollow(c.id),
       genreIds: c.genre_ids ?? [],
       followBlockedLabel: followBlock(K.type, c),
+      nsfw: Boolean(c.nsfw),
     }),
     [followedIds, toggleFollow, K.type],
   );

@@ -466,48 +466,58 @@ export function toCard(type, raw, extra = {}) {
   throw new Error(`toCard: unknown type ${type}`);
 }
 
-export function normalizeSearchResults(data, includeAdult, opts = {}) {
+const MULTI_SEARCH_TYPE = { movie: "movie", tv: "show", person: "person" };
+
+// TMDB /search/multi — one call, one relevance-ranked list mixing movies/shows/
+// people (each row carries its own `media_type`), instead of three separate
+// typed searches merged client-side. `raw` is that single response
+// ({page, results, total_pages}); order is preserved (that ranking IS the
+// "most relevant first" the search page wants — no re-sort here).
+export function normalizeSearchResults(raw, includeAdult, opts = {}) {
   const { native } = opts;
-  const keep = (arr, type) =>
-    includeAdult ? arr : arr.filter((r) => !isNsfw(r, type === "show" ? "tv" : "movie"));
-  const out = [];
-  for (const r of keep(data.movie?.results ?? [], "movie").slice(0, 15)) {
-    out.push({
-      type: "movie",
+  const rows = (raw?.results ?? []).filter((r) => MULTI_SEARCH_TYPE[r.media_type]);
+  const kept = rows.filter((r) => {
+    if (includeAdult) return true;
+    const type = MULTI_SEARCH_TYPE[r.media_type];
+    return !isNsfw(r, type === "show" ? "tv" : "movie");
+  });
+
+  return kept.map((r) => {
+    const type = MULTI_SEARCH_TYPE[r.media_type];
+    if (type === "person") {
+      return {
+        type: "person",
+        tmdbId: r.id,
+        title: r.name ?? "",
+        originalTitle: r.name ?? "",
+        posterPath: r.profile_path ?? null,
+        year: null,
+        date: null,
+        popularity: num(r.popularity),
+        voteAverage: 0,
+        adult: Boolean(r.adult),
+        nsfw: Boolean(r.adult),
+      };
+    }
+    const isMovie = type === "movie";
+    const dateField = isMovie ? r.release_date : r.first_air_date;
+    return {
+      type,
       tmdbId: r.id,
-      title: pickTitle(r.title, r.original_title, r.original_language, native),
-      originalTitle: r.original_title ?? "",
+      title: pickTitle(
+        isMovie ? r.title : r.name,
+        isMovie ? r.original_title : r.original_name,
+        r.original_language,
+        native,
+      ),
+      originalTitle: (isMovie ? r.original_title : r.original_name) ?? "",
       posterPath: r.poster_path ?? null,
-      year: year(r.release_date),
+      year: year(dateField),
+      date: dateField || null,
       popularity: num(r.popularity),
+      voteAverage: num(r.vote_average),
       adult: Boolean(r.adult),
-      nsfw: isNsfw(r, "movie"),
-    });
-  }
-  for (const r of keep(data.tv?.results ?? [], "show").slice(0, 15)) {
-    out.push({
-      type: "show",
-      tmdbId: r.id,
-      title: pickTitle(r.name, r.original_name, r.original_language, native),
-      originalTitle: r.original_name ?? "",
-      posterPath: r.poster_path ?? null,
-      year: year(r.first_air_date),
-      popularity: num(r.popularity),
-      adult: Boolean(r.adult),
-      nsfw: isNsfw(r, "tv"),
-    });
-  }
-  for (const r of keep(data.person?.results ?? [], "movie").slice(0, 15)) {
-    out.push({
-      type: "person",
-      tmdbId: r.id,
-      title: r.name ?? "",
-      posterPath: r.profile_path ?? null,
-      year: null,
-      popularity: num(r.popularity),
-      adult: Boolean(r.adult),
-      nsfw: Boolean(r.adult),
-    });
-  }
-  return out;
+      nsfw: isNsfw(r, isMovie ? "movie" : "tv"),
+    };
+  });
 }

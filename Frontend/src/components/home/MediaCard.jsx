@@ -3,6 +3,16 @@ import { Link } from "react-router-dom";
 import AuthPromptModal from "../AuthPromptModal.jsx";
 import { tmdbImg } from "../../lib/tmdbImage.js";
 import { FOLLOW_BLOCK_TOOLTIP } from "../../lib/followGate.js";
+import { usePreferences } from "../../features/preferences/PreferencesContext.jsx";
+
+function EyeIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7Z" />
+      <circle cx="12" cy="12" r="3" />
+    </svg>
+  );
+}
 
 
 function PlusIcon() {
@@ -29,7 +39,7 @@ function CheckIcon() {
   );
 }
 
-function MediaCard({ id, type, title, posterPath, isFollowing = false, onFollowToggle, isAuthenticated, customTo, releaseLabel, genreIds = [], trackSource = "browse", followBlockedLabel = null }) {
+function MediaCard({ id, type, title, posterPath, isFollowing = false, onFollowToggle, isAuthenticated, customTo, releaseLabel, genreIds = [], trackSource = "browse", followBlockedLabel = null, nsfw = false, blurDisabled = false }) {
   const imgSrc = posterPath ? tmdbImg(posterPath, "w300") : null;
   const to = customTo ?? (type === "movie" ? `/movies/${id}` : `/shows/${id}`);
   const isMovie = type === "movie";
@@ -37,6 +47,12 @@ function MediaCard({ id, type, title, posterPath, isFollowing = false, onFollowT
   const [hovering, setHovering] = useState(false);
   const [showAuthPrompt, setShowAuthPrompt] = useState(false);
   const [justFollowed, setJustFollowed] = useState(false);
+  const [revealed, setRevealed] = useState(false);
+  // blurDisabled lets a page that's already gated on adult content itself (the
+  // /adult page, behind its own warning) skip the blur entirely — blurring is
+  // for nsfw titles turning up unexpectedly alongside regular browse content.
+  const { blurNsfw } = usePreferences();
+  const blurred = nsfw && blurNsfw && !blurDisabled && !revealed;
 
   function handleFollow(e) {
     e.preventDefault();
@@ -89,7 +105,9 @@ function MediaCard({ id, type, title, posterPath, isFollowing = false, onFollowT
           <img
             src={imgSrc}
             alt={title}
-            className="h-full w-full object-cover transition-transform duration-500 group-hover/card:scale-[1.07]"
+            className={`h-full w-full object-cover transition-transform duration-500 group-hover/card:scale-[1.07] ${
+              blurred ? "scale-110 blur-xl" : ""
+            }`}
             loading="lazy"
           />
         ) : (
@@ -100,6 +118,27 @@ function MediaCard({ id, type, title, posterPath, isFollowing = false, onFollowT
             </svg>
             <span className="line-clamp-3 text-center text-[11px] font-medium leading-tight text-[#3a3a7a]">{title}</span>
           </div>
+        )}
+
+        {/* NSFW blur — a click reveals just this card (doesn't touch the
+            "Blur NSFW posters" setting, which stays on for every other card). */}
+        {blurred && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setRevealed(true);
+            }}
+            className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-1.5 bg-[#0a0c18]/55 text-white"
+          >
+            <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#0a0c18]/80 ring-1 ring-white/30">
+              <EyeIcon />
+            </span>
+            <span className="rounded-full bg-[#0a0c18]/80 px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest">
+              18+ · Tap to reveal
+            </span>
+          </button>
         )}
 
         {/* Hover scrim */}

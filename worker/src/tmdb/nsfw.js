@@ -38,6 +38,44 @@ export function withoutKeywordsParam() {
   return [...NSFW_KEYWORD_IDS].join("|");
 }
 
+// The inverse — TMDB discover `with_keywords`, same ids, same pipe-joined "OR"
+// semantics (a result matches if it carries ANY of these). Backs the hidden
+// "Adult" browse rows (worker/src/tmdb/lists.js `adult-movies`/`adult-shows`):
+// same curated category list, used to affirmatively select this content instead
+// of excluding it. Combined with `discoverParams()` still adding its own
+// `without_keywords` when `include_adult` is off, a request without adult
+// content enabled gets zero matches either way — the list is empty unless the
+// caller's own preference already allows adult content.
+export function withKeywordsParam() {
+  return [...NSFW_KEYWORD_IDS].join("|");
+}
+
+// The same ids grouped into user-facing categories for the /adult page's
+// category filter (GET /api/content/adult/categories). `ids` is already in
+// TMDB's pipe-joined "OR" form so the frontend can pass it straight back as
+// the `keyword` query param. Every id here must also be in NSFW_KEYWORD_IDS —
+// parseNsfwKeywordIds() rejects anything outside that set.
+export const NSFW_CATEGORIES = [
+  { key: "porn", label: "Adult film", ids: "356759|345933|345881|190366|322288" },
+  { key: "parody", label: "Adult parody", ids: "155139" },
+  { key: "softcore", label: "Softcore", ids: "155477" },
+  { key: "erotic", label: "Erotic", ids: "190370|343572|256466" },
+  { key: "pink", label: "Pink film", ids: "159551" },
+  { key: "hentai", label: "Hentai", ids: "198385" },
+  { key: "sexploitation", label: "Sexploitation", ids: "10053|335048" },
+];
+
+// "155477|198385" -> "155477|198385" (only ids from the curated set kept);
+// "" / junk / anything outside the set -> null (caller falls back to the full list).
+export function parseNsfwKeywordIds(raw) {
+  if (!raw || typeof raw !== "string") return null;
+  const ids = raw
+    .split("|")
+    .map((s) => Number.parseInt(s, 10))
+    .filter((n) => NSFW_KEYWORD_IDS.has(n));
+  return ids.length > 0 ? ids.join("|") : null;
+}
+
 // Movie keywords append_to_response = { keywords: [{id,name}] }; TV = { results: [...] }.
 function keywordIds(keywordsField) {
   const arr = keywordsField?.keywords ?? keywordsField?.results ?? [];

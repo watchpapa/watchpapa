@@ -104,16 +104,33 @@ describe("toCard", () => {
 });
 
 describe("normalizeSearchResults", () => {
-  it("filters adult unless requested and caps per type", () => {
-    const data = {
-      movie: { results: [{ id: 1, title: "ok", adult: false }, { id: 2, title: "nsfw", adult: true }] },
-      tv: { results: [] },
-      person: { results: [{ id: 3, name: "P", adult: false }] },
-    };
-    const safe = normalizeSearchResults(data, false);
-    expect(safe.map((r) => r.tmdbId).sort()).toEqual([1, 3]);
-    const all = normalizeSearchResults(data, true);
-    expect(all).toHaveLength(3);
+  // /search/multi returns one relevance-ordered list; each row carries its own
+  // media_type. Order must be preserved (that ranking IS the "most relevant
+  // first" behaviour) — no re-sort inside normalizeSearchResults.
+  const raw = {
+    page: 1,
+    total_pages: 3,
+    results: [
+      { id: 1, media_type: "tv", name: "Breaking Bad", first_air_date: "2008-01-20", popularity: 200, vote_average: 8.9, adult: false },
+      { id: 2, media_type: "movie", title: "ok", adult: false, popularity: 10, release_date: "2020-01-01" },
+      { id: 3, media_type: "movie", title: "nsfw", adult: true, popularity: 5 },
+      { id: 4, media_type: "person", name: "P", adult: false, popularity: 7 },
+      { id: 5, media_type: "collection", name: "ignored" }, // unsupported media_type, must be dropped
+    ],
+  };
+
+  it("filters adult unless requested, drops unsupported media_types, preserves TMDB's relevance order", () => {
+    const safe = normalizeSearchResults(raw, false);
+    expect(safe.map((r) => r.tmdbId)).toEqual([1, 2, 4]); // order preserved, id 3 (adult) and 5 (collection) dropped
+    const all = normalizeSearchResults(raw, true);
+    expect(all.map((r) => r.tmdbId)).toEqual([1, 2, 3, 4]); // still no id 5
+  });
+
+  it("maps tv -> show and carries year/date/voteAverage for movie/show, not person", () => {
+    const [show, movie, person] = normalizeSearchResults(raw, false);
+    expect(show).toMatchObject({ type: "show", tmdbId: 1, title: "Breaking Bad", year: "2008", date: "2008-01-20", voteAverage: 8.9 });
+    expect(movie).toMatchObject({ type: "movie", tmdbId: 2, year: "2020", date: "2020-01-01" });
+    expect(person).toMatchObject({ type: "person", tmdbId: 4, title: "P", year: null, date: null, voteAverage: 0 });
   });
 });
 
@@ -144,7 +161,7 @@ describe("native title mode (opts.native)", () => {
     expect(card.title).toBe("Original");
 
     const results = normalizeSearchResults(
-      { movie: { results: [{ id: 5, title: "Translated", original_title: "Original", original_language: "pl", adult: false }] }, tv: { results: [] }, person: { results: [] } },
+      { results: [{ id: 5, media_type: "movie", title: "Translated", original_title: "Original", original_language: "pl", adult: false }] },
       false,
       { native: "pl" },
     );
