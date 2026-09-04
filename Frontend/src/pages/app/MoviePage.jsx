@@ -14,6 +14,8 @@ import CastGrid from "../../components/detail/CastGrid.jsx";
 import CrewSection from "../../components/detail/CrewSection.jsx";
 import AuthPromptModal from "../../components/AuthPromptModal.jsx";
 import { useMovieData } from "../../features/movie/hooks/useMovieData.js";
+import { movieFollowBlock } from "../../lib/followGate.js";
+import WhereToWatch from "../../components/detail/WhereToWatch.jsx";
 import UpgradePromptToast from "../../components/subscription/UpgradePromptToast.jsx";
 import { PageHead } from "../../components/ui/PageHead.jsx";
 import { MediaShareModal } from "../../components/detail/MediaShareModal.jsx";
@@ -103,7 +105,7 @@ function MoviePage({ session, showAdult }) {
         title={movie.title}
         followButton={
           <div className="flex flex-wrap items-center gap-2">
-            <FollowButton isFollowing={isFollowing} onToggle={handleFollow} />
+            <FollowButton isFollowing={isFollowing} onToggle={handleFollow} blockedLabel={movieFollowBlock(movie)} />
             <AddToWatchlistButton
               mediaType="movie"
               entityId={movie.id}
@@ -153,6 +155,12 @@ function MoviePage({ session, showAdult }) {
               <span key={g.id} className="rounded-full border border-[#3a3a7a] bg-[#1a1d35] px-3 py-0.5 text-xs font-semibold text-[#a0a0e8]">{g.name}</span>
             ))}
           </div>
+        )}
+
+        {movie.watch_providers && (
+          <ContentPanel label="Where to watch">
+            <WhereToWatch data={movie.watch_providers} />
+          </ContentPanel>
         )}
 
         {cast.length > 0 && (

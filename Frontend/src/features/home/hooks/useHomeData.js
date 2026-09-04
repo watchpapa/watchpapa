@@ -6,6 +6,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "../../../lib/supabase.js";
 import { apiFetch } from "../../../lib/api.js";
+import { followBlock } from "../../../lib/followGate.js";
 
 function formatReleaseLabel(dateStr) {
   if (!dateStr) return null;
@@ -23,6 +24,7 @@ function cardToItem(c, followedSet) {
     genreIds: c.genre_ids ?? [],
     isFollowing: followedSet.has(c.id),
     date: c.date ?? null,
+    followBlockedLabel: followBlock(c.type, c),
   };
 }
 

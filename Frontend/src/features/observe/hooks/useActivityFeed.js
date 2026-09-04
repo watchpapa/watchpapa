@@ -63,9 +63,10 @@ export function useActivityFeed(session, showAdult = false) {
             title: card?.title ?? null,
             poster_path: card?.poster_path ?? null,
             adult: card?.adult ?? false,
+            nsfw: card?.nsfw ?? false,
           };
         })
-        .filter((it) => showAdult || !it.adult),
+        .filter((it) => showAdult || !(it.adult || it.nsfw)),
     [rows, cards, showAdult],
   );
 

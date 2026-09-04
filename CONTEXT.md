@@ -44,16 +44,19 @@ watchpapa/
 │   │   ├── audit.js                 # auditLog(action, fields) → executionCtx.waitUntil INSERT
 │   │   ├── ratelimit.js             # RL_GLOBAL / RL_MUTATION wrappers (no-op if binding absent)
 │   │   ├── tmdb/
-│   │   │   ├── client.js            # tmdbFetch(env, path, params, {ttl}) — fetch + cf cache + 429 retry
-│   │   │   ├── normalize.js         # TMDB payloads → the field names the UI reads (id === tmdb_id)
-│   │   │   └── lists.js             # list-kind → TMDB endpoint + TTL map
+│   │   │   ├── client.js            # tmdbFetch(env, path, params, {ttl, language}) — fetch + cf cache + 429 retry
+│   │   │   ├── normalize.js         # TMDB payloads → the field names the UI reads (id === tmdb_id); native-title swap, regional release date, watch-provider compaction, NSFW flag
+│   │   │   ├── lists.js             # list-kind → TMDB endpoint (or a /discover spec) + TTL map
+│   │   │   ├── locale.js            # readLocale(c) — parses/validates lang/region/native/include_adult/providers query params
+│   │   │   ├── nsfw.js              # NSFW_KEYWORD_IDS / NSFW_TITLE_RE / NSFW_ALLOW_IDS / isNsfw() / filterNsfw() — single tunable module for adult-flag-evading content
+│   │   │   └── discover.js          # discoverParams() + runDiscover() — shared /discover/{movie,tv} builder (popular/top-rated list kinds, coming-soon, "available on your services", /discover/:type)
 │   │   ├── routes/
-│   │   │   ├── content.js           # /api/content/* — detail, list, discover, genres, POST batch, POST releases
+│   │   │   ├── content.js           # /api/content/* — detail, list, discover, genres, watch/regions, watch/providers, config/locales, POST batch, POST releases
 │   │   │   ├── publicContent.js     # /api/search, /api/posters, /api/image-proxy, /sitemap*.xml
 │   │   │   ├── referral.js  rewards.js  announcements.js  import.js
 │   │   │   └── admin/{index,users,stats,rewardCodes,referrals,auditLog,announcements}.js
 │   │   └── lib/{letterboxdUri,csv}.js
-│   └── test/                        # vitest — normalize / csv fixtures
+│   └── test/                        # vitest — normalize / csv / nsfw / locale / client / discover fixtures
 ├── Backend/src/db/migrations/        # 001–031 SQL — apply via Supabase MCP (only thing left under Backend/)
 ├── Frontend/src/
 │   ├── main.jsx                      # Vite entry — mounts <App /> inside <BrowserRouter>
@@ -67,10 +70,14 @@ watchpapa/
 │   │   └── admin/                    # Admin dashboard pages (AdminRoute guard)
 │   ├── features/                     # Per-domain hooks — one hooks/ subfolder per domain
 │   │   ├── content/                  # ── all TMDB-content reads go through here ──
-│   │   │   ├── hooks/useContent.js   # useMovie/useShow/useSeason/useEpisode/usePerson/useContentList/useDiscover/useGenres
-│   │   │   ├── hooks/useContentBatch.js  # POST /api/content/batch — hydrate cards for user-data rows
-│   │   │   ├── hooks/useMediaBrowse.js   # shared engine for /movies + /shows (popular + coming-soon + genre rows)
+│   │   │   ├── hooks/useContent.js   # useMovie/useShow/useSeason/useEpisode/usePerson/useContentList/useDiscover/useGenres — cache keyed by `${localeKey}|${path}`
+│   │   │   ├── hooks/useContentBatch.js  # POST /api/content/batch — hydrate cards for user-data rows; cache keyed by `${localeKey}:${cardKey}`
+│   │   │   ├── hooks/useMediaBrowse.js   # shared engine for /movies + /shows (popular + coming-soon + genre rows + "Available on your services" row)
 │   │   │   └── lib/keys.js           # cardKey(item), itemFromRow(row) — map a (media_type, tmdb_id) row to a batch item
+│   │   ├── preferences/              # ── content-locale + streaming preferences ──
+│   │   │   ├── PreferencesContext.jsx    # PreferencesProvider (wraps the route tree in App.jsx) / usePreferences() — showAdult, language, titleMode, region, watchRegions, watchProviders; update() writes profile + refreshes live
+│   │   │   └── hooks/useWatchProviderCatalog.js  # useLocaleCatalog / useWatchRegionCatalog / useWatchProviderList / languageLabel()
+│   │   ├── person/lib/filmography.js # mergeCredits/sortCredits/filterCredits/departmentsOf — PersonPage filmography sort+filter
 │   │   └── admin/hooks/              # useAdminAnnouncements, useIsAdmin, … (via adminFetch.js Bearer helper)
 │   ├── features/watchlist/hooks/     # useWatchlistItems (selects tmdb_id, hydrates via useContentBatch), useItemWatchlistStatus
 │   ├── features/rating/hooks/        # useRating(mediaType, tmdbId, session, {tmdbShowId,seasonNumber,episodeNumber}), useCommunityRatings(mediaType, tmdbId)
@@ -87,8 +94,8 @@ watchpapa/
 │   │   │   ├── generateMediaShareCard.js # Canvas generator for movie/show share cards (3 formats: story 9:16, square 1:1, wide 16:9; 3 detail levels: minimal/standard/rich). Loads poster via TMDB + logo, renders hearts if user rated
 │   │   │   └── MediaShareModal.jsx # Format + detail level selectors (pill buttons), live preview, Download (4K) + Share buttons. Internally calls useRating to fetch user's rating for the media
 │   │   ├── layout/                   # Navbar, Footer, Breadcrumbs, ProfileMenu (hover→dropdown desktop / click→profile; click→dropdown mobile), PosterBackground
-│   │   ├── ui/                       # Button, Input, Toggle, OtpInput, PageHead, RichTextEditor, OverLimitBanner, …
-│   │   ├── detail/                   # DetailPageLayout, PosterCard, CastGrid, FollowButton, AdminResyncButton (admin-only, role 4; shown on Movie/Show/Person pages), …
+│   │   ├── ui/                       # Button, Input, Toggle, Select, OtpInput, PageHead, RichTextEditor, OverLimitBanner, …
+│   │   ├── detail/                   # DetailPageLayout, PosterCard, CastGrid, FollowButton (blockedLabel prop), WhereToWatch (streaming-provider panel), AdminResyncButton (admin-only, role 4; shown on Movie/Show/Person pages), …
 │   │   ├── home/                     # MediaCard, MediaGrid, MediaRow, SearchBar
 │   │   ├── auth/                     # AdminRoute (route guard)
 │   │   ├── subscription/             # EarlyAdopterBanner, UpgradePromptToast
@@ -98,6 +105,7 @@ watchpapa/
 │       ├── api.js                    # apiFetch(path, {session}) + API_BASE — calls the Worker
 │       ├── tmdbImage.js              # tmdbImg(path, size) / tmdbImgProxied(...) — replaces 21 hard-coded URLs
 │       ├── credits.js                # toCast/toCrew — shape the Worker's flat cast/crew arrays
+│       ├── followGate.js             # movieFollowBlock/showFollowBlock/followBlock — blocks NEW follows of released movies/finished shows (existing follows untouched); movieLifecycleLabel/showStatusInfo chips for FollowsPage
 │       ├── cookieConsent.js  cn.js  validate.js  constants.js
 ├── tests/rls_tests/                  # RLS policy tests (node --test) — retarget follow inserts to tmdb_id
 ├── .github/workflows/deploy-worker.yml  # manual-dispatch backup; primary deploy = Cloudflare Workers/Pages Builds
@@ -120,17 +128,30 @@ watchpapa/
 
 ## API Route Map (Worker — `worker/src/`)
 
+**Locale contract** — every `/api/content*` and `/api/search*` route accepts these query params (parsed by `tmdb/locale.js` `readLocale(c)`); the Frontend appends them automatically (see TMDB Content Architecture below), so most call sites never build them by hand:
+
+| Param | Example | Effect |
+|---|---|---|
+| `lang` | `pl-PL` | TMDB `language` (validated `xx-YY`, default `en-US`) |
+| `region` | `PL` | Regional release-date pick (movie detail/batch) + forwarded to TMDB `region`/`watch_region` on discover/list-window endpoints |
+| `native` | `pl` | Swap the display title to the TMDB original title when `original_language` matches (mode B: "original titles for my language, English for the rest") |
+| `include_adult` (or `includeAdult`) | `true` | Unfiltered results; also gates the NSFW-keyword/title layer (`tmdb/nsfw.js`) |
+| `providers` | `8\|337` | `with_watch_providers` on `/discover/:type` (pipe-separated TMDB provider ids, requires `watch_region`) |
+
 **Content** (public, edge-cached — `routes/content.js` + `routes/publicContent.js`):
 
 | Method | Path | Notes |
 |---|---|---|
-| `GET` | `/api/content/movie/:id` · `/show/:id` · `/show/:id/season/:n` · `/show/:id/season/:n/episode/:m` · `/person/:id` | `:id` = TMDB id. `append_to_response` credits / aggregate_credits / combined_credits |
-| `GET` | `/api/content/list/:kind?page&include_adult` | kind ∈ movies-popular / shows-popular / movies-top-rated / … (see `tmdb/lists.js`) |
-| `GET` | `/api/content/discover/:type?with_genres&upcoming&page` | `:type` = movie \| tv — powers genre rows + "coming soon" |
+| `GET` | `/api/content/movie/:id` · `/show/:id` · `/show/:id/season/:n` · `/show/:id/season/:n/episode/:m` · `/person/:id` | `:id` = TMDB id. `append_to_response` credits/aggregate_credits/combined_credits + `release_dates,keywords,watch/providers` (movie/show). One extra en-US fetch fills `overview`/`tagline` when the requested language has no translation (TMDB returns those empty, not falling back) |
+| `GET` | `/api/content/list/:kind?page&include_adult` | kind ∈ movies-popular / shows-popular / movies-top-rated / … (see `tmdb/lists.js`). Popular/top-rated kinds are **served via `/discover/*`** (not the raw TMDB list endpoint) so `include_adult`, NSFW-keyword exclusion, language and region all apply — TMDB's list endpoints ignore `include_adult` entirely |
+| `GET` | `/api/content/discover/:type?with_genres&upcoming&page&with_watch_providers&watch_region&with_watch_monetization_types` | `:type` = movie \| tv — powers genre rows, "coming soon", and the "Available on your services" row |
 | `GET` | `/api/content/genres` | `{movie:[], tv:[]}` |
-| `POST` | `/api/content/batch` | `{items:[…]}` → `{cards, missing}` — card hydration |
+| `GET` | `/api/content/watch/regions?lang=` | `{regions:[{code,name,nativeName}]}` — TMDB `/watch/providers/regions` |
+| `GET` | `/api/content/watch/providers?type=movie\|tv\|all&region=` | `{region, providers:[{id,name,logo_path,priority}]}` — TMDB `/watch/providers/{movie,tv}`, merged + priority-sorted for `type=all` |
+| `GET` | `/api/content/config/locales?lang=` | `{languages:["en-US",…], countries:[{code,name,nativeName}]}` — TMDB `/configuration/primary_translations` + `/configuration/countries`; backs the Settings language/country pickers |
+| `POST` | `/api/content/batch` | `{items:[…]}` → `{cards, missing}` — card hydration; movie items append `release_dates,keywords`, show items append `keywords` |
 | `POST` | `/api/content/releases` | `{showIds, year, month}` → episode air dates |
-| `GET` | `/api/search?q=&includeAdult=` | TMDB multi-search → `{results:[{type,tmdbId,title,posterPath,year,adult}]}` |
+| `GET` | `/api/search?q=&include_adult=` (also accepts `includeAdult=`) | TMDB multi-search → `{results:[{type,tmdbId,title,originalTitle,posterPath,year,adult,nsfw}]}` |
 | `GET` | `/api/posters` | 80 popular poster paths (auth-page wall) |
 | `GET` | `/api/image-proxy?path=&size=` | streamed, CORS, edge-cached — for canvas/share cards |
 | `GET` | `/sitemap.xml` · `/sitemap-{static,movies,shows,people}.xml` | from TMDB lists, 24h cache |
@@ -229,7 +250,7 @@ Route guards defined in `App.jsx`: `PublicOnlyRoute`, `ProtectedRoute`, `PublicR
 
 | Table | PK | Key columns | Notes |
 |---|---|---|---|
-| `profile` | `uuid` (= `auth.users.id`) | `username` (unique, nullable), `role`, `bio`, `date_of_birth` (nullable), `setting_display_adult_content`, `referral_code`, `email_marketing_opt_in` | role: 0=user, 3=editor, 4=admin |
+| `profile` | `uuid` (= `auth.users.id`) | `username` (unique, nullable), `role`, `bio`, `date_of_birth` (nullable), `setting_display_adult_content`, `referral_code`, `email_marketing_opt_in`, `setting_language` (default `en-US`), `setting_title_mode` (`translated`\|`native_original`), `setting_region` (nullable ISO 3166-1), `setting_watch_regions` (`TEXT[]`, ≤5), `setting_watch_providers` (`INTEGER[]`, ≤50) | role: 0=user, 3=editor, 4=admin |
 | `user_rating` | `bigint` identity | `profile_id`, `media_type` ('movie'\|'show'\|'season'\|'episode'), `tmdb_id`, `tmdb_show_id`+`season_number`(+`episode_number`) for season/episode, `value` (1–10) | UNIQUE `(profile_id, media_type, tmdb_id)`. RLS read via `can_view_ratings()`. |
 | `profile_favourite` | `bigint` identity | `profile_id`, `position` (1–5), `media_type`, `tmdb_id` | UNIQUE `(profile_id, position)` |
 | `user_followed_movies` | `bigint` identity | `profile_id`, `tmdb_id` | UNIQUE `(profile_id, tmdb_id)` |
@@ -305,8 +326,9 @@ The `/api/import/resolve` endpoint also accepts Letterboxd CSV format (auto-dete
 | 030a | `drop_xor_checks` | **Applied 2026-09-03.** Drops `user_rating_one_media` / `watchlist_item_one_media` / `profile_favourite_one_media` CHECKs so the new frontend can write `(media_type, tmdb_id)`-only rows. Split from 030 for Phase 3 dev testing; old frontend unaffected. |
 | 030 | `swap_functions` | **Applied 2026-09-03 (cutover).** `CREATE OR REPLACE` `get_community_rating_stats` / `get_observed_ratings_for_entity` / `audit_user_follow_change` to key on `tmdb_id`. `030_swap_functions_down.sql` reverses it (rollback path until 031). |
 | 031 | `clear_content` (**pending — after soak**) | Re-backfill stragglers, NOT NULL + replacement CHECKs, **drop the old id columns** (`user_rating.movie_id`/`show_id`/`season_id`/`episode_id`, etc. — their FKs would block the truncate), drop `get_activity_feed(int,int,bool)` + `get_profile_genre_stats`, rename `get_activity_feed_v2` → `get_activity_feed`, then **`TRUNCATE … CASCADE` the 15 mirror tables** (`movie`/`show`/`season`/`episode`/`person`/`person_aka`/`genres`/`department`/`job`/`*_credits`/`*_genre`/`script_logs`) — schema/indexes/RLS/`tmdb_id` constraints kept as empty scaffolding, ~1.3 GB reclaimed. Irreversible for the row data (but it's all re-fetchable from TMDB). |
+| 032 | `locale_and_watch_settings` | Adds `setting_language`, `setting_title_mode`, `setting_region`, `setting_watch_regions`, `setting_watch_providers` to `profile` (with format CHECKs). Purely additive; no RLS change needed — `profile_update_own` already covers the whole row and 010's REVOKE only touches `role`/`referral_code`. |
 
-To add the next migration: create `Backend/src/db/migrations/032_<name>.sql`, apply via `mcp__claude_ai_Supabase__apply_migration`.
+To add the next migration: create `Backend/src/db/migrations/033_<name>.sql`, apply via `mcp__claude_ai_Supabase__apply_migration`.
 
 ---
 
@@ -357,7 +379,7 @@ Locked widgets show **fake seeded data** under a blur overlay + upgrade CTA (not
 **Frontend (`App.jsx`):**
 - Boot: `supabase.auth.getSession()` → `supabase.auth.getUser()` (validates token); then `onAuthStateChange` keeps state live.
 - New users with no `profile.username` are gated to `/complete-username` before any other protected route.
-- `showAdult` is read from `profile.setting_display_adult_content` and passed as a prop through the route tree.
+- Content preferences (`showAdult`, language, title mode, region, watch regions/providers) live in `features/preferences/PreferencesContext.jsx` — `PreferencesProvider` wraps the route tree (extracted into `RouteTree` in `App.jsx` so it can consume the context App itself renders), seeded from the same profile fetch, remounted via a `key={session?.user?.id}` on sign-in/out. `usePreferences().update(partial)` writes straight to `profile` and updates every consumer immediately — fixes the old bug where toggling adult content in Settings needed a reload to take effect. `showAdult` is still passed down as a prop from `RouteTree` to match existing page signatures.
 - Storage is consent-aware: `localStorage` if cookie consent accepted, `sessionStorage` otherwise.
 
 **Worker (per-request), `worker/src/auth.js`:**
@@ -372,13 +394,33 @@ Locked widgets show **fake seeded data** under a blur overlay + upgrade CTA (not
 **No mirror.** All movie/show/season/episode/person/credit/genre data is fetched **live from TMDB v3** by the Worker (`worker/src/tmdb/client.js` → `fetch(url, { cf: { cacheEverything, cacheTtl } })`, per-endpoint TTLs 6h–7d) and normalized (`normalize.js`) into the exact field names the UI reads — `id === tmdb_id`, season/episode `still_path` aliased to `poster_path`, `aggregate_credits` roles[]/jobs[] flattened.
 
 - **Detail:** `GET /api/content/{movie,show,season,episode,person}/:id`
-- **Browse:** `GET /api/content/{list/:kind,discover/:type,genres}` (list kinds map to `/movie/popular` etc. in `lists.js`)
+- **Browse:** `GET /api/content/{list/:kind,discover/:type,genres}` — `movies-popular`/`movies-top-rated`/`shows-popular`/`shows-top-rated` are **served through `/discover/*`** (`tmdb/discover.js` `discoverParams`/`runDiscover`, shared by `/list/:kind`, `/discover/:type`, and the coming-soon/"available on your services" fetches) rather than TMDB's `/movie/popular` etc., because those list endpoints ignore `include_adult` and have no keyword-exclusion param. Other kinds map straight to a TMDB list path in `lists.js`.
 - **Card hydration:** `POST /api/content/batch` `{items:[{type,id,showId?,seasonNumber?,episodeNumber?}]}` → `{cards, missing}` — used to attach title/poster/date/genres to user-data rows (`user_rating`, `watchlist_item`, favourites, follows) that store only `(media_type, tmdb_id)`. Frontend: `features/content/hooks/useContentBatch.js` + `lib/keys.js`.
 - **Calendar:** `POST /api/content/releases` `{showIds,year,month}` → episode air dates for followed shows (bounded ≤3 TMDB calls/show).
 - Free-plan caps (50 subrequests / 10 ms CPU per request) are `wrangler.jsonc` `vars` (`BATCH_MAX`, `BATCH_SUBREQ_BUDGET`, `RELEASES_MAX_SHOWS`, `SITEMAP_PAGES`, `IMPORT_CHUNK_MAX`).
 - **Sitemaps** (`worker/src/routes/publicContent.js`): built from TMDB popular + top-rated list pages, cached 24h. `Frontend/public/_redirects` 301s `/sitemap*.xml` → `api.watchpapa.tv`.
 
 The 15 mirror tables still exist as **empty scaffolding** (migration 031 `TRUNCATE`d them, kept schema/indexes/RLS/`tmdb_id` constraints). Nothing reads or writes them.
+
+### Content locale (language / title mode / region)
+
+- `worker/src/tmdb/client.js` `buildUrl(path, params, apiKey, language)` sets `api_key`, then `language` (default `en-US`), then `params` — **that order is load-bearing**: Cloudflare's edge cache keys on the full URL, so a distinct `language`/any `params` key naturally partitions the cache with zero extra work. Never add `region` to a non-window TMDB call (tv/person/season/episode) — it would fragment those caches for nothing; `region` only matters where TMDB itself uses it (movie discover/list-window endpoints) or where the Worker picks a date out of an already-fetched `release_dates` payload.
+- `worker/src/tmdb/locale.js` `readLocale(c)` parses/validates `lang`/`region`/`native`/`include_adult`/`providers` off the request (see API Route Map above) into `{ language, region, native, includeAdult, providers }`, passed to `tmdbFetch(..., { language })` and to every `normalize.js` function as its trailing `opts`.
+- **Native-title mode** (`opts.native`, an ISO 639-1 code): `normalize.js` `pickTitle()` swaps the display title for TMDB's `original_title`/`original_name` when `original_language === native` — e.g. a Polish user in "original titles for my language" mode sees Polish films with their Polish title and everything else in English. The Frontend derives this: title mode `native_original` sends `lang=en-US&native=<language's ISO 639-1 part>`; `translated` sends `lang=<language>` only.
+- **Missing translations:** TMDB falls back `title`→`original_title` automatically, but returns `overview`/`tagline` as **empty strings** with no fallback. Movie/show detail routes do one extra en-US `tmdbFetch` (same `append_to_response` shape as the batch route, so it shares that cache entry) to fill `overview`/`tagline` when the requested language came back empty, flagged `overview_fallback: "en-US"` on the response.
+- **Regional release dates:** movie detail + movie `/batch` cards append `release_dates`; `normalize.js` `pickRegionalRelease()` picks the earliest date for the user's `region` preferring theatrical (type 3) > limited theatrical (2) > digital (4) > TV (6). Movie payloads expose `release_date` (TMDB primary, unchanged), `release_date_regional` (or `null`), and `release_date_effective` (regional ?? primary) — `lib/followGate.js` and the "Not yet released" gates use the effective date. List/discover card rows have no per-item `release_dates` append, so their `date` stays the TMDB primary date.
+- **Frontend plumbing:** `features/preferences/PreferencesContext.jsx` derives `{ lang, region, native }` from the user's saved preferences and calls `lib/api.js` `setContentLocale()` **synchronously during the provider's render** (not in a `useEffect` — that would race the first content fetch under the stale/default locale). `apiFetch()` appends `lang`/`region`/`native` to every `/api/content*` and `/api/search*` request automatically. Because that happens inside `apiFetch` rather than in each hook's own path-building, `features/content/hooks/useContent.js` and `useContentBatch.js` prefix their module-level caches with `usePreferences().localeKey` (`useContent`: `` `${localeKey}|${path}` ``; `useContentBatch`: `` `${localeKey}:${cardKey}` ``) so a locale switch can't serve stale-language data back out of those caches.
+
+### Watch providers ("Where to watch")
+
+- Movie/show detail + `/batch` append `watch/providers`; `normalize.js` `compactWatchProviders()` reshapes TMDB's ~50-region payload into `{ providers: {id:{name,logo_path}}, regions: {ISO:{link,flatrate:[ids],rent:[ids],buy:[ids],free:[ids],ads:[ids]}} }` — provider metadata is deduped once instead of repeated per region.
+- New routes `GET /api/content/watch/regions` and `GET /api/content/watch/providers?type=movie|tv|all&region=` wrap TMDB's `/watch/providers/{regions,movie,tv}` for the Settings pickers (`features/preferences/hooks/useWatchProviderCatalog.js`).
+- `components/detail/WhereToWatch.jsx` renders the panel on `MoviePage`/`ShowPage` (region tabs from the user's `setting_watch_regions`, the user's own `setting_watch_providers` sorted first). `features/content/hooks/useMediaBrowse.js` adds an "Available on your services" row to `/movies`/`/shows` via `/discover/:type?with_watch_providers=&watch_region=&with_watch_monetization_types=flatrate|free|ads`, shown only when the user has picked providers.
+- **JustWatch attribution is mandatory** per TMDB's terms — every surface showing provider data (Settings provider grid, `WhereToWatch`) credits JustWatch (`lib/constants.js` `JUSTWATCH_ATTRIBUTION_URL`).
+
+### NSFW filtering beyond the `adult` flag
+
+TMDB's `adult` flag misses softcore/erotica titles that are only tagged via keywords. `worker/src/tmdb/nsfw.js` is the single tunable module: `NSFW_KEYWORD_IDS` (a deliberately narrow curated set — porn/softcore/hentai/pink-film/sexploitation-style ids only, **not** generic keywords like "nudity" that hit mainstream titles), `NSFW_TITLE_RE` (a title-only regex fallback), and `NSFW_ALLOW_IDS` (per-type id allowlist for known regex false positives). `isNsfw(raw, type)` = `adult || keyword hit || (not allowlisted && title regex hit)`; `filterNsfw(rows, includeAdult, type)` applies it. Wired in: `/discover/*` (`without_keywords` pipe-joined ids sent to TMDB **and** a Worker-side `filterNsfw` post-filter, since TMDB's own list endpoints ignore it), `/list/:kind`, `/api/search` (`normalizeSearchResults`), `/batch` and detail routes (`nsfw` field on cards/movie/show/person-credits). Frontend detail gates and `usePersonData`/`useActivityFeed` treat `adult || nsfw` as restricted, same as the plain `adult` check before.
 
 ---
 
@@ -481,10 +523,22 @@ palette pushed vivid. Key recurring conventions introduced:
 - **Admin fetches.** `adminFetch()` at `Frontend/src/features/admin/adminFetch.js` — auto-attaches the Bearer token.
 - **Free-plan awareness (Worker).** 50 subrequests + 10 ms CPU per request. Cache API calls share that budget → use `fetch(url, { cf: { cacheEverything, cacheTtl } })`, not `caches.default`. Fan-out endpoints cap by a wrangler `var`.
 - **Migrations are one-way.** Never modify an applied migration file. Create a new numbered file.
+- **Content locale travels as query params, never headers/JWT.** `/api/content*` and `/api/search*` are anonymous, edge-cached routes — a locale read from a JWT/DB would poison a shared cache or force it private. `lang`/`region`/`native` (see API Route Map) are the only channel; `worker/src/tmdb/client.js` `buildUrl` relies on their fixed position in the query string to keep the edge cache key stable.
+- **Adult filtering = `adult || nsfw`, not just `adult`.** TMDB's `adult` flag misses keyword-only softcore/erotica content; every gate (`useMovieData`, `useShowData`, `usePersonData`, `useActivityFeed`, and the Worker's `/discover`, `/list`, `/search`) checks `nsfw` alongside `adult`. Tune the keyword/regex/allowlist in the one file, `worker/src/tmdb/nsfw.js`.
+- **Watch-provider data requires JustWatch attribution.** Any UI showing TMDB watch-provider data (Settings, `WhereToWatch`) must credit JustWatch per TMDB's terms — see `lib/constants.js` `JUSTWATCH_ATTRIBUTION_URL`.
+- **New follows are blocked once a movie is released or a show has ended** (`lib/followGate.js` `movieFollowBlock`/`showFollowBlock`) — client-side only, since the DB can't know TMDB release dates. Existing follows are never affected: nothing in the calendar/follows read path filters by release/end state, so an already-followed released title keeps showing everywhere.
 
 ---
 
 ## Recent Fixes & Features
+
+**2026-09 content locale, watch providers, NSFW filtering, filmography controls, follow gating:**
+
+- **Content language + title mode + region** — new `profile` columns (migration 032) and `features/preferences/PreferencesContext.jsx`. Worker: `tmdb/locale.js` `readLocale()`, `client.js` threads `language` through `buildUrl` (position kept stable for the edge cache key), `normalize.js` `pickTitle()`/`pickRegionalRelease()`. New `GET /api/content/config/locales`. Frontend `lib/api.js` appends `lang`/`region`/`native` to every content/search request; `useContent`/`useContentBatch` caches are locale-keyed.
+- **Watch providers ("Where to watch")** — movie/show detail + batch append `watch/providers`; `normalize.js` `compactWatchProviders()`. New `GET /api/content/watch/regions` + `GET /api/content/watch/providers`. New `components/detail/WhereToWatch.jsx` panel on `MoviePage`/`ShowPage`; new "Available on your services" row on `/movies`/`/shows` (`useMediaBrowse.js`) via `/discover/:type?with_watch_providers=`. Settings gained region-chip + provider-grid pickers. JustWatch attribution throughout per TMDB's terms.
+- **NSFW filtering beyond `adult`** — new `worker/src/tmdb/nsfw.js` (curated keyword-id blocklist + narrow title regex + per-id allowlist). Popular/top-rated list kinds now route through `/discover/*` (`tmdb/discover.js`) instead of TMDB's `/movie/popular` etc., since those ignore `include_adult` and have no keyword filter. `nsfw` flag added alongside `adult` on every card/detail/search-result/person-credit payload; every frontend adult gate checks `adult || nsfw`.
+- **Person filmography sort/filter** — `usePersonData.js` merges duplicate role/job rows per title (`features/person/lib/filmography.js` `mergeCredits`) and carries `date`/`popularity`/`voteAverage`/`voteCount`/`episodeCount` (previously dropped). `PersonPage.jsx` defaults to newest-first, adds Movies/Shows + department filters and a Newest/Oldest/Most popular/Highest rated/Title sort.
+- **Follow gating** — `lib/followGate.js`: a movie already released (`status`/regional-effective date) or a show that's ended/canceled can no longer be newly followed (`FollowButton` `blockedLabel`, `MediaCard` `followBlockedLabel`, guards in `useMovieData`/`useShowData`/`useShowFollow`). Existing follows are unaffected — nothing in the calendar/follows read path filters by release/end state. `FollowsPage` gained lifecycle chips; the unused `ManageFollowsModal.jsx` (source of the lifted chip logic) was deleted.
 
 **2026-06 rating & navigation system improvements:**
 

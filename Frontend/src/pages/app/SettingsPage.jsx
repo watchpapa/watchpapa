@@ -3,8 +3,13 @@ import { useNavigate, Link } from "react-router-dom";
 import AppLayout from "../../layouts/AppLayout.jsx";
 import { supabase } from "../../lib/supabase.js";
 import { apiFetch } from "../../lib/api.js";
-import { validateUsername, isValidBoolean } from "../../lib/validate.js";
+import { validateUsername, isValidBoolean, isValidLocale, isValidTitleMode, isValidRegionList, isValidProviderIds } from "../../lib/validate.js";
 import Toggle from "../../components/ui/Toggle.jsx";
+import Select from "../../components/ui/Select.jsx";
+import { usePreferences } from "../../features/preferences/PreferencesContext.jsx";
+import { useLocaleCatalog, useWatchRegionCatalog, useWatchProviderList, languageLabel } from "../../features/preferences/hooks/useWatchProviderCatalog.js";
+import { tmdbImg } from "../../lib/tmdbImage.js";
+import { JUSTWATCH_ATTRIBUTION_URL } from "../../lib/constants.js";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "";
 
@@ -45,6 +50,121 @@ function Row({ label, children }) {
   );
 }
 
+function PillChoice({ options, value, onChange, disabled }) {
+  return (
+    <div className="flex gap-1 rounded-xl border border-[#2a3570]/50 bg-[#0a0c18] p-1">
+      {options.map((opt) => (
+        <button
+          key={opt.value}
+          type="button"
+          disabled={disabled}
+          onClick={() => onChange(opt.value)}
+          className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition disabled:opacity-50 ${
+            value === opt.value
+              ? "bg-gradient-to-b from-[#6f6fdc] to-[#4b3bb0] text-white"
+              : "text-[#8888c8] hover:text-white"
+          }`}
+        >
+          {opt.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+// Up to 5 selected region chips + a select to add another from the catalog.
+function RegionChips({ regions, catalog, onChange, disabled }) {
+  const available = catalog.filter((r) => !regions.includes(r.code));
+  return (
+    <div className="flex flex-col items-end gap-2">
+      <div className="flex flex-wrap justify-end gap-1.5">
+        {regions.length === 0 && <span className="text-xs text-[#5a5a78]">None selected</span>}
+        {regions.map((code) => {
+          const r = catalog.find((c) => c.code === code);
+          return (
+            <span key={code} className="flex items-center gap-1 rounded-full border border-[#3a3a7a] bg-[#1a1d35] px-2.5 py-1 text-xs text-[#c0c0e8]">
+              {r?.name ?? code}
+              <button
+                type="button"
+                onClick={() => onChange(regions.filter((c) => c !== code))}
+                disabled={disabled}
+                className="text-[#6868b8] hover:text-white"
+                aria-label={`Remove ${r?.name ?? code}`}
+              >
+                ×
+              </button>
+            </span>
+          );
+        })}
+      </div>
+      {regions.length < 5 && available.length > 0 && (
+        <Select
+          value=""
+          onChange={(code) => { if (code) onChange([...regions, code]); }}
+          options={[{ value: "", label: "+ Add a region" }, ...available.map((r) => ({ value: r.code, label: r.name }))]}
+          disabled={disabled}
+        />
+      )}
+    </div>
+  );
+}
+
+// Filterable grid of streaming-provider logos; click to toggle selection.
+function ProviderGrid({ providers, selectedIds, onToggle, disabled }) {
+  const [filter, setFilter] = useState("");
+  const visible = providers.filter((p) => p.name.toLowerCase().includes(filter.toLowerCase()));
+  return (
+    <div className="w-full">
+      <input
+        type="text"
+        value={filter}
+        onChange={(e) => setFilter(e.target.value)}
+        placeholder="Filter services…"
+        className="mb-2 w-full rounded-lg border border-[#2a3570] bg-[#12163a] px-3 py-1.5 text-xs text-white placeholder-[#4a4a8a] outline-none transition focus:border-[#6868b8]"
+      />
+      <div className="grid max-h-64 grid-cols-4 gap-2 overflow-y-auto sm:grid-cols-6">
+        {visible.map((p) => {
+          const selected = selectedIds.includes(p.id);
+          return (
+            <button
+              key={p.id}
+              type="button"
+              disabled={disabled}
+              onClick={() => onToggle(p.id)}
+              title={p.name}
+              className={`flex flex-col items-center gap-1 rounded-lg border p-1.5 transition disabled:opacity-50 ${
+                selected
+                  ? "border-[#6f6fdc] bg-[#1a1d35] ring-2 ring-[#6f6fdc]/60"
+                  : "border-[#2a3570]/50 bg-[#0d0f1e] hover:border-[#3a3a7a]"
+              }`}
+            >
+              <div className="h-8 w-8 overflow-hidden rounded">
+                {p.logo_path ? (
+                  <img src={tmdbImg(p.logo_path, "w92")} alt={p.name} className="h-full w-full object-cover" loading="lazy" />
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center bg-[#1a1d35] text-[9px] text-[#6868b8]">
+                    {p.name.slice(0, 2)}
+                  </div>
+                )}
+              </div>
+              <span className="line-clamp-1 text-center text-[9px] text-[#8888c8]">{p.name}</span>
+            </button>
+          );
+        })}
+        {visible.length === 0 && (
+          <p className="col-span-full py-4 text-center text-xs text-[#5a5a78]">No matching services.</p>
+        )}
+      </div>
+      <p className="mt-2 text-[10px] text-[#5a5a78]">
+        {selectedIds.length} selected · Streaming availability data by{" "}
+        <a href={JUSTWATCH_ATTRIBUTION_URL} target="_blank" rel="noopener noreferrer" className="underline hover:text-white">
+          JustWatch
+        </a>
+      </p>
+    </div>
+  );
+}
+
 function SettingsPage({ session }) {
   const navigate = useNavigate();
   const uid = session?.user?.id;
@@ -61,8 +181,18 @@ function SettingsPage({ session }) {
   const [usernameError, setUsernameError] = useState(null);
   const [usernameSaving, setUsernameSaving] = useState(false);
 
-  // Adult toggle
-  const [adultBusy, setAdultBusy] = useState(false);
+  // Content preferences (adult / language / title mode / region / watch providers)
+  const prefs = usePreferences();
+  const [prefsBusy, setPrefsBusy] = useState(false);
+  const updatePref = async (partial) => {
+    setPrefsBusy(true);
+    await prefs.update(partial);
+    setPrefsBusy(false);
+  };
+  const { languages, countries, loading: catalogLoading } = useLocaleCatalog();
+  const { regions: watchRegionCatalog } = useWatchRegionCatalog();
+  const providersRegion = prefs.effectiveWatchRegions[0] ?? null;
+  const { providers: providerCatalog } = useWatchProviderList(providersRegion);
 
   // Marketing opt-in toggle
   const [marketingBusy, setMarketingBusy] = useState(false);
@@ -169,18 +299,6 @@ function SettingsPage({ session }) {
       setExportError(e?.message ?? "Export failed. Please try again.");
     }
     setExporting(false);
-  };
-
-  const handleAdultToggle = async (val) => {
-    if (adultBusy || !isValidBoolean(val)) return;
-    const prev = profile?.setting_display_adult_content ?? false;
-    setProfile((p) => ({ ...p, setting_display_adult_content: val }));
-    setAdultBusy(true);
-    const { error } = await supabase.from("profile")
-      .update({ setting_display_adult_content: val, updated_at: new Date().toISOString() })
-      .eq("id", uid);
-    setAdultBusy(false);
-    if (error) setProfile((p) => ({ ...p, setting_display_adult_content: prev }));
   };
 
   const handleMarketingOptIn = async (val) => {
@@ -368,9 +486,9 @@ function SettingsPage({ session }) {
           {profile?.is_adult && (
             <Row label="Show adult content">
               <Toggle
-                value={profile?.setting_display_adult_content ?? false}
-                onChange={handleAdultToggle}
-                disabled={adultBusy}
+                value={prefs.showAdult}
+                onChange={(v) => isValidBoolean(v) && updatePref({ showAdult: v })}
+                disabled={prefsBusy}
               />
             </Row>
           )}
@@ -380,6 +498,86 @@ function SettingsPage({ session }) {
               onChange={handleMarketingOptIn}
               disabled={marketingBusy}
             />
+          </Row>
+        </Section>
+
+        {/* Content language / title style / country */}
+        <Section title="Content & region">
+          <Row label="Content language">
+            <Select
+              value={prefs.language}
+              onChange={(v) => isValidLocale(v) && updatePref({ language: v })}
+              options={
+                languages.length > 0
+                  ? languages
+                      .map((code) => ({ value: code, label: languageLabel(code) }))
+                      .sort((a, b) => a.label.localeCompare(b.label))
+                  : [{ value: prefs.language, label: languageLabel(prefs.language) }]
+              }
+              disabled={prefsBusy || catalogLoading}
+            />
+          </Row>
+          {prefs.language !== "en-US" && (
+            <Row label="Titles">
+              <div className="flex flex-col items-end gap-1">
+                <PillChoice
+                  options={[
+                    { value: "translated", label: `Everything in ${languageLabel(prefs.language)}` },
+                    { value: "native_original", label: `Original ${languageLabel(prefs.language)} titles` },
+                  ]}
+                  value={prefs.titleMode}
+                  onChange={(v) => isValidTitleMode(v) && updatePref({ titleMode: v })}
+                  disabled={prefsBusy}
+                />
+                <p className="max-w-[18rem] text-right text-[11px] text-[#5a5a78]">
+                  {prefs.titleMode === "native_original"
+                    ? `Titles originally in ${languageLabel(prefs.language)} keep their original title; everything else shows in English.`
+                    : `Every title and its details show in ${languageLabel(prefs.language)} where TMDB has a translation.`}
+                </p>
+              </div>
+            </Row>
+          )}
+          <Row label="Country">
+            <div className="flex flex-col items-end gap-1">
+              <Select
+                value={prefs.region ?? ""}
+                onChange={(v) => updatePref({ region: v || null })}
+                options={[{ value: "", label: "Not set" }, ...countries.map((c) => ({ value: c.code, label: c.name }))]}
+                disabled={prefsBusy || catalogLoading}
+              />
+              <p className="max-w-[18rem] text-right text-[11px] text-[#5a5a78]">
+                Used for regional release dates and as your default streaming region.
+              </p>
+            </div>
+          </Row>
+        </Section>
+
+        {/* Streaming regions + providers ("Where to watch") */}
+        <Section title="Streaming">
+          <Row label="Watch regions">
+            <RegionChips
+              regions={prefs.watchRegions}
+              catalog={watchRegionCatalog}
+              onChange={(next) => isValidRegionList(next) && updatePref({ watchRegions: next })}
+              disabled={prefsBusy}
+            />
+          </Row>
+          <Row label="My streaming services">
+            {providersRegion ? (
+              <ProviderGrid
+                providers={providerCatalog}
+                selectedIds={prefs.watchProviders}
+                onToggle={(id) => {
+                  const next = prefs.watchProviders.includes(id)
+                    ? prefs.watchProviders.filter((x) => x !== id)
+                    : [...prefs.watchProviders, id];
+                  if (isValidProviderIds(next)) updatePref({ watchProviders: next });
+                }}
+                disabled={prefsBusy}
+              />
+            ) : (
+              <span className="text-xs text-[#5a5a78]">Pick a watch region or country first.</span>
+            )}
           </Row>
         </Section>
 

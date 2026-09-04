@@ -27,10 +27,14 @@ export class TmdbNotFound extends TmdbError {
   }
 }
 
-function buildUrl(path, params, apiKey) {
+// `language` is set right after `api_key`, before `params`, on every call site —
+// keeping that position stable matters because Cloudflare's edge cache keys on
+// the full URL, so a caller-supplied `language` (or any `params` key) naturally
+// partitions the cache without any extra work.
+function buildUrl(path, params, apiKey, language = "en-US") {
   const u = new URL(BASE + path);
   u.searchParams.set("api_key", apiKey);
-  u.searchParams.set("language", "en-US");
+  u.searchParams.set("language", language);
   for (const [k, v] of Object.entries(params ?? {})) {
     if (v === undefined || v === null || v === "") continue;
     u.searchParams.set(k, String(v));
@@ -38,12 +42,14 @@ function buildUrl(path, params, apiKey) {
   return u.toString();
 }
 
+export { buildUrl };
+
 // GET a TMDB JSON resource. `ttl` is the edge cache TTL in seconds.
-export async function tmdbFetch(env, path, params, { ttl = 3600, retries = 2 } = {}) {
+export async function tmdbFetch(env, path, params, { ttl = 3600, retries = 2, language = "en-US" } = {}) {
   const apiKey = env.TMDB_API_KEY_SECRET;
   if (!apiKey) throw new TmdbError(503, "TMDB API key not configured");
 
-  const url = buildUrl(path, params, apiKey);
+  const url = buildUrl(path, params, apiKey, language);
   let attempt = 0;
 
   while (true) {

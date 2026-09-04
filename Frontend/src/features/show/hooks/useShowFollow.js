@@ -6,7 +6,7 @@ import { supabase } from "../../../lib/supabase.js";
 import { isValidId } from "../../../lib/validate.js";
 
 // Load and toggle the current user's follow state for a show.
-export function useShowFollow(rawShowId, session) {
+export function useShowFollow(rawShowId, session, { blocked = false } = {}) {
   const showId = rawShowId ? parseInt(rawShowId, 10) : null;
   const [isFollowing, setIsFollowing] = useState(false);
   const [followLimitError, setFollowLimitError] = useState(null);
@@ -36,6 +36,7 @@ export function useShowFollow(rawShowId, session) {
   const toggleFollow = useCallback(async () => {
     if (!session?.user?.id || !isValidId(showId)) return;
     const was = isFollowing;
+    if (!was && blocked) return; // already ended — no new follows
     setIsFollowing(!was);
     setFollowLimitError(null);
 
@@ -55,7 +56,7 @@ export function useShowFollow(rawShowId, session) {
         setFollowLimitError(error.message.replace("FOLLOW_LIMIT_REACHED: ", ""));
       }
     }
-  }, [showId, session?.user?.id, isFollowing]);
+  }, [showId, session?.user?.id, isFollowing, blocked]);
 
   return { isFollowing, toggleFollow, followLimitError, clearFollowLimitError: () => setFollowLimitError(null) };
 }

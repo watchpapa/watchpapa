@@ -28,6 +28,10 @@ function ShowsPage({ session, showAdult }) {
     popular,
     comingSoonItems,
     byGenre,
+    myServicesItems,
+    hasMoreMyServices,
+    loadMoreMyServices,
+    loadingMyServices,
     isLoading,
     error,
     followLimitError,
@@ -70,6 +74,16 @@ function ShowsPage({ session, showAdult }) {
                 hasMore={false}
                 onLoadMore={null}
                 isLoadingMore={false}
+              />
+            )}
+            {myServicesItems.length > 0 && (
+              <MediaRow
+                title="Available on your services"
+                items={myServicesItems}
+                session={session}
+                hasMore={hasMoreMyServices}
+                onLoadMore={loadMoreMyServices}
+                isLoadingMore={loadingMyServices}
               />
             )}
             {byGenre.map(({ genreId, genreName, items, hasMore, onLoadMore, isLoadingMore }) => (

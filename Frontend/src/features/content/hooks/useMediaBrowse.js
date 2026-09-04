@@ -4,6 +4,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "../../../lib/supabase.js";
 import { apiFetch } from "../../../lib/api.js";
+import { followBlock } from "../../../lib/followGate.js";
+import { usePreferences } from "../../preferences/PreferencesContext.jsx";
 
 function formatReleaseLabel(dateStr) {
   if (!dateStr) return null;
@@ -38,6 +40,9 @@ async function fetchPage(path, includeAdult) {
 
 export function useMediaBrowse(mediaKind, session, showAdult = false) {
   const K = KIND[mediaKind];
+  const { watchProviders, effectiveWatchRegions } = usePreferences();
+  const myServicesRegion = effectiveWatchRegions[0] ?? null;
+  const providersKey = watchProviders.slice().sort((a, b) => a - b).join("|");
 
   const [popularCards, setPopularCards] = useState([]);
   const [comingSoon, setComingSoon] = useState([]);
@@ -52,6 +57,11 @@ export function useMediaBrowse(mediaKind, session, showAdult = false) {
   const [popTotal, setPopTotal] = useState(1);
   const [loadingMorePopular, setLoadingMorePopular] = useState(false);
   const [loadingGenreId, setLoadingGenreId] = useState(null);
+
+  const [myServicesCards, setMyServicesCards] = useState([]);
+  const [myServicesPage, setMyServicesPage] = useState(1);
+  const [myServicesTotal, setMyServicesTotal] = useState(1);
+  const [loadingMyServices, setLoadingMyServices] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -89,6 +99,47 @@ export function useMediaBrowse(mediaKind, session, showAdult = false) {
     };
   }, [mediaKind, session?.user?.id, showAdult]);
 
+  useEffect(() => {
+    if (!providersKey || !myServicesRegion) {
+      setMyServicesCards([]);
+      setMyServicesPage(1);
+      setMyServicesTotal(1);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      setLoadingMyServices(true);
+      try {
+        const path = `/api/content/discover/${K.discover}?with_watch_providers=${providersKey}&watch_region=${myServicesRegion}&with_watch_monetization_types=flatrate|free|ads&page=1`;
+        const { results, totalPages } = await fetchPage(path, showAdult);
+        if (cancelled) return;
+        setMyServicesCards(results);
+        setMyServicesPage(1);
+        setMyServicesTotal(totalPages);
+      } catch {
+        if (!cancelled) setMyServicesCards([]);
+      } finally {
+        if (!cancelled) setLoadingMyServices(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [K.discover, providersKey, myServicesRegion, showAdult]);
+
+  const loadMoreMyServices = useCallback(async () => {
+    if (loadingMyServices || myServicesPage >= myServicesTotal || !myServicesRegion) return;
+    setLoadingMyServices(true);
+    try {
+      const path = `/api/content/discover/${K.discover}?with_watch_providers=${providersKey}&watch_region=${myServicesRegion}&with_watch_monetization_types=flatrate|free|ads&page=${myServicesPage + 1}`;
+      const { results } = await fetchPage(path, showAdult);
+      setMyServicesCards((prev) => [...prev, ...results]);
+      setMyServicesPage((p) => p + 1);
+    } finally {
+      setLoadingMyServices(false);
+    }
+  }, [loadingMyServices, myServicesPage, myServicesTotal, myServicesRegion, K.discover, providersKey, showAdult]);
+
   const toggleFollow = useCallback(
     async (id) => {
       if (!session?.user?.id || !id) return;
@@ -124,6 +175,7 @@ export function useMediaBrowse(mediaKind, session, showAdult = false) {
       isFollowing: followedIds.has(c.id),
       onFollowToggle: () => toggleFollow(c.id),
       genreIds: c.genre_ids ?? [],
+      followBlockedLabel: followBlock(K.type, c),
     }),
     [followedIds, toggleFollow, K.type],
   );
@@ -198,6 +250,7 @@ export function useMediaBrowse(mediaKind, session, showAdult = false) {
     () => comingSoon.map((c) => ({ ...toItem(c), releaseLabel: formatReleaseLabel(c.date) })),
     [comingSoon, toItem],
   );
+  const myServicesItems = useMemo(() => myServicesCards.map(toItem), [myServicesCards, toItem]);
   const byGenre = useMemo(
     () =>
       Object.entries(genreRows)
@@ -218,6 +271,10 @@ export function useMediaBrowse(mediaKind, session, showAdult = false) {
     popular,
     comingSoonItems,
     byGenre,
+    myServicesItems,
+    hasMoreMyServices: myServicesPage < myServicesTotal,
+    loadMoreMyServices,
+    loadingMyServices,
     isLoading,
     error,
     followLimitError,

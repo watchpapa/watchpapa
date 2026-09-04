@@ -6,6 +6,7 @@
 // phase, no `needsInjection` — every result links straight to /movies|shows|people/:tmdbId.
 import { useEffect, useReducer, useRef } from "react";
 import { apiFetch } from "../../../lib/api.js";
+import { usePreferences } from "../../preferences/PreferencesContext.jsx";
 
 const DEBOUNCE_MS = 300;
 
@@ -26,7 +27,12 @@ function reducer(state, action) {
 
 const initialState = { results: [], isLoading: false, status: "idle", error: null };
 
-export function useSearch(query, { showAdult = false } = {}) {
+// `showAdult` defaults to the user's real preference (from context) when the
+// caller doesn't pass one explicitly — fixes the navbar typeahead always
+// searching with adult content off regardless of the user's setting.
+export function useSearch(query, opts = {}) {
+  const prefs = usePreferences();
+  const showAdult = opts.showAdult ?? prefs.showAdult;
   const [state, dispatch] = useReducer(reducer, initialState);
   const timerRef = useRef(null);
   const genRef = useRef(0);
@@ -45,7 +51,7 @@ export function useSearch(query, { showAdult = false } = {}) {
       const stale = () => gen !== genRef.current;
       dispatch({ type: "FETCHING" });
 
-      apiFetch(`/api/search?q=${encodeURIComponent(trimmed)}&includeAdult=${showAdult}`)
+      apiFetch(`/api/search?q=${encodeURIComponent(trimmed)}&include_adult=${showAdult}`)
         .then((d) => {
           if (stale()) return;
           // Result shape: { type, tmdbId, title, posterPath, year, popularity, adult }

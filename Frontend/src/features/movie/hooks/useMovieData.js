@@ -7,6 +7,7 @@ import { useCallback, useEffect, useState } from "react";
 import { supabase } from "../../../lib/supabase.js";
 import { toCast, toCrew } from "../../../lib/credits.js";
 import { useMovie } from "../../content/hooks/useContent.js";
+import { movieFollowBlock } from "../../../lib/followGate.js";
 
 export function useMovieData(rawMovieId, session, showAdult = false) {
   const tmdbId = rawMovieId ? parseInt(rawMovieId, 10) : null;
@@ -38,6 +39,7 @@ export function useMovieData(rawMovieId, session, showAdult = false) {
   const toggleFollow = useCallback(async () => {
     if (!session?.user?.id || !tmdbId) return;
     const wasFollowing = isFollowing;
+    if (!wasFollowing && movieFollowBlock(movie)) return; // already released — no new follows
     setIsFollowing(!wasFollowing);
 
     const { error: writeError } = wasFollowing
@@ -58,9 +60,9 @@ export function useMovieData(rawMovieId, session, showAdult = false) {
         setIsFollowing(wasFollowing);
       }
     }
-  }, [tmdbId, session?.user?.id, isFollowing]);
+  }, [tmdbId, session?.user?.id, isFollowing, movie]);
 
-  const restricted = movie && !showAdult && movie.adult;
+  const restricted = movie && !showAdult && (movie.adult || movie.nsfw);
 
   return {
     movie: restricted ? null : movie,

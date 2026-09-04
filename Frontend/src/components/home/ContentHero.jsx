@@ -135,15 +135,25 @@ function ContentHero({ items = [], isAuthenticated }) {
               <button
                 type="button"
                 onClick={current.onFollowToggle}
-                disabled={!isAuthenticated}
+                disabled={!isAuthenticated || (!current.isFollowing && !!current.followBlockedLabel)}
                 className={`inline-flex items-center justify-center gap-2 rounded-2xl border px-5 py-2.5 text-sm font-bold transition active:scale-95 ${
                   current.isFollowing
                     ? "border-green-600 bg-green-900/40 text-green-400"
                     : "border-[#3a3a7a] bg-[#1a1d35]/70 text-[#c0c0e8] backdrop-blur-sm hover:border-[#6060b0] hover:text-white"
-                } ${!isAuthenticated ? "opacity-60" : ""}`}
-                title={!isAuthenticated ? "Sign in to follow" : undefined}
+                } ${!isAuthenticated || (!current.isFollowing && current.followBlockedLabel) ? "opacity-60" : ""}`}
+                title={
+                  !isAuthenticated
+                    ? "Sign in to follow"
+                    : !current.isFollowing && current.followBlockedLabel
+                      ? current.followBlockedLabel
+                      : undefined
+                }
               >
-                {current.isFollowing ? <><CheckIcon /> Following</> : <><PlusIcon /> Follow</>}
+                {current.isFollowing
+                  ? <><CheckIcon /> Following</>
+                  : current.followBlockedLabel
+                    ? current.followBlockedLabel
+                    : <><PlusIcon /> Follow</>}
               </button>
             )}
           </div>

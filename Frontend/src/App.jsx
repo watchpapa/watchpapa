@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 import { supabase } from "./lib/supabase.js";
+import { PreferencesProvider, usePreferences } from "./features/preferences/PreferencesContext.jsx";
 import ForgotPasswordPage from "./pages/auth/ForgotPasswordPage.jsx";
 import LoginPage from "./pages/auth/LoginPage.jsx";
 import RegisterPage from "./pages/auth/RegisterPage.jsx";
@@ -98,7 +99,7 @@ function App() {
   const [isProfileLoading, setIsProfileLoading] = useState(false);
   const [needsUsernameSetup, setNeedsUsernameSetup] = useState(false);
   const [initialUsername, setInitialUsername] = useState("");
-  const [showAdult, setShowAdult] = useState(false);
+  const [initialPrefs, setInitialPrefs] = useState(null); // null until the profile fetch resolves
 
   useEffect(() => {
     let isMounted = true;
@@ -150,7 +151,7 @@ function App() {
     if (!session?.user?.id) {
       setNeedsUsernameSetup(false);
       setInitialUsername("");
-      setShowAdult(false);
+      setInitialPrefs(null);
       setIsProfileLoading(false);
       return () => {
         isMounted = false;
@@ -161,7 +162,9 @@ function App() {
     // Read profile settings for the signed-in user.
     supabase
       .from("profile")
-      .select("username, is_adult, date_of_birth, setting_display_adult_content")
+      .select(
+        "username, is_adult, date_of_birth, setting_display_adult_content, setting_language, setting_title_mode, setting_region, setting_watch_regions, setting_watch_providers",
+      )
       .eq("id", session.user.id)
       .maybeSingle()
       .then(({ data, error }) => {
@@ -176,7 +179,14 @@ function App() {
       const nextUsername = data?.username?.trim() ?? "";
       setInitialUsername(nextUsername);
       setNeedsUsernameSetup(nextUsername.length === 0);
-      setShowAdult(data?.setting_display_adult_content ?? false);
+      setInitialPrefs({
+        showAdult: data?.setting_display_adult_content ?? false,
+        language: data?.setting_language ?? "en-US",
+        titleMode: data?.setting_title_mode ?? "translated",
+        region: data?.setting_region ?? null,
+        watchRegions: data?.setting_watch_regions ?? [],
+        watchProviders: data?.setting_watch_providers ?? [],
+      });
       setIsProfileLoading(false);
 
       if (data && !data.is_adult && data.date_of_birth) {
@@ -204,6 +214,28 @@ function App() {
   if (isSessionLoading || (session && isProfileLoading)) {
     return null;
   }
+
+  return (
+    <PreferencesProvider session={session} initial={initialPrefs} key={session?.user?.id ?? "anon"}>
+      <RouteTree
+        session={session}
+        needsUsernameSetup={needsUsernameSetup}
+        initialUsername={initialUsername}
+        onUsernameCompleted={(nextUsername) => {
+          const normalizedUsername = nextUsername?.trim() ?? "";
+          setInitialUsername(normalizedUsername);
+          setNeedsUsernameSetup(normalizedUsername.length === 0);
+        }}
+      />
+    </PreferencesProvider>
+  );
+}
+
+// The actual route tree. Split out from App() so it can read live preferences
+// (showAdult etc.) via usePreferences() — App() renders the PreferencesProvider
+// that wraps this component, so App() itself cannot consume that context.
+function RouteTree({ session, needsUsernameSetup, initialUsername, onUsernameCompleted }) {
+  const { showAdult } = usePreferences();
 
   return (
     <>
@@ -257,11 +289,7 @@ function App() {
             <CompleteUsernamePage
               session={session}
               initialUsername={initialUsername}
-              onCompleted={(nextUsername) => {
-                const normalizedUsername = nextUsername?.trim() ?? "";
-                setInitialUsername(normalizedUsername);
-                setNeedsUsernameSetup(normalizedUsername.length === 0);
-              }}
+              onCompleted={onUsernameCompleted}
             />
           </ProtectedRoute>
         }

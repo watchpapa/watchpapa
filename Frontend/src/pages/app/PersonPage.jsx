@@ -1,9 +1,11 @@
+import { useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import AppLayout from "../../layouts/AppLayout.jsx";
 import DetailPageLayout from "../../components/detail/DetailPageLayout.jsx";
 import ContentPanel from "../../components/detail/ContentPanel.jsx";
 import SkeletonDetailPage from "../../components/detail/SkeletonDetailPage.jsx";
 import { usePersonData } from "../../features/person/hooks/usePersonData.js";
+import { SORTS, sortCredits, filterCredits } from "../../features/person/lib/filmography.js";
 import { PageHead } from "../../components/ui/PageHead.jsx";
 import { tmdbImg } from "../../lib/tmdbImage.js";
 
@@ -13,7 +15,6 @@ function fmtDate(val) {
   if (!val) return "—";
   return new Date(val).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
 }
-
 
 function ProfilePicture({ name, profilePath }) {
   const imgSrc = tmdbImg(profilePath, "w342");
@@ -37,6 +38,10 @@ function ProfilePicture({ name, profilePath }) {
 function FilmographyCard({ credit }) {
   const imgSrc = tmdbImg(credit.posterPath, "w185");
   const to = credit.type === "movie" ? `/movies/${credit.mediaId}` : `/shows/${credit.mediaId}`;
+  const roleText = credit.roles.length > 0 ? `as ${[...new Set(credit.roles)].join(" / ")}` : null;
+  const jobText = credit.jobs.length > 0 ? [...new Set(credit.jobs.map((j) => j.job))].join(" · ") : null;
+  const subtitle = [roleText, jobText].filter(Boolean).join(" · ") || "—";
+  const showRating = credit.voteCount >= 20;
 
   return (
     <Link to={to} className="flex items-center gap-3 rounded-xl border border-[#2a3570]/50 bg-[#0d0f1e] p-3 transition hover:border-[#3a3a7a] hover:bg-[#141728]">
@@ -50,12 +55,20 @@ function FilmographyCard({ credit }) {
         )}
       </div>
       <div className="min-w-0 flex-1">
-        <p className="font-semibold text-white leading-tight line-clamp-1">{credit.title}</p>
-        <p className="text-xs text-[#6868b8]">
-          {credit.role ? `as ${credit.role}` : credit.job ?? ""}
-          {credit.department && credit.job !== "Actor" ? ` · ${credit.department}` : ""}
+        <p className="font-semibold text-white leading-tight line-clamp-1">
+          {credit.title}
+          {credit.year && <span className="ml-1.5 font-normal text-[#6868b8]">({credit.year})</span>}
         </p>
+        <p className="text-xs text-[#6868b8] line-clamp-1">{subtitle}</p>
       </div>
+      {showRating && (
+        <span className="flex-shrink-0 rounded-full bg-[#1a1d35] px-2 py-0.5 text-[10px] font-bold text-[#e8c04a]">
+          ★ {credit.voteAverage.toFixed(1)}
+        </span>
+      )}
+      {credit.type === "show" && credit.episodeCount ? (
+        <span className="flex-shrink-0 text-[10px] font-semibold text-[#6868b8]">{credit.episodeCount} eps</span>
+      ) : null}
       <span className={`flex-shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold ${credit.type === "movie" ? "bg-[#1a1d35] text-[#8888c8]" : "bg-[#1d1a35] text-[#a088c8]"}`}>
         {credit.type === "movie" ? "Movie" : "Show"}
       </span>
@@ -63,9 +76,38 @@ function FilmographyCard({ credit }) {
   );
 }
 
+function PillGroup({ options, value, onChange }) {
+  return (
+    <div className="flex flex-wrap gap-1 rounded-xl border border-[#2a3570]/50 bg-[#0a0c18] p-1">
+      {options.map((opt) => (
+        <button
+          key={opt.value}
+          type="button"
+          onClick={() => onChange(opt.value)}
+          className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
+            value === opt.value
+              ? "bg-gradient-to-b from-[#6f6fdc] to-[#4b3bb0] text-white shadow-[0_4px_14px_-6px_rgba(111,111,220,0.8)]"
+              : "text-[#8888c8] hover:text-white"
+          }`}
+        >
+          {opt.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 function PersonPage({ session, showAdult }) {
   const { id } = useParams();
-  const { person, knownForDepartment, nicknames, movieCredits, showCredits, isLoading, error } = usePersonData(id, showAdult);
+  const { person, knownForDepartment, nicknames, credits, departments, isLoading, error } = usePersonData(id, showAdult);
+  const [sort, setSort] = useState("newest");
+  const [kind, setKind] = useState("all");
+  const [department, setDepartment] = useState("all");
+
+  const filmography = useMemo(
+    () => sortCredits(filterCredits(credits, { kind, department }), sort),
+    [credits, kind, department, sort],
+  );
 
   const breadcrumbs = person ? [{ label: "People", to: "/people" }, { label: person.name }] : undefined;
 
@@ -86,8 +128,8 @@ function PersonPage({ session, showAdult }) {
     identifier: { "@type": "PropertyValue", name: "TMDB ID", value: String(person.tmdb_id) },
   };
 
-  const allCredits = [...movieCredits, ...showCredits];
-  const uniqueCredits = Array.from(new Map(allCredits.map((c) => [c.id, c])).values());
+  const movieCount = credits.filter((c) => c.type === "movie").length;
+  const showCount = credits.filter((c) => c.type === "show").length;
 
   return (
     <AppLayout session={session} breadcrumbs={breadcrumbs}>
@@ -136,11 +178,46 @@ function PersonPage({ session, showAdult }) {
           </ContentPanel>
         )}
 
-        {uniqueCredits.length > 0 && (
+        {credits.length > 0 && (
           <ContentPanel label="Filmography">
-            <div className="space-y-2">
-              {uniqueCredits.map((c) => <FilmographyCard key={c.id} credit={c} />)}
+            <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <PillGroup
+                options={[
+                  { value: "all", label: `All (${credits.length})` },
+                  { value: "movie", label: `Movies (${movieCount})` },
+                  { value: "show", label: `Shows (${showCount})` },
+                ]}
+                value={kind}
+                onChange={setKind}
+              />
+              <select
+                value={sort}
+                onChange={(e) => setSort(e.target.value)}
+                className="rounded-lg border border-[#3a3a7a] bg-[#1a1d35] px-3 py-2 text-sm text-white transition hover:border-[#5a5aaa]"
+              >
+                {SORTS.map((s) => (
+                  <option key={s.id} value={s.id}>{s.label}</option>
+                ))}
+              </select>
             </div>
+
+            {departments.length > 1 && (
+              <div className="mb-4">
+                <PillGroup
+                  options={[{ value: "all", label: "All roles" }, ...departments.map((d) => ({ value: d, label: d }))]}
+                  value={department}
+                  onChange={setDepartment}
+                />
+              </div>
+            )}
+
+            {filmography.length === 0 ? (
+              <p className="py-6 text-center text-sm text-[#6868b8]">Nothing matches this filter.</p>
+            ) : (
+              <div className="space-y-2">
+                {filmography.map((c) => <FilmographyCard key={c.key} credit={c} />)}
+              </div>
+            )}
           </ContentPanel>
         )}
       </DetailPageLayout>

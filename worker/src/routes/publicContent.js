@@ -3,25 +3,28 @@ import { config } from "../env.js";
 import { tmdbFetch, tmdbFetchAllSettled } from "../tmdb/client.js";
 import { TTL } from "../tmdb/lists.js";
 import { normalizeSearchResults } from "../tmdb/normalize.js";
+import { readLocale } from "../tmdb/locale.js";
 
 // Search, posters, image proxy, sitemaps — the remaining public TMDB-backed routes.
 
 export const search = new Hono();
 
-// GET /api/search?q=&includeAdult=
+// GET /api/search?q=&include_adult=&lang=&native=  (also accepts includeAdult=, kept
+// for backward compatibility)
 search.get("/", async (c) => {
   const q = (c.req.query("q") ?? "").trim();
   if (q.length < 2) return c.json({ results: [] });
   if (q.length > 100) return c.json({ error: "Query too long" }, 400);
-  const includeAdult = c.req.query("includeAdult") === "true";
+  const loc = readLocale(c);
+  const { includeAdult } = loc;
 
   const [movie, tv, person] = await tmdbFetchAllSettled(c.env, [
-    { path: "/search/movie", params: { query: q, page: 1, include_adult: includeAdult }, opts: { ttl: TTL.search } },
-    { path: "/search/tv", params: { query: q, page: 1, include_adult: includeAdult }, opts: { ttl: TTL.search } },
-    { path: "/search/person", params: { query: q, page: 1, include_adult: includeAdult }, opts: { ttl: TTL.search } },
+    { path: "/search/movie", params: { query: q, page: 1, include_adult: includeAdult }, opts: { ttl: TTL.search, language: loc.language } },
+    { path: "/search/tv", params: { query: q, page: 1, include_adult: includeAdult }, opts: { ttl: TTL.search, language: loc.language } },
+    { path: "/search/person", params: { query: q, page: 1, include_adult: includeAdult }, opts: { ttl: TTL.search, language: loc.language } },
   ]);
 
-  const results = normalizeSearchResults({ movie, tv, person }, includeAdult);
+  const results = normalizeSearchResults({ movie, tv, person }, includeAdult, { native: loc.native });
   return c.json({ results }, 200, { "Cache-Control": `public, s-maxage=${TTL.search}, max-age=30` });
 });
 

@@ -7,6 +7,7 @@ import { useCallback, useEffect, useState } from "react";
 import { supabase } from "../../../lib/supabase.js";
 import { toCast, toCrew } from "../../../lib/credits.js";
 import { useShow } from "../../content/hooks/useContent.js";
+import { showFollowBlock } from "../../../lib/followGate.js";
 
 export function useShowData(rawShowId, session, showAdult = false) {
   const tmdbId = rawShowId ? parseInt(rawShowId, 10) : null;
@@ -38,6 +39,7 @@ export function useShowData(rawShowId, session, showAdult = false) {
   const toggleFollow = useCallback(async () => {
     if (!session?.user?.id || !tmdbId) return;
     const wasFollowing = isFollowing;
+    if (!wasFollowing && showFollowBlock(show)) return; // already ended — no new follows
     setIsFollowing(!wasFollowing);
 
     const { error: writeError } = wasFollowing
@@ -58,9 +60,9 @@ export function useShowData(rawShowId, session, showAdult = false) {
         setIsFollowing(wasFollowing);
       }
     }
-  }, [tmdbId, session?.user?.id, isFollowing]);
+  }, [tmdbId, session?.user?.id, isFollowing, show]);
 
-  const restricted = show && !showAdult && show.adult;
+  const restricted = show && !showAdult && (show.adult || show.nsfw);
 
   const seasons = (show?.seasons ?? [])
     .filter((s) => s.season_number > 0)

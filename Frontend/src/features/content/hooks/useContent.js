@@ -4,6 +4,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { apiFetch } from "../../../lib/api.js";
+import { usePreferences } from "../../preferences/PreferencesContext.jsx";
 
 // Module-level cache so revisiting a detail page / re-rendering a list is instant.
 const cache = new Map();
@@ -16,19 +17,26 @@ function cached(key) {
 }
 
 // useContent(path | null) → { data, loading, error, reload }
+//
+// The cache key is prefixed with the current content-locale key (language/region/
+// native — see lib/api.js) rather than just the raw path: apiFetch() silently
+// appends lang/region/native to the request, so two different locales hitting the
+// same hook-built `path` string must NOT share a cache entry.
 export function useContent(path) {
+  const { localeKey } = usePreferences();
+  const key = path ? `${localeKey}|${path}` : null;
   const [state, setState] = useState(() => {
-    const hit = path ? cached(path) : undefined;
-    return { data: hit ?? null, loading: !!path && hit === undefined, error: null };
+    const hit = key ? cached(key) : undefined;
+    return { data: hit ?? null, loading: !!key && hit === undefined, error: null };
   });
   const reloadRef = useRef(0);
 
   useEffect(() => {
-    if (!path) {
+    if (!key) {
       setState({ data: null, loading: false, error: null });
       return;
     }
-    const hit = cached(path);
+    const hit = cached(key);
     if (hit !== undefined) {
       setState({ data: hit, loading: false, error: null });
       return;
@@ -38,7 +46,7 @@ export function useContent(path) {
     apiFetch(path)
       .then((data) => {
         if (cancelled) return;
-        cache.set(path, { data, at: Date.now() });
+        cache.set(key, { data, at: Date.now() });
         setState({ data, loading: false, error: null });
       })
       .catch((err) => {
@@ -47,12 +55,12 @@ export function useContent(path) {
     return () => {
       cancelled = true;
     };
-  }, [path, reloadRef.current]);
+  }, [key, reloadRef.current]);
 
   return {
     ...state,
     reload: () => {
-      if (path) cache.delete(path);
+      if (key) cache.delete(key);
       reloadRef.current += 1;
     },
   };

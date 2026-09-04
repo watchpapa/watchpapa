@@ -5,10 +5,85 @@
 // `tmdb_vote_avg`, `tmdb_popularity`, `adult`, `genres: [{id,name}]`) so the hook
 // rewrites are id-swaps, not reshapes. `id === tmdb_id` everywhere. Image paths stay
 // raw TMDB paths — the frontend builds the CDN URL.
+//
+// Locale: every normalizer/toCard/normalizeSearchResults takes a trailing
+// `opts = { native, region }`. `native` (an ISO 639-1 code) swaps the display title
+// for the TMDB original title when `original_language === native` — the
+// "original titles for my language, English for everything else" mode. `region`
+// (ISO 3166-1) picks a regional release date out of an appended `release_dates`
+// payload; it is NEVER sent as a TMDB `language`/`region` request param on
+// detail/batch fetches (that would fragment the edge cache per region) — it only
+// selects among the dates TMDB already returned for every region in one response.
+
+import { isNsfw } from "./nsfw.js";
 
 const year = (d) => (typeof d === "string" && d.length >= 4 ? d.slice(0, 4) : null);
 const num = (v) => (typeof v === "number" && Number.isFinite(v) ? v : 0);
 const genreList = (g) => (Array.isArray(g) ? g.map((x) => ({ id: x.id, name: x.name })) : []);
+
+// Swap in the TMDB original title/name when it was originally authored in the
+// user's "native" language (mode B: "original titles for my language, English for
+// the rest"). Falls back to the translated title, then the original, same as before.
+function pickTitle(translated, original, originalLanguage, native) {
+  if (native && originalLanguage && originalLanguage === native && original) return original;
+  return translated || original || "";
+}
+
+// TMDB movie `release_dates` (append_to_response) = { results: [{ iso_3166_1,
+// release_dates: [{ type, release_date, certification }] }] }. type: 1 premiere,
+// 2 limited theatrical, 3 theatrical, 4 digital, 5 physical, 6 TV. Prefer theatrical,
+// then limited theatrical, then digital, then TV; earliest date of the chosen type.
+const RELEASE_TYPE_PRIORITY = [3, 2, 4, 6];
+function pickRegionalRelease(releaseDates, region) {
+  if (!region) return null;
+  const entry = (releaseDates?.results ?? []).find((r) => r.iso_3166_1 === region);
+  if (!entry) return null;
+  for (const type of RELEASE_TYPE_PRIORITY) {
+    const dates = (entry.release_dates ?? [])
+      .filter((d) => d.type === type && d.release_date)
+      .map((d) => d.release_date.slice(0, 10))
+      .sort();
+    if (dates.length > 0) return { date: dates[0], type };
+  }
+  return null;
+}
+
+// TMDB `watch/providers` (append_to_response) = { results: { [ISO]: { link, flatrate[],
+// rent[], buy[], free[], ads[] } } }, each item { provider_id, provider_name, logo_path,
+// display_priority }. Compact into a shared provider dictionary (dedupes name/logo across
+// ~50 regions) + a per-region bucket-of-ids map so the payload doesn't repeat provider
+// metadata per region.
+const WATCH_BUCKETS = ["flatrate", "rent", "buy", "free", "ads"];
+function compactWatchProviders(wp) {
+  const results = wp?.results;
+  if (!results || typeof results !== "object") return null;
+  const providers = {};
+  const regions = {};
+  for (const [iso, entry] of Object.entries(results)) {
+    const bucket = {};
+    let hasAny = false;
+    for (const b of WATCH_BUCKETS) {
+      const items = Array.isArray(entry?.[b]) ? entry[b] : [];
+      if (items.length === 0) continue;
+      hasAny = true;
+      bucket[b] = items.map((p) => {
+        providers[p.provider_id] ??= { name: p.provider_name, logo_path: p.logo_path ?? null };
+        return p.provider_id;
+      });
+    }
+    if (!hasAny) continue;
+    regions[iso] = { link: entry.link ?? null, ...bucket };
+  }
+  if (Object.keys(regions).length === 0) return null;
+  return { providers, regions };
+}
+
+// TMDB `keywords` (append_to_response): movie shape { keywords: [{id,name}] },
+// tv shape { results: [{id,name}] }.
+function keywordList(raw) {
+  const arr = raw?.keywords?.keywords ?? raw?.keywords?.results ?? [];
+  return Array.isArray(arr) ? arr.map((k) => ({ id: k.id, name: k.name })) : [];
+}
 
 // --- credits ------------------------------------------------------------------
 
@@ -60,19 +135,25 @@ function flatAggregateCredits(agg) {
 
 // --- entities ----------------------------------------------------------------
 
-export function normalizeMovie(m) {
+export function normalizeMovie(m, opts = {}) {
   const { cast, crew } = flatCredits(m.credits);
+  const regional = pickRegionalRelease(m.release_dates, opts.region);
+  const releaseDatePrimary = m.release_date || null;
+  const releaseDateEffective = regional?.date ?? releaseDatePrimary;
   return {
     type: "movie",
     id: m.id,
     tmdb_id: m.id,
-    title: m.title ?? m.original_title ?? "",
+    title: pickTitle(m.title, m.original_title, m.original_language, opts.native),
     original_title: m.original_title ?? "",
     original_language: m.original_language ?? null,
     overview: m.overview ?? "",
     tagline: m.tagline ?? "",
     status: m.status ?? null,
-    release_date: m.release_date || null,
+    release_date: releaseDatePrimary,
+    release_date_regional: regional?.date ?? null,
+    release_date_effective: releaseDateEffective,
+    release_region: regional ? opts.region : null,
     runtime: m.runtime ?? null,
     budget: m.budget ?? 0,
     revenue: m.revenue ?? 0,
@@ -82,6 +163,9 @@ export function normalizeMovie(m) {
     tmdb_vote_avg: num(m.vote_average),
     tmdb_vote_count: num(m.vote_count),
     adult: Boolean(m.adult),
+    nsfw: isNsfw(m, "movie"),
+    keywords: keywordList(m),
+    watch_providers: compactWatchProviders(m["watch/providers"]),
     genres: genreList(m.genres),
     genre_ids: m.genres?.map((g) => g.id) ?? [],
     cast,
@@ -89,7 +173,7 @@ export function normalizeMovie(m) {
   };
 }
 
-export function normalizeShow(s) {
+export function normalizeShow(s, opts = {}) {
   const { cast, crew } = s.aggregate_credits
     ? flatAggregateCredits(s.aggregate_credits)
     : flatCredits(s.credits);
@@ -97,7 +181,7 @@ export function normalizeShow(s) {
     type: "show",
     id: s.id,
     tmdb_id: s.id,
-    name: s.name ?? s.original_name ?? "",
+    name: pickTitle(s.name, s.original_name, s.original_language, opts.native),
     original_name: s.original_name ?? "",
     original_language: s.original_language ?? null,
     overview: s.overview ?? "",
@@ -116,6 +200,9 @@ export function normalizeShow(s) {
     tmdb_vote_avg: num(s.vote_average),
     tmdb_vote_count: num(s.vote_count),
     adult: Boolean(s.adult),
+    nsfw: isNsfw(s, "tv"),
+    keywords: keywordList(s),
+    watch_providers: compactWatchProviders(s["watch/providers"]),
     genres: genreList(s.genres),
     genre_ids: s.genres?.map((g) => g.id) ?? [],
     next_episode_to_air: s.next_episode_to_air
@@ -186,40 +273,63 @@ export function normalizeEpisode(e, showId) {
   };
 }
 
-// TMDB /person/{id}  (append_to_response=combined_credits)
-export function normalizePerson(p) {
+// TMDB /person/{id}  (append_to_response=combined_credits). Each credit row stays
+// flat (one row per role/job — unmerged) for backward compatibility; the frontend
+// merges same-title rows for display. `opts.native` swaps title -> original_title
+// per credit using that credit's own original_language, same rule as movie/show.
+export function normalizePerson(p, opts = {}) {
   const seen = new Set();
   const credits = [];
   for (const c of p.combined_credits?.cast ?? []) {
     const key = `${c.media_type}:${c.id}:${c.character ?? ""}`;
     if (seen.has(key)) continue;
     seen.add(key);
+    const type = c.media_type === "tv" ? "show" : "movie";
+    const date = c.release_date || c.first_air_date || null;
     credits.push({
       mediaId: c.id,
-      type: c.media_type === "tv" ? "show" : "movie",
-      title: c.title ?? c.name ?? "",
+      type,
+      title: pickTitle(c.title ?? c.name, c.original_title ?? c.original_name, c.original_language, opts.native),
+      originalTitle: c.original_title ?? c.original_name ?? "",
+      originalLanguage: c.original_language ?? null,
       posterPath: c.poster_path ?? null,
       role: c.character ?? null,
       job: null,
       department: "Acting",
       adult: Boolean(c.adult),
-      date: c.release_date || c.first_air_date || null,
+      nsfw: isNsfw(c, c.media_type === "tv" ? "tv" : "movie"),
+      date,
+      year: year(date),
+      popularity: num(c.popularity),
+      voteAverage: num(c.vote_average),
+      voteCount: num(c.vote_count),
+      episodeCount: typeof c.episode_count === "number" ? c.episode_count : null,
     });
   }
   for (const c of p.combined_credits?.crew ?? []) {
     const key = `${c.media_type}:${c.id}:${c.job ?? ""}`;
     if (seen.has(key)) continue;
     seen.add(key);
+    const type = c.media_type === "tv" ? "show" : "movie";
+    const date = c.release_date || c.first_air_date || null;
     credits.push({
       mediaId: c.id,
-      type: c.media_type === "tv" ? "show" : "movie",
-      title: c.title ?? c.name ?? "",
+      type,
+      title: pickTitle(c.title ?? c.name, c.original_title ?? c.original_name, c.original_language, opts.native),
+      originalTitle: c.original_title ?? c.original_name ?? "",
+      originalLanguage: c.original_language ?? null,
       posterPath: c.poster_path ?? null,
       role: null,
       job: c.job ?? null,
       department: c.department ?? null,
       adult: Boolean(c.adult),
-      date: c.release_date || c.first_air_date || null,
+      nsfw: isNsfw(c, c.media_type === "tv" ? "tv" : "movie"),
+      date,
+      year: year(date),
+      popularity: num(c.popularity),
+      voteAverage: num(c.vote_average),
+      voteCount: num(c.vote_count),
+      episodeCount: typeof c.episode_count === "number" ? c.episode_count : null,
     });
   }
   return {
@@ -243,19 +353,28 @@ export function normalizePerson(p) {
 // --- cards (list items + /batch hydration) ----------------------------------
 
 // A list item straight off /movie/popular etc., or a full detail payload.
+// `extra` carries call-site context (showId/showTitle/adult/nsfw for season/episode
+// cards) AND the locale opts (`native`, `region`) — kept in one object so every
+// call site only has to build one bag of extras.
 export function toCard(type, raw, extra = {}) {
+  const { native, region } = extra;
   if (type === "movie") {
+    const regional = pickRegionalRelease(raw.release_dates, region);
     return {
       type: "movie",
       id: raw.id,
-      title: raw.title ?? raw.original_title ?? "",
+      title: pickTitle(raw.title, raw.original_title, raw.original_language, native),
+      original_title: raw.original_title ?? "",
+      original_language: raw.original_language ?? null,
       poster_path: raw.poster_path ?? null,
       backdrop_path: raw.backdrop_path ?? null,
-      date: raw.release_date || null,
-      year: year(raw.release_date),
+      date: regional?.date ?? (raw.release_date || null),
+      date_primary: raw.release_date || null,
+      year: year(regional?.date ?? raw.release_date),
       tmdb_vote_avg: num(raw.vote_average),
       tmdb_popularity: num(raw.popularity),
       adult: Boolean(raw.adult),
+      nsfw: extra.nsfw ?? isNsfw(raw, "movie"),
       genres: genreList(raw.genres),
       genre_ids: raw.genre_ids ?? raw.genres?.map((g) => g.id) ?? [],
       runtime: raw.runtime ?? null,
@@ -266,7 +385,9 @@ export function toCard(type, raw, extra = {}) {
     return {
       type: "show",
       id: raw.id,
-      title: raw.name ?? raw.original_name ?? "",
+      title: pickTitle(raw.name, raw.original_name, raw.original_language, native),
+      original_title: raw.original_name ?? "",
+      original_language: raw.original_language ?? null,
       poster_path: raw.poster_path ?? null,
       backdrop_path: raw.backdrop_path ?? null,
       date: raw.first_air_date || null,
@@ -274,6 +395,7 @@ export function toCard(type, raw, extra = {}) {
       tmdb_vote_avg: num(raw.vote_average),
       tmdb_popularity: num(raw.popularity),
       adult: Boolean(raw.adult),
+      nsfw: extra.nsfw ?? isNsfw(raw, "tv"),
       genres: genreList(raw.genres),
       genre_ids: raw.genre_ids ?? raw.genres?.map((g) => g.id) ?? [],
       status: raw.status ?? null,
@@ -293,6 +415,7 @@ export function toCard(type, raw, extra = {}) {
       tmdb_vote_avg: 0,
       tmdb_popularity: num(raw.popularity),
       adult: Boolean(raw.adult),
+      nsfw: Boolean(raw.adult),
       genres: [],
       genre_ids: [],
       known_for_department: raw.known_for_department ?? null,
@@ -310,6 +433,7 @@ export function toCard(type, raw, extra = {}) {
       tmdb_vote_avg: 0,
       tmdb_popularity: 0,
       adult: extra.adult ?? false,
+      nsfw: extra.nsfw ?? extra.adult ?? false,
       genres: [],
       genre_ids: [],
       showId: extra.showId ?? null,
@@ -329,6 +453,7 @@ export function toCard(type, raw, extra = {}) {
       tmdb_vote_avg: num(raw.vote_average),
       tmdb_popularity: 0,
       adult: extra.adult ?? false,
+      nsfw: extra.nsfw ?? extra.adult ?? false,
       genres: [],
       genre_ids: [],
       runtime: raw.runtime ?? null,
@@ -341,17 +466,48 @@ export function toCard(type, raw, extra = {}) {
   throw new Error(`toCard: unknown type ${type}`);
 }
 
-export function normalizeSearchResults(data, includeAdult) {
-  const keep = (arr) => (includeAdult ? arr : arr.filter((r) => !r.adult));
+export function normalizeSearchResults(data, includeAdult, opts = {}) {
+  const { native } = opts;
+  const keep = (arr, type) =>
+    includeAdult ? arr : arr.filter((r) => !isNsfw(r, type === "show" ? "tv" : "movie"));
   const out = [];
-  for (const r of keep(data.movie?.results ?? []).slice(0, 15)) {
-    out.push({ type: "movie", tmdbId: r.id, title: r.title ?? r.original_title ?? "", posterPath: r.poster_path ?? null, year: year(r.release_date), popularity: num(r.popularity), adult: Boolean(r.adult) });
+  for (const r of keep(data.movie?.results ?? [], "movie").slice(0, 15)) {
+    out.push({
+      type: "movie",
+      tmdbId: r.id,
+      title: pickTitle(r.title, r.original_title, r.original_language, native),
+      originalTitle: r.original_title ?? "",
+      posterPath: r.poster_path ?? null,
+      year: year(r.release_date),
+      popularity: num(r.popularity),
+      adult: Boolean(r.adult),
+      nsfw: isNsfw(r, "movie"),
+    });
   }
-  for (const r of keep(data.tv?.results ?? []).slice(0, 15)) {
-    out.push({ type: "show", tmdbId: r.id, title: r.name ?? r.original_name ?? "", posterPath: r.poster_path ?? null, year: year(r.first_air_date), popularity: num(r.popularity), adult: Boolean(r.adult) });
+  for (const r of keep(data.tv?.results ?? [], "show").slice(0, 15)) {
+    out.push({
+      type: "show",
+      tmdbId: r.id,
+      title: pickTitle(r.name, r.original_name, r.original_language, native),
+      originalTitle: r.original_name ?? "",
+      posterPath: r.poster_path ?? null,
+      year: year(r.first_air_date),
+      popularity: num(r.popularity),
+      adult: Boolean(r.adult),
+      nsfw: isNsfw(r, "tv"),
+    });
   }
-  for (const r of keep(data.person?.results ?? []).slice(0, 15)) {
-    out.push({ type: "person", tmdbId: r.id, title: r.name ?? "", posterPath: r.profile_path ?? null, year: null, popularity: num(r.popularity), adult: Boolean(r.adult) });
+  for (const r of keep(data.person?.results ?? [], "movie").slice(0, 15)) {
+    out.push({
+      type: "person",
+      tmdbId: r.id,
+      title: r.name ?? "",
+      posterPath: r.profile_path ?? null,
+      year: null,
+      popularity: num(r.popularity),
+      adult: Boolean(r.adult),
+      nsfw: Boolean(r.adult),
+    });
   }
   return out;
 }

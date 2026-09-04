@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import AuthPromptModal from "../AuthPromptModal.jsx";
 import { tmdbImg } from "../../lib/tmdbImage.js";
+import { FOLLOW_BLOCK_TOOLTIP } from "../../lib/followGate.js";
 
 
 function PlusIcon() {
@@ -28,7 +29,7 @@ function CheckIcon() {
   );
 }
 
-function MediaCard({ id, type, title, posterPath, isFollowing = false, onFollowToggle, isAuthenticated, customTo, releaseLabel, genreIds = [], trackSource = "browse" }) {
+function MediaCard({ id, type, title, posterPath, isFollowing = false, onFollowToggle, isAuthenticated, customTo, releaseLabel, genreIds = [], trackSource = "browse", followBlockedLabel = null }) {
   const imgSrc = posterPath ? tmdbImg(posterPath, "w300") : null;
   const to = customTo ?? (type === "movie" ? `/movies/${id}` : `/shows/${id}`);
   const isMovie = type === "movie";
@@ -113,26 +114,36 @@ function MediaCard({ id, type, title, posterPath, isFollowing = false, onFollowT
         <p className="-mt-1 text-center text-[10px] font-medium text-[#7eb8f7]">{releaseLabel}</p>
       )}
 
-      <button
-        onClick={handleFollow}
-        onMouseEnter={() => setHovering(true)}
-        onMouseLeave={() => setHovering(false)}
-        className={`mx-auto flex w-full max-w-[7rem] items-center justify-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-bold transition active:scale-95 sm:px-3 ${
-          justFollowed ? "animate-[followPop_0.4s_ease-out]" : ""
-        } ${
-          isFollowing
-            ? hovering
-              ? "border-red-500 bg-red-900/30 text-red-400"
-              : "border-green-600 bg-green-900/40 text-green-400"
-            : "border-[#3a3a7a] bg-[#1a1d35] text-[#8888c8] hover:border-[#6f6fdc] hover:text-white"
-        }`}
-      >
-        {isFollowing ? (
-          hovering ? <><MinusIcon /> Unfollow</> : <><CheckIcon /> Followed</>
-        ) : (
-          <><PlusIcon /> Follow</>
-        )}
-      </button>
+      {!isFollowing && followBlockedLabel ? (
+        <span
+          aria-disabled="true"
+          title={FOLLOW_BLOCK_TOOLTIP[followBlockedLabel] ?? followBlockedLabel}
+          className="mx-auto flex w-full max-w-[7rem] cursor-not-allowed items-center justify-center gap-1 rounded-full border border-[#2a3570] bg-[#0d0f1e] px-2 py-0.5 text-[11px] font-bold text-[#5a5a78] sm:px-3"
+        >
+          {followBlockedLabel}
+        </span>
+      ) : (
+        <button
+          onClick={handleFollow}
+          onMouseEnter={() => setHovering(true)}
+          onMouseLeave={() => setHovering(false)}
+          className={`mx-auto flex w-full max-w-[7rem] items-center justify-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-bold transition active:scale-95 sm:px-3 ${
+            justFollowed ? "animate-[followPop_0.4s_ease-out]" : ""
+          } ${
+            isFollowing
+              ? hovering
+                ? "border-red-500 bg-red-900/30 text-red-400"
+                : "border-green-600 bg-green-900/40 text-green-400"
+              : "border-[#3a3a7a] bg-[#1a1d35] text-[#8888c8] hover:border-[#6f6fdc] hover:text-white"
+          }`}
+        >
+          {isFollowing ? (
+            hovering ? <><MinusIcon /> Unfollow</> : <><CheckIcon /> Followed</>
+          ) : (
+            <><PlusIcon /> Follow</>
+          )}
+        </button>
+      )}
     </article>
   );
 }

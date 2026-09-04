@@ -5,6 +5,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { apiFetch } from "../../../lib/api.js";
 import { cardKey } from "../lib/keys.js";
+import { usePreferences } from "../../preferences/PreferencesContext.jsx";
 
 const CHUNK = 18; // keep in step with the worker BATCH_MAX var
 const cardCache = new Map(); // key -> card
@@ -17,7 +18,14 @@ function chunk(arr, n) {
 }
 
 // items: [{ type, id?, showId?, seasonNumber?, episodeNumber? }]
+//
+// cardCache/missingSeen entries are keyed `${localeKey}:${cardKey}` — the batch
+// response is locale-dependent (title/date/nsfw all vary by language/region), so a
+// locale switch must not read stale-language cards back out of the cache.
 export function useContentBatch(items) {
+  const { localeKey } = usePreferences();
+  const lk = (k) => `${localeKey}:${k}`;
+
   // Stable key list, dedup.
   const keyed = useMemo(() => {
     const seen = new Map();
@@ -32,7 +40,7 @@ export function useContentBatch(items) {
   const loadingRef = useRef(false);
 
   useEffect(() => {
-    const need = keyed.filter(([k]) => !cardCache.has(k) && !missingSeen.has(k)).map(([, it]) => it);
+    const need = keyed.filter(([k]) => !cardCache.has(lk(k)) && !missingSeen.has(lk(k))).map(([, it]) => it);
     if (need.length === 0 || loadingRef.current) return;
 
     let cancelled = false;
@@ -45,11 +53,11 @@ export function useContentBatch(items) {
             body: JSON.stringify({ items: group }),
           });
           if (cancelled) return;
-          for (const [k, v] of Object.entries(cards ?? {})) cardCache.set(k, v);
+          for (const [k, v] of Object.entries(cards ?? {})) cardCache.set(lk(k), v);
           // `missing` from the server = either a real 404 or budget spill. Retry
           // once by leaving it out of missingSeen only on the first pass; simplest
           // safe choice: mark 404-style keys seen so we don't loop.
-          for (const k of missing ?? []) missingSeen.add(k);
+          for (const k of missing ?? []) missingSeen.add(lk(k));
         }
       } catch {
         // leave keys uncached — a later render retries
@@ -62,15 +70,15 @@ export function useContentBatch(items) {
     return () => {
       cancelled = true;
     };
-  }, [keyed]);
+  }, [keyed, localeKey]);
 
   const cards = {};
   const missing = [];
   for (const [k] of keyed) {
-    if (cardCache.has(k)) cards[k] = cardCache.get(k);
+    if (cardCache.has(lk(k))) cards[k] = cardCache.get(lk(k));
     else missing.push(k);
   }
-  const loading = missing.some((k) => !missingSeen.has(k));
+  const loading = missing.some((k) => !missingSeen.has(lk(k)));
 
   return { cards, missing, loading, cardKey };
 }

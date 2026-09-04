@@ -6,6 +6,7 @@ import { useFollows } from "../../features/follows/hooks/useFollows.js";
 import { useSubscription } from "../../features/subscription/hooks/useSubscription.js";
 import { OverLimitBanner } from "../../components/ui/OverLimitBanner.jsx";
 import { tmdbImg } from "../../lib/tmdbImage.js";
+import { movieLifecycleLabel, showStatusInfo } from "../../lib/followGate.js";
 
 const TIER_LIMITS = {
   free:     { type: "separate", shows: 3, movies: 1 },
@@ -24,7 +25,7 @@ function UnfollowIcon() {
   );
 }
 
-function FollowCard({ title, poster, year, to, onUnfollow, unfollowing }) {
+function FollowCard({ title, poster, year, to, onUnfollow, unfollowing, chip }) {
   return (
     <div className="flex items-center gap-3 rounded-xl border border-[#2a3570]/50 bg-[#0a0c18] p-3 transition hover:border-[#2a2f5a]">
       <Link to={to} className="shrink-0">
@@ -45,7 +46,10 @@ function FollowCard({ title, poster, year, to, onUnfollow, unfollowing }) {
         <Link to={to}>
           <p className="font-semibold text-white transition hover:text-[#a090ff] truncate">{title}</p>
         </Link>
-        {year && <p className="text-xs text-[#6868b8]">{year}</p>}
+        <div className="flex items-center gap-2">
+          {year && <p className="text-xs text-[#6868b8]">{year}</p>}
+          {chip && <span className={`text-[10px] font-bold uppercase tracking-wide ${chip.color}`}>{chip.text}</span>}
+        </div>
       </div>
       <button
         onClick={onUnfollow}
@@ -164,6 +168,7 @@ function FollowsPage({ session }) {
                 to={`/shows/${row.show_id}`}
                 onUnfollow={() => handleUnfollowShow(row.show_id)}
                 unfollowing={unfollowing.has(row.show_id)}
+                chip={showStatusInfo(row.show?.status)}
               />
             ))}
           </div>
@@ -186,6 +191,7 @@ function FollowsPage({ session }) {
                 to={`/movies/${row.movie_id}`}
                 onUnfollow={() => handleUnfollowMovie(row.movie_id)}
                 unfollowing={unfollowing.has(row.movie_id)}
+                chip={row.movie ? movieLifecycleLabel(row.movie) : null}
               />
             ))}
           </div>

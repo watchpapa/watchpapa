@@ -116,3 +116,143 @@ describe("normalizeSearchResults", () => {
     expect(all).toHaveLength(3);
   });
 });
+
+
+describe("native title mode (opts.native)", () => {
+  it("swaps in the original title/name only when original_language matches native", () => {
+    const pl = normalizeMovie(
+      { id: 1, title: "Peasants", original_title: "Chłopi", original_language: "pl" },
+      { native: "pl" },
+    );
+    expect(pl.title).toBe("Chłopi");
+
+    const en = normalizeMovie(
+      { id: 2, title: "Dune", original_title: "Dune", original_language: "en" },
+      { native: "pl" },
+    );
+    expect(en.title).toBe("Dune");
+
+    const show = normalizeShow(
+      { id: 3, name: "1899 EN", original_name: "1899", original_language: "de" },
+      { native: "de" },
+    );
+    expect(show.name).toBe("1899");
+  });
+
+  it("toCard and search results apply the same swap", () => {
+    const card = toCard("movie", { id: 4, title: "Translated", original_title: "Original", original_language: "pl" }, { native: "pl" });
+    expect(card.title).toBe("Original");
+
+    const results = normalizeSearchResults(
+      { movie: { results: [{ id: 5, title: "Translated", original_title: "Original", original_language: "pl", adult: false }] }, tv: { results: [] }, person: { results: [] } },
+      false,
+      { native: "pl" },
+    );
+    expect(results[0].title).toBe("Original");
+  });
+});
+
+describe("regional release date", () => {
+  const raw = {
+    id: 10,
+    title: "X",
+    release_date: "2024-01-01",
+    release_dates: {
+      results: [
+        {
+          iso_3166_1: "PL",
+          release_dates: [
+            { type: 4, release_date: "2024-02-10T00:00:00.000Z" },
+            { type: 3, release_date: "2024-01-20T00:00:00.000Z" },
+            { type: 2, release_date: "2024-01-15T00:00:00.000Z" },
+          ],
+        },
+      ],
+    },
+  };
+  it("prefers theatrical (3) over limited (2) over digital (4), earliest date of that type", () => {
+    const m = normalizeMovie(raw, { region: "PL" });
+    expect(m.release_date_regional).toBe("2024-01-20");
+    expect(m.release_date_effective).toBe("2024-01-20");
+    expect(m.release_date).toBe("2024-01-01"); // primary unchanged
+  });
+  it("falls back to the primary date when the region has no release_dates entry", () => {
+    const m = normalizeMovie(raw, { region: "DE" });
+    expect(m.release_date_regional).toBeNull();
+    expect(m.release_date_effective).toBe("2024-01-01");
+  });
+  it("toCard exposes date (effective) and date_primary", () => {
+    const card = toCard("movie", raw, { region: "PL" });
+    expect(card.date).toBe("2024-01-20");
+    expect(card.date_primary).toBe("2024-01-01");
+  });
+});
+
+describe("nsfw flag", () => {
+  it("flags movies via keyword id even when adult=false", () => {
+    const m = normalizeMovie({ id: 20, title: "Some Movie", adult: false, keywords: { keywords: [{ id: 356759, name: "porn" }] } });
+    expect(m.nsfw).toBe(true);
+  });
+  it("does not flag mainstream titles", () => {
+    const m = normalizeMovie({ id: 21, title: "Fight Club", adult: false, keywords: { keywords: [{ id: 818, name: "based on novel" }] } });
+    expect(m.nsfw).toBe(false);
+  });
+});
+
+describe("watch providers compaction", () => {
+  it("dedupes provider metadata and drops empty regions", () => {
+    const wp = normalizeMovie({
+      id: 30,
+      title: "X",
+      "watch/providers": {
+        results: {
+          US: { link: "https://x", flatrate: [{ provider_id: 8, provider_name: "Netflix", logo_path: "/n.jpg", display_priority: 0 }] },
+          FR: {},
+        },
+      },
+    }).watch_providers;
+    expect(wp.providers["8"]).toEqual({ name: "Netflix", logo_path: "/n.jpg" });
+    expect(wp.regions.US.flatrate).toEqual([8]);
+    expect(wp.regions.FR).toBeUndefined();
+  });
+});
+
+describe("normalizePerson credit enrichment", () => {
+  it("carries popularity/voteAverage/voteCount/episodeCount/date/year per credit", () => {
+    const p = normalizePerson({
+      id: 287,
+      name: "Brad Pitt",
+      combined_credits: {
+        cast: [
+          {
+            id: 63,
+            media_type: "movie",
+            title: "Twelve Monkeys",
+            original_title: "Twelve Monkeys",
+            original_language: "en",
+            character: "Jeffrey",
+            release_date: "1995-12-29",
+            popularity: 12.3,
+            vote_average: 7.8,
+            vote_count: 4000,
+          },
+        ],
+        crew: [
+          {
+            id: 100,
+            media_type: "tv",
+            name: "Show",
+            job: "Producer",
+            department: "Production",
+            first_air_date: "2010-01-01",
+            episode_count: 12,
+          },
+        ],
+      },
+    });
+    const cast = p.credits.find((c) => c.mediaId === 63);
+    expect(cast).toMatchObject({ date: "1995-12-29", year: "1995", popularity: 12.3, voteAverage: 7.8, voteCount: 4000 });
+    const crew = p.credits.find((c) => c.mediaId === 100);
+    expect(crew.episodeCount).toBe(12);
+  });
+});

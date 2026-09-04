@@ -13,6 +13,7 @@ import { ObservedRatingsPanel } from "../../components/observe/ObservedRatingsPa
 import SkeletonDetailPage from "../../components/detail/SkeletonDetailPage.jsx";
 import { useEpisodeData } from "../../features/episode/hooks/useEpisodeData.js";
 import { useShowFollow } from "../../features/show/hooks/useShowFollow.js";
+import { showFollowBlock } from "../../lib/followGate.js";
 import UpgradePromptToast from "../../components/subscription/UpgradePromptToast.jsx";
 import { PageHead } from "../../components/ui/PageHead.jsx";
 import { tmdbImg } from "../../lib/tmdbImage.js";
@@ -53,7 +54,8 @@ function EpisodePage({ session }) {
   const { id: showId, seasonNumber, episodeNumber } = useParams();
   const [showAuthPrompt, setShowAuthPrompt] = useState(false);
   const { episode, season, show, siblings, cast, crew, isLoading, error } = useEpisodeData(showId, seasonNumber, episodeNumber);
-  const { isFollowing, toggleFollow, followLimitError, clearFollowLimitError } = useShowFollow(showId, session);
+  const followBlockedLabel = showFollowBlock(show);
+  const { isFollowing, toggleFollow, followLimitError, clearFollowLimitError } = useShowFollow(showId, session, { blocked: !!followBlockedLabel });
   const handleFollow = session ? toggleFollow : () => setShowAuthPrompt(true);
 
   const breadcrumbs = episode && season && show ? [
@@ -104,7 +106,7 @@ function EpisodePage({ session }) {
       {followLimitError && <UpgradePromptToast message={followLimitError} onDismiss={clearFollowLimitError} session={session} />}
       <DetailPageLayout
         title={episode.name}
-        followButton={<FollowButton isFollowing={isFollowing} onToggle={handleFollow} />}
+        followButton={<FollowButton isFollowing={isFollowing} onToggle={handleFollow} blockedLabel={followBlockedLabel} />}
         sidebarTop={
           <div className="relative overflow-hidden rounded-2xl border border-[#2a3570] bg-[#12163a] aspect-video w-full">
             {episode.poster_path ? (

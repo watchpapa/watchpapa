@@ -54,3 +54,23 @@ export function validateMinAge(dateOfBirth, minYears = 16) {
   cutoff.setFullYear(cutoff.getFullYear() - minYears);
   return dob <= cutoff;
 }
+
+export function isValidLocale(value) {
+  return typeof value === "string" && /^[a-z]{2}-[A-Z]{2}$/.test(value);
+}
+
+export function isValidCountry(value) {
+  return value === null || (typeof value === "string" && /^[A-Z]{2}$/.test(value));
+}
+
+export function isValidTitleMode(value) {
+  return value === "translated" || value === "native_original";
+}
+
+export function isValidRegionList(value) {
+  return Array.isArray(value) && value.length <= 5 && value.every((v) => /^[A-Z]{2}$/.test(v));
+}
+
+export function isValidProviderIds(value) {
+  return Array.isArray(value) && value.length <= 50 && value.every((v) => Number.isInteger(v) && v > 0);
+}
