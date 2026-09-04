@@ -15,6 +15,8 @@ import CrewSection from "../../components/detail/CrewSection.jsx";
 import AuthPromptModal from "../../components/AuthPromptModal.jsx";
 import { useShowData } from "../../features/show/hooks/useShowData.js";
 import { showFollowBlock } from "../../lib/followGate.js";
+import MarkWatchedButton from "../../components/watchlist/MarkWatchedButton.jsx";
+import { useWatchedStatus } from "../../features/watchlist/hooks/useWatchedStatus.js";
 import WhereToWatch from "../../components/detail/WhereToWatch.jsx";
 import UpgradePromptToast from "../../components/subscription/UpgradePromptToast.jsx";
 import { PageHead } from "../../components/ui/PageHead.jsx";
@@ -68,6 +70,7 @@ function ShowPage({ session, showAdult }) {
   const [shareOpen, setShareOpen] = useState(false);
   const { show, genres, seasons, cast, crew, isFollowing, followLimitError, clearFollowLimitError, isLoading, error, toggleFollow } = useShowData(id, session, showAdult);
   const handleFollow = session ? toggleFollow : () => setShowAuthPrompt(true);
+  const watchedStatus = useWatchedStatus("show", id ? Number(id) : null, session);
 
   const breadcrumbs = show ? [{ label: "Shows", to: "/shows" }, { label: show.name }] : undefined;
 
@@ -132,6 +135,11 @@ function ShowPage({ session, showAdult }) {
               entityId={show.id}
               session={session}
               onAuthPrompt={() => setShowAuthPrompt(true)}
+            />
+            <MarkWatchedButton
+              isWatched={watchedStatus.isWatched}
+              onToggle={session ? watchedStatus.toggleWatched : () => setShowAuthPrompt(true)}
+              disabled={watchedStatus.busy}
             />
           </div>
         }

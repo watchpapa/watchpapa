@@ -22,6 +22,8 @@ const COLUMNS = {
   region: "setting_region",
   watchRegions: "setting_watch_regions",
   watchProviders: "setting_watch_providers",
+  homeRowOrder: "setting_home_row_order",
+  homeHiddenRows: "setting_home_hidden_rows",
 };
 
 export const DEFAULT_PREFERENCES = {
@@ -31,6 +33,8 @@ export const DEFAULT_PREFERENCES = {
   region: null,
   watchRegions: [],
   watchProviders: [],
+  homeRowOrder: [], // empty = app default order, see lib/homeRows.js
+  homeHiddenRows: [],
 };
 
 const ANON_REGION_KEY = "wp:watchRegion";

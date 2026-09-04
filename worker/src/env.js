@@ -24,5 +24,9 @@ export function config(env) {
     releasesMaxShows: int(env.RELEASES_MAX_SHOWS, 12),
     // Sitemap: TMDB list pages fetched per sitemap file
     sitemapPages: int(env.SITEMAP_PAGES, 8),
+    // Recommendations: seed titles fetched (1 subrequest each) + how many ranked
+    // candidates get a watch/providers lookup when filtering by "my services"
+    recommendationsMaxSeeds: int(env.RECOMMENDATIONS_MAX_SEEDS, 8),
+    recommendationsProviderCheckMax: int(env.RECOMMENDATIONS_PROVIDER_CHECK_MAX, 25),
   };
 }

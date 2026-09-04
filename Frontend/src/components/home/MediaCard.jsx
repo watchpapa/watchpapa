@@ -110,7 +110,9 @@ function MediaCard({ id, type, title, posterPath, isFollowing = false, onFollowT
         {title}
       </p>
 
-      {releaseLabel && (
+      {/* Only show this line when the gold pill overlay isn't already showing the
+          same releaseLabel (i.e. the "Airing" case, which has no pill). */}
+      {releaseLabel && !upcoming && (
         <p className="-mt-1 text-center text-[10px] font-medium text-[#7eb8f7]">{releaseLabel}</p>
       )}
 

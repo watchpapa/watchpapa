@@ -120,6 +120,19 @@ export function useWatchlistItems(watchlistId, session, refreshKey = 0) {
     return { error };
   }, []);
 
+  // Toggle "watched" on this one row — a title left un-rated but marked
+  // watched, independent of rating (rating still removes the item from every
+  // watchlist entirely, via removeFromWatchlistsOnRating — a separate "I've
+  // formed an opinion" signal, not touched by this).
+  const toggleWatched = useCallback(async (itemId, watched) => {
+    setRows((prev) => prev.map((r) => (r.id === itemId ? { ...r, watched } : r)));
+    const { error } = await supabase.from("watchlist_item").update({ watched }).eq("id", itemId);
+    if (error) {
+      setRows((prev) => prev.map((r) => (r.id === itemId ? { ...r, watched: !watched } : r)));
+    }
+    return { error };
+  }, []);
+
   const moveItem = useCallback(
     async (itemId, targetWatchlistId) => {
       const row = rows.find((r) => r.id === itemId);
@@ -135,5 +148,5 @@ export function useWatchlistItems(watchlistId, session, refreshKey = 0) {
     [rows],
   );
 
-  return { items, isLoading: isLoading || cardsLoading, addItem, removeItem, moveItem };
+  return { items, isLoading: isLoading || cardsLoading, addItem, removeItem, moveItem, toggleWatched };
 }

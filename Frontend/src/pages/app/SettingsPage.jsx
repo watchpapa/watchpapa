@@ -11,6 +11,7 @@ import { useLocaleCatalog, useWatchRegionCatalog, useWatchProviderList, language
 import { tmdbImg } from "../../lib/tmdbImage.js";
 import { JUSTWATCH_ATTRIBUTION_URL } from "../../lib/constants.js";
 import { isProTier } from "../../lib/tier.js";
+import { HOME_ROW_LABELS, effectiveHomeRowOrder } from "../../lib/homeRows.js";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "";
 
@@ -162,6 +163,99 @@ function ProviderGrid({ providers, selectedIds, onToggle, disabled }) {
           JustWatch
         </a>
       </p>
+    </div>
+  );
+}
+
+function UpDownIcon({ direction }) {
+  return (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      {direction === "up" ? <polyline points="18 15 12 9 6 15" /> : <polyline points="6 9 12 15 18 9" />}
+    </svg>
+  );
+}
+
+function EyeIcon({ off }) {
+  return off ? (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M17.94 17.94A10.94 10.94 0 0 1 12 20c-7 0-11-8-11-8a18.5 18.5 0 0 1 5.06-5.94M9.9 4.24A10.94 10.94 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" />
+      <line x1="1" y1="1" x2="23" y2="23" />
+    </svg>
+  ) : (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+      <circle cx="12" cy="12" r="3" />
+    </svg>
+  );
+}
+
+// Reorder (up/down) + show/hide the home page's rows. `order`/`hidden` are the
+// raw saved arrays (order may be empty = app default); `onChange` receives a
+// partial to hand straight to updatePref().
+function HomeRowsEditor({ order, hidden, onChange, disabled }) {
+  const list = effectiveHomeRowOrder(order);
+
+  function move(index, dir) {
+    const j = index + dir;
+    if (j < 0 || j >= list.length) return;
+    const next = [...list];
+    [next[index], next[j]] = [next[j], next[index]];
+    onChange({ homeRowOrder: next });
+  }
+
+  function toggleHidden(key) {
+    const next = hidden.includes(key) ? hidden.filter((k) => k !== key) : [...hidden, key];
+    onChange({ homeHiddenRows: next });
+  }
+
+  return (
+    <div className="flex w-full flex-col gap-1.5">
+      {list.map((key, i) => {
+        const isHidden = hidden.includes(key);
+        return (
+          <div
+            key={key}
+            className={`flex items-center justify-between gap-3 rounded-xl border px-3 py-2 transition ${
+              isHidden ? "border-[#2a3570]/30 opacity-50" : "border-[#2a3570]/50"
+            }`}
+          >
+            <span className="text-sm text-[#c0c0e8]">{HOME_ROW_LABELS[key]}</span>
+            <div className="flex shrink-0 items-center gap-1">
+              <button
+                type="button"
+                onClick={() => move(i, -1)}
+                disabled={disabled || i === 0}
+                className="rounded-lg p-1.5 text-[#6868b8] transition hover:text-white disabled:opacity-30"
+                aria-label={`Move ${HOME_ROW_LABELS[key]} up`}
+              >
+                <UpDownIcon direction="up" />
+              </button>
+              <button
+                type="button"
+                onClick={() => move(i, 1)}
+                disabled={disabled || i === list.length - 1}
+                className="rounded-lg p-1.5 text-[#6868b8] transition hover:text-white disabled:opacity-30"
+                aria-label={`Move ${HOME_ROW_LABELS[key]} down`}
+              >
+                <UpDownIcon direction="down" />
+              </button>
+              <button
+                type="button"
+                onClick={() => toggleHidden(key)}
+                disabled={disabled}
+                className={`ml-1 flex items-center gap-1 rounded-lg border px-2 py-1 text-[11px] font-semibold transition disabled:opacity-40 ${
+                  isHidden
+                    ? "border-[#2a3570] text-[#5a5a78] hover:text-[#8888c8]"
+                    : "border-emerald-800/50 text-emerald-400 hover:text-emerald-300"
+                }`}
+              >
+                <EyeIcon off={isHidden} />
+                {isHidden ? "Hidden" : "Shown"}
+              </button>
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -573,7 +667,7 @@ function SettingsPage({ session }) {
                   Upgrade to Pro to pick your services
                 </Link>
                 <p className="max-w-[18rem] text-right text-[11px] text-[#5a5a78]">
-                  Anyone can browse "Where to watch" for a region — choosing which services are yours (so they're highlighted, plus the "Available on your services" row) needs Pro.
+                  Anyone can browse "Where to watch" for a region — choosing which services are yours (so they're highlighted, plus the "· On Your Services" home rows) needs Pro.
                 </p>
               </div>
             ) : providersRegion ? (
@@ -591,6 +685,18 @@ function SettingsPage({ session }) {
             ) : (
               <span className="text-xs text-[#5a5a78]">Pick a watch region or country first.</span>
             )}
+          </Row>
+        </Section>
+
+        {/* Home page row order + visibility */}
+        <Section title="Home page">
+          <Row label="Rows">
+            <HomeRowsEditor
+              order={prefs.homeRowOrder}
+              hidden={prefs.homeHiddenRows}
+              onChange={updatePref}
+              disabled={prefsBusy}
+            />
           </Row>
         </Section>
 

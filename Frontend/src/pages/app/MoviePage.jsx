@@ -15,6 +15,8 @@ import CrewSection from "../../components/detail/CrewSection.jsx";
 import AuthPromptModal from "../../components/AuthPromptModal.jsx";
 import { useMovieData } from "../../features/movie/hooks/useMovieData.js";
 import { movieFollowBlock } from "../../lib/followGate.js";
+import MarkWatchedButton from "../../components/watchlist/MarkWatchedButton.jsx";
+import { useWatchedStatus } from "../../features/watchlist/hooks/useWatchedStatus.js";
 import WhereToWatch from "../../components/detail/WhereToWatch.jsx";
 import UpgradePromptToast from "../../components/subscription/UpgradePromptToast.jsx";
 import { PageHead } from "../../components/ui/PageHead.jsx";
@@ -48,6 +50,7 @@ function MoviePage({ session, showAdult }) {
   const [shareOpen, setShareOpen] = useState(false);
   const { movie, genres, cast, crew, isFollowing, followLimitError, clearFollowLimitError, isLoading, error, toggleFollow } = useMovieData(id, session, showAdult);
   const handleFollow = session ? toggleFollow : () => setShowAuthPrompt(true);
+  const watchedStatus = useWatchedStatus("movie", id ? Number(id) : null, session);
 
   const breadcrumbs = movie ? [{ label: "Movies", to: "/movies" }, { label: movie.title }] : undefined;
 
@@ -111,6 +114,11 @@ function MoviePage({ session, showAdult }) {
               entityId={movie.id}
               session={session}
               onAuthPrompt={() => setShowAuthPrompt(true)}
+            />
+            <MarkWatchedButton
+              isWatched={watchedStatus.isWatched}
+              onToggle={session ? watchedStatus.toggleWatched : () => setShowAuthPrompt(true)}
+              disabled={watchedStatus.busy}
             />
           </div>
         }

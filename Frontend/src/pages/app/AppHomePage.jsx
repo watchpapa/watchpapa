@@ -5,6 +5,8 @@ import ContentHero from "../../components/home/ContentHero.jsx";
 import SearchBar from "../../components/home/SearchBar.jsx";
 import MediaRow from "../../components/home/MediaRow.jsx";
 import { useHomeData } from "../../features/home/hooks/useHomeData.js";
+import { usePreferences } from "../../features/preferences/PreferencesContext.jsx";
+import { HOME_ROW_LABELS, effectiveHomeRowOrder } from "../../lib/homeRows.js";
 import UpgradePromptToast from "../../components/subscription/UpgradePromptToast.jsx";
 import { PageHead } from "../../components/ui/PageHead.jsx";
 
@@ -27,12 +29,15 @@ function SkeletonRow() {
 
 function AppHomePage({ session, showAdult }) {
   const [search, setSearch] = useState("");
+  const { homeRowOrder, homeHiddenRows } = usePreferences();
   const {
     popular,
     comingSoonItems,
     movieItems,
     showItems,
     myServicesItems,
+    suggestedItems,
+    suggestedOnServicesItems,
     isLoading,
     error,
     followLimitError,
@@ -51,43 +56,54 @@ function AppHomePage({ session, showAdult }) {
     loadingMoreMyServices,
   } = useHomeData(session, showAdult);
 
-  const sections = [
-    {
-      title: "Popular",
+  const sectionsByKey = {
+    popular: {
       items: popular,
       hasMore: hasMorePopular,
       onLoadMore: loadMorePopular,
       isLoadingMore: loadingMorePopular,
     },
-    {
-      title: "Popular on my streamings",
+    suggested: {
+      items: suggestedItems,
+      hasMore: false,
+      onLoadMore: null,
+      isLoadingMore: false,
+    },
+    popularOnServices: {
       items: myServicesItems,
       hasMore: hasMoreMyServices,
       onLoadMore: loadMoreMyServices,
       isLoadingMore: loadingMoreMyServices,
     },
-    {
-      title: "Coming Soon",
+    suggestedOnServices: {
+      items: suggestedOnServicesItems,
+      hasMore: false,
+      onLoadMore: null,
+      isLoadingMore: false,
+    },
+    comingSoon: {
       items: comingSoonItems,
       hasMore: false,
       onLoadMore: null,
       isLoadingMore: false,
     },
-    {
-      title: "Movies",
+    movies: {
       items: movieItems,
       hasMore: hasMoreMovies,
       onLoadMore: loadMoreMovies,
       isLoadingMore: loadingMoreMovies,
     },
-    {
-      title: "Shows",
+    shows: {
       items: showItems,
       hasMore: hasMoreShows,
       onLoadMore: loadMoreShows,
       isLoadingMore: loadingMoreShows,
     },
-  ];
+  };
+
+  const sections = effectiveHomeRowOrder(homeRowOrder)
+    .filter((key) => !homeHiddenRows.includes(key))
+    .map((key) => ({ key, title: HOME_ROW_LABELS[key], ...sectionsByKey[key] }));
 
   return (
     <AppLayout session={session}>
@@ -120,9 +136,9 @@ function AppHomePage({ session, showAdult }) {
         ) : (
           sections
             .filter(({ items }) => items.length > 0)
-            .map(({ title, items, hasMore, onLoadMore, isLoadingMore }, index) => (
+            .map(({ key, title, items, hasMore, onLoadMore, isLoadingMore }, index) => (
               <div
-                key={title}
+                key={key}
                 style={{
                   animation: "fadeInUp 0.35s ease-out both",
                   animationDelay: `${index * 0.08}s`,

@@ -475,3 +475,129 @@ content.post("/releases", async (c) => {
 
   return c.json({ entries }, 200, cache(6 * 3600));
 });
+
+// --- recommendations ("Suggested for you") ------------------------------------
+//
+// No ML/collaborative-filtering infra of our own — this leans entirely on
+// TMDB's own per-title /recommendations endpoint (TMDB staff recommend it over
+// /similar, which is just genre/keyword matching, not user-behaviour based).
+// The client supplies "seed" titles from the user's own ratings + watched
+// watchlist items; we fetch TMDB recommendations for each seed, tally how
+// often each candidate is recommended across seeds, and rank by that.
+//
+// Body: {
+//   items: [{type:'movie'|'show', id}],      // seeds, capped to recommendationsMaxSeeds
+//   exclude: [{type:'movie'|'show', id}],     // already rated/watchlisted/followed
+//   providers?: number[],                     // optional: also return a subset available on these
+//   watchRegion?: string,                     // ISO 3166-1, required alongside providers
+// }
+// Returns: { results: [...cards], resultsOnMyServices?: [...cards] }
+//
+// Per-user response — never edge-cached (Cache-Control: private). The
+// per-seed TMDB /recommendations calls ARE cached (keyed on id+language,
+// same as everything else through tmdbFetch), so repeat callers with an
+// overlapping seed pool still hit a warm cache upstream.
+
+const RECOMMENDATION_DISPLAY_CAP = 24;
+const RECOMMENDATION_CANDIDATE_POOL = 40;
+
+function providerMatch(raw, watchRegion, providerIds) {
+  const region = raw?.["watch/providers"]?.results?.[watchRegion];
+  if (!region) return false;
+  const ids = new Set(
+    [...(region.flatrate ?? []), ...(region.free ?? []), ...(region.ads ?? [])].map((p) => p.provider_id),
+  );
+  return providerIds.some((id) => ids.has(id));
+}
+
+content.post("/recommendations", async (c) => {
+  const cfg = config(c.env);
+  const loc = readLocale(c);
+  let body;
+  try {
+    body = await c.req.json();
+  } catch {
+    return c.json({ error: "Bad JSON" }, 400);
+  }
+
+  const items = (Array.isArray(body?.items) ? body.items : [])
+    .filter((it) => (it?.type === "movie" || it?.type === "show") && posInt(it?.id))
+    .slice(0, cfg.recommendationsMaxSeeds);
+  if (items.length === 0) return c.json({ results: [] });
+
+  const excludeKeys = new Set();
+  for (const it of (Array.isArray(body?.exclude) ? body.exclude : []).slice(0, 2000)) {
+    if ((it?.type === "movie" || it?.type === "show") && posInt(it?.id)) excludeKeys.add(`${it.type}:${it.id}`);
+  }
+  for (const it of items) excludeKeys.add(`${it.type}:${it.id}`); // never recommend a seed back to itself
+
+  const providers = (Array.isArray(body?.providers) ? body.providers : [])
+    .filter((n) => Number.isInteger(n) && n > 0)
+    .slice(0, 50);
+  const watchRegion = isValidRegion(body?.watchRegion ?? "") ? body.watchRegion : null;
+  const wantProviders = providers.length > 0 && !!watchRegion;
+
+  // 1) Fetch TMDB recommendations per seed, tally candidates across seeds.
+  const tally = new Map(); // "type:id" -> { type, id, raw, hits, popularity }
+  await Promise.all(
+    items.map(async (it) => {
+      const tmdbType = it.type === "show" ? "tv" : "movie";
+      let raw;
+      try {
+        raw = await tmdbFetch(c.env, `/${tmdbType}/${it.id}/recommendations`, {}, { ttl: TTL.discover, language: loc.language });
+      } catch {
+        return;
+      }
+      for (const r of raw?.results ?? []) {
+        const key = `${it.type}:${r.id}`;
+        if (excludeKeys.has(key)) continue;
+        const existing = tally.get(key);
+        if (existing) existing.hits += 1;
+        else tally.set(key, { type: it.type, id: r.id, raw: r, hits: 1, popularity: r.popularity ?? 0 });
+      }
+    }),
+  );
+
+  let candidates = [...tally.values()];
+  if (!loc.includeAdult) {
+    candidates = candidates.filter((cnd) => !isNsfw(cnd.raw, cnd.type === "show" ? "tv" : "movie"));
+  }
+  candidates.sort((a, b) => b.hits - a.hits || b.popularity - a.popularity);
+  candidates = candidates.slice(0, RECOMMENDATION_CANDIDATE_POOL);
+
+  const cardOpts = { native: loc.native, region: loc.region };
+  const results = candidates
+    .slice(0, RECOMMENDATION_DISPLAY_CAP)
+    .map((cnd) => toCard(cnd.type, cnd.raw, cardOpts));
+
+  let resultsOnMyServices;
+  if (wantProviders) {
+    const onServices = [];
+    let checks = 0;
+    for (const cnd of candidates) {
+      if (onServices.length >= RECOMMENDATION_DISPLAY_CAP || checks >= cfg.recommendationsProviderCheckMax) break;
+      checks += 1;
+      const tmdbType = cnd.type === "show" ? "tv" : "movie";
+      try {
+        const raw = await tmdbFetch(
+          c.env,
+          `/${tmdbType}/${cnd.id}`,
+          { append_to_response: "watch/providers" },
+          { ttl: TTL.movie, language: loc.language },
+        );
+        if (providerMatch(raw, watchRegion, providers)) {
+          onServices.push(toCard(cnd.type, cnd.raw, cardOpts));
+        }
+      } catch {
+        /* skip this candidate */
+      }
+    }
+    resultsOnMyServices = onServices;
+  }
+
+  return c.json(
+    wantProviders ? { results, resultsOnMyServices } : { results },
+    200,
+    { "Cache-Control": "private, max-age=60" },
+  );
+});

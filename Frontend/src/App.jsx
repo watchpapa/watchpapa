@@ -163,7 +163,7 @@ function App() {
     supabase
       .from("profile")
       .select(
-        "username, is_adult, date_of_birth, setting_display_adult_content, setting_language, setting_title_mode, setting_region, setting_watch_regions, setting_watch_providers",
+        "username, is_adult, date_of_birth, setting_display_adult_content, setting_language, setting_title_mode, setting_region, setting_watch_regions, setting_watch_providers, setting_home_row_order, setting_home_hidden_rows",
       )
       .eq("id", session.user.id)
       .maybeSingle()
@@ -186,6 +186,8 @@ function App() {
         region: data?.setting_region ?? null,
         watchRegions: data?.setting_watch_regions ?? [],
         watchProviders: data?.setting_watch_providers ?? [],
+        homeRowOrder: data?.setting_home_row_order ?? [],
+        homeHiddenRows: data?.setting_home_hidden_rows ?? [],
       });
       setIsProfileLoading(false);
 

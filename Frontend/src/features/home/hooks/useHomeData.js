@@ -8,6 +8,7 @@ import { supabase } from "../../../lib/supabase.js";
 import { apiFetch } from "../../../lib/api.js";
 import { followBlock } from "../../../lib/followGate.js";
 import { usePreferences } from "../../preferences/PreferencesContext.jsx";
+import { useSuggestionSeeds } from "./useSuggestionSeeds.js";
 
 function formatReleaseLabel(dateStr) {
   if (!dateStr) return null;
@@ -76,6 +77,11 @@ export function useHomeData(session, showAdult = false) {
   const [myServicesMovieTotal, setMyServicesMovieTotal] = useState(1);
   const [myServicesShowTotal, setMyServicesShowTotal] = useState(1);
   const [myServicesCount, setMyServicesCount] = useState(20);
+
+  const { items: seedItems, exclude: seedExclude, loaded: seedsLoaded } = useSuggestionSeeds(session);
+  const [suggestedCards, setSuggestedCards] = useState([]);
+  const [suggestedOnServicesCards, setSuggestedOnServicesCards] = useState([]);
+  const [loadingSuggested, setLoadingSuggested] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -162,6 +168,46 @@ export function useHomeData(session, showAdult = false) {
       cancelled = true;
     };
   }, [providersKey, myServicesRegion, showAdult]);
+
+  // "Suggested for you" — seeded from the user's own ratings + watched
+  // watchlist items (useSuggestionSeeds), aggregated server-side by
+  // /api/content/recommendations. No taste signal yet (new user, or logged
+  // out) -> no seeds -> row stays empty and simply doesn't render.
+  useEffect(() => {
+    if (!seedsLoaded || seedItems.length === 0) {
+      setSuggestedCards([]);
+      setSuggestedOnServicesCards([]);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      setLoadingSuggested(true);
+      try {
+        const body = { items: seedItems, exclude: seedExclude };
+        if (providersKey && myServicesRegion) {
+          body.providers = watchProviders;
+          body.watchRegion = myServicesRegion;
+        }
+        const { results, resultsOnMyServices } = await apiFetch("/api/content/recommendations", {
+          method: "POST",
+          body: JSON.stringify(body),
+        });
+        if (cancelled) return;
+        setSuggestedCards(results ?? []);
+        setSuggestedOnServicesCards(resultsOnMyServices ?? []);
+      } catch {
+        if (!cancelled) {
+          setSuggestedCards([]);
+          setSuggestedOnServicesCards([]);
+        }
+      } finally {
+        if (!cancelled) setLoadingSuggested(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [seedsLoaded, seedItems, seedExclude, providersKey, myServicesRegion, showAdult, watchProviders]);
 
   const toggleFollow = useCallback(
     async (type, id) => {
@@ -290,6 +336,19 @@ export function useHomeData(session, showAdult = false) {
     [myServicesMovieItems, myServicesShowItems, myServicesCount],
   );
 
+  const toSuggestedItem = useCallback(
+    (c) => ({
+      ...cardToItem(c, c.type === "movie" ? followedMovieIds : followedShowIds),
+      onFollowToggle: () => toggleFollow(c.type, c.id),
+    }),
+    [followedMovieIds, followedShowIds, toggleFollow],
+  );
+  const suggestedItems = useMemo(() => suggestedCards.map(toSuggestedItem), [suggestedCards, toSuggestedItem]);
+  const suggestedOnServicesItems = useMemo(
+    () => suggestedOnServicesCards.map(toSuggestedItem),
+    [suggestedOnServicesCards, toSuggestedItem],
+  );
+
   const comingSoonItems = useMemo(
     () =>
       comingSoon
@@ -316,6 +375,9 @@ export function useHomeData(session, showAdult = false) {
     movieItems,
     showItems,
     myServicesItems,
+    suggestedItems,
+    suggestedOnServicesItems,
+    loadingSuggested,
     isLoading,
     error,
     followLimitError,
