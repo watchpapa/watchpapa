@@ -7,6 +7,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "../../../lib/supabase.js";
 import { apiFetch } from "../../../lib/api.js";
 import { followBlock } from "../../../lib/followGate.js";
+import { usePreferences } from "../../preferences/PreferencesContext.jsx";
 
 function formatReleaseLabel(dateStr) {
   if (!dateStr) return null;
@@ -35,7 +36,23 @@ async function fetchList(kind, page, includeAdult) {
   return { results: results ?? [], totalPages: total_pages ?? 1 };
 }
 
+async function fetchMyServicesPage(type, page, includeAdult, providersKey, region) {
+  const q = new URLSearchParams({
+    page: String(page),
+    with_watch_providers: providersKey,
+    watch_region: region,
+    with_watch_monetization_types: "flatrate|free|ads",
+  });
+  if (includeAdult) q.set("include_adult", "true");
+  const { results, total_pages } = await apiFetch(`/api/content/discover/${type}?${q}`);
+  return { results: results ?? [], totalPages: total_pages ?? 1 };
+}
+
 export function useHomeData(session, showAdult = false) {
+  const { watchProviders, effectiveWatchRegions } = usePreferences();
+  const myServicesRegion = effectiveWatchRegions[0] ?? null;
+  const providersKey = watchProviders.slice().sort((a, b) => a - b).join("|");
+
   const [movieCards, setMovieCards] = useState([]);
   const [showCards, setShowCards] = useState([]);
   const [comingSoon, setComingSoon] = useState([]);
@@ -50,7 +67,15 @@ export function useHomeData(session, showAdult = false) {
   const [movieTotal, setMovieTotal] = useState(1);
   const [showTotal, setShowTotal] = useState(1);
   const [popularCount, setPopularCount] = useState(20);
-  const [busy, setBusy] = useState({ movies: false, shows: false, popular: false });
+  const [busy, setBusy] = useState({ movies: false, shows: false, popular: false, myServices: false });
+
+  const [myServicesMovieCards, setMyServicesMovieCards] = useState([]);
+  const [myServicesShowCards, setMyServicesShowCards] = useState([]);
+  const [myServicesMoviePage, setMyServicesMoviePage] = useState(1);
+  const [myServicesShowPage, setMyServicesShowPage] = useState(1);
+  const [myServicesMovieTotal, setMyServicesMovieTotal] = useState(1);
+  const [myServicesShowTotal, setMyServicesShowTotal] = useState(1);
+  const [myServicesCount, setMyServicesCount] = useState(20);
 
   useEffect(() => {
     let cancelled = false;
@@ -93,6 +118,50 @@ export function useHomeData(session, showAdult = false) {
       cancelled = true;
     };
   }, [session?.user?.id, showAdult]);
+
+  // "Popular on my streamings" — independent of the fetch above, only runs
+  // once the user has picked at least one provider (Pro+ only, see
+  // SettingsPage) and a watch region.
+  useEffect(() => {
+    if (!providersKey || !myServicesRegion) {
+      setMyServicesMovieCards([]);
+      setMyServicesShowCards([]);
+      setMyServicesMoviePage(1);
+      setMyServicesShowPage(1);
+      setMyServicesMovieTotal(1);
+      setMyServicesShowTotal(1);
+      setMyServicesCount(20);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      setBusy((b) => ({ ...b, myServices: true }));
+      try {
+        const [mv, sh] = await Promise.all([
+          fetchMyServicesPage("movie", 1, showAdult, providersKey, myServicesRegion),
+          fetchMyServicesPage("tv", 1, showAdult, providersKey, myServicesRegion),
+        ]);
+        if (cancelled) return;
+        setMyServicesMovieCards(mv.results);
+        setMyServicesShowCards(sh.results);
+        setMyServicesMoviePage(1);
+        setMyServicesShowPage(1);
+        setMyServicesMovieTotal(mv.totalPages);
+        setMyServicesShowTotal(sh.totalPages);
+        setMyServicesCount(20);
+      } catch {
+        if (!cancelled) {
+          setMyServicesMovieCards([]);
+          setMyServicesShowCards([]);
+        }
+      } finally {
+        if (!cancelled) setBusy((b) => ({ ...b, myServices: false }));
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [providersKey, myServicesRegion, showAdult]);
 
   const toggleFollow = useCallback(
     async (type, id) => {
@@ -146,6 +215,26 @@ export function useHomeData(session, showAdult = false) {
           if (showPage < showTotal) tasks.push(fetchList("shows-popular", showPage + 1, showAdult).then((r) => { setShowCards((p) => [...p, ...r.results]); setShowPage((p) => p + 1); }));
           await Promise.all(tasks);
           setPopularCount((c) => c + 20);
+        } else if (which === "myServices" && providersKey && myServicesRegion) {
+          const tasks = [];
+          if (myServicesMoviePage < myServicesMovieTotal) {
+            tasks.push(
+              fetchMyServicesPage("movie", myServicesMoviePage + 1, showAdult, providersKey, myServicesRegion).then((r) => {
+                setMyServicesMovieCards((p) => [...p, ...r.results]);
+                setMyServicesMoviePage((p) => p + 1);
+              }),
+            );
+          }
+          if (myServicesShowPage < myServicesShowTotal) {
+            tasks.push(
+              fetchMyServicesPage("tv", myServicesShowPage + 1, showAdult, providersKey, myServicesRegion).then((r) => {
+                setMyServicesShowCards((p) => [...p, ...r.results]);
+                setMyServicesShowPage((p) => p + 1);
+              }),
+            );
+          }
+          await Promise.all(tasks);
+          setMyServicesCount((c) => c + 20);
         }
       } catch {
         /* ignore */
@@ -153,7 +242,20 @@ export function useHomeData(session, showAdult = false) {
         setBusy((b) => ({ ...b, [which]: false }));
       }
     },
-    [busy, moviePage, showPage, movieTotal, showTotal, showAdult],
+    [
+      busy,
+      moviePage,
+      showPage,
+      movieTotal,
+      showTotal,
+      showAdult,
+      myServicesMoviePage,
+      myServicesShowPage,
+      myServicesMovieTotal,
+      myServicesShowTotal,
+      providersKey,
+      myServicesRegion,
+    ],
   );
 
   const today = new Date().toISOString().slice(0, 10);
@@ -171,6 +273,22 @@ export function useHomeData(session, showAdult = false) {
       .sort((a, b) => b.tmdbPopularity - a.tmdbPopularity)
       .slice(0, popularCount);
   }, [movieItems, showItems, popularCount]);
+
+  const myServicesMovieItems = useMemo(
+    () => myServicesMovieCards.map((c) => ({ ...cardToItem(c, followedMovieIds), onFollowToggle: () => toggleFollow("movie", c.id) })),
+    [myServicesMovieCards, followedMovieIds, toggleFollow],
+  );
+  const myServicesShowItems = useMemo(
+    () => myServicesShowCards.map((c) => ({ ...cardToItem(c, followedShowIds), onFollowToggle: () => toggleFollow("show", c.id) })),
+    [myServicesShowCards, followedShowIds, toggleFollow],
+  );
+  const myServicesItems = useMemo(
+    () =>
+      [...myServicesMovieItems, ...myServicesShowItems]
+        .sort((a, b) => b.tmdbPopularity - a.tmdbPopularity)
+        .slice(0, myServicesCount),
+    [myServicesMovieItems, myServicesShowItems, myServicesCount],
+  );
 
   const comingSoonItems = useMemo(
     () =>
@@ -197,6 +315,7 @@ export function useHomeData(session, showAdult = false) {
     comingSoonItems,
     movieItems,
     showItems,
+    myServicesItems,
     isLoading,
     error,
     followLimitError,
@@ -204,11 +323,17 @@ export function useHomeData(session, showAdult = false) {
     hasMoreMovies: moviePage < movieTotal,
     hasMoreShows: showPage < showTotal,
     hasMorePopular: popularCount < movieItems.length + showItems.length || moviePage < movieTotal || showPage < showTotal,
+    hasMoreMyServices:
+      myServicesCount < myServicesMovieItems.length + myServicesShowItems.length ||
+      myServicesMoviePage < myServicesMovieTotal ||
+      myServicesShowPage < myServicesShowTotal,
     loadMoreMovies: () => loadMore("movies"),
     loadMoreShows: () => loadMore("shows"),
     loadMorePopular: () => loadMore("popular"),
+    loadMoreMyServices: () => loadMore("myServices"),
     loadingMoreMovies: busy.movies,
     loadingMoreShows: busy.shows,
     loadingMorePopular: busy.popular,
+    loadingMoreMyServices: busy.myServices,
   };
 }

@@ -25,7 +25,7 @@ export function useProfileData(username, session) {
 
     supabase
       .from("profile")
-      .select("id, username, bio, created_at, is_private, setting_allow_profile_share")
+      .select("id, username, bio, created_at, is_private, setting_allow_profile_share, avatar_type, avatar_poster_path, avatar_upload_path")
       .eq("username", username)
       .maybeSingle()
       .then(async ({ data: profileData }) => {

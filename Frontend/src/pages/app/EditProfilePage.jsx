@@ -3,11 +3,14 @@ import { Link, useNavigate } from "react-router-dom";
 import AppLayout from "../../layouts/AppLayout.jsx";
 import { PageHead } from "../../components/ui/PageHead.jsx";
 import { useEditProfile } from "../../features/profile/hooks/useEditProfile.js";
+import { useSubscription } from "../../features/subscription/hooks/useSubscription.js";
 import { FavouritesEditor } from "../../components/profile/FavouritesEditor.jsx";
+import AvatarPicker from "../../components/profile/AvatarPicker.jsx";
 
 function EditProfilePage({ session }) {
   const navigate = useNavigate();
-  const { bio, setBio, saveBio, favourites, setFavourite, saving, error, loaded } = useEditProfile(session);
+  const { bio, setBio, saveBio, favourites, setFavourite, avatar, avatarSaving, setAvatarPoster, uploadAvatarPhoto, setAvatarDefault, saving, error, loaded } = useEditProfile(session);
+  const { tier } = useSubscription(session);
   const [localBio, setLocalBio] = useState("");
   const [bioSaved, setBioSaved] = useState(false);
 
@@ -45,6 +48,24 @@ function EditProfilePage({ session }) {
         {error && (
           <p className="rounded-xl border border-red-800/40 bg-red-900/10 px-4 py-2 text-sm text-red-400">{error}</p>
         )}
+
+        {/* Avatar */}
+        <section className="rounded-2xl border border-[#2a3570]/50 bg-[#0a0c18]">
+          <div className="border-b border-[#2a3570]/50 px-5 py-4">
+            <h2 className="text-sm font-semibold uppercase tracking-widest text-[#6868b8]">Avatar</h2>
+          </div>
+          <div className="px-5 py-4">
+            <AvatarPicker
+              username={username}
+              tier={tier}
+              avatar={avatar}
+              avatarSaving={avatarSaving}
+              setAvatarPoster={setAvatarPoster}
+              uploadAvatarPhoto={uploadAvatarPhoto}
+              setAvatarDefault={setAvatarDefault}
+            />
+          </div>
+        </section>
 
         {/* Bio */}
         <section className="rounded-2xl border border-[#2a3570]/50 bg-[#0a0c18]">

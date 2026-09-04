@@ -32,6 +32,7 @@ function AppHomePage({ session, showAdult }) {
     comingSoonItems,
     movieItems,
     showItems,
+    myServicesItems,
     isLoading,
     error,
     followLimitError,
@@ -39,12 +40,15 @@ function AppHomePage({ session, showAdult }) {
     hasMorePopular,
     hasMoreMovies,
     hasMoreShows,
+    hasMoreMyServices,
     loadMorePopular,
     loadMoreMovies,
     loadMoreShows,
+    loadMoreMyServices,
     loadingMorePopular,
     loadingMoreMovies,
     loadingMoreShows,
+    loadingMoreMyServices,
   } = useHomeData(session, showAdult);
 
   const sections = [
@@ -54,6 +58,13 @@ function AppHomePage({ session, showAdult }) {
       hasMore: hasMorePopular,
       onLoadMore: loadMorePopular,
       isLoadingMore: loadingMorePopular,
+    },
+    {
+      title: "Popular on my streamings",
+      items: myServicesItems,
+      hasMore: hasMoreMyServices,
+      onLoadMore: loadMoreMyServices,
+      isLoadingMore: loadingMoreMyServices,
     },
     {
       title: "Coming Soon",

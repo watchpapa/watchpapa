@@ -10,6 +10,7 @@ import { usePreferences } from "../../features/preferences/PreferencesContext.js
 import { useLocaleCatalog, useWatchRegionCatalog, useWatchProviderList, languageLabel } from "../../features/preferences/hooks/useWatchProviderCatalog.js";
 import { tmdbImg } from "../../lib/tmdbImage.js";
 import { JUSTWATCH_ATTRIBUTION_URL } from "../../lib/constants.js";
+import { isProTier } from "../../lib/tier.js";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "";
 
@@ -563,7 +564,19 @@ function SettingsPage({ session }) {
             />
           </Row>
           <Row label="My streaming services">
-            {providersRegion ? (
+            {!isProTier(tier) ? (
+              <div className="flex flex-col items-end gap-1">
+                <Link
+                  to="/subscription"
+                  className="rounded-xl border border-[#2a3570] bg-transparent px-3 py-1.5 text-xs font-semibold text-[#5a5a78] transition hover:border-[#3a3a7a] hover:text-[#8888c8]"
+                >
+                  Upgrade to Pro to pick your services
+                </Link>
+                <p className="max-w-[18rem] text-right text-[11px] text-[#5a5a78]">
+                  Anyone can browse "Where to watch" for a region — choosing which services are yours (so they're highlighted, plus the "Available on your services" row) needs Pro.
+                </p>
+              </div>
+            ) : providersRegion ? (
               <ProviderGrid
                 providers={providerCatalog}
                 selectedIds={prefs.watchProviders}

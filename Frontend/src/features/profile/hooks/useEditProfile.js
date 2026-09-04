@@ -3,13 +3,17 @@ import { supabase } from "../../../lib/supabase.js";
 import { useContentBatch } from "../../content/hooks/useContentBatch.js";
 import { cardKey } from "../../content/lib/keys.js";
 
-// Own bio + profile_favourite rows for the Edit Profile page. Favourites hold
-// (media_type, tmdb_id); metadata is hydrated from the Worker.
+const DEFAULT_AVATAR = { type: "default", posterMediaType: null, posterTmdbId: null, posterPath: null, uploadPath: null };
+
+// Own bio + profile_favourite rows + avatar for the Edit Profile page.
+// Favourites hold (media_type, tmdb_id); metadata is hydrated from the Worker.
 export function useEditProfile(session) {
   const uid = session?.user?.id;
   const [bio, setBio] = useState("");
+  const [avatar, setAvatar] = useState(DEFAULT_AVATAR);
   const [favRows, setFavRows] = useState([]); // [{ position, media_type, tmdb_id }]
   const [saving, setSaving] = useState(false);
+  const [avatarSaving, setAvatarSaving] = useState(false);
   const [error, setError] = useState(null);
   const [loaded, setLoaded] = useState(false);
 
@@ -17,7 +21,11 @@ export function useEditProfile(session) {
     if (!uid) return;
     let cancelled = false;
     Promise.all([
-      supabase.from("profile").select("bio").eq("id", uid).single(),
+      supabase
+        .from("profile")
+        .select("bio, avatar_type, avatar_poster_media_type, avatar_poster_tmdb_id, avatar_poster_path, avatar_upload_path")
+        .eq("id", uid)
+        .single(),
       supabase
         .from("profile_favourite")
         .select("position, media_type, tmdb_id")
@@ -26,6 +34,13 @@ export function useEditProfile(session) {
     ]).then(([profileRes, favRes]) => {
       if (cancelled) return;
       setBio(profileRes.data?.bio ?? "");
+      setAvatar({
+        type: profileRes.data?.avatar_type ?? "default",
+        posterMediaType: profileRes.data?.avatar_poster_media_type ?? null,
+        posterTmdbId: profileRes.data?.avatar_poster_tmdb_id ?? null,
+        posterPath: profileRes.data?.avatar_poster_path ?? null,
+        uploadPath: profileRes.data?.avatar_upload_path ?? null,
+      });
       setFavRows((favRes.data ?? []).map((r) => ({ ...r, tmdb_id: Number(r.tmdb_id) })));
       setLoaded(true);
     });
@@ -99,5 +114,107 @@ export function useEditProfile(session) {
     [uid],
   );
 
-  return { bio, setBio, saveBio, favourites, setFavourite, saving, error, loaded };
+  // Poster avatar: pick a movie/show and use its poster. Available to every tier.
+  const setAvatarPoster = useCallback(
+    async (item) => {
+      if (!uid) return;
+      setError(null);
+      setAvatarSaving(true);
+      const next = {
+        type: "poster",
+        posterMediaType: item.mediaType,
+        posterTmdbId: Number(item.id),
+        posterPath: item.poster_path ?? null,
+        uploadPath: null,
+      };
+      const { error: err } = await supabase
+        .from("profile")
+        .update({
+          avatar_type: "poster",
+          avatar_poster_media_type: item.mediaType,
+          avatar_poster_tmdb_id: Number(item.id),
+          avatar_poster_path: item.poster_path ?? null,
+          avatar_upload_path: null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", uid);
+      setAvatarSaving(false);
+      if (err) { setError(err.message); return; }
+      setAvatar(next);
+    },
+    [uid],
+  );
+
+  // Custom photo avatar (Pro+ only — also enforced server-side by the
+  // guard_profile_avatar_tier trigger and the "avatars" storage bucket's RLS).
+  // `blob` is the already-cropped square JPEG. Each upload gets a fresh
+  // filename so the CDN URL changes and never serves a stale cached image.
+  const uploadAvatarPhoto = useCallback(
+    async (blob) => {
+      if (!uid) return { error: "Not signed in" };
+      setError(null);
+      setAvatarSaving(true);
+      const path = `${uid}/${Date.now()}.jpg`;
+      const { error: uploadErr } = await supabase.storage
+        .from("avatars")
+        .upload(path, blob, { contentType: "image/jpeg", upsert: false });
+      if (uploadErr) {
+        setAvatarSaving(false);
+        setError(uploadErr.message);
+        return { error: uploadErr.message };
+      }
+      const { error: profileErr } = await supabase
+        .from("profile")
+        .update({
+          avatar_type: "upload",
+          avatar_upload_path: path,
+          avatar_poster_media_type: null,
+          avatar_poster_tmdb_id: null,
+          avatar_poster_path: null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", uid);
+      setAvatarSaving(false);
+      if (profileErr) { setError(profileErr.message); return { error: profileErr.message }; }
+      setAvatar({ type: "upload", posterMediaType: null, posterTmdbId: null, posterPath: null, uploadPath: path });
+      return { error: null };
+    },
+    [uid],
+  );
+
+  const setAvatarDefault = useCallback(async () => {
+    if (!uid) return;
+    setError(null);
+    setAvatarSaving(true);
+    const { error: err } = await supabase
+      .from("profile")
+      .update({
+        avatar_type: "default",
+        avatar_poster_media_type: null,
+        avatar_poster_tmdb_id: null,
+        avatar_poster_path: null,
+        avatar_upload_path: null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", uid);
+    setAvatarSaving(false);
+    if (err) { setError(err.message); return; }
+    setAvatar(DEFAULT_AVATAR);
+  }, [uid]);
+
+  return {
+    bio,
+    setBio,
+    saveBio,
+    favourites,
+    setFavourite,
+    avatar,
+    avatarSaving,
+    setAvatarPoster,
+    uploadAvatarPhoto,
+    setAvatarDefault,
+    saving,
+    error,
+    loaded,
+  };
 }

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "../../lib/supabase.js";
+import Avatar from "../ui/Avatar.jsx";
 
 const TIER_COLORS = {
   free:     "text-green-400",
@@ -27,10 +28,27 @@ function ProfileMenu({ session }) {
   const [isAdmin, setIsAdmin] = useState(false);
   const [referralCode, setReferralCode] = useState(null);
   const [inviteCopied, setInviteCopied] = useState(false);
+  const [avatar, setAvatar] = useState({ type: "default", posterPath: null, uploadPath: null });
 
   const username = (session?.user?.user_metadata?.username ?? session?.user?.email ?? "").trim();
-  const initials = (username[0] ?? "?").toUpperCase();
   const displayName = username || "—";
+
+  // Avatar is shown on the closed button too, so it's fetched eagerly (not
+  // gated behind `open` like the rest of this dropdown's data).
+  useEffect(() => {
+    if (!session?.user?.id) return;
+    let active = true;
+    supabase
+      .from("profile")
+      .select("avatar_type, avatar_poster_path, avatar_upload_path")
+      .eq("id", session.user.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (!active || !data) return;
+        setAvatar({ type: data.avatar_type ?? "default", posterPath: data.avatar_poster_path ?? null, uploadPath: data.avatar_upload_path ?? null });
+      });
+    return () => { active = false; };
+  }, [session?.user?.id]);
 
   // Fetch tier/admin info lazily when dropdown opens.
   useEffect(() => {
@@ -112,10 +130,16 @@ function ProfileMenu({ session }) {
     >
       <button
         onClick={handleButtonClick}
-        className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full border-2 border-[#3a3a7a] bg-[#1a1d35] text-sm font-bold text-[#a0a0e8] transition hover:border-[#7070d0]"
+        className="rounded-full transition hover:ring-2 hover:ring-[#7070d0]"
         aria-label="Profile menu"
       >
-        {initials}
+        <Avatar
+          username={username}
+          avatarType={avatar.type}
+          avatarPosterPath={avatar.posterPath}
+          avatarUploadPath={avatar.uploadPath}
+          size="sm"
+        />
       </button>
 
       {open && (

@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import AppLayout from "../../layouts/AppLayout.jsx";
 import { PageHead } from "../../components/ui/PageHead.jsx";
+import Avatar from "../../components/ui/Avatar.jsx";
 import { useProfileData } from "../../features/profile/hooks/useProfileData.js";
 import { useProfileRatings } from "../../features/profile/hooks/useProfileRatings.js";
 import { useProfileStats } from "../../features/profile/hooks/useProfileStats.js";
@@ -143,8 +144,6 @@ function ProfilePage({ session }) {
     );
   }
 
-  const initials = (profile.username?.[0] ?? "?").toUpperCase();
-
   return (
     <AppLayout session={session} breadcrumbs={breadcrumbs}>
       <PageHead
@@ -156,9 +155,13 @@ function ProfilePage({ session }) {
       <div className="mx-auto max-w-3xl space-y-6 py-6 px-4 sm:px-0">
         {/* Header */}
         <div className="flex items-start gap-4">
-          <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full border-2 border-[#3a3a7a] bg-[#1a1d35] text-2xl font-bold text-[#a0a0e8]">
-            {initials}
-          </div>
+          <Avatar
+            username={profile.username}
+            avatarType={profile.avatar_type}
+            avatarPosterPath={profile.avatar_poster_path}
+            avatarUploadPath={profile.avatar_upload_path}
+            size="lg"
+          />
           <div className="min-w-0 flex-1 space-y-2">
             <div className="flex flex-wrap items-center gap-2">
               <h1 className="text-xl font-bold text-white">{profile.username}</h1>

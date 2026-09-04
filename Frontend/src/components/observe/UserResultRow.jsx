@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { supabase } from "../../lib/supabase.js";
+import Avatar from "../ui/Avatar.jsx";
 
 // A single user row (search results, observer/observing lists).
 // Uses the observe_status returned by the RPC so no per-row fetch is needed.
@@ -40,14 +41,16 @@ export function UserResultRow({ user, session }) {
   else if (status === "pending") label = hover ? "Cancel" : "Requested";
   else { label = user.is_private ? "Request" : "Observe"; primary = true; }
 
-  const initials = (user.username?.[0] ?? "?").toUpperCase();
-
   return (
     <div className="flex items-center gap-3 rounded-xl border border-[#2a3570]/50 bg-[#0d0f1e] px-3 py-2.5">
       <Link to={`/u/${user.username}`} className="flex min-w-0 flex-1 items-center gap-3">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#3a3a7a] bg-[#1a1d35] text-sm font-bold text-[#a0a0e8]">
-          {initials}
-        </div>
+        <Avatar
+          username={user.username}
+          avatarType={user.avatar_type}
+          avatarPosterPath={user.avatar_poster_path}
+          avatarUploadPath={user.avatar_upload_path}
+          size="row"
+        />
         <div className="min-w-0">
           <div className="flex items-center gap-1.5">
             <p className="truncate text-sm font-semibold text-white">{user.username}</p>
