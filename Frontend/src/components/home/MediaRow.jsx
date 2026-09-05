@@ -1,77 +1,53 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import MediaCard from "./MediaCard.jsx";
+import SectionTitle from "../ui/SectionTitle.jsx";
+import { ChevronLeftIcon, ChevronRightIcon, SpinnerIcon } from "../icons/index.jsx";
+import { cn } from "../../lib/cn.js";
 
 const SCROLL_EDGE = 8;
 const LOAD_MORE_SCROLL_THRESHOLD = 72;
 const MOBILE_LOAD_DEBOUNCE_MS = 400;
 
-function ChevronLeft() {
-  return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-      <path d="m15 18-6-6 6-6" />
-    </svg>
-  );
-}
+// Card slot width per breakpoint — MediaCard itself is fluid (w-full).
+export const ROW_SLOT_CLASS = "w-[104px] shrink-0 snap-start xs:w-[112px] sm:w-[132px] lg:w-[150px] 2xl:w-[168px] 3xl:w-[190px]";
 
-function ChevronRight() {
-  return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-      <path d="m9 18 6-6-6-6" />
-    </svg>
-  );
-}
-
-function MediaRow({ title, items, session, onLoadMore, hasMore = false, isLoadingMore = false }) {
+// Horizontal poster strip. Touch: swipe with scroll-snap, loads more at the
+// end. Pointer devices (lg+): hover chevrons; the right one also loads more.
+function MediaRow({ title, items, session, onLoadMore, hasMore = false, isLoadingMore = false, action }) {
   const scrollRef = useRef(null);
   const loadMoreTimerRef = useRef(null);
   const loadMoreTriggeredRef = useRef(false);
-
   const [showLeftArrow, setShowLeftArrow] = useState(false);
   const [showRightArrow, setShowRightArrow] = useState(true);
-
-  const scrollDelta =
-    typeof window !== "undefined" && window.innerWidth < 768 ? 280 : 480;
 
   const updateArrowVisibility = useCallback(() => {
     const el = scrollRef.current;
     if (!el) return;
     const { scrollLeft, scrollWidth, clientWidth } = el;
-    const atStart = scrollLeft <= SCROLL_EDGE;
-    const atEnd = scrollLeft + clientWidth >= scrollWidth - SCROLL_EDGE;
-    setShowLeftArrow(!atStart);
-    setShowRightArrow(!atEnd || hasMore);
+    setShowLeftArrow(scrollLeft > SCROLL_EDGE);
+    setShowRightArrow(scrollLeft + clientWidth < scrollWidth - SCROLL_EDGE || hasMore);
   }, [hasMore]);
 
   useLayoutEffect(() => {
     updateArrowVisibility();
   }, [items.length, updateArrowVisibility]);
 
-  /** If the row does not overflow (e.g. wide screen or few cards), still fetch more on mobile so users can reach scroll-end loading. */
+  // If the row doesn't overflow on a phone (few cards), fetch more so the
+  // scroll-end loader is reachable.
   useLayoutEffect(() => {
     const el = scrollRef.current;
     if (!el || !onLoadMore || !hasMore || isLoadingMore) return;
     if (window.matchMedia("(min-width: 768px)").matches) return;
-    if (el.scrollWidth <= el.clientWidth + 8) {
-      onLoadMore();
-    }
+    if (el.scrollWidth <= el.clientWidth + 8) onLoadMore();
   }, [items.length, hasMore, isLoadingMore, onLoadMore]);
 
   useEffect(() => {
     const el = scrollRef.current;
-    if (!el) return;
-
+    if (!el) return undefined;
     const ro = new ResizeObserver(() => updateArrowVisibility());
     ro.observe(el);
     return () => ro.disconnect();
   }, [updateArrowVisibility]);
-
-
-  const clearLoadMoreDebounce = () => {
-    if (loadMoreTimerRef.current != null) {
-      window.clearTimeout(loadMoreTimerRef.current);
-      loadMoreTimerRef.current = null;
-    }
-  };
 
   const tryLoadMoreAtScrollEnd = useCallback(() => {
     const el = scrollRef.current;
@@ -86,93 +62,66 @@ function MediaRow({ title, items, session, onLoadMore, hasMore = false, isLoadin
   }, [onLoadMore, hasMore, isLoadingMore]);
 
   useEffect(() => {
-    if (!isLoadingMore) {
-      loadMoreTriggeredRef.current = false;
-    }
+    if (!isLoadingMore) loadMoreTriggeredRef.current = false;
   }, [isLoadingMore]);
 
   useEffect(() => {
     const el = scrollRef.current;
-    if (!el) return;
-
-    const isDesktop = () => window.matchMedia("(min-width: 768px)").matches;
-
+    if (!el) return undefined;
     const onScroll = () => {
       updateArrowVisibility();
-      if (isDesktop()) return;
-      clearLoadMoreDebounce();
+      if (window.matchMedia("(min-width: 1024px)").matches) return;
+      window.clearTimeout(loadMoreTimerRef.current);
       loadMoreTimerRef.current = window.setTimeout(() => {
         loadMoreTimerRef.current = null;
         tryLoadMoreAtScrollEnd();
       }, MOBILE_LOAD_DEBOUNCE_MS);
     };
-
     el.addEventListener("scroll", onScroll, { passive: true });
     return () => {
       el.removeEventListener("scroll", onScroll);
-      clearLoadMoreDebounce();
+      window.clearTimeout(loadMoreTimerRef.current);
     };
   }, [updateArrowVisibility, tryLoadMoreAtScrollEnd]);
 
-  const scrollLeft = () => {
-    scrollRef.current?.scrollBy({ left: -scrollDelta, behavior: "smooth" });
-  };
-
-  const scrollRight = () => {
+  const delta = () => Math.max(240, (scrollRef.current?.clientWidth ?? 480) * 0.8);
+  const scrollLeftBy = () => scrollRef.current?.scrollBy({ left: -delta(), behavior: "smooth" });
+  const scrollRightBy = () => {
     const el = scrollRef.current;
     if (!el) return;
     const atEnd = el.scrollLeft + el.clientWidth >= el.scrollWidth - SCROLL_EDGE;
-    if (atEnd && hasMore && onLoadMore) {
-      onLoadMore();
-      return;
-    }
-    el.scrollBy({ left: scrollDelta, behavior: "smooth" });
+    if (atEnd && hasMore && onLoadMore) { onLoadMore(); return; }
+    el.scrollBy({ left: delta(), behavior: "smooth" });
   };
 
-  return (
-    <section>
-      {/* Match desktop left control (w-10 + mr-3) so the title lines up with the first poster */}
-      <div className="mb-3 flex min-w-0 items-center">
-        <div className="pointer-events-none hidden w-10 shrink-0 md:mr-3 md:block" aria-hidden />
-        <span className="mr-2.5 h-5 w-1 shrink-0 rounded-full bg-gradient-to-b from-[#c084fc] to-[#6f6fdc]" aria-hidden />
-        <h2 className="min-w-0 text-xl font-extrabold tracking-tight text-white">
-          {title}
-        </h2>
-      </div>
+  const arrowClass = "absolute top-1/2 z-10 hidden h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-border bg-surface-2/90 text-[#a78bfa] shadow-lg backdrop-blur-sm transition hover:border-brand hover:text-white active:scale-95 disabled:pointer-events-none disabled:opacity-0 lg:flex";
 
-      <div className="relative flex items-center">
-        <button
-          type="button"
-          onClick={scrollLeft}
-          aria-label="Scroll left"
-          disabled={!showLeftArrow}
-          className={`mr-3 hidden h-10 w-10 flex-shrink-0 items-center justify-center rounded-full border border-[#2a3570] bg-[#141728]/80 text-[#a78bfa] backdrop-blur-sm transition active:scale-95 hover:border-[#6f6fdc] hover:bg-[#1a1d40] hover:text-white disabled:pointer-events-none disabled:opacity-0 md:flex ${showLeftArrow ? "" : "invisible"}`}
-        >
-          <ChevronLeft />
+  return (
+    <section className="group/row">
+      <SectionTitle size="lg" action={action}>{title}</SectionTitle>
+      <div className="relative">
+        <button type="button" onClick={scrollLeftBy} aria-label="Scroll left" disabled={!showLeftArrow} className={cn(arrowClass, "-left-3 xl:-left-5", showLeftArrow ? "lg:opacity-0 lg:group-hover/row:opacity-100 lg:focus-visible:opacity-100" : "")}>
+          <ChevronLeftIcon size={20} strokeWidth={2.5} />
         </button>
 
         <div
           ref={scrollRef}
-          className="flex min-w-0 flex-1 gap-3 overflow-x-auto overflow-y-hidden px-1 pb-3 pt-3 scrollbar-none"
-          style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
+          className="scrollbar-none -mx-3 flex snap-x snap-mandatory gap-3 overflow-x-auto overflow-y-hidden px-3 pb-3 pt-2 sm:-mx-5 sm:px-5 lg:mx-0 lg:snap-none lg:px-1"
         >
           {items.map((item) => (
-            <MediaCard key={`${item.type}-${item.id}`} {...item} isAuthenticated={!!session} />
+            <div key={`${item.type}-${item.id}`} className={ROW_SLOT_CLASS}>
+              <MediaCard {...item} isAuthenticated={!!session} />
+            </div>
           ))}
+          {isLoadingMore && (
+            <div className={cn(ROW_SLOT_CLASS, "flex aspect-[2/3] items-center justify-center text-text-dim")} aria-hidden>
+              <SpinnerIcon size={22} />
+            </div>
+          )}
         </div>
 
-        <button
-          type="button"
-          onClick={scrollRight}
-          aria-label={hasMore ? "Scroll right or load more" : "Scroll right"}
-          disabled={!showRightArrow || isLoadingMore}
-          className={`ml-3 hidden h-10 w-10 flex-shrink-0 items-center justify-center rounded-full border border-[#2a3570] bg-[#141728]/80 text-[#a78bfa] backdrop-blur-sm transition active:scale-95 hover:border-[#6f6fdc] hover:bg-[#1a1d40] hover:text-white disabled:pointer-events-none md:flex ${!showRightArrow ? "invisible" : isLoadingMore ? "opacity-70" : ""}`}
-        >
-          {isLoadingMore ? (
-            <span className="h-4 w-4 animate-spin rounded-full border-2 border-[#8888c8] border-t-transparent" aria-hidden />
-          ) : (
-            <ChevronRight />
-          )}
+        <button type="button" onClick={scrollRightBy} aria-label={hasMore ? "Scroll right or load more" : "Scroll right"} disabled={!showRightArrow || isLoadingMore} className={cn(arrowClass, "-right-3 xl:-right-5", showRightArrow ? "lg:opacity-0 lg:group-hover/row:opacity-100 lg:focus-visible:opacity-100" : "")}>
+          {isLoadingMore ? <SpinnerIcon size={16} /> : <ChevronRightIcon size={20} strokeWidth={2.5} />}
         </button>
       </div>
     </section>

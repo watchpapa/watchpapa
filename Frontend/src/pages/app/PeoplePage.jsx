@@ -2,86 +2,57 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import AppLayout from "../../layouts/AppLayout.jsx";
 import SearchBar from "../../components/home/SearchBar.jsx";
+import PageContainer from "../../components/ui/PageContainer.jsx";
+import PageHeader from "../../components/ui/PageHeader.jsx";
+import ErrorNote from "../../components/ui/ErrorNote.jsx";
+import LoadMoreButton from "../../components/ui/LoadMoreButton.jsx";
+import { Skeleton } from "../../components/ui/Skeleton.jsx";
+import { PageHead } from "../../components/ui/PageHead.jsx";
 import { usePeoplePageData } from "../../features/people/hooks/usePeoplePageData.js";
 import { tmdbImg } from "../../lib/tmdbImage.js";
+import { UserIcon } from "../../components/icons/index.jsx";
 
-function fmtDate(val) {
-  if (!val) return null;
-  return new Date(val).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
+const GRID = "grid grid-cols-2 gap-3 xs:grid-cols-3 sm:gap-4 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 3xl:grid-cols-8";
+
+function fmtYear(val) {
+  return val ? new Date(val).getFullYear() : null;
 }
 
-function PersonRow({ person, rank }) {
-  const born = fmtDate(person.birthday);
-
-  const details = [
-    born && ["Born", born],
-    person.place_of_birth && ["From", person.place_of_birth],
-  ].filter(Boolean);
-
+function PersonCard({ person, rank }) {
+  const born = fmtYear(person.birthday);
+  const line = [person.known_for_department, born && `b. ${born}`].filter(Boolean).join(" · ");
   return (
     <Link
       to={`/people/${person.id}`}
-      className="flex items-start gap-3 rounded-2xl border border-[#2a3570]/60 bg-[#0d0f1e]/70 p-3 backdrop-blur-sm transition hover:-translate-y-0.5 hover:border-[#6f6fdc] hover:bg-[#141728] hover:shadow-[0_14px_30px_-16px_rgba(111,111,220,0.5)] sm:gap-5 sm:p-4"
+      className="group flex flex-col gap-2 rounded-2xl border border-border/50 bg-surface/70 p-2 transition hover:-translate-y-0.5 hover:border-brand hover:shadow-[0_14px_30px_-16px_rgba(111,111,220,0.5)] sm:p-3"
     >
-      <span className="mt-1 hidden w-8 flex-shrink-0 text-right text-sm font-bold text-[#3a3a7a] sm:block">
-        {rank}
-      </span>
-
-      <div className="h-32 w-[86px] flex-shrink-0 overflow-hidden rounded-xl border border-[#2a3570] bg-[#12163a]">
+      <div className="relative aspect-[3/4] overflow-hidden rounded-xl border border-border bg-surface-4">
         {person.profile_path ? (
-          <img
-            src={tmdbImg(person.profile_path, "w185")}
-            alt={person.name}
-            className="h-full w-full object-cover"
-            loading="lazy"
-          />
+          <img src={tmdbImg(person.profile_path, "w342")} alt={person.name} className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.05]" loading="lazy" />
         ) : (
-          <div className="flex h-full w-full items-center justify-center">
-            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#3a3a7a" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="12" cy="8" r="4" />
-              <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" />
-            </svg>
-          </div>
+          <div className="flex h-full w-full items-center justify-center text-border-strong"><UserIcon size={36} /></div>
+        )}
+        {rank != null && (
+          <span className="absolute left-2 top-2 rounded-md bg-[#0a0c23]/85 px-1.5 py-0.5 text-[10px] font-bold text-text-muted backdrop-blur-sm">#{rank}</span>
         )}
       </div>
-
-      <div className="min-w-0 flex-1 pt-1">
-        <p className="text-base font-extrabold text-white leading-tight">{person.name}</p>
-        {details.length > 0 && (
-          <ul className="mt-2 space-y-1">
-            {details.map(([label, value]) => (
-              <li key={label} className="flex gap-2 text-xs">
-                <span className="w-8 flex-shrink-0 font-semibold text-[#8383e7]">{label}</span>
-                <span className="text-[#c0c0e8]">{value}</span>
-              </li>
-            ))}
-          </ul>
-        )}
+      <div className="min-w-0 px-0.5">
+        <p className="line-clamp-2 text-sm font-bold leading-tight text-white">{person.name}</p>
+        {line && <p className="mt-0.5 line-clamp-1 text-[11px] text-text-dim">{line}</p>}
+        {person.place_of_birth && <p className="line-clamp-1 text-[11px] text-text-faint">{person.place_of_birth}</p>}
       </div>
-
-      <svg className="mt-1 hidden flex-shrink-0 text-[#3a3a7a] sm:block" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-        <path d="M9 18l6-6-6-6" />
-      </svg>
     </Link>
   );
 }
 
-function SkeletonRows() {
-  return (
-    <>
-      {Array.from({ length: 10 }).map((_, i) => (
-        <div key={i} className="flex items-start gap-3 rounded-2xl border border-[#2a3570]/50 bg-[#0d0f1e] p-3 sm:gap-5 sm:p-4">
-          <div className="mt-1 hidden h-4 w-8 animate-pulse rounded bg-[#1e2240] sm:block" />
-          <div className="h-32 w-[86px] flex-shrink-0 animate-pulse rounded-xl bg-[#1e2240]" />
-          <div className="flex-1 space-y-2 pt-1">
-            <div className="h-5 w-44 animate-pulse rounded bg-[#1e2240]" />
-            <div className="h-3 w-32 animate-pulse rounded bg-[#1e2240]" />
-            <div className="h-3 w-48 animate-pulse rounded bg-[#1e2240]" />
-          </div>
-        </div>
-      ))}
-    </>
-  );
+function SkeletonCards({ count = 12 }) {
+  return Array.from({ length: count }).map((_, i) => (
+    <div key={i} className="rounded-2xl border border-border/50 bg-surface/70 p-2 sm:p-3" aria-hidden>
+      <Skeleton className="aspect-[3/4] rounded-xl" />
+      <Skeleton className="mt-2 h-3.5 w-3/4" />
+      <Skeleton className="mt-1.5 h-3 w-1/2" />
+    </div>
+  ));
 }
 
 function PeoplePage({ session, showAdult }) {
@@ -90,42 +61,27 @@ function PeoplePage({ session, showAdult }) {
 
   return (
     <AppLayout session={session}>
-      <div className="mx-auto max-w-3xl">
-        <SearchBar value={search} onChange={(e) => setSearch(e.target.value)} />
-        <h2 className="mt-8 mb-6 flex items-center text-xl font-extrabold tracking-tight text-white">
-          <span className="mr-2.5 h-5 w-1 shrink-0 rounded-full bg-gradient-to-b from-[#c084fc] to-[#6f6fdc]" aria-hidden />
-          Popular People
-        </h2>
+      <PageHead title="People" description="Browse popular actors, directors and crew on watchpapa." path="/people" />
+      <PageContainer width="wide" className="space-y-6">
+        <PageHeader title="Popular People" subtitle="Actors, directors and crew trending right now.">
+          <SearchBar value={search} onChange={(e) => setSearch(e.target.value)} maxWidthClass="max-w-[640px]" />
+        </PageHeader>
 
-        {error && (
-          <p className="text-center text-sm text-red-400 mb-4">Failed to load people: {error}</p>
-        )}
+        {error && <ErrorNote>Failed to load people: {error}</ErrorNote>}
 
-        <div className="space-y-2">
+        <div className={GRID}>
           {isLoading ? (
-            <SkeletonRows />
+            <SkeletonCards />
           ) : (
             <>
-              {people.map((person, i) => (
-                <PersonRow key={person.id} person={person} rank={i + 1} />
-              ))}
-              {isLoadingMore && <SkeletonRows />}
+              {people.map((person, i) => <PersonCard key={person.id} person={person} rank={i + 1} />)}
+              {isLoadingMore && <SkeletonCards count={6} />}
             </>
           )}
         </div>
 
-        {!isLoading && hasMore && (
-          <div className="mt-6 flex justify-center">
-            <button
-              onClick={loadMore}
-              disabled={isLoadingMore}
-              className="rounded-xl border border-[#6f6fdc] bg-gradient-to-b from-[#6f6fdc] to-[#4b3bb0] px-6 py-2.5 text-sm font-bold text-white shadow-[0_8px_24px_-8px_rgba(111,111,220,0.7)] transition hover:from-[#8585ef] disabled:opacity-50"
-            >
-              {isLoadingMore ? "Loading…" : "Load more"}
-            </button>
-          </div>
-        )}
-      </div>
+        {!isLoading && <LoadMoreButton onClick={loadMore} loading={isLoadingMore} hasMore={hasMore} />}
+      </PageContainer>
     </AppLayout>
   );
 }

@@ -617,6 +617,12 @@ palette pushed vivid. Key recurring conventions introduced:
 - `components/detail/MediaActionPanel.jsx` ("Your activity") replaces the stack of seven self-margined widgets: `RatingSidebar` (hearts 30px on 40px hit areas; rated → "Change"/"Clear" buttons), then a `grid-cols-3` row of `ActionChip`s — `WatchedPanel` (unwatched: one tap logs today; watched: green "Watched · N×" chip opening the rewatch diary as a `Popover` on `md+` / `Sheet` on phones: dated "Log another watch" + history with per-entry remove), `AddToWatchlistButton variant="chip"` (picker is a `Popover`/`Sheet` too — the old absolutely-positioned `min-w-max` toast is gone), Share — then `RatingHistogram`, then `RatingHistoryPanel` + `ObservedRatingsPanel` as consistent collapsible rows. Movie/Show pass `watched` + `watchlist` + `onShare`; Season/Episode/Person only `rating` (or no panel for people).
 - `FollowButton` and `MediaCard`'s pill show "✓ Following ✕" on every device (no hover-only label swap). `CastGrid` scales avatars 56→80px with 3/4/5/6/8 columns. `WhereToWatch` region tabs and `PersonPage` filmography filters use `PillTabs`.
 
+### Browse, people, search, adult (2026-09 redesign, phase 4)
+
+- `pages/app/MediaBrowsePage.jsx` is `/movies` and `/shows` (`kind="movie"|"show"`, calls `useMediaBrowse` directly — the two near-identical page files are 5-line wrappers and the per-kind hook wrappers were deleted). `PageHeader` + inline `SearchBar`, `SkeletonPosterRow`, `ErrorNote`.
+- `components/home/PosterGrid.jsx` (`POSTER_GRID_CLASS`) is the one poster grid (2 cols at 320, 3 from `xs`, auto-fill 130→150→168→190px). `MediaCard` is fluid (`w-full`); `MediaRow` gives each slot an explicit width (`ROW_SLOT_CLASS`), scroll-snaps on touch with full-bleed edges, and shows hover chevrons only from `lg`. `MediaGrid` = `SectionTitle` + `PosterGrid` + `LoadMoreButton`.
+- `PeoplePage` is a responsive card grid (2/3/4/5/6/8 columns) with rank badges; `SearchPage` uses `PillTabs` (type + counts) and a `Select` sort that stacks under the tabs on phones, `PosterGrid` for media and people, `EmptyState`s and `LoadMoreButton`; `AdultPage` has the same toolbar and a `Button`-based interstitial.
+
 ### Header, account menu, mobile navigation (2026-09 redesign, phase 1)
 
 - **`features/profile/CurrentUserContext.jsx`** — `CurrentUserProvider` (mounted in `App.jsx`

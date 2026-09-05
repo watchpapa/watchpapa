@@ -3,9 +3,19 @@ import { Navigate } from "react-router-dom";
 import AppLayout from "../../layouts/AppLayout.jsx";
 import MediaGrid from "../../components/home/MediaGrid.jsx";
 import { PageHead } from "../../components/ui/PageHead.jsx";
+import PageContainer from "../../components/ui/PageContainer.jsx";
+import PageHeader from "../../components/ui/PageHeader.jsx";
+import PillTabs from "../../components/ui/PillTabs.jsx";
+import Select from "../../components/ui/Select.jsx";
+import Badge from "../../components/ui/Badge.jsx";
+import Button from "../../components/ui/Button.jsx";
+import EmptyState from "../../components/ui/EmptyState.jsx";
+import ErrorNote from "../../components/ui/ErrorNote.jsx";
+import { SkeletonPosterGrid } from "../../components/ui/Skeleton.jsx";
 import { useAdultPageData } from "../../features/adult/hooks/useAdultPageData.js";
 import { useContent } from "../../features/content/hooks/useContent.js";
 import { usePreferences } from "../../features/preferences/PreferencesContext.jsx";
+import { AlertIcon } from "../../components/icons/index.jsx";
 
 const CONFIRM_KEY = "wp:adultPageConfirmed";
 
@@ -18,14 +28,14 @@ function readConfirmed() {
 }
 
 const TYPES = [
-  { key: "movie", label: "Movies" },
-  { key: "show", label: "Shows" },
+  { value: "movie", label: "Movies" },
+  { value: "show", label: "Shows" },
 ];
 
 const SORTS = [
-  { key: "popular", label: "Most popular" },
-  { key: "rated", label: "Highest rated" },
-  { key: "newest", label: "Newest" },
+  { value: "popular", label: "Most popular" },
+  { value: "rated", label: "Highest rated" },
+  { value: "newest", label: "Newest" },
 ];
 
 // Category select value encoding: "" = all, "k:<ids>" = NSFW keyword category,
@@ -36,56 +46,29 @@ function parseCategory(value) {
   return { keyword: null, genreId: null };
 }
 
-function SkeletonGrid() {
-  return (
-    <div className="grid grid-cols-[repeat(auto-fill,minmax(96px,1fr))] gap-2 sm:grid-cols-[repeat(auto-fill,minmax(130px,1fr))] sm:gap-3 lg:grid-cols-[repeat(auto-fill,minmax(150px,1fr))]">
-      {Array.from({ length: 14 }).map((_, i) => (
-        <div key={i}>
-          <div className="aspect-[2/3] animate-pulse rounded-2xl bg-[#1e2240]" />
-          <div className="mt-2 h-3 animate-pulse rounded bg-[#1e2240]" />
-        </div>
-      ))}
-    </div>
-  );
-}
-
-// One-time-per-tab interstitial — the two Settings switches already mean the
-// user opted in, but landing here (Navbar link or a bookmarked/typed URL) still
-// gets an explicit heads-up before any poster renders, same spirit as the
-// age-gate on signup. Posters here are deliberately NOT blurred — this is the
-// gate instead.
+// One-time-per-tab interstitial: the two Settings switches already mean the
+// user opted in, but landing here still gets an explicit heads-up before any
+// poster renders. Posters here are deliberately NOT blurred — this is the gate.
 function Warning({ onConfirm }) {
   return (
-    <div className="mx-auto flex max-w-md flex-col items-center gap-4 py-24 text-center">
-      <span className="rounded-full border border-red-500/40 bg-red-500/10 px-3 py-1 text-xs font-bold uppercase tracking-widest text-red-400">
-        18+ Content
+    <div className="mx-auto flex max-w-md flex-col items-center gap-4 py-16 text-center sm:py-24">
+      <span className="flex h-14 w-14 items-center justify-center rounded-2xl border border-red-500/40 bg-red-500/10 text-red-400">
+        <AlertIcon size={26} />
       </span>
+      <Badge variant="danger" size="md">18+ content</Badge>
       <h1 className="text-2xl font-extrabold text-white">You're about to view adult content</h1>
-      <p className="text-sm text-[#8888c8]">
-        This page lists movies and shows flagged as adult/erotica — unblurred, unlike everywhere
-        else in the app. It's only reachable because you turned on the Adult tab in Settings.
+      <p className="text-sm text-text-muted">
+        This page lists movies and shows flagged as adult/erotica — unblurred, unlike everywhere else in the app. It's only reachable because you turned on the Adult tab in Settings.
       </p>
-      <div className="flex gap-3 pt-2">
-        <button
-          type="button"
-          onClick={onConfirm}
-          className="rounded-xl border border-red-500 bg-gradient-to-b from-red-500 to-red-700 px-5 py-2.5 text-sm font-semibold text-white shadow-[0_4px_14px_-6px_rgba(220,38,38,0.8)] transition hover:from-red-400 hover:to-red-600"
-        >
+      <div className="mt-2 grid w-full grid-cols-1 gap-2 xs:grid-cols-2">
+        <Button to="/" variant="secondary" size="lg">Take me back</Button>
+        <Button onClick={onConfirm} size="lg" className="border-red-500 from-red-500 to-red-700 shadow-[0_4px_14px_-6px_rgba(220,38,38,0.8)] hover:from-red-400 hover:to-red-600">
           I understand, continue
-        </button>
-        <a
-          href="/"
-          className="rounded-xl border border-[#2a3570] px-5 py-2.5 text-sm font-semibold text-[#8888c8] transition hover:text-white"
-        >
-          Take me back
-        </a>
+        </Button>
       </div>
     </div>
   );
 }
-
-const selectClass =
-  "rounded-lg border border-[#2a3570] bg-[#141728] px-3 py-2 text-sm text-white outline-none transition focus:border-[#6f6fdc]";
 
 function AdultPage({ session, showAdult }) {
   const { showAdultTab } = usePreferences();
@@ -102,37 +85,32 @@ function AdultPage({ session, showAdult }) {
   const categories = catData?.categories ?? [];
   const genres = (type === "movie" ? genreData?.movie : genreData?.tv) ?? [];
 
-  const { items, isLoading, error, hasMore, loadMore, loadingMore } = useAdultPageData(session, enabled, {
-    type,
-    sort,
-    ...parseCategory(category),
-  });
+  const { items, isLoading, error, hasMore, loadMore, loadingMore } = useAdultPageData(session, enabled, { type, sort, ...parseCategory(category) });
 
-  // Self-guard: the Navbar link is only ever rendered when both switches are
-  // on, but a direct/bookmarked URL visit skips that check entirely.
+  // Self-guard: a direct/bookmarked URL visit skips the Navbar's check.
   if (!allowed) return <Navigate to="/" replace />;
 
   function confirm() {
     setConfirmed(true);
-    try {
-      sessionStorage.setItem(CONFIRM_KEY, "1");
-    } catch {
-      /* private-mode browsers: just re-warn next visit this session */
-    }
+    try { sessionStorage.setItem(CONFIRM_KEY, "1"); } catch { /* re-warn next visit */ }
   }
 
   function changeType(next) {
     setType(next);
-    // Genre ids differ between movie/tv — a genre pick doesn't carry over.
-    if (category.startsWith("g:")) setCategory("");
+    if (category.startsWith("g:")) setCategory(""); // genre ids differ between movie/tv
   }
 
-  const activeLabel =
-    category.startsWith("k:")
-      ? categories.find((c) => `k:${c.ids}` === category)?.label
-      : category.startsWith("g:")
-        ? genres.find((g) => `g:${g.id}` === category)?.name
-        : null;
+  const activeLabel = category.startsWith("k:")
+    ? categories.find((c) => `k:${c.ids}` === category)?.label
+    : category.startsWith("g:")
+      ? genres.find((g) => `g:${g.id}` === category)?.name
+      : null;
+
+  const categoryOptions = [
+    { value: "", label: "All categories" },
+    ...categories.map((c) => ({ value: `k:${c.ids}`, label: `Type · ${c.label}` })),
+    ...genres.map((g) => ({ value: `g:${g.id}`, label: `Genre · ${g.name}` })),
+  ];
 
   return (
     <AppLayout session={session}>
@@ -140,74 +118,27 @@ function AdultPage({ session, showAdult }) {
       {!confirmed ? (
         <Warning onConfirm={confirm} />
       ) : (
-        <div className="mx-auto max-w-[1600px] space-y-6">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <h1 className="flex items-center text-xl font-bold text-white">
-              <span className="mr-2.5 h-5 w-1 shrink-0 rounded-full bg-gradient-to-b from-red-500 to-red-800" aria-hidden />
-              Adult
-              <span className="ml-2.5 rounded-full border border-red-500/40 bg-red-500/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest text-red-400">
-                18+
-              </span>
-            </h1>
-
-            <div className="flex flex-wrap items-center gap-2">
-              <div className="flex gap-1 rounded-xl border border-[#2a3570]/50 bg-[#0a0c18] p-1">
-                {TYPES.map(({ key, label }) => (
-                  <button
-                    key={key}
-                    type="button"
-                    onClick={() => changeType(key)}
-                    className={`rounded-lg px-3.5 py-1.5 text-sm font-semibold transition ${
-                      type === key
-                        ? "bg-gradient-to-b from-red-500 to-red-800 text-white shadow-[0_4px_14px_-6px_rgba(220,38,38,0.8)]"
-                        : "text-[#8888c8] hover:text-white"
-                    }`}
-                  >
-                    {label}
-                  </button>
-                ))}
+        <PageContainer width="wide" className="space-y-6">
+          <PageHeader
+            title="Adult"
+            badge={<Badge variant="danger" size="xs" className="ml-2">18+</Badge>}
+            subtitle="Titles flagged as adult or erotica. Shown unblurred — you opted in via Settings."
+          >
+            <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+              <PillTabs aria-label="Type" tabs={TYPES} value={type} onChange={changeType} className="w-fit" />
+              <div className="grid grid-cols-2 gap-2 sm:flex">
+                <Select value={category} onChange={setCategory} options={categoryOptions} aria-label="Category" full />
+                <Select value={sort} onChange={setSort} options={SORTS} aria-label="Sort by" full />
               </div>
-
-              <select value={category} onChange={(e) => setCategory(e.target.value)} className={selectClass} aria-label="Category">
-                <option value="">All categories</option>
-                {categories.length > 0 && (
-                  <optgroup label="Type">
-                    {categories.map((c) => (
-                      <option key={c.key} value={`k:${c.ids}`}>
-                        {c.label}
-                      </option>
-                    ))}
-                  </optgroup>
-                )}
-                {genres.length > 0 && (
-                  <optgroup label="Genre">
-                    {genres.map((g) => (
-                      <option key={g.id} value={`g:${g.id}`}>
-                        {g.name}
-                      </option>
-                    ))}
-                  </optgroup>
-                )}
-              </select>
-
-              <select value={sort} onChange={(e) => setSort(e.target.value)} className={selectClass} aria-label="Sort by">
-                {SORTS.map((s) => (
-                  <option key={s.key} value={s.key}>
-                    {s.label}
-                  </option>
-                ))}
-              </select>
             </div>
-          </div>
+          </PageHeader>
 
-          {error && <p className="text-center text-sm text-red-400">Failed to load content: {error}</p>}
+          {error && <ErrorNote>Failed to load content: {error}</ErrorNote>}
 
           {isLoading ? (
-            <SkeletonGrid />
+            <SkeletonPosterGrid count={14} />
           ) : items.length === 0 ? (
-            <p className="py-16 text-center text-sm text-[#4a4a7a]">
-              Nothing here{activeLabel ? ` for ${activeLabel}` : ""} — try another category or sort.
-            </p>
+            <EmptyState title={`Nothing here${activeLabel ? ` for ${activeLabel}` : ""}`} description="Try another category or sort." />
           ) : (
             <MediaGrid
               title={`${type === "movie" ? "Movies" : "Shows"}${activeLabel ? ` · ${activeLabel}` : ""}`}
@@ -218,7 +149,7 @@ function AdultPage({ session, showAdult }) {
               isLoadingMore={loadingMore}
             />
           )}
-        </div>
+        </PageContainer>
       )}
     </AppLayout>
   );

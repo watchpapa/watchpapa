@@ -68,7 +68,7 @@ function MediaCard({ id, type, title, posterPath, isFollowing = false, onFollowT
   }
 
   return (
-    <article className="group/card flex w-[100px] flex-shrink-0 flex-col gap-1.5 sm:w-[132px] sm:gap-2 lg:w-[150px]">
+    <article className="group/card flex w-full min-w-0 flex-col gap-1.5 sm:gap-2">
       {showAuthPrompt && <AuthPromptModal onClose={() => setShowAuthPrompt(false)} />}
 
       <Link
