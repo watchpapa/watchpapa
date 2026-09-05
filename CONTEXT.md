@@ -574,6 +574,35 @@ palette pushed vivid. Key recurring conventions introduced:
 - **Glass** treatment (`bg-…/70-80` + `backdrop-blur`) on the navbar, detail panels, and
   search dropdown. `InfoPageShell` styles all static/info pages (accent headings + prose).
 
+### UI foundations (2026-09 redesign)
+
+- **Tokens.** `styles/globals.css` declares the palette as Tailwind v4 `@theme` colors
+  (`bg`, `surface`/`surface-2/3/4`, `border`/`border-strong`/`border-hover`, `brand`/`brand-deep`/
+  `brand-light`, `accent`, `text`/`text-muted`/`text-dim`/`text-faint`/`text-link`/`heading`), so new
+  code writes `bg-surface border-border text-text-muted`. Older files keep the identical hex
+  literals — no mass rewrite. Also defined there: every keyframe the app references (the old
+  `index.css`/`App.css` were never imported and are deleted), `prefers-reduced-motion`,
+  `@utility pb-safe/pt-safe/px-safe/pb-tabbar/scrollbar-none`, breakpoints `xs` (400px) and
+  `3xl` (1920px), and variants `landscape-short:` (rotated phones, `max-height:500px`) and
+  `touch:` (`hover:none`). `index.html` sets `viewport-fit=cover` so safe-area insets are real.
+- **Breakpoint convention.** `<md` phone (bottom tab bar + drawer), `md–lg` tablet (text nav),
+  `lg+` desktop (detail/admin/settings sidebars), `xl+` wide, `3xl` ultrawide (1920px page cap).
+- **Hooks** (`src/hooks/`): `useClickOutside(refs, fn, active)`, `useEscapeKey(fn, active)`,
+  `useMediaQuery(q)` + `useIsPhone/useIsDesktop/useIsLandscapeShort/useIsTouch`,
+  `useBodyScrollLock(active)` (ref-counted, scrollbar-compensated).
+- **Primitives** (`components/ui/`): `Button` (variant primary/secondary/outline/ghost/danger/
+  success, size xs–lg, `loading`, `icon`, `to`/`href`), `IconButton` (label required, `badge`),
+  `Switch` (44×24, replaces the 176px `Toggle` in dense rows), `Badge`, `PillTabs` (scrollable
+  tablist), `Select` (native, `size`/`full`), `PageContainer` (`narrow|reading|standard|wide|full`),
+  `PageHeader` (gradient-bar h1 + actions + toolbar slot), `SectionTitle`, `EmptyState`,
+  `ErrorNote`, `Skeleton` (+ `SkeletonPoster/Grid/Row/Lines`), `LoadMoreButton`, `Popover`
+  (portaled, viewport-clamped, flips), `Sheet` (bottom sheet; side panel on `left`/`right` and
+  automatically on rotated phones), `Modal` (full-screen `<sm`), `Menu`/`MenuGroup`/`MenuItem`/
+  `MenuDivider` (ARIA menu with arrow-key nav), `DataTable` (table `md+`, stacked cards `<md`).
+  `lib/cn.js` now uses `tailwind-merge` so caller classes override primitive defaults.
+- **Icons.** `components/icons/index.jsx` — one Feather-style set (`size` prop). New code imports
+  from here instead of pasting inline SVGs.
+
 ---
 
 ## Key Conventions

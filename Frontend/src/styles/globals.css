@@ -1,9 +1,58 @@
 @import "tailwindcss";
 
+/* ── Design tokens ─────────────────────────────────────────────────────────
+   The palette the app already uses, exposed as Tailwind v4 theme tokens so new
+   code can say `bg-surface` / `border-border` / `text-muted` instead of hex
+   literals. Older components keep their literal classes; the two are identical. */
+@theme {
+  --color-bg: #111320;
+  --color-surface: #0d0f1e;
+  --color-surface-2: #141728;
+  --color-surface-3: #1a1d35;
+  --color-surface-4: #1e2140;
+  --color-border: #2a3570;
+  --color-border-strong: #3a3a7a;
+  --color-border-hover: #5a5aaa;
+  --color-brand: #6f6fdc;
+  --color-brand-deep: #4b3bb0;
+  --color-brand-light: #8b8bff;
+  --color-accent: #c084fc;
+  --color-text: #c0c0e8;
+  --color-text-strong: #ffffff;
+  --color-text-link: #a0a0e8;
+  --color-text-muted: #8888c8;
+  --color-text-dim: #6868b8;
+  --color-text-faint: #4a4a7a;
+  --color-heading: #8383e7;
+
+  --breakpoint-xs: 25rem;   /* 400px  — large phones: 3-col poster grids */
+  --breakpoint-3xl: 120rem; /* 1920px — ultrawide: page cap + card bump */
+
+  --shadow-glow: 0 8px 24px -8px rgba(111, 111, 220, 0.7);
+  --shadow-glow-sm: 0 4px 14px -6px rgba(111, 111, 220, 0.8);
+
+  --animate-fade-slide-down: fadeSlideDown 0.15s ease-out;
+  --animate-slide-down: slideDown 0.18s ease-out;
+  --animate-slide-up: slideUp 0.22s ease-out;
+  --animate-slide-in-left: slideInLeft 0.22s ease-out;
+  --animate-slide-in-right: slideInRight 0.22s ease-out;
+  --animate-fade-in: fadeIn 0.15s ease-out;
+  --animate-auth-form-in: authFormIn 0.35s ease-out;
+  --animate-follow-pop: followPop 0.4s ease-out;
+}
+
+/* Rotated phones: 844×390, 956×440 … — chrome must shrink, tab bar must go. */
+@custom-variant landscape-short (@media (orientation: landscape) and (max-height: 500px));
+/* Touch-only pointer (no hover): bigger tap targets, no hover-only affordances. */
+@custom-variant touch (@media (hover: none));
+
 :root {
   color: #8383e7;
   background-color: #111320;
   font-family: "Proxima Nova", "Avenir Next", Avenir, "Segoe UI", system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  -webkit-tap-highlight-color: transparent;
 }
 
 *,
@@ -12,9 +61,16 @@
   box-sizing: border-box;
 }
 
+html {
+  /* Never let a stray fixed-width element make the whole page pan sideways. */
+  overflow-x: hidden;
+}
+
 body {
   margin: 0;
   min-height: 100vh;
+  min-height: 100svh;
+  overflow-x: hidden;
 }
 
 a {
@@ -22,13 +78,78 @@ a {
   text-decoration: none;
 }
 
+/* Native date inputs on iOS render as a tiny centred pill unless given a min height. */
+input[type="date"] {
+  min-height: 2.5rem;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+/* ── Utilities ──────────────────────────────────────────────────────────── */
+@utility scrollbar-none {
+  scrollbar-width: none;
+  &::-webkit-scrollbar { display: none; }
+}
+
+@utility pb-safe {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+@utility pt-safe {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+@utility px-safe {
+  padding-left: env(safe-area-inset-left, 0px);
+  padding-right: env(safe-area-inset-right, 0px);
+}
+/* Height of the bottom tab bar (+ home indicator) — used to pad page bottoms. */
+@utility pb-tabbar {
+  padding-bottom: calc(4rem + env(safe-area-inset-bottom, 0px));
+}
+
+/* ── Keyframes (moved here from the never-imported index.css) ──────────── */
 @keyframes heroBannerFadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(8px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes fadeSlideDown {
+  from { opacity: 0; transform: translateY(-6px) scale(0.97); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(100%); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes slideInLeft {
+  from { opacity: 0; transform: translateX(-100%); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+@keyframes slideInRight {
+  from { opacity: 0; transform: translateX(100%); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes authFormIn {
+  from { opacity: 0; transform: translateY(22px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes followPop {
+  0%   { transform: scale(1); }
+  40%  { transform: scale(1.12); }
+  100% { transform: scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }
