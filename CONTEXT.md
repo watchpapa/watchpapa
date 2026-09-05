@@ -231,7 +231,7 @@ Dropped vs the old Express API: `/api/inject`, `/api/resolve`, `/api/import/run`
 | `/calendar` | Public | `ReleasesCalendarPage` | Today's releases highlighted amber; multiple episodes from same season collapse to "Season X"; hovered day scales 6% with purple border; calendar blocked (overage gate) when follow count exceeds tier limit — computed live from reactive arrays |
 | `/updates` | Public | `UpdatesPage` | Announcements feed |
 | `/subscription` | Public | `SubscriptionPage` | |
-| `/about`, `/help`, `/terms`, `/contact`, `/privacy`, `/certifications` | Public | `StaticInfoPages` | `/certifications` (`CertificationsInfoPage`) explains movie/show certifications with a per-country lookup table off `/api/content/certifications`; linked from the badge on `MoviePage`/`ShowPage` and the footer |
+| `/about`, `/help`, `/terms`, `/contact`, `/privacy`, `/certifications` | Public | `StaticInfoPages` | Footer pages, rewritten 2026-09-05 to match the current feature set (see Recent Fixes). Internal links use `<Link>`; `LAST_UPDATED` const at the top of the file is the Terms/Privacy "last updated" date — bump it whenever either changes.  `/certifications` (`CertificationsInfoPage`) explains movie/show certifications with a per-country lookup table off `/api/content/certifications`; linked from the badge on `MoviePage`/`ShowPage` and the footer |
 | `/settings` | Protected | `SettingsPage` | Requires session |
 | `/watchlists` | Protected | `WatchlistsPage` | Tabbed page: all lists as tabs, items + All/Watched/Unwatched filter shown inline |
 | `/follows` | Protected | `FollowsPage` | All followed shows + movies with unfollow buttons; tabs Shows/Movies; overage banner |
@@ -594,6 +594,11 @@ palette pushed vivid. Key recurring conventions introduced:
 ---
 
 ## Recent Fixes & Features
+
+**2026-09-05 footer pages refresh + feature announcement:**
+
+- `pages/app/static/StaticInfoPages.jsx` (About / Help / Terms / Contact / Privacy) and `SubscriptionPage.jsx` rewritten against the real feature set: live-TMDB architecture (no DigitalOcean, Cloudflare hosts site + API), JustWatch attribution, language/region/title-mode settings, Where to watch + watch regions (all tiers) vs streaming-service picking / My Services / "On Your Services" rows (Pro+), Suggested for you (seeds = ratings ≥6 + watched), home-row customisation, unified `/search`, collections + certifications, rewatch diary, rating history + "Add new rating", avatars (poster any tier, upload Pro+), poster download, filmography controls, follow gating, adult-content controls (18+ via DOB, NSFW keyword filter, blur, Adult tab), observe/activity/notifications/private/block, share cards, Letterboxd import / CSV export, OAuth (Google/GitHub), 90-day username cooldown, delete account. Plans table gained Watchlists / Profile stats / Streaming services / Custom avatar rows. Dropped the unverifiable "referral must complete within 30 days" claim (no expiry job exists — `referrals.status='expired'` is never set); the friend's tasks are 3 follows + 2 sign-in days (`check_referral_tasks`). `<li>` contents are wrapped in `<span>` because `InfoPageShell` makes each `li` a flex row for the accent bullet — mixed text + `<strong>` children would otherwise become separate flex items.
+- **Announcement drafted in the `announcements` table as `archived = true`** (title "🌍 Streaming, suggestions, your language & a rewatch diary — the biggest update yet", author = admin). Left hidden on purpose: at the time of writing `production` was 3 commits ahead of `origin/production` (My Services/collections/certifications, rewatch diary/rating history, RLS audit), so publishing would have announced undeployed features. Publish after deploy via `/admin/announcements` → restore, or `UPDATE announcements SET archived = false, updated_at = now() WHERE archived AND title LIKE '🌍 Streaming%'`. Body HTML also saved at the session scratchpad `announcement-2026-09.html`. Post style convention (matches the two earlier posts): emoji `<h2>` per feature, `<ul><li><p>` lists (RichTextEditor output shape), `<hr>` + sign-off line.
 
 **2026-09-05 RLS/access-control audit (migration 042):**
 
