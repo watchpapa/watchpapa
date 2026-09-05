@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "../../../lib/supabase.js";
+import { notifyProfileUpdated } from "../profileEvents.js";
 import { useContentBatch } from "../../content/hooks/useContentBatch.js";
 import { cardKey } from "../../content/lib/keys.js";
 
@@ -142,6 +143,7 @@ export function useEditProfile(session) {
       setAvatarSaving(false);
       if (err) { setError(err.message); return; }
       setAvatar(next);
+      notifyProfileUpdated();
       if (prevUploadPath) await supabase.storage.from("avatars").remove([prevUploadPath]);
     },
     [uid, avatar.uploadPath],
@@ -180,6 +182,7 @@ export function useEditProfile(session) {
       setAvatarSaving(false);
       if (profileErr) { setError(profileErr.message); return { error: profileErr.message }; }
       setAvatar({ type: "upload", posterMediaType: null, posterTmdbId: null, posterPath: null, uploadPath: path });
+      notifyProfileUpdated();
       if (prevUploadPath && prevUploadPath !== path) await supabase.storage.from("avatars").remove([prevUploadPath]);
       return { error: null };
     },
@@ -205,6 +208,7 @@ export function useEditProfile(session) {
     setAvatarSaving(false);
     if (err) { setError(err.message); return; }
     setAvatar(DEFAULT_AVATAR);
+    notifyProfileUpdated();
     if (prevUploadPath) await supabase.storage.from("avatars").remove([prevUploadPath]);
   }, [uid, avatar.uploadPath]);
 

@@ -97,7 +97,7 @@ watchpapa/
 │   │   ├── detail/
 │   │   │   ├── generateMediaShareCard.js # Canvas generator for movie/show share cards (3 formats: story 9:16, square 1:1, wide 16:9; 3 detail levels: minimal/standard/rich). Loads poster via TMDB + logo, renders hearts if user rated
 │   │   │   └── MediaShareModal.jsx # Format + detail level selectors (pill buttons), live preview, Download (4K) + Share buttons. Internally calls useRating to fetch user's rating for the media
-│   │   ├── layout/                   # Navbar (search icon toggles a full-width SearchBar dropdown, same on phone and desktop — closes on route change/outside click/Escape), Footer, Breadcrumbs, ProfileMenu (hover→dropdown desktop / click→profile; click→dropdown mobile), PosterBackground
+│   │   ├── layout/                   # navigation.js (the IA: BROWSE/MORE/LIBRARY/SOCIAL/ACCOUNT link lists + useNavModel), Navbar (logo · text nav md+ with "More ▾" popover · search field lg+ / icon panel below · Radar · bell · account), AccountMenu (AccountMenuContent + AccountMenuButton: click-to-open avatar → Popover md+ / Sheet <md), MobileDrawer (left Sheet, every destination grouped), BottomTabBar (<md: Home · Browse · Search · Radar · You), NotificationBell (Popover, unread from CurrentUserContext), Footer, Breadcrumbs, PosterBackground
 │   │   ├── ui/                       # Button, Input, Toggle, Select, Avatar, MediaSearchModal (movie/show search picker, shared by FavouritesEditor [both] + AvatarPicker [movies only]), OtpInput, PageHead, RichTextEditor, OverLimitBanner, …
 │   │   ├── detail/                   # DetailPageLayout, PosterCard (download button in the corner — fetches via tmdbImgProxied/`/api/image-proxy` at `original` size, since the raw TMDB CDN URL isn't fetchable cross-origin; shared by Movie/Show/Season/CollectionPage), CastGrid, FollowButton (blockedLabel prop), WhereToWatch (streaming-provider panel), AdminResyncButton (admin-only, role 4; shown on Movie/Show/Person pages), …
 │   │   ├── home/                     # MediaCard, MediaGrid, MediaRow, SearchBar (autoFocus prop for the Navbar dropdown; also used inline on AppHomePage/MoviesPage/ShowsPage)
@@ -602,6 +602,35 @@ palette pushed vivid. Key recurring conventions introduced:
   `lib/cn.js` now uses `tailwind-merge` so caller classes override primitive defaults.
 - **Icons.** `components/icons/index.jsx` — one Feather-style set (`size` prop). New code imports
   from here instead of pasting inline SVGs.
+
+### Header, account menu, mobile navigation (2026-09 redesign, phase 1)
+
+- **`features/profile/CurrentUserContext.jsx`** — `CurrentUserProvider` (mounted in `App.jsx`
+  inside `PreferencesProvider`, seeded with the profile row App already fetches — `role`,
+  `avatar_*`, `referral_code`, `is_private` were added to that select) exposes
+  `useCurrentUser()` → `{ username, role, isAdmin, isEditor, tier, isEarlyAdopter, avatar,
+  referralUrl, unreadNotifications, setUnreadNotifications, pendingRequests, refresh,
+  refreshCounts, loading }`. Tier/EA fetched once; badge counts refresh on every route change.
+  `AdminRoute` and `useIsAdmin` read it instead of running their own `profile.role` query.
+  Profile writers (avatar/username in `useEditProfile.js`, `SettingsPage.jsx`) call
+  `notifyProfileUpdated()` from `features/profile/profileEvents.js` so the header updates live.
+- **Information architecture** lives in `components/layout/navigation.js` and is rendered by every
+  surface: Browse (Popular · Movies · Shows · People · More ▾ = Collections, My Services, Adult
+  when both adult switches are on), Library (Watchlists, Follows, Releases Radar, Import), Social
+  (Activity, Find People, Observe Requests [pending badge], Notifications [unread badge]), Account
+  (Edit profile, Settings, Plan & rewards), Admin panel (role 4), Sign out.
+- **Header** (`Navbar.jsx`): `<md` → ☰ (opens `MobileDrawer`), logo, search icon, bell, avatar
+  (signed out: Sign in). `md+` → text nav + More, Radar icon, Register. `lg+` → inline dense
+  `SearchBar` (200px, 300px at `xl`). Rotated phones (`landscape-short:`) shrink it to 48px.
+- **Account menu** (`AccountMenu.jsx`): click-to-open on every device (the old hover-open /
+  click-navigates split is gone). Identity card (links to `/u/:username`) → one "Invite friends"
+  row (copy + share) → Library / Social / Account groups → Admin → Sign out. Renders as a
+  `Popover` on `md+` and a bottom `Sheet` on phones (the same `AccountMenuContent` is what the
+  tab bar's "You" tab opens).
+- **`BottomTabBar.jsx`** (`<md`, hidden on rotated phones, `pb-safe`): Home, Browse (opens the
+  drawer), Search, Radar (sign-in prompt when signed out), You (account sheet / Sign in). `AppLayout`
+  owns the drawer/account-sheet/auth-prompt state and pads the page bottom with `pb-tabbar`;
+  `ReportBugButton` sits above the bar and is icon-only `<sm`.
 
 ---
 

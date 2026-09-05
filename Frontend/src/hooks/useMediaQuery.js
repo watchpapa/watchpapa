@@ -1,17 +1,19 @@
-import { useEffect, useState } from "react";
+import { useCallback, useSyncExternalStore } from "react";
 
-// Reactive `matchMedia`. Returns the current match and re-renders on change.
+// Reactive `matchMedia` via useSyncExternalStore — no setState-in-effect, and
+// the first render already reflects the real viewport.
 export function useMediaQuery(query) {
-  const get = () => (typeof window !== "undefined" ? window.matchMedia(query).matches : false);
-  const [matches, setMatches] = useState(get);
-  useEffect(() => {
-    const mql = window.matchMedia(query);
-    const onChange = (e) => setMatches(e.matches);
-    setMatches(mql.matches);
-    mql.addEventListener("change", onChange);
-    return () => mql.removeEventListener("change", onChange);
-  }, [query]);
-  return matches;
+  const subscribe = useCallback(
+    (onChange) => {
+      const mql = window.matchMedia(query);
+      mql.addEventListener("change", onChange);
+      return () => mql.removeEventListener("change", onChange);
+    },
+    [query],
+  );
+  const getSnapshot = useCallback(() => window.matchMedia(query).matches, [query]);
+  const getServerSnapshot = useCallback(() => false, []);
+  return useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
 }
 
 // Shared breakpoint helpers — keep these in sync with the @theme breakpoints

@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 import { supabase } from "./lib/supabase.js";
 import { PreferencesProvider, usePreferences } from "./features/preferences/PreferencesContext.jsx";
+import { CurrentUserProvider } from "./features/profile/CurrentUserContext.jsx";
+import { notifyProfileUpdated } from "./features/profile/profileEvents.js";
 import ForgotPasswordPage from "./pages/auth/ForgotPasswordPage.jsx";
 import LoginPage from "./pages/auth/LoginPage.jsx";
 import RegisterPage from "./pages/auth/RegisterPage.jsx";
@@ -105,6 +107,7 @@ function App() {
   const [needsUsernameSetup, setNeedsUsernameSetup] = useState(false);
   const [initialUsername, setInitialUsername] = useState("");
   const [initialPrefs, setInitialPrefs] = useState(null); // null until the profile fetch resolves
+  const [initialProfile, setInitialProfile] = useState(null); // seed for CurrentUserProvider (role/avatar/referral)
 
   useEffect(() => {
     let isMounted = true;
@@ -157,6 +160,7 @@ function App() {
       setNeedsUsernameSetup(false);
       setInitialUsername("");
       setInitialPrefs(null);
+      setInitialProfile(null);
       setIsProfileLoading(false);
       return () => {
         isMounted = false;
@@ -168,7 +172,7 @@ function App() {
     supabase
       .from("profile")
       .select(
-        "username, is_adult, date_of_birth, setting_display_adult_content, setting_language, setting_title_mode, setting_region, setting_watch_regions, setting_watch_providers, setting_home_row_order, setting_home_hidden_rows, setting_blur_nsfw_posters, setting_show_adult_tab",
+        "username, is_adult, date_of_birth, setting_display_adult_content, setting_language, setting_title_mode, setting_region, setting_watch_regions, setting_watch_providers, setting_home_row_order, setting_home_hidden_rows, setting_blur_nsfw_posters, setting_show_adult_tab, role, avatar_type, avatar_poster_path, avatar_upload_path, referral_code, is_private",
       )
       .eq("id", session.user.id)
       .maybeSingle()
@@ -184,6 +188,7 @@ function App() {
       const nextUsername = data?.username?.trim() ?? "";
       setInitialUsername(nextUsername);
       setNeedsUsernameSetup(nextUsername.length === 0);
+      setInitialProfile(data ?? null);
       setInitialPrefs({
         showAdult: data?.setting_display_adult_content ?? false,
         language: data?.setting_language ?? "en-US",
@@ -226,16 +231,19 @@ function App() {
 
   return (
     <PreferencesProvider session={session} initial={initialPrefs} key={session?.user?.id ?? "anon"}>
-      <RouteTree
-        session={session}
-        needsUsernameSetup={needsUsernameSetup}
-        initialUsername={initialUsername}
-        onUsernameCompleted={(nextUsername) => {
-          const normalizedUsername = nextUsername?.trim() ?? "";
-          setInitialUsername(normalizedUsername);
-          setNeedsUsernameSetup(normalizedUsername.length === 0);
-        }}
-      />
+      <CurrentUserProvider session={session} initialProfile={initialProfile}>
+        <RouteTree
+          session={session}
+          needsUsernameSetup={needsUsernameSetup}
+          initialUsername={initialUsername}
+          onUsernameCompleted={(nextUsername) => {
+            const normalizedUsername = nextUsername?.trim() ?? "";
+            setInitialUsername(normalizedUsername);
+            setNeedsUsernameSetup(normalizedUsername.length === 0);
+            notifyProfileUpdated();
+          }}
+        />
+      </CurrentUserProvider>
     </PreferencesProvider>
   );
 }

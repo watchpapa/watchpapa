@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useLayoutEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { cn } from "../../lib/cn.js";
 import { useClickOutside } from "../../hooks/useClickOutside.js";
@@ -8,12 +8,13 @@ const MARGIN = 8;
 
 // Anchored floating panel, portaled to <body> (so backdrop-blur ancestors can't
 // clip it) and clamped to the viewport so it never runs off a phone screen.
+// Positioning writes straight to the element's style (an external system),
+// re-measured on resize/scroll — no layout state round-trips.
 //   anchorRef — the trigger element
 //   align     — "start" | "end" | "center" (horizontal edge to align with)
-//   onClose   — called on outside click / Escape / resize-away
+//   onClose   — called on outside click / Escape
 function Popover({ open, anchorRef, onClose, align = "end", width = 288, className, children, offset = 8, role = "dialog", ...props }) {
   const panelRef = useRef(null);
-  const [pos, setPos] = useState(null);
 
   const place = useCallback(() => {
     const a = anchorRef?.current;
@@ -33,29 +34,26 @@ function Popover({ open, anchorRef, onClose, align = "end", width = 288, classNa
       flip = true;
     }
     const maxH = flip ? r.top - offset - MARGIN : vh - top - MARGIN;
-    setPos({ left, top, maxH, flip });
+    p.style.left = `${left}px`;
+    p.style.top = `${top}px`;
+    p.style.maxHeight = `${Math.max(120, maxH)}px`;
+    p.style.transformOrigin = flip ? "bottom" : "top";
+    p.style.visibility = "visible";
   }, [anchorRef, align, width, offset]);
 
   useLayoutEffect(() => {
-    if (!open) { setPos(null); return undefined; }
+    if (!open) return undefined;
     place();
-    const onChange = () => place();
-    window.addEventListener("resize", onChange);
-    window.addEventListener("scroll", onChange, true);
+    window.addEventListener("resize", place);
+    window.addEventListener("scroll", place, true);
     return () => {
-      window.removeEventListener("resize", onChange);
-      window.removeEventListener("scroll", onChange, true);
+      window.removeEventListener("resize", place);
+      window.removeEventListener("scroll", place, true);
     };
   }, [open, place]);
 
   useClickOutside([panelRef, anchorRef], onClose, open);
   useEscapeKey(onClose, open);
-
-  // Return focus to the anchor when closing via keyboard.
-  useEffect(() => {
-    if (open) return undefined;
-    return () => {};
-  }, [open]);
 
   if (!open) return null;
 
@@ -65,16 +63,13 @@ function Popover({ open, anchorRef, onClose, align = "end", width = 288, classNa
       role={role}
       style={{
         position: "fixed",
-        left: pos?.left ?? -9999,
-        top: pos?.top ?? -9999,
+        left: -9999,
+        top: -9999,
         width: `min(${width}px, calc(100vw - ${MARGIN * 2}px))`,
-        maxHeight: pos?.maxH ? `${pos.maxH}px` : undefined,
-        visibility: pos ? "visible" : "hidden",
+        visibility: "hidden",
       }}
       className={cn(
-        "z-[80] overflow-y-auto overscroll-contain rounded-2xl border border-border bg-surface shadow-xl shadow-black/50",
-        pos?.flip ? "origin-bottom" : "origin-top",
-        "animate-fade-slide-down",
+        "z-[80] animate-fade-slide-down overflow-y-auto overscroll-contain rounded-2xl border border-border bg-surface shadow-xl shadow-black/50",
         className,
       )}
       {...props}

@@ -7,6 +7,7 @@ import { validateUsername, isValidBoolean, isValidLocale, isValidTitleMode, isVa
 import Toggle from "../../components/ui/Toggle.jsx";
 import Select from "../../components/ui/Select.jsx";
 import { usePreferences } from "../../features/preferences/PreferencesContext.jsx";
+import { notifyProfileUpdated } from "../../features/profile/profileEvents.js";
 import { useLocaleCatalog, useWatchRegionCatalog, useWatchProviderList, languageLabel } from "../../features/preferences/hooks/useWatchProviderCatalog.js";
 import { tmdbImg } from "../../lib/tmdbImage.js";
 import { JUSTWATCH_ATTRIBUTION_URL } from "../../lib/constants.js";
@@ -468,6 +469,7 @@ function SettingsPage({ session }) {
     await supabase.auth.updateUser({ data: { ...session.user.user_metadata, username: trimmed } });
     setUsernameSaving(false);
     setProfile((p) => ({ ...p, username: trimmed }));
+    notifyProfileUpdated();
     setEditingUsername(false);
     setUsernameError(null);
   };
