@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import { requireAuth, requireEditor } from "../auth.js";
 import { withSql } from "../db.js";
 import { mutationRateLimit } from "../ratelimit.js";
+import { auditLog } from "../audit.js";
 
 // Port of Backend/src/routes/announcements.js — supabase-js → SQL over Hyperdrive.
 // Public GET; editor/admin (role 3|4) POST/PATCH.
@@ -30,7 +31,7 @@ function validate(payload) {
   return { title, body, imageUrl };
 }
 
-announcements.post("/", requireAuth, mutationRateLimit, requireEditor, async (c) => {
+announcements.post("/", requireAuth, mutationRateLimit, requireEditor, auditLog("announcement_created", ["title"]), async (c) => {
   let payload;
   try {
     payload = await c.req.json();
@@ -50,7 +51,7 @@ announcements.post("/", requireAuth, mutationRateLimit, requireEditor, async (c)
   });
 });
 
-announcements.patch("/:id/archive", requireAuth, mutationRateLimit, requireEditor, async (c) => {
+announcements.patch("/:id/archive", requireAuth, mutationRateLimit, requireEditor, auditLog("announcement_archived"), async (c) => {
   const id = c.req.param("id");
   return withSql(c, async (sql) => {
     await sql`
@@ -62,7 +63,7 @@ announcements.patch("/:id/archive", requireAuth, mutationRateLimit, requireEdito
   });
 });
 
-announcements.patch("/:id", requireAuth, mutationRateLimit, requireEditor, async (c) => {
+announcements.patch("/:id", requireAuth, mutationRateLimit, requireEditor, auditLog("announcement_edited", ["title"]), async (c) => {
   const id = c.req.param("id");
   let payload;
   try {

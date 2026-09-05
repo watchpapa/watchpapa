@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import { withSql } from "../../db.js";
+import { auditLog, setAudit } from "../../audit.js";
 
 // Port of Backend/src/routes/admin/users.js (queries the auth schema — works over
 // Hyperdrive since it's the same DB role the droplet used).
@@ -47,8 +48,9 @@ users.get("/staff", async (c) =>
   }),
 );
 
-users.patch("/:id/role", async (c) => {
+users.patch("/:id/role", auditLog("admin_role_set", ["role"]), async (c) => {
   const id = c.req.param("id");
+  setAudit(c, { targetUserId: id });
   let payload;
   try {
     payload = await c.req.json();
@@ -67,8 +69,9 @@ users.patch("/:id/role", async (c) => {
   });
 });
 
-users.post("/:id/grant-tier", async (c) => {
+users.post("/:id/grant-tier", auditLog("admin_tier_granted", ["tier", "durationDays"]), async (c) => {
   const id = c.req.param("id");
+  setAudit(c, { targetUserId: id });
   let payload;
   try {
     payload = await c.req.json();
@@ -90,8 +93,9 @@ users.post("/:id/grant-tier", async (c) => {
   });
 });
 
-users.patch("/:id/tier", async (c) => {
+users.patch("/:id/tier", auditLog("admin_tier_set", ["tier", "durationDays"]), async (c) => {
   const id = c.req.param("id");
+  setAudit(c, { targetUserId: id });
   let payload;
   try {
     payload = await c.req.json();

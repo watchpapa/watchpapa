@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import { requireAuth } from "../auth.js";
 import { withSql, pgErrorMessage } from "../db.js";
 import { mutationRateLimit } from "../ratelimit.js";
+import { auditLog, setAudit } from "../audit.js";
 import { config } from "../env.js";
 import { tmdbFetch, TmdbNotFound } from "../tmdb/client.js";
 import { resolveTmdbIdFromLetterboxdUri } from "../lib/letterboxdUri.js";
@@ -27,7 +28,7 @@ function validYear(y) {
 // Body: { items: [{ name, year, uri? }] }  (<= IMPORT_CHUNK_MAX)
 // Returns: { resolved: [{ name, year, tmdbId, title, releaseYear, posterPath }], unresolved: [{ name, year }] }
 
-importRoutes.post("/resolve", async (c) => {
+importRoutes.post("/resolve", auditLog("import_resolved"), async (c) => {
   const { importChunkMax } = config(c.env);
   let body;
   try {
@@ -69,6 +70,7 @@ importRoutes.post("/resolve", async (c) => {
     }
   }
 
+  setAudit(c, { extra: { requested: items.length, resolved: resolved.length, unresolved: unresolved.length } });
   return c.json({ resolved, unresolved });
 });
 
@@ -107,7 +109,7 @@ async function resolveOne(env, name, year, uri) {
 // Body: { ratings: [{ tmdbId, value, ratedAt? }], watchlistItems: [{ tmdbId, watched }],
 //         watchlistId?, newWatchlistName?, conflictMode: 'skip'|'overwrite' }
 
-importRoutes.post("/commit", async (c) => {
+importRoutes.post("/commit", auditLog("import_committed", ["conflictMode"]), async (c) => {
   let body;
   try {
     body = await c.req.json();
@@ -162,68 +164,90 @@ importRoutes.post("/commit", async (c) => {
       if (!owner) return c.json({ error: "Watchlist not found or does not belong to you" }, 403);
     }
 
-    if (watchlistItems.length > 0 && watchlistId == null && newWatchlistName?.trim()) {
-      try {
-        const [row] = await sql`
-          INSERT INTO public.watchlist (profile_id, name, created_at, updated_at)
-          VALUES (${profileId}, ${newWatchlistName.trim().slice(0, 100)}, now(), now())
-          RETURNING id
-        `;
-        watchlistId = Number(row.id);
-      } catch (e) {
-        const msg = pgErrorMessage(e);
-        if (msg.includes("WATCHLIST_LIMIT_REACHED")) {
-          return c.json({ error: msg.replace("WATCHLIST_LIMIT_REACHED: ", "") }, 422);
+    // The writes below happen inside one transaction so a single
+    // `watchpapa.audit_skip` (SET LOCAL — scoped to this transaction only)
+    // suppresses the per-row DB triggers for the whole batch; the worker's
+    // own auditLog middleware records one `import_committed` summary row
+    // instead (see the setAudit call below).
+    try {
+      const result = await sql.begin(async (tx) => {
+        await tx`SELECT set_config('watchpapa.audit_skip', '1', true)`;
+
+        let wlId = watchlistId;
+        if (watchlistItems.length > 0 && wlId == null && newWatchlistName?.trim()) {
+          const [row] = await tx`
+            INSERT INTO public.watchlist (profile_id, name, created_at, updated_at)
+            VALUES (${profileId}, ${newWatchlistName.trim().slice(0, 100)}, now(), now())
+            RETURNING id
+          `;
+          wlId = Number(row.id);
         }
-        throw e;
+
+        let ratingsImported = 0;
+        let watchlistAdded = 0;
+
+        if (ratings.length > 0) {
+          const values = ratings.map((r) => ({
+            profile_id: profileId,
+            media_type: "movie",
+            tmdb_id: r.tmdbId,
+            value: r.value,
+            created_at: r.ratedAt ? `${r.ratedAt}T00:00:00.000Z` : new Date().toISOString(),
+          }));
+          const conflict =
+            conflictMode === "overwrite"
+              ? tx`DO UPDATE SET value = EXCLUDED.value, created_at = EXCLUDED.created_at, updated_at = now()`
+              : tx`DO NOTHING`;
+          const inserted = await tx`
+            INSERT INTO public.user_rating ${tx(values, "profile_id", "media_type", "tmdb_id", "value", "created_at")}
+            ON CONFLICT (profile_id, media_type, tmdb_id) ${conflict}
+            RETURNING id
+          `;
+          ratingsImported = inserted.length;
+        }
+
+        if (watchlistItems.length > 0 && wlId != null) {
+          const values = watchlistItems.map((w) => ({
+            watchlist_id: wlId,
+            media_type: "movie",
+            tmdb_id: w.tmdbId,
+            watched: w.watched,
+          }));
+          const inserted = await tx`
+            INSERT INTO public.watchlist_item ${tx(values, "watchlist_id", "media_type", "tmdb_id", "watched")}
+            ON CONFLICT (watchlist_id, media_type, tmdb_id)
+            DO UPDATE SET watched = CASE WHEN EXCLUDED.watched THEN true ELSE public.watchlist_item.watched END
+            RETURNING id
+          `;
+          watchlistAdded = inserted.length;
+        }
+
+        return { ratingsImported, watchlistAdded };
+      });
+
+      const ratingsSkipped = ratings.length - result.ratingsImported;
+      const watchlistSkipped = watchlistItems.length - result.watchlistAdded;
+      setAudit(c, {
+        extra: {
+          ratingsImported: result.ratingsImported,
+          ratingsSkipped,
+          watchlistAdded: result.watchlistAdded,
+          watchlistSkipped,
+        },
+      });
+      return c.json({
+        ratingsImported: result.ratingsImported,
+        ratingsSkipped,
+        watchlistAdded: result.watchlistAdded,
+        watchlistSkipped,
+      });
+    } catch (e) {
+      const msg = pgErrorMessage(e);
+      if (msg.includes("WATCHLIST_LIMIT_REACHED")) {
+        return c.json({ error: msg.replace("WATCHLIST_LIMIT_REACHED: ", "") }, 422);
       }
+      throw e;
     }
-
-    let ratingsImported = 0;
-    let watchlistAdded = 0;
-
-    if (ratings.length > 0) {
-      const values = ratings.map((r) => ({
-        profile_id: profileId,
-        media_type: "movie",
-        tmdb_id: r.tmdbId,
-        value: r.value,
-        created_at: r.ratedAt ? `${r.ratedAt}T00:00:00.000Z` : new Date().toISOString(),
-      }));
-      const conflict =
-        conflictMode === "overwrite"
-          ? sql`DO UPDATE SET value = EXCLUDED.value, created_at = EXCLUDED.created_at, updated_at = now()`
-          : sql`DO NOTHING`;
-      const inserted = await sql`
-        INSERT INTO public.user_rating ${sql(values, "profile_id", "media_type", "tmdb_id", "value", "created_at")}
-        ON CONFLICT (profile_id, media_type, tmdb_id) ${conflict}
-        RETURNING id
-      `;
-      ratingsImported = inserted.length;
-    }
-
-    if (watchlistItems.length > 0 && watchlistId != null) {
-      const values = watchlistItems.map((w) => ({
-        watchlist_id: watchlistId,
-        media_type: "movie",
-        tmdb_id: w.tmdbId,
-        watched: w.watched,
-      }));
-      const inserted = await sql`
-        INSERT INTO public.watchlist_item ${sql(values, "watchlist_id", "media_type", "tmdb_id", "watched")}
-        ON CONFLICT (watchlist_id, media_type, tmdb_id)
-        DO UPDATE SET watched = CASE WHEN EXCLUDED.watched THEN true ELSE public.watchlist_item.watched END
-        RETURNING id
-      `;
-      watchlistAdded = inserted.length;
-    }
-
-    return c.json({
-      ratingsImported,
-      ratingsSkipped: ratings.length - ratingsImported,
-      watchlistAdded,
-      watchlistSkipped: watchlistItems.length - watchlistAdded,
-    });
   });
 });
 

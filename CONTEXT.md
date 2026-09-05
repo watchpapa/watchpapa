@@ -41,7 +41,8 @@ watchpapa/
 │   │   ├── env.js                   # parse wrangler vars → typed caps (BATCH_MAX, etc.)
 │   │   ├── db.js                    # getSql(c) / withSql(c, fn) — postgres.js over HYPERDRIVE, int8→number
 │   │   ├── auth.js                  # requireAuth (jose JWKS, ES256) / requireAdmin / requireEditor
-│   │   ├── audit.js                 # auditLog(action, fields) → executionCtx.waitUntil INSERT
+│   │   ├── audit.js                 # auditLog(action, fields=[]) middleware (no fields ⇒ records no body) + setAudit(c, {targetUserId, extra}) → executionCtx.waitUntil INSERT
+│   │   ├── auditActions.js          # ACTION_GROUPS / AUDIT_ACTIONS / ACTION_SET / SOURCES — the one registry of audit_events.action values, served at GET /api/admin/audit-log/actions
 │   │   ├── ratelimit.js             # RL_GLOBAL / RL_MUTATION wrappers (no-op if binding absent)
 │   │   ├── tmdb/
 │   │   │   ├── client.js            # tmdbFetch(env, path, params, {ttl, language}) — fetch + cf cache + 429 retry
@@ -174,9 +175,9 @@ watchpapa/
 |---|---|---|---|
 | `POST` | `/api/referral/use/:code` | JWT + mutation limit + audit | |
 | `POST` | `/api/rewards/claim` | JWT + mutation limit + audit | `sql.begin()` transaction |
-| `GET`/`POST`/`PATCH` | `/api/announcements[/…]` | public GET; JWT + requireEditor writes | SQL on `announcements` |
-| `POST` | `/api/import/resolve` | JWT | `{items:[{name,year,uri?}]}` ≤ IMPORT_CHUNK_MAX → `{resolved:[{tmdbId,…}], unresolved}`. No DB writes |
-| `POST` | `/api/import/commit` | JWT | insert `user_rating` / `watchlist_item` by `tmdb_id`; `WATCHLIST_LIMIT_REACHED → 422` |
+| `GET`/`POST`/`PATCH` | `/api/announcements[/…]` | public GET; JWT + requireEditor writes | SQL on `announcements`; POST/PATCH/archive audited |
+| `POST` | `/api/import/resolve` | JWT + audit | `{items:[{name,year,uri?}]}` ≤ IMPORT_CHUNK_MAX → `{resolved:[{tmdbId,…}], unresolved}`. No DB writes |
+| `POST` | `/api/import/commit` | JWT + audit | insert `user_rating` / `watchlist_item` by `tmdb_id`, both inside one transaction with `SET LOCAL watchpapa.audit_skip='1'` (so the DB row triggers stay quiet and this route's own `import_committed` summary row is the only audit entry); `WATCHLIST_LIMIT_REACHED → 422` |
 | `GET` | `/api/import/export` | JWT | **JSON** `{ratings, watchlistItems}` keyed by tmdb_id — frontend composes the CSV |
 | `*` | `/api/admin/{users,stats,reward-codes,referrals,audit-log,announcements}/*` | JWT + requireAdmin (role 4) | |
 
@@ -188,13 +189,13 @@ Dropped vs the old Express API: `/api/inject`, `/api/resolve`, `/api/import/run`
 |---|---|---|
 | `GET` | `/api/admin/users/search?email=` | Search users |
 | `GET` | `/api/admin/users/staff` | Role 3 + 4 accounts |
-| `PATCH` | `/api/admin/users/:id/role` | Set user role (0, 3, or 4) |
-| `POST` | `/api/admin/users/:id/grant-tier` | Upgrade tier via `apply_tier_upgrade` (upgrade-only, no downgrade) |
-| `PATCH` | `/api/admin/users/:id/tier` | Direct tier set — any tier incl. `free` and `god`; bypasses rank guards; `free` deletes the subscription row |
-| `*` | `/api/admin/reward-codes` | Reward code CRUD |
+| `PATCH` | `/api/admin/users/:id/role` | Set user role (0, 3, or 4) — audited (`admin_role_set`, `target_user_id` set) |
+| `POST` | `/api/admin/users/:id/grant-tier` | Upgrade tier via `apply_tier_upgrade` (upgrade-only, no downgrade) — audited (`admin_tier_granted`) |
+| `PATCH` | `/api/admin/users/:id/tier` | Direct tier set — any tier incl. `free` and `god`; bypasses rank guards; `free` deletes the subscription row — audited (`admin_tier_set`) |
+| `*` | `/api/admin/reward-codes` | Reward code CRUD — every write audited (`reward_code_generated/created/toggled/updated/deleted/bulk`) |
 | `GET` | `/api/admin/stats` | Platform statistics |
 | `GET` | `/api/admin/referrals` | Referral leaderboard |
-| `GET` | `/api/admin/audit-log` | Audit event log |
+| `GET` | `/api/admin/audit-log[/actions\|/auth]` | App-event log with `action`/`email`/`user_id`/`target_user_id`/`path`/`source`/date filters (`/actions` serves the registry that drives them); `/auth` is a read-only tab over Supabase's own `auth.audit_log_entries` (sign-in/out, OAuth, recovery, token refresh, deletion) |
 | `GET` | `/api/admin/script-logs` | Ingestion script run logs |
 | `GET` | `/api/admin/stats/catalog` | Row counts for all content + activity tables (movies, shows, seasons, episodes, people, credits, ratings, follows, watchlists, favourites) |
 | `*` | `/api/admin/announcements` | Announcement management (includes restore) |
@@ -275,7 +276,7 @@ Route guards defined in `App.jsx`: `PublicOnlyRoute`, `ProtectedRoute`, `PublicR
 | `reward_codes` | `uuid` | `code`, `tier`, `duration_days`, `max_uses`, `is_active` | |
 | `reward_code_claims` | `uuid` | `code_id`, `profile_id` | Prevents duplicate claims |
 | `referrals` | `uuid` | `referrer_id`, `referred_id` (unique) | |
-| `audit_events` | `uuid` | `action`, `user_id`, `ip`, `method`, `path`, `body`, `created_at` | Written by `auditLog` middleware |
+| `audit_events` | `uuid` | `action`, `user_id`, `target_user_id`, `email`, `ip`, `method`, `path`, `body`, `status`, `source` (`worker`\|`db`\|`auth`), `created_at` | Written by the Worker's `auditLog` middleware (`source='worker'`) or a DB trigger via `audit_write()` (`source='db'`, migration 044); `auth` events live separately in Supabase's own `auth.audit_log_entries`, read-only. RLS: no client SELECT/INSERT — admin-only via the Worker. 90-day retention (migration 023). |
 | `announcements` | `uuid` | `title`, `body`, `archived`, `author_id`, `archived_by`, `archived_at` | |
 | `watchlist` | `bigint` identity | `profile_id`, `name`, `created_at`, `updated_at` | Per-tier limit enforced by `enforce_watchlist_limit` trigger |
 | `watchlist_item` | `bigint` identity | `watchlist_id` FK, `media_type` ('movie'\|'show'), `tmdb_id`, `watched` (legacy, unused by new code), `added_at` | UNIQUE `(watchlist_id, media_type, tmdb_id)`. Purely "is this on my to-watch list" now — rating or logging a watch (`watch_log`, above) deletes the row outright rather than flipping `watched`. That column only still matters as a defensive read-side filter for any pre-migration-038 row that has it set. See "Rewatch diary" below. |
@@ -354,8 +355,10 @@ The `/api/import/resolve` endpoint also accepts Letterboxd CSV format (auto-dete
 | 041 | `rating_history_own_delete` | Adds a `FOR DELETE ... USING (profile_id = auth.uid())` policy to `user_rating_history` (migration 039 only granted clients SELECT — writes were trigger-only). Lets `RatingHistoryPanel.jsx` remove individual history entries; purely edits the historical record, the live `user_rating.value` is untouched. |
 
 | 043 | `profile_banner` | **Applied 2026-09-05.** Adds `banner_favourite_position` (SMALLINT 1–5, NULL = first favourite) and `banner_crop` (JSONB `{x,y,width,height}` in percent of the source image, NULL = centred) to `profile` — which favourite's artwork backs the profile banner and how it's cropped. Additive; covered by the existing `profile_update_own` policy. |
+| 044 | `audit_coverage` | **Applied 2026-09-05.** Widens `audit_events` with `status`/`target_user_id`/`source` (`worker`\|`db`\|`auth`) + 3 indexes. Adds one generic `SECURITY DEFINER` row trigger `audit_row_change()` attached to `user_rating`, `user_rating_history`, `watch_log`, `watchlist`, `watchlist_item`, `profile_favourite`, `user_observe`, `user_block`, `user_banner_dismissals` — one row per insert/update/delete with a real semantic action name (`rating_set`, `watchlist_item_added`, `observe_accepted`, …). Adds `audit_profile_change()` (`AFTER UPDATE ON profile`) emitting one row **per changed group**, never the whole row (username/dob/role/avatar/bio/banner/marketing/privacy/share/adult-content/adult-tab/nsfw-blur/locale/watch-settings/home-rows), plus `account_deleted` on soft-deletion (`delete_account()` sets `deleted_at`; the row is never hard-deleted, so 024's `AFTER DELETE` cleanup never fires in practice). Statement-level `audit_notifications_cleared()` logs one summary row per bulk notification clear instead of one per row. `audit_skip()`/`audit_write()` helpers; `SET LOCAL watchpapa.audit_skip = '1'` lets a caller suppress the row triggers for a bulk write (the Worker's import-commit route uses this and logs its own one-line summary via `auditLog()` instead). Pins `search_path` on 024's `clean_audit_events_on_profile_delete`. All new functions are `SECURITY DEFINER` with `EXECUTE` revoked from `anon`/`authenticated`. Companion Worker changes: `auditLog()` middleware now defaults to recording **no** body fields (an explicit allowlist is required) and also records `status`/`source='worker'`/`target_user_id`; applied to all 16 previously-unaudited routes (every admin route, `announcements.js`, `import.js`). New `auditActions.js` registry (~65 actions) backs `GET /api/admin/audit-log/actions`, the `/admin/audit-log` filters (400 on an unknown `action`/`source`), and a new read-only `GET /api/admin/audit-log/auth` tab over `auth.audit_log_entries` (Supabase's own sign-in/out/OAuth/recovery/deletion log). |
+| 045 | `fix_audit_notifications_cleared` | **Applied 2026-09-05, hotfix for 044.** `audit_notifications_cleared()` used `min(recipient_id)` as its actor fallback; Postgres has no `min()` aggregate for `uuid`, so every bulk notification-clear raised `function min(uuid) does not exist` and rolled back. Replaced with `(array_agg(recipient_id))[1]`. |
 
-To add the next migration: create `Backend/src/db/migrations/044_<name>.sql`, apply via `mcp__claude_ai_Supabase__apply_migration`.
+To add the next migration: create `Backend/src/db/migrations/046_<name>.sql`, apply via `mcp__claude_ai_Supabase__apply_migration`.
 
 ---
 
@@ -689,6 +692,16 @@ palette pushed vivid. Key recurring conventions introduced:
 ---
 
 ## Recent Fixes & Features
+
+**2026-09-05 audit log: cover every user/admin action (migrations 044/045, 2026-redesign phase 8):**
+
+- Before this, `audit_events` only had two Worker-side writers (`referral`, `rewards`) and the follow/unfollow DB triggers from migration 002 — roughly 2 of 18 Worker mutations and none of the ~75 direct-Supabase writes (ratings, watch log, watchlists, favourites, profile/settings, social) were recorded. Migration 044 closes both gaps: see its row in "Migration History" above for the full trigger/column list.
+- **Worker side:** `audit.js`'s `auditLog(action, fields=[])` middleware changed its default from *record the whole body* to *record nothing unless a field is explicitly allowlisted* (a footgun — any route that ever carries a secret would have logged it) and now also records `status`, `source='worker'`, and whatever a handler attaches via `setAudit(c, {targetUserId, extra})`. Applied to all 16 previously-unaudited routes: every `admin/users.js` and `admin/rewardCodes.js` write, `announcements.js`/`admin/announcements.js` create/edit/archive/restore/delete, and `import.js`'s `/resolve` (counts only) and `/commit`. `import.js`'s `/commit` was restructured to run its `user_rating`/`watchlist_item` inserts inside one `sql.begin()` transaction (previously separate statements) so a single `SET LOCAL watchpapa.audit_skip='1'` reliably suppresses the DB row-triggers for the whole batch — the route logs one `import_committed` summary row instead; this also made the batch atomic, a side effect of the audit work worth knowing about.
+- **New registry:** `worker/src/auditActions.js` (~65 actions grouped by account/privacy/social/ratings/lists/rewards/import/admin/content) backs `GET /api/admin/audit-log/actions`; the audit-log route now 400s on an unknown `action`/`source` filter instead of silently ignoring it, and gained `user_id`/`target_user_id`/`path`/`source` filters. A new read-only `GET /api/admin/audit-log/auth` tab reads Supabase's own `auth.audit_log_entries` (sign-in/out, OAuth, password recovery, token refresh, user deletion) — the Hyperdrive role already has `SELECT` on it, confirmed before assuming a grant was needed.
+- **DB side (migration 044):** one generic `SECURITY DEFINER` trigger (`audit_row_change()`) on 9 user-data tables, a `profile` trigger emitting one row per changed *group* (never the whole row) plus `account_deleted` on soft-deletion, and a statement-level trigger so clearing 50 notifications is one `notifications_cleared` row, not 50. `audit_events` gained `status`/`target_user_id`/`source` + 3 indexes.
+- **Hotfix (migration 045):** `audit_notifications_cleared()`'s actor fallback used `min(recipient_id)`, but Postgres has no `min()` aggregate for `uuid` — every bulk notification clear raised `function min(uuid) does not exist` and rolled back until this was caught by `tests/rls_tests/audit_triggers.test.js` and fixed with `(array_agg(recipient_id))[1]`.
+- **Verification:** `worker/test/audit.test.js` (middleware + registry, 7 tests) and the new `tests/rls_tests/audit_triggers.test.js` (6 tests, run with rolled-back transactions against live Postgres as the `authenticated` role) both green. The pre-existing `rls_policy_isolation.test.js` has one unrelated failure (`User B cannot SELECT User A profile`) predating this work by months (May 2026) — profiles are now intentionally publicly viewable (`/u/:username`), the test just never got updated for that.
+- `AuditLogPage.jsx`/`useAuditLog.js` rewritten: App events / Auth events tabs, filters and action colours driven entirely by the registry (no more hard-coded `ACTIONS`/`ACTION_COLOR`), row → detail modal, "Open in User Lookup" link.
 
 **2026-09-05 footer pages refresh + feature announcement:**
 

@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import { withSql } from "../../db.js";
 import { toCsv } from "../../lib/csv.js";
+import { auditLog, setAudit } from "../../audit.js";
 
 // Port of Backend/src/routes/admin/rewardCodes.js. randomBytes → crypto.getRandomValues.
 
@@ -76,7 +77,7 @@ rewardCodes.get("/", async (c) => {
   });
 });
 
-rewardCodes.post("/generate", async (c) => {
+rewardCodes.post("/generate", auditLog("reward_code_generated", ["count", "tier", "durationDays", "maxUses", "expiresAt"]), async (c) => {
   let payload;
   try {
     payload = await c.req.json();
@@ -119,6 +120,7 @@ rewardCodes.post("/generate", async (c) => {
         }
         return out;
       });
+      setAudit(c, { extra: { generated: inserted.length } });
       return c.json({ ok: true, codes: inserted });
     } catch (e) {
       console.error("generate reward codes failed:", e?.message);
@@ -150,7 +152,7 @@ rewardCodes.get("/export", async (c) => {
   });
 });
 
-rewardCodes.post("/bulk", async (c) => {
+rewardCodes.post("/bulk", auditLog("reward_code_bulk", ["action"]), async (c) => {
   let payload;
   try {
     payload = await c.req.json();
@@ -165,6 +167,7 @@ rewardCodes.post("/bulk", async (c) => {
   const validIds = ids.map((id) => Number.parseInt(id, 10)).filter((id) => Number.isInteger(id) && id > 0);
   if (validIds.length !== ids.length) return c.json({ error: "All ids must be positive integers" }, 400);
   if (validIds.length > 500) return c.json({ error: "Cannot act on more than 500 codes at once" }, 400);
+  setAudit(c, { extra: { count: validIds.length } });
 
   return withSql(c, async (sql) => {
     if (action === "enable") {
@@ -206,7 +209,7 @@ rewardCodes.get("/:id/claims", async (c) => {
   });
 });
 
-rewardCodes.post("/", async (c) => {
+rewardCodes.post("/", auditLog("reward_code_created", ["code", "tier", "durationDays", "maxUses", "expiresAt"]), async (c) => {
   let payload;
   try {
     payload = await c.req.json();
@@ -234,7 +237,7 @@ rewardCodes.post("/", async (c) => {
   });
 });
 
-rewardCodes.patch("/:id", async (c) => {
+rewardCodes.patch("/:id", auditLog("reward_code_toggled", ["isActive"]), async (c) => {
   const id = Number.parseInt(c.req.param("id"), 10);
   if (!Number.isInteger(id) || id < 1) return c.json({ error: "Invalid code id" }, 400);
   let payload;
@@ -252,7 +255,7 @@ rewardCodes.patch("/:id", async (c) => {
   });
 });
 
-rewardCodes.put("/:id", async (c) => {
+rewardCodes.put("/:id", auditLog("reward_code_updated", ["tier", "durationDays", "maxUses", "expiresAt", "isActive"]), async (c) => {
   const id = Number.parseInt(c.req.param("id"), 10);
   if (!Number.isInteger(id) || id < 1) return c.json({ error: "Invalid code id" }, 400);
   let payload;
@@ -280,7 +283,7 @@ rewardCodes.put("/:id", async (c) => {
   });
 });
 
-rewardCodes.delete("/:id", async (c) => {
+rewardCodes.delete("/:id", auditLog("reward_code_deleted"), async (c) => {
   const id = Number.parseInt(c.req.param("id"), 10);
   if (!Number.isInteger(id) || id < 1) return c.json({ error: "Invalid code id" }, 400);
   return withSql(c, async (sql) => {

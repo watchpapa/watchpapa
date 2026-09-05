@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import { withSql } from "../../db.js";
+import { auditLog } from "../../audit.js";
 
 // Port of Backend/src/routes/admin/announcements.js (supabase-js → SQL).
 
@@ -16,7 +17,7 @@ announcementsAdmin.get("/", async (c) =>
   }),
 );
 
-announcementsAdmin.patch("/:id/restore", async (c) => {
+announcementsAdmin.patch("/:id/restore", auditLog("announcement_restored"), async (c) => {
   const id = c.req.param("id");
   return withSql(c, async (sql) => {
     await sql`
@@ -28,7 +29,7 @@ announcementsAdmin.patch("/:id/restore", async (c) => {
   });
 });
 
-announcementsAdmin.delete("/:id", async (c) => {
+announcementsAdmin.delete("/:id", auditLog("announcement_deleted"), async (c) => {
   const id = c.req.param("id");
   return withSql(c, async (sql) => {
     await sql`DELETE FROM public.announcements WHERE id = ${id}`;
