@@ -62,15 +62,21 @@
 }
 
 html {
-  /* Never let a stray fixed-width element make the whole page pan sideways. */
-  overflow-x: hidden;
+  /* Never let a stray fixed-width element make the whole page pan sideways.
+     `clip` (not `hidden`) on purpose: `overflow-x: hidden` forces the other
+     axis to compute as `auto`, turning html/body into a scroll container —
+     which is the nearest-scrolling-ancestor `position: sticky` anchors to,
+     and in several browsers that silently breaks sticky descendants (a
+     well-known gotcha). `clip` blocks the same overflow without creating a
+     scroll container. */
+  overflow-x: clip;
 }
 
 body {
   margin: 0;
   min-height: 100vh;
   min-height: 100svh;
-  overflow-x: hidden;
+  overflow-x: clip;
 }
 
 a {
