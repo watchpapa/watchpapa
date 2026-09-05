@@ -98,7 +98,7 @@ watchpapa/
 │   │   ├── detail/
 │   │   │   ├── generateMediaShareCard.js # Canvas generator for movie/show share cards (3 formats: story 9:16, square 1:1, wide 16:9; 3 detail levels: minimal/standard/rich). Loads poster via TMDB + logo, renders hearts if user rated
 │   │   │   └── MediaShareModal.jsx # Format + detail level selectors (pill buttons), live preview, Download (4K) + Share buttons. Internally calls useRating to fetch user's rating for the media
-│   │   ├── layout/                   # navigation.js (the IA: BROWSE/MORE/LIBRARY/SOCIAL/ACCOUNT link lists + useNavModel), Navbar (logo · text nav md+ with "More ▾" popover · search field lg+ / icon panel below · Radar · bell · account), AccountMenu (AccountMenuContent + AccountMenuButton: click-to-open avatar → Popover md+ / Sheet <md), MobileDrawer (left Sheet, every destination grouped), BottomTabBar (<md: Home · Browse · Search · Radar · You), NotificationBell (Popover, unread from CurrentUserContext), Footer, Breadcrumbs, PosterBackground
+│   │   ├── layout/                   # navigation.js (the IA: BROWSE/MORE/LIBRARY/SOCIAL/ACCOUNT link lists + useNavModel), Navbar (logo · text nav md+ with "More ▾" popover · search field lg+ / icon panel below · Radar · bell · account), AccountMenu (AccountMenuContent + AccountMenuButton: click-to-open avatar → Popover md+ / Sheet <md), MobileDrawer (left Sheet, every destination grouped), BottomTabBar (<md: Home · Browse · Search/My Services (per-user pref, Pro+ only) · Radar · You), NotificationBell (Popover, unread from CurrentUserContext), Footer, Breadcrumbs, PosterBackground
 │   │   ├── ui/                       # Button, Input, Toggle, Select, Avatar, MediaSearchModal (movie/show search picker, shared by FavouritesEditor [both] + AvatarPicker [movies only]), OtpInput, PageHead, RichTextEditor, OverLimitBanner, …
 │   │   ├── detail/                   # DetailPageLayout (hero + single-mount activity aside; see "Detail pages" below), DetailHero, MediaActionPanel, PosterCard (download button in the corner — fetches via tmdbImgProxied/`/api/image-proxy` at `original` size, since the raw TMDB CDN URL isn't fetchable cross-origin; shared by Movie/Show/Season/CollectionPage), CastGrid, FollowButton (blockedLabel prop), WhereToWatch (streaming-provider panel), AdminResyncButton (admin-only, role 4; shown on Movie/Show/Person pages), …
 │   │   ├── home/                     # MediaCard, MediaGrid, MediaRow, SearchBar (autoFocus prop for the Navbar dropdown; also used inline on AppHomePage/MoviesPage/ShowsPage)
@@ -357,8 +357,9 @@ The `/api/import/resolve` endpoint also accepts Letterboxd CSV format (auto-dete
 | 043 | `profile_banner` | **Applied 2026-09-05.** Adds `banner_favourite_position` (SMALLINT 1–5, NULL = first favourite) and `banner_crop` (JSONB `{x,y,width,height}` in percent of the source image, NULL = centred) to `profile` — which favourite's artwork backs the profile banner and how it's cropped. Additive; covered by the existing `profile_update_own` policy. |
 | 044 | `audit_coverage` | **Applied 2026-09-05.** Widens `audit_events` with `status`/`target_user_id`/`source` (`worker`\|`db`\|`auth`) + 3 indexes. Adds one generic `SECURITY DEFINER` row trigger `audit_row_change()` attached to `user_rating`, `user_rating_history`, `watch_log`, `watchlist`, `watchlist_item`, `profile_favourite`, `user_observe`, `user_block`, `user_banner_dismissals` — one row per insert/update/delete with a real semantic action name (`rating_set`, `watchlist_item_added`, `observe_accepted`, …). Adds `audit_profile_change()` (`AFTER UPDATE ON profile`) emitting one row **per changed group**, never the whole row (username/dob/role/avatar/bio/banner/marketing/privacy/share/adult-content/adult-tab/nsfw-blur/locale/watch-settings/home-rows), plus `account_deleted` on soft-deletion (`delete_account()` sets `deleted_at`; the row is never hard-deleted, so 024's `AFTER DELETE` cleanup never fires in practice). Statement-level `audit_notifications_cleared()` logs one summary row per bulk notification clear instead of one per row. `audit_skip()`/`audit_write()` helpers; `SET LOCAL watchpapa.audit_skip = '1'` lets a caller suppress the row triggers for a bulk write (the Worker's import-commit route uses this and logs its own one-line summary via `auditLog()` instead). Pins `search_path` on 024's `clean_audit_events_on_profile_delete`. All new functions are `SECURITY DEFINER` with `EXECUTE` revoked from `anon`/`authenticated`. Companion Worker changes: `auditLog()` middleware now defaults to recording **no** body fields (an explicit allowlist is required) and also records `status`/`source='worker'`/`target_user_id`; applied to all 16 previously-unaudited routes (every admin route, `announcements.js`, `import.js`). New `auditActions.js` registry (~65 actions) backs `GET /api/admin/audit-log/actions`, the `/admin/audit-log` filters (400 on an unknown `action`/`source`), and a new read-only `GET /api/admin/audit-log/auth` tab over `auth.audit_log_entries` (Supabase's own sign-in/out/OAuth/recovery/deletion log). |
 | 045 | `fix_audit_notifications_cleared` | **Applied 2026-09-05, hotfix for 044.** `audit_notifications_cleared()` used `min(recipient_id)` as its actor fallback; Postgres has no `min()` aggregate for `uuid`, so every bulk notification-clear raised `function min(uuid) does not exist` and rolled back. Replaced with `(array_agg(recipient_id))[1]`. |
+| 046 | `bottom_tab_middle_preference` | **Applied 2026-09-05.** Adds `setting_bottom_tab_middle` (`'search'`\|`'services'`, default `'services'`) to `profile` — which control shows in the phone bottom tab bar's middle slot. Only takes effect for Pro+ accounts (My Services is a Pro feature); everyone else always sees Search regardless of the stored value. Extends migration 044's `audit_profile_change()` with a `bottom_tab_preference_changed` clause. |
 
-To add the next migration: create `Backend/src/db/migrations/046_<name>.sql`, apply via `mcp__claude_ai_Supabase__apply_migration`.
+To add the next migration: create `Backend/src/db/migrations/047_<name>.sql`, apply via `mcp__claude_ai_Supabase__apply_migration`.
 
 ---
 
@@ -655,7 +656,7 @@ palette pushed vivid. Key recurring conventions introduced:
   Profile writers (avatar/username in `useEditProfile.js`, `SettingsPage.jsx`) call
   `notifyProfileUpdated()` from `features/profile/profileEvents.js` so the header updates live.
 - **Information architecture** lives in `components/layout/navigation.js` and is rendered by every
-  surface: Browse (Popular · Movies · Shows · People · More ▾ = Collections, My Services, Adult
+  surface: Browse (Popular · Movies · Shows · People · My Services · More ▾ = Collections, Adult
   when both adult switches are on), Library (Watchlists, Follows, Releases Radar, Import), Social
   (Activity, Find People, Observe Requests [pending badge], Notifications [unread badge]), Account
   (Edit profile, Settings, Plan & rewards), Admin panel (role 4), Sign out.
@@ -668,9 +669,13 @@ palette pushed vivid. Key recurring conventions introduced:
   `Popover` on `md+` and a bottom `Sheet` on phones (the same `AccountMenuContent` is what the
   tab bar's "You" tab opens).
 - **`BottomTabBar.jsx`** (`<md`, hidden on rotated phones, `pb-safe`): Home, Browse (opens the
-  drawer), Search, Radar (sign-in prompt when signed out), You (account sheet / Sign in). `AppLayout`
-  owns the drawer/account-sheet/auth-prompt state and pads the page bottom with `pb-tabbar`;
-  `ReportBugButton` sits above the bar and is icon-only `<sm`.
+  drawer), middle slot, Radar (sign-in prompt when signed out), You (account sheet / Sign in).
+  `AppLayout` owns the drawer/account-sheet/auth-prompt state and pads the page bottom with
+  `pb-tabbar`; `ReportBugButton` sits above the bar and is icon-only `<sm`.
+- **Middle slot preference** (migration 046, `setting_bottom_tab_middle`): Search for everyone by
+  default, except Pro+ accounts default to My Services (the tier that can actually use it) — a
+  `Settings → Preferences` row lets Pro+ switch back to Search; below Pro the slot is always Search
+  with no toggle shown.
 
 ---
 
@@ -692,6 +697,15 @@ palette pushed vivid. Key recurring conventions introduced:
 ---
 
 ## Recent Fixes & Features
+
+**2026-09-05 post-launch fixes + My Services promoted to primary nav:**
+
+- **Critical: existing users could get permanently trapped on `/complete-username`.** `App.jsx`'s boot-time profile fetch treated any failure — a query error, or a row that came back `null` (e.g. a transient RLS/replication timing gap) — as "this account has no username," forcing `needsUsernameSetup = true`. Every other route goes through `PublicRoute`, which redirects there whenever that flag is true, so one bad fetch trapped a real user with a perfectly good username on every navigation attempt. Checked Supabase's logs first (no errors on `profile` in the relevant window) before concluding this was a frontend defensive-coding gap, not a migration-caused regression — migrations 044–046 don't touch `profile`'s RLS or the columns this fetch reads. Fixed by leaving the flag untouched on either failure instead of asserting the user needs setup.
+- **Sticky detail-page sidebar could permanently hide "People you observe."** `position: sticky` pins an element at a fixed screen position while "stuck" — it does not reveal more of itself as you keep scrolling. With no height cap, a poster + rating card whose collapsible panels (rating history, observed ratings) expand in place could grow taller than the viewport, hiding whatever sat below the fold until the sidebar happened to un-stick near the very bottom of a long page. Capped the sticky column's own height to the viewport with its own internal scroll, so expanding a panel scrolls the sidebar instead of hiding the rest of it.
+- Widened the sticky sidebar 240→264px (260→284px at `xl`) — the 5-heart rating row needed right around the old 208px of usable space, a zero-margin fit that any rendering variance could overflow into the content column next to it (flex children don't clip by default).
+- **My Services promoted from the More▾ dropdown to the always-visible top-level browse nav** (`Popular · Movies · Shows · People · My Services`) — verified with a live Playwright check across 768–1536px (`scrollWidth` vs `clientWidth`, the same overflow check `screenshot-matrix.mjs` uses) that this doesn't reintroduce header overflow.
+- **Phone bottom tab bar's middle slot** is Search by default, but Pro+ accounts (the tier that can actually use My Services) default to that instead; migration 046 (`setting_bottom_tab_middle`) lets Pro+ switch back via `Settings → Preferences` — the row is hidden below Pro since there's nothing to toggle.
+- Redesigned `MediaShareModal`/`ProfileShareModal` and the generated media share card — see the phase-9 entry below for detail.
 
 **2026-09-05 2026-redesign phase 9 — footer pages truth check + share modal redesign:**
 
