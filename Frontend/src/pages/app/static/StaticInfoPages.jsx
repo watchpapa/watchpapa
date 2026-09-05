@@ -107,7 +107,8 @@ function AboutPage({ session }) {
           watchpapa is free, and there is nothing to buy yet. Bigger plans are earned instead: the
           first 5,000 accounts get lifetime Premium, inviting friends earns temporary Pro, and reward
           codes appear from time to time. See <Link to="/subscription">Plans &amp; Perks</Link> for
-          what each plan includes.
+          what each plan includes and <strong>Settings → Plan &amp; rewards</strong> for your
+          referral code.
         </p>
         <p>
           There are no ads, no trackers and no analytics cookies. The only data stored is your
@@ -167,12 +168,20 @@ function HelpPage({ session }) {
         <h3>What’s in the header?</h3>
         <p>
           <strong>Popular</strong> (the home page), <strong>Movies</strong>, <strong>Shows</strong>,{" "}
-          <strong>Collections</strong>, <strong>People</strong>, <strong>My Services</strong> and{" "}
-          <strong>Search</strong>. When you’re signed in you also get icons for{" "}
-          <strong>Find People</strong>, <strong>Activity</strong>, <strong>Watchlists</strong> and
-          the <strong>Releases Radar</strong>, plus your profile circle in the top-right — hover it
-          on desktop (or tap it on mobile) for notifications, observe requests, edit profile,
-          settings and your plan.
+          <strong>People</strong> and a <strong>More</strong> menu for{" "}
+          <strong>Collections</strong>, <strong>My Services</strong> and, if you’ve turned it on,{" "}
+          <strong>Adult</strong>. Search sits in the header — always visible on desktop, behind the
+          magnifying-glass icon on phones and tablets. When you’re signed in you also get the
+          Releases Radar and notification bell as icons, and your profile circle on the right —
+          click it (not hover) for your account menu: profile, edit profile, settings, your plan,
+          watchlists, follows, activity, find people, observe requests and sign out.
+        </p>
+        <h3>What’s the bar at the bottom on my phone?</h3>
+        <p>
+          On phones, a bottom tab bar replaces the account menu: <strong>Home</strong>,{" "}
+          <strong>Browse</strong> (opens the same menu the header’s More button does),{" "}
+          <strong>Search</strong>, <strong>Radar</strong> and <strong>You</strong> (your account
+          menu, notifications and requests included).
         </p>
         <h3>Can I change what the home page shows?</h3>
         <p>
@@ -248,9 +257,9 @@ function HelpPage({ session }) {
         <h3>How do I change or remove a rating?</h3>
         <p>
           Once you’ve rated something the hearts lock, so a stray click can’t overwrite it. Use{" "}
-          <strong>Add new rating</strong> to pick a new value or <strong>Clear rating</strong> to
-          remove it. Every change is kept in a collapsible <strong>rating history</strong> under the
-          hearts; individual history entries can be deleted.
+          <strong>Change</strong> to pick a new value or <strong>Clear</strong> to remove it. Every
+          change is kept in a collapsible <strong>rating history</strong> under the hearts;
+          individual history entries can be deleted.
         </p>
         <h3>What else does rating do?</h3>
         <ul>
@@ -276,11 +285,11 @@ function HelpPage({ session }) {
         <h2>Watched &amp; the rewatch diary</h2>
         <h3>How do I mark something watched?</h3>
         <p>
-          Every movie and show page has a <strong>Watched</strong> section in the sidebar. Click{" "}
-          <strong>Mark watched</strong> once; after that, the <strong>+</strong> button logs another
-          watch with a date of your choice, and the badge counts them (“Watched · 3×”). Expand the
-          section to see each entry and remove any you logged by mistake — remove them all and the
-          title goes back to unwatched.
+          Every movie and show page has a <strong>Watched</strong> control. Click{" "}
+          <strong>Mark watched</strong> once to log today. After that it becomes a{" "}
+          <strong>Watched</strong> chip (“Watched · 3×” once you’ve rewatched it) — tap it to open
+          your rewatch diary, log another watch on a date of your choice, and see the full history
+          with a remove button per entry. Remove them all and the title goes back to unwatched.
         </p>
         <h3>Do I have to mark things manually?</h3>
         <p>
@@ -425,8 +434,9 @@ function HelpPage({ session }) {
         <p>
           With adult content on, <strong>Blur NSFW posters</strong> (on by default) hides adult
           posters behind a tap-to-reveal overlay wherever they appear. <strong>Adult tab in
-          header</strong> is a separate opt-in that adds an Adult section to the navigation — a
-          filterable, sortable grid of adult titles with a warning shown before anything loads.
+          navigation</strong> is a separate opt-in that adds an Adult section to the More menu (and
+          the drawer on phones) — a filterable, sortable grid of adult titles with a warning shown
+          before anything loads.
         </p>
         <h3>The adult content switch is greyed out.</h3>
         <p>
@@ -446,7 +456,7 @@ function HelpPage({ session }) {
         </p>
         <h3>Can I get my data out?</h3>
         <p>
-          <strong>Settings → Data → Export my data</strong> downloads a CSV of your ratings and
+          <strong>Settings → Your data → Export my data</strong> downloads a CSV of your ratings and
           watchlists. The same file can be re-imported on the Import page.
         </p>
 
@@ -455,7 +465,7 @@ function HelpPage({ session }) {
           watchpapa is free and there is nothing to buy yet. Bigger plans come from being an early
           adopter, inviting friends, or redeeming a reward code — all of it is explained on{" "}
           <Link to="/subscription">Plans &amp; Perks</Link>. Your referral code and the reward-code
-          box are under <strong>Settings → Plan</strong>.
+          box are under <strong>Settings → Plan &amp; rewards</strong>.
         </p>
 
         <h2>Your account</h2>
@@ -813,11 +823,20 @@ function PrivacyPage({ session }) {
           and who observes you, observe requests, blocks, in-app notifications, referral
           relationships and reward-code claims. Titles are stored as TMDB identifiers.
         </p>
-        <h3>Security logs</h3>
+        <h3>Audit and security logs</h3>
         <p>
-          For security and abuse prevention, sensitive actions (such as sign-in, follows, referrals
-          and reward claims) are logged with your IP address, the request method and path, and a
-          timestamp.
+          For security, abuse prevention and support, we keep a record of actions taken on your
+          account — rating and watch-history changes, watchlist and favourite changes, follows and
+          observe requests, blocks, changes to your profile and settings, referral and reward-code
+          activity, and, where relevant to a support request, any action our team takes on an
+          account. Each entry has a timestamp; entries made through our API also record your IP
+          address, method and path. This log is not visible to you or to other users — only to us,
+          for security and support purposes.
+        </p>
+        <p>
+          Separately, Supabase (our authentication provider — see “Data processors” below)
+          maintains its own log of authentication events such as sign-in, sign-out and password
+          changes, under its own retention policy, which we do not independently control.
         </p>
         <p>We do not collect names, postal addresses, phone numbers or payment information.</p>
 
@@ -837,7 +856,8 @@ function PrivacyPage({ session }) {
           titles are visible only to you.
         </p>
         <p>
-          Security logs help us detect and prevent unauthorised access and abuse. If you opt in during
+          The audit log helps us detect and prevent unauthorised access and abuse, and support you
+          when something goes wrong with your account. If you opt in during
           registration or in Settings, we may send occasional product updates to your email; you can
           change that at any time under <strong>Settings → Preferences</strong>. We do not build
           advertising profiles or sell data to third parties.
@@ -934,13 +954,14 @@ function PrivacyPage({ session }) {
         <p>
           Account data and activity are kept until you delete your account, at which point they are
           removed from our database immediately; residual copies in backups expire within 30 days.
-          Security logs are deleted automatically after 90 days. Session tokens are cleared on sign-out
-          or when the tab closes, depending on your consent choice.
+          Our own audit log is deleted automatically after 90 days. Supabase’s authentication log is
+          retained under its own policy (see “Audit and security logs” above). Session tokens are
+          cleared on sign-out or when the tab closes, depending on your consent choice.
         </p>
 
         <h2>Your rights under the GDPR</h2>
         <p>
-          You have the right to access a copy of your personal data (<strong>Settings → Data →
+          You have the right to access a copy of your personal data (<strong>Settings → Your data →
           Export my data</strong>), to correct inaccurate or incomplete data, and to delete your
           account and all associated data (<strong>Settings → Account → Delete account</strong>). You
           can also ask us to restrict how your data is used, receive it in a portable format (the CSV
