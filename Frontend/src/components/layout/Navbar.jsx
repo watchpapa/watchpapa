@@ -11,7 +11,9 @@ const NAV_LINKS = [
   { label: "Popular", to: "/" },
   { label: "Movies", to: "/movies" },
   { label: "Shows", to: "/shows" },
+  { label: "Collections", to: "/collections" },
   { label: "People", to: "/people" },
+  { label: "My Services", to: "/my-services" },
   { label: "Search", to: "/search" },
 ];
 

@@ -20,6 +20,9 @@ import ShowPage from "./pages/app/ShowPage.jsx";
 import SeasonPage from "./pages/app/SeasonPage.jsx";
 import EpisodePage from "./pages/app/EpisodePage.jsx";
 import PersonPage from "./pages/app/PersonPage.jsx";
+import CollectionsPage from "./pages/app/CollectionsPage.jsx";
+import CollectionPage from "./pages/app/CollectionPage.jsx";
+import MyServicesPage from "./pages/app/MyServicesPage.jsx";
 import AdultPage from "./pages/app/AdultPage.jsx";
 import TmdbRedirect from "./components/TmdbRedirect.jsx";
 import CookieConsentBanner from "./components/ui/CookieConsentBanner.jsx";
@@ -56,6 +59,7 @@ import {
   HelpPage,
   PrivacyPage,
   TermsPage,
+  CertificationsInfoPage,
 } from "./pages/app/static/StaticInfoPages.jsx";
 
 // Redirect signed-in users away from auth-only pages.
@@ -375,6 +379,30 @@ function RouteTree({ session, needsUsernameSetup, initialUsername, onUsernameCom
         }
       />
       <Route
+        path="/collections"
+        element={
+          <PublicRoute session={session} needsUsernameSetup={needsUsernameSetup}>
+            <CollectionsPage session={session} />
+          </PublicRoute>
+        }
+      />
+      <Route
+        path="/collections/:id"
+        element={
+          <PublicRoute session={session} needsUsernameSetup={needsUsernameSetup}>
+            <CollectionPage session={session} showAdult={showAdult} />
+          </PublicRoute>
+        }
+      />
+      <Route
+        path="/my-services"
+        element={
+          <PublicRoute session={session} needsUsernameSetup={needsUsernameSetup}>
+            <MyServicesPage session={session} showAdult={showAdult} />
+          </PublicRoute>
+        }
+      />
+      <Route
         path="/people"
         element={
           <PublicRoute session={session} needsUsernameSetup={needsUsernameSetup}>
@@ -438,6 +466,14 @@ function RouteTree({ session, needsUsernameSetup, initialUsername, onUsernameCom
         element={
           <PublicRoute session={session} needsUsernameSetup={needsUsernameSetup}>
             <PrivacyPage session={session} />
+          </PublicRoute>
+        }
+      />
+      <Route
+        path="/certifications"
+        element={
+          <PublicRoute session={session} needsUsernameSetup={needsUsernameSetup}>
+            <CertificationsInfoPage session={session} />
           </PublicRoute>
         }
       />

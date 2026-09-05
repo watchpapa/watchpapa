@@ -85,6 +85,22 @@ function keywordList(raw) {
   return Array.isArray(arr) ? arr.map((k) => ({ id: k.id, name: k.name })) : [];
 }
 
+// Movie `release_dates` (append_to_response) carries a `certification` on each
+// release_dates row per country — take the first non-empty one. Show
+// `content_ratings` (append_to_response) is flatter: one rating per country,
+// no release-type breakdown. Same `region` as the regional release date, so no
+// extra param plumbing.
+function certificationForRegion(raw, region, kind) {
+  if (!region) return null;
+  if (kind === "movie") {
+    const entry = (raw.release_dates?.results ?? []).find((r) => r.iso_3166_1 === region);
+    const cert = (entry?.release_dates ?? []).find((d) => d.certification)?.certification;
+    return cert || null;
+  }
+  const entry = (raw.content_ratings?.results ?? []).find((r) => r.iso_3166_1 === region);
+  return entry?.rating || null;
+}
+
 // --- credits ------------------------------------------------------------------
 
 // TMDB `credits` (movies, episodes): cast[] {id,name,profile_path,character,order},
@@ -140,6 +156,7 @@ export function normalizeMovie(m, opts = {}) {
   const regional = pickRegionalRelease(m.release_dates, opts.region);
   const releaseDatePrimary = m.release_date || null;
   const releaseDateEffective = regional?.date ?? releaseDatePrimary;
+  const certification = certificationForRegion(m, opts.region, "movie");
   return {
     type: "movie",
     id: m.id,
@@ -168,6 +185,16 @@ export function normalizeMovie(m, opts = {}) {
     watch_providers: compactWatchProviders(m["watch/providers"]),
     genres: genreList(m.genres),
     genre_ids: m.genres?.map((g) => g.id) ?? [],
+    certification,
+    certification_region: certification ? opts.region : null,
+    collection: m.belongs_to_collection
+      ? {
+          id: m.belongs_to_collection.id,
+          name: m.belongs_to_collection.name ?? "",
+          poster_path: m.belongs_to_collection.poster_path ?? null,
+          backdrop_path: m.belongs_to_collection.backdrop_path ?? null,
+        }
+      : null,
     cast,
     crew,
   };
@@ -177,6 +204,7 @@ export function normalizeShow(s, opts = {}) {
   const { cast, crew } = s.aggregate_credits
     ? flatAggregateCredits(s.aggregate_credits)
     : flatCredits(s.credits);
+  const certification = certificationForRegion(s, opts.region, "tv");
   return {
     type: "show",
     id: s.id,
@@ -205,6 +233,8 @@ export function normalizeShow(s, opts = {}) {
     watch_providers: compactWatchProviders(s["watch/providers"]),
     genres: genreList(s.genres),
     genre_ids: s.genres?.map((g) => g.id) ?? [],
+    certification,
+    certification_region: certification ? opts.region : null,
     next_episode_to_air: s.next_episode_to_air
       ? { air_date: s.next_episode_to_air.air_date, season_number: s.next_episode_to_air.season_number, episode_number: s.next_episode_to_air.episode_number, name: s.next_episode_to_air.name }
       : null,
@@ -222,6 +252,21 @@ export function normalizeShow(s, opts = {}) {
     })),
     cast,
     crew,
+  };
+}
+
+// TMDB /collection/{id}. `raw` may already have its `overview` filled in by the
+// caller from /collection/{id}/translations when the requested language had none.
+export function normalizeCollection(raw, opts = {}) {
+  return {
+    type: "collection",
+    id: raw.id,
+    tmdb_id: raw.id,
+    name: raw.name ?? "",
+    overview: raw.overview ?? "",
+    poster_path: raw.poster_path ?? null,
+    backdrop_path: raw.backdrop_path ?? null,
+    parts: (raw.parts ?? []).map((p) => toCard("movie", p, { native: opts.native, region: opts.region })),
   };
 }
 

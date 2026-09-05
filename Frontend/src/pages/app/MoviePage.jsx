@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import AppLayout from "../../layouts/AppLayout.jsx";
 import DetailPageLayout from "../../components/detail/DetailPageLayout.jsx";
 import SkeletonDetailPage from "../../components/detail/SkeletonDetailPage.jsx";
@@ -22,6 +22,8 @@ import UpgradePromptToast from "../../components/subscription/UpgradePromptToast
 import { PageHead } from "../../components/ui/PageHead.jsx";
 import { MediaShareModal } from "../../components/detail/MediaShareModal.jsx";
 import { tmdbImg } from "../../lib/tmdbImage.js";
+import { useCertifications } from "../../features/content/hooks/useContent.js";
+import { certificationMeaning } from "../../lib/certifications.js";
 
 function fmt(val, fallback = "—") {
   return val ?? fallback;
@@ -49,6 +51,7 @@ function MoviePage({ session, showAdult }) {
   const [showAuthPrompt, setShowAuthPrompt] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
   const { movie, genres, cast, crew, isFollowing, followLimitError, clearFollowLimitError, isLoading, error, toggleFollow } = useMovieData(id, session, showAdult);
+  const { data: certCatalog } = useCertifications();
   const handleFollow = session ? toggleFollow : () => setShowAuthPrompt(true);
   const watchedStatus = useWatchedStatus("movie", id ? Number(id) : null, session);
 
@@ -59,6 +62,7 @@ function MoviePage({ session, showAdult }) {
   if (!movie) return null;
 
   const year = movie.release_date ? new Date(movie.release_date).getFullYear() : null;
+  const certMeaning = certificationMeaning(certCatalog, "movie", movie.certification_region, movie.certification);
   const ogImage = tmdbImg(movie.backdrop_path, "w1280") ?? tmdbImg(movie.poster_path, "w500");
   const directorPeople = crew.find(c => c.department === "Directing")?.jobs.find(j => j.job === "Director")?.people ?? [];
   const director = directorPeople[0];
@@ -156,12 +160,39 @@ function MoviePage({ session, showAdult }) {
           </ContentPanel>
         )}
 
-        {genres.length > 0 && (
-          <div className="flex flex-wrap gap-2 px-1">
-            <span className="text-sm font-semibold text-[#8383e7]">Genres:</span>
-            {genres.map((g) => (
-              <span key={g.id} className="rounded-full border border-[#3a3a7a] bg-[#1a1d35] px-3 py-0.5 text-xs font-semibold text-[#a0a0e8]">{g.name}</span>
-            ))}
+        {(genres.length > 0 || movie.certification) && (
+          <div className="flex flex-wrap items-center gap-2 px-1">
+            {movie.certification && (
+              <>
+                <span className="text-sm font-semibold text-[#8383e7]">Certification:</span>
+                <Link
+                  to="/certifications"
+                  title={certMeaning ? `${certMeaning} — see all certifications` : "See all certifications"}
+                  className="rounded-full border border-[#5a5a9a] bg-[#1e2140] px-3 py-0.5 text-xs font-bold uppercase tracking-wide text-white transition hover:border-[#8b8bff] hover:text-[#c8c8ff]"
+                >
+                  {movie.certification}
+                </Link>
+              </>
+            )}
+            {genres.length > 0 && (
+              <>
+                <span className="text-sm font-semibold text-[#8383e7]">Genres:</span>
+                {genres.map((g) => (
+                  <span key={g.id} className="rounded-full border border-[#3a3a7a] bg-[#1a1d35] px-3 py-0.5 text-xs font-semibold text-[#a0a0e8]">{g.name}</span>
+                ))}
+              </>
+            )}
+          </div>
+        )}
+
+        {movie.collection && (
+          <div className="px-1">
+            <Link
+              to={`/collections/${movie.collection.id}`}
+              className="text-sm font-semibold text-[#a0a0e8] underline decoration-[#3a3a7a] underline-offset-4 hover:text-white"
+            >
+              Part of the {movie.collection.name} Collection
+            </Link>
           </div>
         )}
 

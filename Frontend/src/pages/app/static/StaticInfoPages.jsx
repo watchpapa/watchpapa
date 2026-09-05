@@ -1,6 +1,9 @@
+import { useEffect, useMemo, useState } from "react";
 import ContentPanel from "../../../components/detail/ContentPanel.jsx";
 import InfoPageShell from "../../../components/static/InfoPageShell.jsx";
 import { PageHead } from "../../../components/ui/PageHead.jsx";
+import { useCertifications } from "../../../features/content/hooks/useContent.js";
+import { usePreferences } from "../../../features/preferences/PreferencesContext.jsx";
 
 /* ─── About ─────────────────────────────────────────────── */
 
@@ -457,4 +460,113 @@ function PrivacyPage({ session }) {
   );
 }
 
-export { AboutPage, ContactPage, HelpPage, PrivacyPage, TermsPage };
+/* ─── Certifications ─────────────────────────────────────── */
+
+function CertificationTable({ rows }) {
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full border-collapse text-left text-sm">
+        <thead>
+          <tr className="border-b border-[#2a3570]/50 text-xs font-semibold uppercase tracking-widest text-[#8383e7]">
+            <th className="py-2 pr-4">Certification</th>
+            <th className="py-2">Meaning</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((r) => (
+            <tr key={r.certification} className="border-b border-[#2a3570]/20 last:border-0">
+              <td className="py-2 pr-4 align-top">
+                <span className="rounded-full border border-[#5a5a9a] bg-[#1e2140] px-2.5 py-0.5 text-xs font-bold uppercase tracking-wide text-white">
+                  {r.certification}
+                </span>
+              </td>
+              <td className="py-2 align-top text-[#c0c0e8]">{r.meaning}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function CertificationsInfoPage({ session }) {
+  const { data: catalog } = useCertifications();
+  const { effectiveWatchRegions } = usePreferences();
+  const [region, setRegion] = useState(null);
+
+  const regionCodes = useMemo(() => {
+    const set = new Set([...Object.keys(catalog?.movie ?? {}), ...Object.keys(catalog?.tv ?? {})]);
+    return [...set].sort();
+  }, [catalog]);
+
+  useEffect(() => {
+    if (region || regionCodes.length === 0) return;
+    const preferred = effectiveWatchRegions.find((r) => regionCodes.includes(r));
+    setRegion(preferred ?? (regionCodes.includes("US") ? "US" : regionCodes[0]));
+  }, [region, regionCodes, effectiveWatchRegions]);
+
+  const sortByOrder = (rows) => (rows ?? []).slice().sort((a, b) => a.order - b.order);
+  const movieCerts = sortByOrder(catalog?.movie?.[region]);
+  const tvCerts = sortByOrder(catalog?.tv?.[region]);
+
+  return (
+    <>
+      <PageHead
+        title="Content Certifications"
+        description="What movie and TV certifications (age/content ratings) mean, by country — sourced from TMDB."
+        path="/certifications"
+      />
+      <InfoPageShell
+        session={session}
+        breadcrumbs={[{ label: "Certifications" }]}
+        title="Content Certifications"
+        lead="The rating badge shown on movie and show pages (e.g. PG-13, TV-MA), explained by country."
+      >
+        <h2>What is a certification?</h2>
+        <p>
+          A certification is the official age/content rating a movie or TV show has been given by a
+          country&apos;s classification board — for example the MPA in the United States (G, PG,
+          PG-13, R, NC-17) or the BBFC in the United Kingdom (U, PG, 12, 15, 18). Watchpapa shows the
+          certification for your selected watch region on each movie or show&apos;s page, sourced live
+          from TMDB. Not every title has a certification for every country — TMDB only has data where a
+          classification board has actually rated that specific release.
+        </p>
+
+        <h2>Look up a country&apos;s ratings</h2>
+        {regionCodes.length > 0 && (
+          <div className="mb-4">
+            <select
+              value={region ?? ""}
+              onChange={(e) => setRegion(e.target.value)}
+              className="rounded-lg border border-[#2a3570] bg-[#141728] px-3 py-2 text-sm font-semibold text-white outline-none focus:border-[#6f6fdc]"
+            >
+              {regionCodes.map((code) => (
+                <option key={code} value={code}>
+                  {code}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+
+        {movieCerts.length > 0 && (
+          <ContentPanel label="Movies">
+            <CertificationTable rows={movieCerts} />
+          </ContentPanel>
+        )}
+
+        {tvCerts.length > 0 && (
+          <ContentPanel label="TV Shows">
+            <CertificationTable rows={tvCerts} />
+          </ContentPanel>
+        )}
+
+        {region && movieCerts.length === 0 && tvCerts.length === 0 && (
+          <p className="text-sm text-[#8080a8]">No certification data available for {region}.</p>
+        )}
+      </InfoPageShell>
+    </>
+  );
+}
+
+export { AboutPage, ContactPage, HelpPage, PrivacyPage, TermsPage, CertificationsInfoPage };

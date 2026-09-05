@@ -5,6 +5,7 @@ import {
   normalizeSeason,
   normalizeEpisode,
   normalizePerson,
+  normalizeCollection,
   toCard,
   normalizeSearchResults,
 } from "../src/tmdb/normalize.js";
@@ -271,5 +272,73 @@ describe("normalizePerson credit enrichment", () => {
     expect(cast).toMatchObject({ date: "1995-12-29", year: "1995", popularity: 12.3, voteAverage: 7.8, voteCount: 4000 });
     const crew = p.credits.find((c) => c.mediaId === 100);
     expect(crew.episodeCount).toBe(12);
+  });
+});
+
+describe("normalizeMovie certification + collection", () => {
+  const raw = {
+    id: 550,
+    title: "Fight Club",
+    release_dates: {
+      results: [
+        {
+          iso_3166_1: "US",
+          release_dates: [
+            { type: 4, release_date: "1999-10-01T00:00:00.000Z", certification: "" },
+            { type: 3, release_date: "1999-10-15T00:00:00.000Z", certification: "R" },
+          ],
+        },
+      ],
+    },
+    belongs_to_collection: { id: 9, name: "Alien Collection", poster_path: "/p.jpg", backdrop_path: "/b.jpg" },
+  };
+  it("picks the first non-empty certification for the region", () => {
+    const m = normalizeMovie(raw, { region: "US" });
+    expect(m.certification).toBe("R");
+    expect(m.certification_region).toBe("US");
+  });
+  it("is null when there's no region", () => {
+    const m = normalizeMovie(raw, {});
+    expect(m.certification).toBeNull();
+    expect(m.certification_region).toBeNull();
+  });
+  it("carries belongs_to_collection through as `collection`", () => {
+    const m = normalizeMovie(raw, {});
+    expect(m.collection).toMatchObject({ id: 9, name: "Alien Collection", poster_path: "/p.jpg" });
+  });
+  it("collection is null when the movie isn't part of one", () => {
+    const m = normalizeMovie({ id: 1, title: "Solo Film" }, {});
+    expect(m.collection).toBeNull();
+  });
+});
+
+describe("normalizeShow certification", () => {
+  it("reads the rating for the region out of content_ratings", () => {
+    const s = normalizeShow(
+      {
+        id: 1399,
+        name: "Game of Thrones",
+        content_ratings: { results: [{ iso_3166_1: "US", rating: "TV-MA" }] },
+      },
+      { region: "US" },
+    );
+    expect(s.certification).toBe("TV-MA");
+    expect(s.certification_region).toBe("US");
+  });
+});
+
+describe("normalizeCollection", () => {
+  it("maps parts through toCard as movie cards", () => {
+    const c = normalizeCollection({
+      id: 9,
+      name: "Alien Collection",
+      overview: "Xenomorphs.",
+      poster_path: "/p.jpg",
+      backdrop_path: "/b.jpg",
+      parts: [{ id: 348, title: "Alien", poster_path: "/a.jpg", release_date: "1979-05-25", vote_average: 8.1 }],
+    });
+    expect(c).toMatchObject({ type: "collection", id: 9, name: "Alien Collection", overview: "Xenomorphs." });
+    expect(c.parts).toHaveLength(1);
+    expect(c.parts[0]).toMatchObject({ type: "movie", id: 348, title: "Alien" });
   });
 });

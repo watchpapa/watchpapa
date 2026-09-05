@@ -83,6 +83,8 @@ export const useEpisode = (showId, seasonNumber, episodeNumber) =>
       : null,
   );
 export const usePerson = (id) => useContent(idOk(id) ? `/api/content/person/${Number(id)}` : null);
+export const useCollection = (id) => useContent(idOk(id) ? `/api/content/collection/${Number(id)}` : null);
+export const useCertifications = () => useContent("/api/content/certifications");
 
 export function useContentList(kind, page = 1, { includeAdult = false } = {}) {
   const q = new URLSearchParams({ page: String(page) });

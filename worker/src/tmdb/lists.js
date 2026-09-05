@@ -52,4 +52,6 @@ export const TTL = {
   sitemap: 86400,
   watch: 604800,
   config: 604800,
+  collection: 86400,
+  certifications: 604800,
 };

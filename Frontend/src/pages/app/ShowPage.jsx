@@ -22,6 +22,8 @@ import UpgradePromptToast from "../../components/subscription/UpgradePromptToast
 import { PageHead } from "../../components/ui/PageHead.jsx";
 import { MediaShareModal } from "../../components/detail/MediaShareModal.jsx";
 import { tmdbImg } from "../../lib/tmdbImage.js";
+import { useCertifications } from "../../features/content/hooks/useContent.js";
+import { certificationMeaning } from "../../lib/certifications.js";
 
 function fmt(val, fallback = "—") {
   return val ?? fallback;
@@ -69,6 +71,7 @@ function ShowPage({ session, showAdult }) {
   const [showAuthPrompt, setShowAuthPrompt] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
   const { show, genres, seasons, cast, crew, isFollowing, followLimitError, clearFollowLimitError, isLoading, error, toggleFollow } = useShowData(id, session, showAdult);
+  const { data: certCatalog } = useCertifications();
   const handleFollow = session ? toggleFollow : () => setShowAuthPrompt(true);
   const watchedStatus = useWatchedStatus("show", id ? Number(id) : null, session);
 
@@ -83,6 +86,7 @@ function ShowPage({ session, showAdult }) {
   const yearRange = firstYear
     ? (show.status === "Ended" && lastYear && lastYear !== firstYear ? `${firstYear}–${lastYear}` : `${firstYear}–`)
     : null;
+  const certMeaning = certificationMeaning(certCatalog, "tv", show.certification_region, show.certification);
   const ogImage = tmdbImg(show.backdrop_path, "w1280") ?? tmdbImg(show.poster_path, "w500");
   const jsonLd = {
     "@context": "https://schema.org",
@@ -183,12 +187,28 @@ function ShowPage({ session, showAdult }) {
           </ContentPanel>
         )}
 
-        {genres.length > 0 && (
-          <div className="flex flex-wrap gap-2 px-1">
-            <span className="text-sm font-semibold text-[#8383e7]">Genres:</span>
-            {genres.map((g) => (
-              <span key={g.id} className="rounded-full border border-[#3a3a7a] bg-[#1a1d35] px-3 py-0.5 text-xs font-semibold text-[#a0a0e8]">{g.name}</span>
-            ))}
+        {(genres.length > 0 || show.certification) && (
+          <div className="flex flex-wrap items-center gap-2 px-1">
+            {show.certification && (
+              <>
+                <span className="text-sm font-semibold text-[#8383e7]">Certification:</span>
+                <Link
+                  to="/certifications"
+                  title={certMeaning ? `${certMeaning} — see all certifications` : "See all certifications"}
+                  className="rounded-full border border-[#5a5a9a] bg-[#1e2140] px-3 py-0.5 text-xs font-bold uppercase tracking-wide text-white transition hover:border-[#8b8bff] hover:text-[#c8c8ff]"
+                >
+                  {show.certification}
+                </Link>
+              </>
+            )}
+            {genres.length > 0 && (
+              <>
+                <span className="text-sm font-semibold text-[#8383e7]">Genres:</span>
+                {genres.map((g) => (
+                  <span key={g.id} className="rounded-full border border-[#3a3a7a] bg-[#1a1d35] px-3 py-0.5 text-xs font-semibold text-[#a0a0e8]">{g.name}</span>
+                ))}
+              </>
+            )}
           </div>
         )}
 

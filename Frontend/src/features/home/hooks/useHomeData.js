@@ -3,7 +3,7 @@
 //
 // Home rows come from the watchpapa Worker (TMDB popular / discover-upcoming).
 // Follow state + toggles stay in Supabase, keyed by tmdb_id.
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "../../../lib/supabase.js";
 import { apiFetch } from "../../../lib/api.js";
 import { followBlock } from "../../../lib/followGate.js";
@@ -83,6 +83,39 @@ export function useHomeData(session, showAdult = false) {
   const [suggestedCards, setSuggestedCards] = useState([]);
   const [suggestedOnServicesCards, setSuggestedOnServicesCards] = useState([]);
   const [loadingSuggested, setLoadingSuggested] = useState(false);
+  const [suggestedPage, setSuggestedPage] = useState(1);
+  const [suggestedOnServicesPage, setSuggestedOnServicesPage] = useState(1);
+  const [hasMoreSuggested, setHasMoreSuggested] = useState(false);
+  const [hasMoreSuggestedOnServices, setHasMoreSuggestedOnServices] = useState(false);
+  const [loadingMoreSuggested, setLoadingMoreSuggested] = useState(false);
+  const [loadingMoreSuggestedOnServices, setLoadingMoreSuggestedOnServices] = useState(false);
+  // Every id shown so far in either suggested row, across pages — folded into
+  // `exclude` on every /recommendations call so paginating never repeats a
+  // title (the endpoint is stateless/per-user, never edge-cached; see
+  // worker/src/routes/content.js POST /recommendations).
+  const shownSuggestedIdsRef = useRef(new Set());
+
+  const fetchRecommendations = useCallback(
+    (page) => {
+      const body = {
+        items: seedItems,
+        exclude: [
+          ...seedExclude,
+          ...[...shownSuggestedIdsRef.current].map((key) => {
+            const [type, rawId] = key.split(":");
+            return { type, id: Number(rawId) };
+          }),
+        ],
+        page,
+      };
+      if (providersKey && myServicesRegion) {
+        body.providers = watchProviders;
+        body.watchRegion = myServicesRegion;
+      }
+      return apiFetch("/api/content/recommendations", { method: "POST", body: JSON.stringify(body) });
+    },
+    [seedItems, seedExclude, providersKey, myServicesRegion, watchProviders],
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -178,28 +211,34 @@ export function useHomeData(session, showAdult = false) {
     if (!seedsLoaded || seedItems.length === 0) {
       setSuggestedCards([]);
       setSuggestedOnServicesCards([]);
+      setSuggestedPage(1);
+      setSuggestedOnServicesPage(1);
+      setHasMoreSuggested(false);
+      setHasMoreSuggestedOnServices(false);
+      shownSuggestedIdsRef.current = new Set();
       return;
     }
     let cancelled = false;
+    shownSuggestedIdsRef.current = new Set();
     (async () => {
       setLoadingSuggested(true);
       try {
-        const body = { items: seedItems, exclude: seedExclude };
-        if (providersKey && myServicesRegion) {
-          body.providers = watchProviders;
-          body.watchRegion = myServicesRegion;
-        }
-        const { results, resultsOnMyServices } = await apiFetch("/api/content/recommendations", {
-          method: "POST",
-          body: JSON.stringify(body),
-        });
+        const { results, resultsOnMyServices } = await fetchRecommendations(1);
         if (cancelled) return;
+        for (const c of results ?? []) shownSuggestedIdsRef.current.add(`${c.type}:${c.id}`);
+        for (const c of resultsOnMyServices ?? []) shownSuggestedIdsRef.current.add(`${c.type}:${c.id}`);
         setSuggestedCards(results ?? []);
         setSuggestedOnServicesCards(resultsOnMyServices ?? []);
+        setSuggestedPage(1);
+        setSuggestedOnServicesPage(1);
+        setHasMoreSuggested((results?.length ?? 0) > 0);
+        setHasMoreSuggestedOnServices((resultsOnMyServices?.length ?? 0) > 0);
       } catch {
         if (!cancelled) {
           setSuggestedCards([]);
           setSuggestedOnServicesCards([]);
+          setHasMoreSuggested(false);
+          setHasMoreSuggestedOnServices(false);
         }
       } finally {
         if (!cancelled) setLoadingSuggested(false);
@@ -208,7 +247,41 @@ export function useHomeData(session, showAdult = false) {
     return () => {
       cancelled = true;
     };
-  }, [seedsLoaded, seedItems, seedExclude, providersKey, myServicesRegion, showAdult, watchProviders]);
+  }, [seedsLoaded, seedItems, seedExclude, providersKey, myServicesRegion, showAdult, watchProviders, fetchRecommendations]);
+
+  const loadMoreSuggested = useCallback(async () => {
+    if (loadingMoreSuggested || !hasMoreSuggested) return;
+    setLoadingMoreSuggested(true);
+    try {
+      const nextPage = suggestedPage + 1;
+      const { results } = await fetchRecommendations(nextPage);
+      for (const c of results ?? []) shownSuggestedIdsRef.current.add(`${c.type}:${c.id}`);
+      setSuggestedCards((prev) => [...prev, ...(results ?? [])]);
+      setSuggestedPage(nextPage);
+      setHasMoreSuggested((results?.length ?? 0) > 0);
+    } catch {
+      setHasMoreSuggested(false);
+    } finally {
+      setLoadingMoreSuggested(false);
+    }
+  }, [loadingMoreSuggested, hasMoreSuggested, suggestedPage, fetchRecommendations]);
+
+  const loadMoreSuggestedOnServices = useCallback(async () => {
+    if (loadingMoreSuggestedOnServices || !hasMoreSuggestedOnServices) return;
+    setLoadingMoreSuggestedOnServices(true);
+    try {
+      const nextPage = suggestedOnServicesPage + 1;
+      const { resultsOnMyServices } = await fetchRecommendations(nextPage);
+      for (const c of resultsOnMyServices ?? []) shownSuggestedIdsRef.current.add(`${c.type}:${c.id}`);
+      setSuggestedOnServicesCards((prev) => [...prev, ...(resultsOnMyServices ?? [])]);
+      setSuggestedOnServicesPage(nextPage);
+      setHasMoreSuggestedOnServices((resultsOnMyServices?.length ?? 0) > 0);
+    } catch {
+      setHasMoreSuggestedOnServices(false);
+    } finally {
+      setLoadingMoreSuggestedOnServices(false);
+    }
+  }, [loadingMoreSuggestedOnServices, hasMoreSuggestedOnServices, suggestedOnServicesPage, fetchRecommendations]);
 
   const toggleFollow = useCallback(
     async (type, id) => {
@@ -390,13 +463,19 @@ export function useHomeData(session, showAdult = false) {
       myServicesCount < myServicesMovieItems.length + myServicesShowItems.length ||
       myServicesMoviePage < myServicesMovieTotal ||
       myServicesShowPage < myServicesShowTotal,
+    hasMoreSuggested,
+    hasMoreSuggestedOnServices,
     loadMoreMovies: () => loadMore("movies"),
     loadMoreShows: () => loadMore("shows"),
     loadMorePopular: () => loadMore("popular"),
     loadMoreMyServices: () => loadMore("myServices"),
+    loadMoreSuggested,
+    loadMoreSuggestedOnServices,
     loadingMoreMovies: busy.movies,
     loadingMoreShows: busy.shows,
     loadingMorePopular: busy.popular,
     loadingMoreMyServices: busy.myServices,
+    loadingMoreSuggested,
+    loadingMoreSuggestedOnServices,
   };
 }

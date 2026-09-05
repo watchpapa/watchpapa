@@ -46,14 +46,20 @@ function AppHomePage({ session, showAdult }) {
     hasMoreMovies,
     hasMoreShows,
     hasMoreMyServices,
+    hasMoreSuggested,
+    hasMoreSuggestedOnServices,
     loadMorePopular,
     loadMoreMovies,
     loadMoreShows,
     loadMoreMyServices,
+    loadMoreSuggested,
+    loadMoreSuggestedOnServices,
     loadingMorePopular,
     loadingMoreMovies,
     loadingMoreShows,
     loadingMoreMyServices,
+    loadingMoreSuggested,
+    loadingMoreSuggestedOnServices,
   } = useHomeData(session, showAdult);
 
   const sectionsByKey = {
@@ -65,9 +71,9 @@ function AppHomePage({ session, showAdult }) {
     },
     suggested: {
       items: suggestedItems,
-      hasMore: false,
-      onLoadMore: null,
-      isLoadingMore: false,
+      hasMore: hasMoreSuggested,
+      onLoadMore: loadMoreSuggested,
+      isLoadingMore: loadingMoreSuggested,
     },
     popularOnServices: {
       items: myServicesItems,
@@ -77,9 +83,9 @@ function AppHomePage({ session, showAdult }) {
     },
     suggestedOnServices: {
       items: suggestedOnServicesItems,
-      hasMore: false,
-      onLoadMore: null,
-      isLoadingMore: false,
+      hasMore: hasMoreSuggestedOnServices,
+      onLoadMore: loadMoreSuggestedOnServices,
+      isLoadingMore: loadingMoreSuggestedOnServices,
     },
     comingSoon: {
       items: comingSoonItems,

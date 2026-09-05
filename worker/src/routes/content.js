@@ -19,6 +19,7 @@ import {
   normalizeSeason,
   normalizeEpisode,
   normalizePerson,
+  normalizeCollection,
   toCard,
 } from "../tmdb/normalize.js";
 
@@ -77,7 +78,7 @@ content.get("/show/:id", async (c) => {
   const raw = await tmdbFetch(
     c.env,
     `/tv/${id}`,
-    { append_to_response: "aggregate_credits,keywords,watch/providers" },
+    { append_to_response: "aggregate_credits,keywords,watch/providers,content_ratings" },
     { ttl: TTL.show, language: loc.language },
   );
   const out = normalizeShow(raw, { native: loc.native, region: loc.region });
@@ -135,6 +136,56 @@ content.get("/person/:id", async (c) => {
     { ttl: TTL.person, language: loc.language },
   );
   return c.json(normalizePerson(raw, { native: loc.native }), 200, cache(TTL.person));
+});
+
+content.get("/collection/:id", async (c) => {
+  const id = posInt(c.req.param("id"));
+  if (!id) return c.json({ error: "Bad id" }, 400);
+  const loc = readLocale(c);
+  const raw = await tmdbFetch(c.env, `/collection/${id}`, {}, { ttl: TTL.collection, language: loc.language });
+
+  // TMDB has no fallback for `overview` on a missing translation (same gap as
+  // movie/show) — /collection/{id}/translations returns every language in one
+  // call, so pull an overview from it instead of a second /collection fetch.
+  if (!raw.overview) {
+    try {
+      const tr = await tmdbFetch(c.env, `/collection/${id}/translations`, {}, { ttl: TTL.collection, language: loc.language });
+      const translations = tr.translations ?? [];
+      const wanted = translations.find(
+        (t) => `${t.iso_639_1}-${t.iso_3166_1}` === loc.language && t.data?.overview,
+      );
+      const en = translations.find((t) => t.iso_639_1 === "en" && t.iso_3166_1 === "US" && t.data?.overview);
+      const pick = wanted ?? en;
+      if (pick) {
+        raw.overview = pick.data.overview;
+        if (!raw.name) raw.name = pick.data.title ?? pick.data.name ?? raw.name;
+      }
+    } catch {
+      /* non-fatal — leave overview empty */
+    }
+  }
+
+  return c.json(normalizeCollection(raw, { native: loc.native, region: loc.region }), 200, cache(TTL.collection));
+});
+
+// GET /api/content/search/collections?q=&page= — TMDB has no "browse all
+// collections" endpoint, only /search/collection, so this is search-only (the
+// Frontend's /collections page shows a prompt instead of a default list).
+content.get("/search/collections", async (c) => {
+  const q = (c.req.query("q") ?? "").trim();
+  if (q.length < 2) return c.json({ results: [], page: 1, total_pages: 1 });
+  if (q.length > 100) return c.json({ error: "Query too long" }, 400);
+  const loc = readLocale(c);
+  const page = posInt(c.req.query("page")) ?? 1;
+  const raw = await tmdbFetch(c.env, "/search/collection", { query: q, page }, { ttl: TTL.search, language: loc.language });
+  const results = (raw.results ?? []).map((r) => ({
+    type: "collection",
+    id: r.id,
+    name: r.name ?? "",
+    poster_path: r.poster_path ?? null,
+    backdrop_path: r.backdrop_path ?? null,
+  }));
+  return c.json({ results, page: raw.page ?? page, total_pages: raw.total_pages ?? 1 }, 200, cache(TTL.search));
 });
 
 // --- browse endpoints ------------------------------------------------------
@@ -288,6 +339,22 @@ content.get("/config/locales", async (c) => {
     .map((cc) => ({ code: cc.iso_3166_1, name: cc.english_name, nativeName: cc.native_name }))
     .sort((a, b) => a.name.localeCompare(b.name));
   return c.json({ languages, countries: countryList }, 200, cache(TTL.config));
+});
+
+// GET /api/content/certifications — TMDB's per-country certification systems
+// (e.g. US: G/PG/PG-13/R/NC-17 with a `meaning` + sort `order`), used to label
+// the per-title `certification` movie/show detail already carries. Static
+// reference data, so cache aggressively.
+content.get("/certifications", async (c) => {
+  const [movie, tv] = await tmdbFetchAllSettled(c.env, [
+    { path: "/certification/movie/list", opts: { ttl: TTL.certifications } },
+    { path: "/certification/tv/list", opts: { ttl: TTL.certifications } },
+  ]);
+  return c.json(
+    { movie: movie?.certifications ?? {}, tv: tv?.certifications ?? {} },
+    200,
+    cache(TTL.certifications),
+  );
 });
 
 // --- batch card hydration --------------------------------------------------
@@ -559,6 +626,12 @@ content.post("/recommendations", async (c) => {
     .slice(0, 50);
   const watchRegion = isValidRegion(body?.watchRegion ?? "") ? body.watchRegion : null;
   const wantProviders = providers.length > 0 && !!watchRegion;
+  // Infinite scroll: page 1 is TMDB rec page 1 per seed (as before); the client
+  // pages forward by re-posting with an incremented `page` AND every id it has
+  // already shown folded into `exclude` — since this endpoint is stateless and
+  // per-user (never edge-cached), that client-side exclude growth is what keeps
+  // later pages from repeating earlier ones.
+  const tmdbPage = posInt(String(body?.page)) ?? 1;
 
   // 1) Fetch TMDB recommendations per seed, tally candidates across seeds.
   const tally = new Map(); // "type:id" -> { type, id, raw, hits, popularity }
@@ -567,7 +640,12 @@ content.post("/recommendations", async (c) => {
       const tmdbType = it.type === "show" ? "tv" : "movie";
       let raw;
       try {
-        raw = await tmdbFetch(c.env, `/${tmdbType}/${it.id}/recommendations`, {}, { ttl: TTL.discover, language: loc.language });
+        raw = await tmdbFetch(
+          c.env,
+          `/${tmdbType}/${it.id}/recommendations`,
+          { page: tmdbPage },
+          { ttl: TTL.discover, language: loc.language },
+        );
       } catch {
         return;
       }

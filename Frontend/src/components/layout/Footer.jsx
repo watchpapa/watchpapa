@@ -8,6 +8,7 @@ const ALL_LINKS = [
   { label: "Updates", to: "/updates" },
   { label: "Subscriptions", to: "/subscription" },
   { label: "Help", to: "/help" },
+  { label: "Certifications", to: "/certifications" },
   { label: "Contact", to: "/contact" },
   { label: "Privacy", to: "/privacy" },
   { label: "Terms", to: "/terms" },
