@@ -87,9 +87,15 @@ function ContentHero({ items = [], isAuthenticated }) {
           style={{ animation: "heroBannerFadeIn 0.7s ease-out both" }}
         />
       </div>
-      <div className="absolute inset-0" style={{ background: "radial-gradient(80% 90% at 18% 22%, rgba(192,132,252,0.22) 0%, transparent 60%)" }} />
+      {/* Every fade below ends at "same color, zero alpha" — never the bare
+          `transparent` keyword. `transparent` is rgba(0,0,0,0): browsers
+          interpolate RGB channels toward black as they approach it, so a
+          fade "to transparent" visibly muddies through gray/black partway
+          through instead of cleanly dissolving — exactly the discoloration
+          this was fixed for. */}
+      <div className="absolute inset-0" style={{ background: "radial-gradient(80% 90% at 18% 22%, rgba(192,132,252,0.22) 0%, rgba(192,132,252,0) 60%)" }} />
       <div className="absolute inset-0" style={{ background: "linear-gradient(to right, #111320 0%, rgba(17,19,32,0.9) 45%, rgba(17,19,32,0.4) 100%)" }} />
-      <div className="absolute inset-0" style={{ background: "linear-gradient(to top, #111320 0%, #111320 12%, transparent 55%, rgba(17,19,32,0.55) 100%)" }} />
+      <div className="absolute inset-0" style={{ background: "linear-gradient(to top, #111320 0%, #111320 12%, rgba(17,19,32,0) 55%, rgba(17,19,32,0.55) 100%)" }} />
 
       {/* Content */}
       <div className="relative mx-auto flex min-h-[300px] max-w-[1500px] items-center gap-5 px-4 py-9 sm:min-h-[360px] sm:gap-8 sm:px-8 sm:py-12 lg:min-h-[420px] lg:py-16">
