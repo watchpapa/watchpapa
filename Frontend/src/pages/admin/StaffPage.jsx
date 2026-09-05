@@ -1,108 +1,62 @@
 import { useEffect, useState } from "react";
 import { useStaff } from "../../features/admin/hooks/useStaff.js";
-import { supabase } from "../../lib/supabase.js";
+import { useCurrentUser } from "../../features/profile/CurrentUserContext.jsx";
+import PageHeader from "../../components/ui/PageHeader.jsx";
+import Button from "../../components/ui/Button.jsx";
+import Badge from "../../components/ui/Badge.jsx";
+import ErrorNote from "../../components/ui/ErrorNote.jsx";
+import EmptyState from "../../components/ui/EmptyState.jsx";
+import { Skeleton } from "../../components/ui/Skeleton.jsx";
 
 const ROLE_LABEL = { 3: "Moderator", 4: "Admin" };
-const ROLE_COLORS = {
-  3: "border-sky-700/50 bg-sky-900/30 text-sky-400",
-  4: "border-violet-700/50 bg-violet-900/30 text-violet-400",
-};
-
-function RoleBadge({ role }) {
-  return (
-    <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-semibold ${ROLE_COLORS[role] ?? ""}`}>
-      {ROLE_LABEL[role] ?? `Role ${role}`}
-    </span>
-  );
-}
+const ROLE_VARIANT = { 3: "info", 4: "brand" };
 
 function StaffRow({ member, currentUserId, onRoleChange }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
   const isSelf = member.id === currentUserId;
+  const role = Number(member.role);
 
   const change = async (newRole) => {
-    if (!window.confirm(
-      newRole === 0
-        ? `Remove staff access from @${member.username ?? member.email}?`
-        : `Change @${member.username ?? member.email} to ${ROLE_LABEL[newRole]}?`
-    )) return;
+    const who = `@${member.username ?? member.email}`;
+    if (!window.confirm(newRole === 0 ? `Remove staff access from ${who}?` : `Change ${who} to ${ROLE_LABEL[newRole]}?`)) return;
     setBusy(true);
     setError(null);
-    try {
-      await onRoleChange(member.id, newRole);
-    } catch (e) {
-      setError(e.message);
-    }
+    try { await onRoleChange(member.id, newRole); } catch (e) { setError(e.message); }
     setBusy(false);
   };
 
   return (
-    <div className="rounded-xl border border-[#1e244a] bg-[#0e1128] p-4">
-      <div className="flex flex-wrap items-start justify-between gap-3">
+    <div className="rounded-xl border border-border/50 bg-surface p-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
-            <p className="text-sm font-semibold text-white truncate">
-              @{member.username ?? "—"}
-            </p>
-            <RoleBadge role={member.role} />
-            {isSelf && (
-              <span className="rounded-full border border-[#2a3570] px-2 py-0.5 text-[10px] text-[#5a5a78]">you</span>
-            )}
+            <p className="truncate text-sm font-semibold text-white">@{member.username ?? "—"}</p>
+            <Badge variant={ROLE_VARIANT[role] ?? "neutral"}>{ROLE_LABEL[role] ?? `Role ${role}`}</Badge>
+            {isSelf && <Badge size="xs">you</Badge>}
           </div>
-          <p className="mt-0.5 text-[12px] text-[#6868b8]">{member.email}</p>
-          <p className="mt-0.5 font-mono text-[10px] text-[#4a4a8a]">{member.id}</p>
-          <p className="mt-0.5 text-[10px] text-[#4a4a8a]">
-            Joined {new Date(member.created_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
-          </p>
+          <p className="mt-0.5 text-xs text-text-dim">{member.email}</p>
+          <p className="mt-0.5 break-all font-mono text-[10px] text-text-faint">{member.id}</p>
+          <p className="mt-0.5 text-[10px] text-text-faint">Joined {new Date(member.created_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}</p>
         </div>
-
         {!isSelf && (
-          <div className="flex shrink-0 flex-wrap gap-2">
-            {Number(member.role) === 3 && (
-              <button
-                onClick={() => change(4)}
-                disabled={busy}
-                className="rounded-lg border border-violet-700/50 px-3 py-1.5 text-[12px] font-semibold text-violet-400 transition hover:bg-violet-900/20 disabled:opacity-50"
-              >
-                {busy ? "…" : "Promote to Admin"}
-              </button>
-            )}
-            {Number(member.role) === 4 && (
-              <button
-                onClick={() => change(3)}
-                disabled={busy}
-                className="rounded-lg border border-sky-700/50 px-3 py-1.5 text-[12px] font-semibold text-sky-400 transition hover:bg-sky-900/20 disabled:opacity-50"
-              >
-                {busy ? "…" : "Demote to Moderator"}
-              </button>
-            )}
-            <button
-              onClick={() => change(0)}
-              disabled={busy}
-              className="rounded-lg border border-red-700/50 px-3 py-1.5 text-[12px] font-semibold text-red-400 transition hover:bg-red-900/20 disabled:opacity-50"
-            >
-              {busy ? "…" : "Revoke access"}
-            </button>
+          <div className="flex flex-wrap gap-2 sm:shrink-0">
+            {role === 3 && <Button variant="secondary" size="xs" onClick={() => change(4)} loading={busy}>Promote to Admin</Button>}
+            {role === 4 && <Button variant="secondary" size="xs" onClick={() => change(3)} loading={busy}>Demote to Moderator</Button>}
+            <Button variant="danger" size="xs" onClick={() => change(0)} loading={busy}>Revoke access</Button>
           </div>
         )}
       </div>
-
-      {error && <p className="mt-2 text-[12px] font-semibold text-pink-300">{error}</p>}
+      {error && <p className="mt-2 text-xs font-semibold text-red-300">{error}</p>}
     </div>
   );
 }
 
 function StaffPage() {
   const { staff, isLoading, error, fetchStaff, setRole } = useStaff();
-  const [currentUserId, setCurrentUserId] = useState(null);
+  const { userId } = useCurrentUser();
 
-  useEffect(() => {
-    fetchStaff();
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user?.id) setCurrentUserId(session.user.id);
-    });
-  }, [fetchStaff]);
+  useEffect(() => { fetchStaff(); }, [fetchStaff]);
 
   const handleRoleChange = async (id, role) => {
     await setRole(id, role);
@@ -114,47 +68,20 @@ function StaffPage() {
 
   return (
     <div>
-      <div className="mb-5">
-        <h1 className="text-[20px] font-extrabold text-white">Staff</h1>
-        <p className="mt-1 text-[12px] text-[#5a5a78]">
-          Accounts with elevated roles — admins (role 4) and moderators (role 3).
-        </p>
-      </div>
-
-      {isLoading && <p className="text-sm text-[#5a5a78]">Loading...</p>}
-      {error && <p className="text-sm font-semibold text-pink-300">{error}</p>}
-
+      <PageHeader size="sm" title="Staff" subtitle="Accounts with elevated roles — admins (role 4) and moderators (role 3)." />
+      {isLoading && <div className="space-y-3"><Skeleton className="h-24 rounded-xl" /><Skeleton className="h-24 rounded-xl" /></div>}
+      {error && <ErrorNote>{error}</ErrorNote>}
       {!isLoading && !error && (
         <div className="space-y-6">
-          {admins.length > 0 && (
-            <section>
-              <p className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-[#4a4a8a]">
-                Admins — {admins.length}
-              </p>
+          {[["Admins", admins], ["Moderators", moderators]].map(([label, list]) => list.length > 0 && (
+            <section key={label}>
+              <p className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-text-faint">{label} — {list.length}</p>
               <div className="space-y-3">
-                {admins.map((m) => (
-                  <StaffRow key={m.id} member={m} currentUserId={currentUserId} onRoleChange={handleRoleChange} />
-                ))}
+                {list.map((m) => <StaffRow key={m.id} member={m} currentUserId={userId} onRoleChange={handleRoleChange} />)}
               </div>
             </section>
-          )}
-
-          {moderators.length > 0 && (
-            <section>
-              <p className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-[#4a4a8a]">
-                Moderators — {moderators.length}
-              </p>
-              <div className="space-y-3">
-                {moderators.map((m) => (
-                  <StaffRow key={m.id} member={m} currentUserId={currentUserId} onRoleChange={handleRoleChange} />
-                ))}
-              </div>
-            </section>
-          )}
-
-          {admins.length === 0 && moderators.length === 0 && (
-            <p className="text-sm text-[#5a5a78]">No staff accounts found.</p>
-          )}
+          ))}
+          {admins.length === 0 && moderators.length === 0 && <EmptyState compact title="No staff accounts found." />}
         </div>
       )}
     </div>

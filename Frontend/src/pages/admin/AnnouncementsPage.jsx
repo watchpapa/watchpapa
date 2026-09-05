@@ -1,32 +1,21 @@
 import { useEffect, useState } from "react";
 import { useAdminAnnouncements } from "../../features/admin/hooks/useAdminAnnouncements.js";
+import PageHeader from "../../components/ui/PageHeader.jsx";
+import PillTabs from "../../components/ui/PillTabs.jsx";
+import Button from "../../components/ui/Button.jsx";
+import Badge from "../../components/ui/Badge.jsx";
+import ErrorNote from "../../components/ui/ErrorNote.jsx";
+import EmptyState from "../../components/ui/EmptyState.jsx";
+import { Skeleton } from "../../components/ui/Skeleton.jsx";
 
 function fmt(iso) {
   if (!iso) return "—";
-  return new Date(iso).toLocaleString("en-GB", {
-    day: "numeric", month: "short", year: "numeric",
-    hour: "2-digit", minute: "2-digit",
-  });
-}
-
-function UuidField({ label, value }) {
-  if (!value) return null;
-  return (
-    <span className="text-[#4a4a8a]">
-      {label}: <span className="font-mono text-[#5a5a78]">{value}</span>
-    </span>
-  );
+  return new Date(iso).toLocaleString("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
 }
 
 function PostRow({ post, onRestore, onDelete }) {
   const [busy, setBusy] = useState(false);
-
-  const handleRestore = async () => {
-    setBusy(true);
-    await onRestore(post.id);
-    setBusy(false);
-  };
-
+  const handleRestore = async () => { setBusy(true); await onRestore(post.id); setBusy(false); };
   const handleDelete = async () => {
     if (!window.confirm(`Permanently delete "${post.title}"? This cannot be undone.`)) return;
     setBusy(true);
@@ -35,58 +24,27 @@ function PostRow({ post, onRestore, onDelete }) {
   };
 
   return (
-    <div className={`rounded-xl border p-4 ${post.archived ? "border-[#1a1a2e] bg-[#0a0b18] opacity-70" : "border-[#1e2240] bg-[#0e1028]"}`}>
-      <div className="flex items-start justify-between gap-4">
+    <div className={`rounded-xl border p-4 ${post.archived ? "border-border/30 bg-surface/60 opacity-75" : "border-border/50 bg-surface"}`}>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0 flex-1 space-y-1">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="text-[15px] font-extrabold text-white truncate">{post.title}</span>
-            {post.archived && (
-              <span className="rounded-full border border-[#2a2a4a] bg-[#12123a] px-2 py-0.5 text-[10px] font-semibold text-[#5a5a78]">
-                archived
-              </span>
-            )}
+            <span className="truncate text-[15px] font-extrabold text-white">{post.title}</span>
+            {post.archived && <Badge size="xs">archived</Badge>}
           </div>
-
-          <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-[11px]">
-            <span className="text-[#4a4a8a]">created: <span className="text-[#5a5a78]">{fmt(post.created_at)}</span></span>
-            {post.updated_at !== post.created_at && (
-              <span className="text-[#4a4a8a]">updated: <span className="text-[#5a5a78]">{fmt(post.updated_at)}</span></span>
-            )}
+          <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-[11px] text-text-faint">
+            <span>created: <span className="text-text-dim">{fmt(post.created_at)}</span></span>
+            {post.updated_at !== post.created_at && <span>updated: <span className="text-text-dim">{fmt(post.updated_at)}</span></span>}
+            {post.archived_at && <span>archived: <span className="text-text-dim">{fmt(post.archived_at)}</span></span>}
           </div>
-
-          <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-[11px]">
-            <UuidField label="author" value={post.author_id} />
-            {post.archived_by && <UuidField label="archived by" value={post.archived_by} />}
-            {post.archived_at && (
-              <span className="text-[#4a4a8a]">archived at: <span className="text-[#5a5a78]">{fmt(post.archived_at)}</span></span>
-            )}
+          <div className="flex flex-wrap gap-x-4 gap-y-0.5 break-all font-mono text-[10px] text-text-faint">
+            {post.author_id && <span>author {post.author_id}</span>}
+            {post.archived_by && <span>archived by {post.archived_by}</span>}
           </div>
-
-          {post.image_url && (
-            <p className="truncate text-[11px] text-[#3a3a58]">{post.image_url}</p>
-          )}
-          <p className="line-clamp-2 text-[13px] leading-relaxed text-[#7070a0]"
-            dangerouslySetInnerHTML={{ __html: post.body }}
-          />
+          <p className="line-clamp-2 text-[13px] leading-relaxed text-text-dim" dangerouslySetInnerHTML={{ __html: post.body }} />
         </div>
-
-        <div className="flex shrink-0 flex-col gap-2">
-          {post.archived && (
-            <button
-              onClick={handleRestore}
-              disabled={busy}
-              className="rounded-lg border border-emerald-700/50 px-3 py-1.5 text-[12px] font-semibold text-emerald-400 transition hover:bg-emerald-900/20 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {busy ? "…" : "Restore"}
-            </button>
-          )}
-          <button
-            onClick={handleDelete}
-            disabled={busy}
-            className="rounded-lg border border-red-700/50 px-3 py-1.5 text-[12px] font-semibold text-red-400 transition hover:bg-red-900/20 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {busy ? "…" : "Delete"}
-          </button>
+        <div className="flex gap-2 sm:shrink-0 sm:flex-col">
+          {post.archived && <Button variant="success" size="xs" onClick={handleRestore} loading={busy}>Restore</Button>}
+          <Button variant="danger" size="xs" onClick={handleDelete} loading={busy}>Delete</Button>
         </div>
       </div>
     </div>
@@ -99,49 +57,23 @@ function AnnouncementsPage() {
 
   useEffect(() => { fetchAnnouncements(); }, [fetchAnnouncements]);
 
-  const handleRestore = async (id) => {
-    await restoreAnnouncement(id);
-    await fetchAnnouncements();
-  };
-
-  const handleDelete = async (id) => {
-    await deleteAnnouncement(id);
-    await fetchAnnouncements();
-  };
-
-  const filtered = announcements.filter((p) =>
-    filter === "all" ? true : filter === "live" ? !p.archived : p.archived
-  );
+  const handleRestore = async (id) => { await restoreAnnouncement(id); await fetchAnnouncements(); };
+  const handleDelete = async (id) => { await deleteAnnouncement(id); await fetchAnnouncements(); };
+  const filtered = announcements.filter((p) => (filter === "all" ? true : filter === "live" ? !p.archived : p.archived));
 
   return (
     <div>
-      <div className="mb-5 flex items-center justify-between gap-4">
-        <h1 className="text-[20px] font-extrabold text-white">Announcements</h1>
-        <div className="flex gap-1">
-          {["live", "archived", "all"].map((f) => (
-            <button
-              key={f}
-              onClick={() => setFilter(f)}
-              className={`rounded-lg px-3 py-1.5 text-[12px] font-semibold capitalize transition ${
-                filter === f ? "bg-[#141728] text-white" : "text-[#8080a8] hover:bg-[#141728] hover:text-white"
-              }`}
-            >
-              {f}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {isLoading && <p className="text-sm text-[#5a5a78]">Loading...</p>}
-      {error && <p className="text-sm font-semibold text-pink-300">{error}</p>}
-      {!isLoading && !error && filtered.length === 0 && (
-        <p className="text-sm text-[#5a5a78]">No posts in this view.</p>
-      )}
-
+      <PageHeader
+        size="sm"
+        title="Announcements"
+        subtitle="Restore archived posts or delete them for good. Editing happens on /updates."
+        actions={<PillTabs size="sm" aria-label="Filter" tabs={[{ value: "live", label: "Live" }, { value: "archived", label: "Archived" }, { value: "all", label: "All" }]} value={filter} onChange={setFilter} />}
+      />
+      {isLoading && <div className="space-y-3"><Skeleton className="h-28 rounded-xl" /><Skeleton className="h-28 rounded-xl" /></div>}
+      {error && <ErrorNote>{error}</ErrorNote>}
+      {!isLoading && !error && filtered.length === 0 && <EmptyState compact title="No posts in this view." />}
       <div className="space-y-3">
-        {filtered.map((post) => (
-          <PostRow key={post.id} post={post} onRestore={handleRestore} onDelete={handleDelete} />
-        ))}
+        {filtered.map((post) => <PostRow key={post.id} post={post} onRestore={handleRestore} onDelete={handleDelete} />)}
       </div>
     </div>
   );

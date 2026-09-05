@@ -1,30 +1,20 @@
 import { useState } from "react";
 import { useUserLookup } from "../../features/admin/hooks/useUserLookup.js";
+import PageHeader from "../../components/ui/PageHeader.jsx";
+import Button from "../../components/ui/Button.jsx";
+import Input from "../../components/ui/Input.jsx";
+import Select from "../../components/ui/Select.jsx";
+import Badge from "../../components/ui/Badge.jsx";
+import ErrorNote from "../../components/ui/ErrorNote.jsx";
+import EmptyState from "../../components/ui/EmptyState.jsx";
+import { TIER_BADGE_VARIANTS, tierLabel } from "../../lib/tierMeta.js";
+import { SearchIcon } from "../../components/icons/index.jsx";
 
 const TIERS = ["free", "premium", "pro", "pro_plus", "god"];
-const TIER_LABEL = { free: "Free", premium: "Premium", pro: "Pro", pro_plus: "Pro+", god: "God" };
-const TIER_COLORS = {
-  free:     "bg-green-900/40 text-green-400 border-green-700/50",
-  premium:  "bg-amber-900/40 text-amber-400 border-amber-700/50",
-  pro:      "bg-sky-900/40 text-sky-400 border-sky-700/50",
-  pro_plus: "bg-violet-900/40 text-violet-400 border-violet-700/50",
-  god:      "bg-rose-900/40 text-rose-400 border-rose-800/40",
-};
-
-function TierBadge({ tier }) {
-  const label = TIER_LABEL[tier] ?? (tier ? tier.replace("_", "+") : "Free");
-  const colors = TIER_COLORS[tier] ?? TIER_COLORS.free;
-  return (
-    <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium ${colors}`}>
-      {label}
-    </span>
-  );
-}
 
 function SetTierForm({ userId, onSet, state }) {
   const [tier, setTierVal] = useState("premium");
   const [days, setDays] = useState("");
-
   const s = state ?? {};
   const showDuration = tier !== "free" && tier !== "god";
 
@@ -34,39 +24,20 @@ function SetTierForm({ userId, onSet, state }) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="mt-3 flex flex-wrap items-end gap-2 border-t border-[#1e244a] pt-3">
+    <form onSubmit={handleSubmit} className="mt-3 flex flex-col gap-2 border-t border-border/40 pt-3 sm:flex-row sm:flex-wrap sm:items-end">
       <label className="flex flex-col gap-1">
-        <span className="text-[10px] uppercase tracking-wider text-[#4a4a8a]">Tier</span>
-        <select
-          value={tier}
-          onChange={(e) => setTierVal(e.target.value)}
-          className="rounded-lg border border-[#2a3570] bg-[#12163a] px-2 py-1 text-sm text-white outline-none focus:border-[#6868b8]"
-        >
-          {TIERS.map((t) => <option key={t} value={t}>{TIER_LABEL[t]}</option>)}
-        </select>
+        <span className="text-[10px] uppercase tracking-wider text-text-faint">Tier</span>
+        <Select size="sm" value={tier} onChange={setTierVal} options={TIERS.map((t) => ({ value: t, label: tierLabel(t) }))} className="w-full sm:w-36" />
       </label>
       {showDuration && (
         <label className="flex flex-col gap-1">
-          <span className="text-[10px] uppercase tracking-wider text-[#4a4a8a]">Days (blank = lifetime)</span>
-          <input
-            type="number"
-            min="1"
-            placeholder="lifetime"
-            value={days}
-            onChange={(e) => setDays(e.target.value)}
-            className="w-32 rounded-lg border border-[#2a3570] bg-[#12163a] px-2 py-1 text-sm text-white outline-none placeholder-[#4a4a8a] focus:border-[#6868b8]"
-          />
+          <span className="text-[10px] uppercase tracking-wider text-text-faint">Days (blank = lifetime)</span>
+          <Input size="md" type="number" min="1" placeholder="lifetime" value={days} onChange={(e) => setDays(e.target.value)} className="h-9 sm:w-36" />
         </label>
       )}
-      <button
-        type="submit"
-        disabled={s.loading}
-        className="self-end rounded-lg bg-indigo-600 px-3 py-1 text-sm font-medium text-white transition hover:bg-indigo-500 disabled:opacity-40"
-      >
-        {s.loading ? "Saving…" : "Set tier"}
-      </button>
-      {s.success && <span className="self-end text-xs text-emerald-400">Updated</span>}
-      {s.error   && <span className="self-end text-xs text-red-400">{s.error}</span>}
+      <Button type="submit" size="sm" loading={s.loading}>Set tier</Button>
+      {s.success && <span className="text-xs text-emerald-400 sm:self-center">Updated</span>}
+      {s.error && <span className="text-xs text-red-300 sm:self-center">{s.error}</span>}
     </form>
   );
 }
@@ -77,50 +48,30 @@ function UserCard({ user, onSet, grantState }) {
   const isExpired = user.expires_at && new Date(user.expires_at) < new Date();
 
   return (
-    <div className="rounded-xl border border-[#1e244a] bg-[#0e1128] p-4">
+    <div className="rounded-xl border border-border/50 bg-surface p-4">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0">
           <p className="truncate text-sm font-medium text-white">{user.email}</p>
-          <p className="text-xs text-[#6868b8]">@{user.username ?? "—"}</p>
-          <p className="mt-0.5 text-[10px] text-[#4a4a8a]">ID: {user.id}</p>
+          <p className="text-xs text-text-dim">@{user.username ?? "—"}</p>
+          <p className="mt-0.5 break-all font-mono text-[10px] text-text-faint">{user.id}</p>
         </div>
-        <div className="flex flex-wrap items-center gap-2 shrink-0">
-          <TierBadge tier={effectiveTier} />
-          {user.is_early_adopter && (
-            <span className="rounded-full border border-amber-700/50 bg-amber-900/30 px-2 py-0.5 text-xs text-amber-400">
-              Early Adopter
-            </span>
-          )}
-          {isExpired && (
-            <span className="rounded-full border border-[#2a3570] bg-[#1a1f3a] px-2 py-0.5 text-xs text-[#5a5a78]">
-              Expired
-            </span>
-          )}
+        <div className="flex flex-wrap items-center gap-1.5">
+          <Badge variant={TIER_BADGE_VARIANTS[effectiveTier] ?? "neutral"}>{tierLabel(effectiveTier)}</Badge>
+          {user.is_early_adopter && <Badge variant="gold">Early Adopter</Badge>}
+          {isExpired && <Badge>Expired</Badge>}
+          {user.role === 4 && <Badge variant="danger">Admin</Badge>}
         </div>
       </div>
-
-      <div className="mt-2 flex flex-wrap gap-4 text-xs text-[#6868b8]">
-        {user.source && <span>Source: <span className="text-[#8080a8]">{user.source}</span></span>}
-        {user.expires_at && (
-          <span>
-            {isExpired ? "Expired" : "Expires"}:{" "}
-            <span className="text-[#8080a8]">{new Date(user.expires_at).toLocaleDateString()}</span>
-          </span>
-        )}
-        <span>Joined: <span className="text-[#8080a8]">{new Date(user.created_at).toLocaleDateString()}</span></span>
-        {user.role === 4 && <span className="text-rose-400 font-medium">Admin</span>}
+      <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-text-dim">
+        {user.source && <span>Source: <span className="text-text-muted">{user.source}</span></span>}
+        {user.expires_at && <span>{isExpired ? "Expired" : "Expires"}: <span className="text-text-muted">{new Date(user.expires_at).toLocaleDateString()}</span></span>}
+        <span>Joined: <span className="text-text-muted">{new Date(user.created_at).toLocaleDateString()}</span></span>
       </div>
-
-      <button
-        onClick={() => setOpen((v) => !v)}
-        className="mt-3 text-xs text-indigo-400 hover:text-indigo-300 transition"
-      >
-        {open ? "Hide ▲" : "Set tier ▼"}
-      </button>
-
-      {open && (
-        <SetTierForm userId={user.id} onSet={onSet} state={grantState[user.id]} />
-      )}
+      <div className="mt-3 flex flex-wrap gap-2">
+        <Button variant="ghost" size="xs" onClick={() => setOpen((v) => !v)} aria-expanded={open}>{open ? "Hide tier form" : "Set tier"}</Button>
+        <Button variant="ghost" size="xs" to={`/admin/audit-log?user_id=${user.id}`}>Audit trail</Button>
+      </div>
+      {open && <SetTierForm userId={user.id} onSet={onSet} state={grantState[user.id]} />}
     </div>
   );
 }
@@ -136,42 +87,15 @@ function UserLookupPage() {
 
   return (
     <div>
-      <div className="mb-6">
-        <h1 className="text-lg font-semibold text-white">User Lookup</h1>
-        <p className="mt-0.5 text-xs text-[#6868b8]">Search by email or username · grant tiers manually</p>
-      </div>
-
+      <PageHeader size="sm" title="User Lookup" subtitle="Search by email or username · grant tiers manually" />
       <form onSubmit={handleSubmit} className="mb-5 flex gap-2">
-        <input
-          type="text"
-          placeholder="Email or username…"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          className="min-w-0 flex-1 rounded-xl border border-[#2a3570] bg-[#12163a] px-3 py-2 text-sm text-white outline-none placeholder-[#4a4a8a] focus:border-[#6868b8]"
-        />
-        <button
-          type="submit"
-          disabled={loading || query.trim().length < 2}
-          className="rounded-xl bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-indigo-500 disabled:opacity-40"
-        >
-          {loading ? "Searching…" : "Search"}
-        </button>
+        <Input size="md" placeholder="Email or username…" value={query} onChange={(e) => setQuery(e.target.value)} className="min-w-0 flex-1" aria-label="Search users" />
+        <Button type="submit" size="md" icon={SearchIcon} loading={loading} disabled={query.trim().length < 2}>Search</Button>
       </form>
-
-      {error && (
-        <div className="mb-4 rounded-xl border border-red-800/40 bg-red-900/20 px-4 py-3 text-sm text-red-400">
-          {error}
-        </div>
-      )}
-
-      {!loading && users.length === 0 && query && (
-        <p className="text-sm text-[#5a5a78]">No users found.</p>
-      )}
-
+      {error && <ErrorNote className="mb-4">{error}</ErrorNote>}
+      {!loading && users.length === 0 && query && <EmptyState compact title="No users found." />}
       <div className="space-y-3">
-        {users.map((u) => (
-          <UserCard key={u.id} user={u} onSet={setTier} grantState={grantState} />
-        ))}
+        {users.map((u) => <UserCard key={u.id} user={u} onSet={setTier} grantState={grantState} />)}
       </div>
     </div>
   );

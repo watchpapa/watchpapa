@@ -11,10 +11,11 @@ import { useEditProfile } from "../../features/profile/hooks/useEditProfile.js";
 import { useCurrentUser } from "../../features/profile/CurrentUserContext.jsx";
 import { FavouritesEditor } from "../../components/profile/FavouritesEditor.jsx";
 import AvatarPicker from "../../components/profile/AvatarPicker.jsx";
+import BannerPicker from "../../components/profile/BannerPicker.jsx";
 import { ArrowLeftIcon } from "../../components/icons/index.jsx";
 
 function EditProfilePage({ session }) {
-  const { bio, saveBio, favourites, setFavourite, avatar, avatarSaving, setAvatarPoster, uploadAvatarPhoto, setAvatarDefault, saving, error, loaded } = useEditProfile(session);
+  const { bio, saveBio, favourites, setFavourite, banner, bannerSaving, saveBanner, avatar, avatarSaving, setAvatarPoster, uploadAvatarPhoto, setAvatarDefault, saving, error, loaded } = useEditProfile(session);
   const me = useCurrentUser();
   const [localBio, setLocalBio] = useState(null); // null = not edited yet → mirrors saved bio
   const [bioSaved, setBioSaved] = useState(false);
@@ -48,6 +49,12 @@ function EditProfilePage({ session }) {
             <SettingsSection id="avatar" title="Avatar" description="Shown next to your name everywhere in the app.">
               <div className="px-4 py-4 sm:px-5">
                 <AvatarPicker username={username} tier={me.tier} avatar={avatar} avatarSaving={avatarSaving} setAvatarPoster={setAvatarPoster} uploadAvatarPhoto={uploadAvatarPhoto} setAvatarDefault={setAvatarDefault} />
+              </div>
+            </SettingsSection>
+
+            <SettingsSection id="banner" title="Profile banner" description="Pick which favourite's artwork sits behind your profile header, and crop it.">
+              <div className="px-4 py-4 sm:px-5">
+                <BannerPicker favourites={favourites} banner={banner} saving={bannerSaving} onSave={saveBanner} />
               </div>
             </SettingsSection>
 

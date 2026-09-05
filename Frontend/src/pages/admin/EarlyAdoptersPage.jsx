@@ -1,20 +1,26 @@
 import { useEffect } from "react";
 import { useEarlyAdopterStats } from "../../features/admin/hooks/useEarlyAdopterStats.js";
+import PageHeader from "../../components/ui/PageHeader.jsx";
+import Button from "../../components/ui/Button.jsx";
+import ErrorNote from "../../components/ui/ErrorNote.jsx";
+import DataTable from "../../components/ui/DataTable.jsx";
+import { Skeleton } from "../../components/ui/Skeleton.jsx";
+import { StatCard } from "../../components/admin/StatCard.jsx";
+import { RefreshIcon } from "../../components/icons/index.jsx";
 
-function Stat({ label, value, dim }) {
+function Pager({ page, totalPages, onPage, loading }) {
+  if (totalPages <= 1) return null;
   return (
-    <div className="rounded-xl border border-[#1e244a] bg-[#12163a] px-4 py-3">
-      <p className="text-[10px] uppercase tracking-wider text-[#4a4a8a]">{label}</p>
-      <p className={`mt-1 text-xl font-semibold tabular-nums ${dim ? "text-[#4a4a8a]" : "text-white"}`}>{value}</p>
+    <div className="mt-4 flex items-center justify-center gap-2 text-xs text-text-faint">
+      <Button variant="outline" size="xs" disabled={page <= 1 || loading} onClick={() => onPage(page - 1)}>Prev</Button>
+      <span>{page} / {totalPages}</span>
+      <Button variant="outline" size="xs" disabled={page >= totalPages || loading} onClick={() => onPage(page + 1)}>Next</Button>
     </div>
   );
 }
 
 function EarlyAdoptersPage() {
-  const {
-    stats, loading, error, refresh,
-    list, listTotal, listPage, listLoading, listError, fetchList, LIST_LIMIT,
-  } = useEarlyAdopterStats();
+  const { stats, loading, error, refresh, list, listTotal, listPage, listLoading, listError, fetchList, LIST_LIMIT } = useEarlyAdopterStats();
 
   useEffect(() => { fetchList(1); }, [fetchList]);
 
@@ -22,130 +28,52 @@ function EarlyAdoptersPage() {
   const isFull = stats?.is_full ?? false;
   const totalPages = Math.max(1, Math.ceil(listTotal / LIST_LIMIT));
 
+  const columns = [
+    { key: "n", label: "#", render: (u) => <span className="tabular-nums text-text-faint">{u._n}</span>, cardHidden: true, className: "w-12" },
+    { key: "username", label: "Username", primary: true, render: (u) => <span className="font-semibold text-white">@{u.username ?? "—"}</span> },
+    { key: "email", label: "Email", render: (u) => <span className="text-text-muted">{u.email}</span> },
+    { key: "created_at", label: "Joined", hideBelow: "lg", render: (u) => new Date(u.created_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) },
+  ];
+  const rows = list.map((u, i) => ({ ...u, _n: (listPage - 1) * LIST_LIMIT + i + 1 }));
+
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-lg font-semibold text-white">Early Adopters</h1>
-          <p className="mt-0.5 text-xs text-[#6868b8]">
-            First {stats?.capacity?.toLocaleString() ?? "5,000"} registered users receive lifetime Premium
-          </p>
-        </div>
-        <button
-          onClick={refresh}
-          disabled={loading}
-          className="rounded-lg border border-[#2a3570] bg-[#12163a] px-3 py-1.5 text-xs text-[#8080a8] transition hover:border-[#6868b8] hover:text-white disabled:opacity-40"
-        >
-          Refresh
-        </button>
-      </div>
+      <PageHeader
+        size="sm"
+        title="Early Adopters"
+        subtitle={`First ${stats?.capacity?.toLocaleString() ?? "5,000"} registered users receive lifetime Premium`}
+        actions={<Button variant="secondary" size="sm" icon={RefreshIcon} onClick={refresh} loading={loading}>Refresh</Button>}
+      />
+      {error && <ErrorNote onRetry={refresh}>{error}</ErrorNote>}
 
-      {error && (
-        <div className="rounded-xl border border-red-800/40 bg-red-900/20 px-4 py-3 text-sm text-red-400">
-          {error}
-        </div>
-      )}
-
-      {/* Stats card */}
-      <div className="rounded-2xl border border-[#1e244a] bg-[#0e1128] p-6">
+      <div className="rounded-2xl border border-border/50 bg-surface p-4 sm:p-6">
         {loading && !stats ? (
-          <div className="text-sm text-[#6868b8]">Loading…</div>
+          <Skeleton className="h-28" />
         ) : stats ? (
           <div className="space-y-5">
-            <div className="flex items-end gap-2">
-              <span className="text-4xl font-bold tabular-nums text-white">
-                {stats.count.toLocaleString()}
-              </span>
-              <span className="mb-1 text-lg text-[#4a4a8a]">/ {stats.capacity.toLocaleString()}</span>
-              <span className={`mb-1 ml-auto text-sm font-semibold ${isFull ? "text-rose-400" : "text-[#8080a8]"}`}>
-                {isFull ? "Pool full" : `${stats.remaining.toLocaleString()} remaining`}
-              </span>
+            <div className="flex flex-wrap items-end gap-2">
+              <span className="text-4xl font-bold tabular-nums text-white">{stats.count.toLocaleString()}</span>
+              <span className="mb-1 text-lg text-text-faint">/ {stats.capacity.toLocaleString()}</span>
+              <span className={`mb-1 ml-auto text-sm font-semibold ${isFull ? "text-rose-400" : "text-text-muted"}`}>{isFull ? "Pool full" : `${stats.remaining.toLocaleString()} remaining`}</span>
             </div>
-            <div className="h-3 w-full overflow-hidden rounded-full bg-[#1a1f3a]">
-              <div
-                className={`h-full rounded-full transition-all duration-500 ${isFull ? "bg-rose-500" : "bg-indigo-500"}`}
-                style={{ width: `${pct}%` }}
-              />
+            <div className="h-3 w-full overflow-hidden rounded-full bg-surface-3">
+              <div className={`h-full rounded-full transition-all duration-500 ${isFull ? "bg-rose-500" : "bg-brand"}`} style={{ width: `${pct}%` }} />
             </div>
-            <div className="text-right text-xs text-[#4a4a8a]">{pct.toFixed(1)}% filled</div>
-            <div className="mt-2 grid grid-cols-3 gap-3">
-              <Stat label="Claimed" value={stats.count.toLocaleString()} />
-              <Stat label="Capacity" value={stats.capacity.toLocaleString()} />
-              <Stat label="Remaining" value={isFull ? "—" : stats.remaining.toLocaleString()} dim={isFull} />
+            <div className="grid grid-cols-3 gap-3">
+              <StatCard label="Claimed" value={stats.count.toLocaleString()} />
+              <StatCard label="Capacity" value={stats.capacity.toLocaleString()} />
+              <StatCard label="Remaining" value={isFull ? "—" : stats.remaining.toLocaleString()} tone={isFull ? "text-text-faint" : undefined} />
             </div>
-            {isFull && (
-              <div className="rounded-xl border border-rose-800/40 bg-rose-900/20 px-4 py-3 text-sm text-rose-400">
-                The early adopter pool is full. New registrations will no longer receive the lifetime Premium grant.
-              </div>
-            )}
+            {isFull && <ErrorNote inline>The early adopter pool is full. New registrations no longer receive the lifetime Premium grant.</ErrorNote>}
           </div>
         ) : null}
       </div>
 
-      {/* User list */}
       <section>
-        <div className="mb-3 flex items-center justify-between">
-          <p className="text-[10px] font-semibold uppercase tracking-widest text-[#4a4a8a]">
-            All early adopters — {listTotal.toLocaleString()}
-          </p>
-        </div>
-
-        {listError && (
-          <p className="mb-2 text-sm text-red-400">{listError}</p>
-        )}
-
-        <div className="overflow-x-auto rounded-2xl border border-[#2a3570]/50">
-          <table className="w-full text-sm min-w-[520px]">
-            <thead>
-              <tr className="border-b border-[#2a3570]/50 text-[10px] uppercase tracking-wider text-[#5a5a78]">
-                <th className="px-4 py-3 text-left font-semibold">#</th>
-                <th className="px-4 py-3 text-left font-semibold">Username</th>
-                <th className="px-4 py-3 text-left font-semibold">Email</th>
-                <th className="px-4 py-3 text-left font-semibold">Joined</th>
-              </tr>
-            </thead>
-            <tbody>
-              {listLoading ? (
-                <tr><td colSpan={4} className="py-10 text-center text-[#5a5a78]">Loading…</td></tr>
-              ) : list.length === 0 ? (
-                <tr><td colSpan={4} className="py-10 text-center text-[#5a5a78]">No early adopters yet.</td></tr>
-              ) : list.map((u, i) => (
-                <tr key={u.id} className="border-b border-[#2a3570]/50 last:border-0 hover:bg-[#0a0c18] transition">
-                  <td className="px-4 py-3 tabular-nums text-[#4a4a8a]">
-                    {(listPage - 1) * LIST_LIMIT + i + 1}
-                  </td>
-                  <td className="px-4 py-3 font-semibold text-white">
-                    @{u.username ?? "—"}
-                  </td>
-                  <td className="px-4 py-3 text-[#6868b8]">{u.email}</td>
-                  <td className="px-4 py-3 text-[#5a5a78]">
-                    {new Date(u.created_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-
-        {totalPages > 1 && (
-          <div className="mt-4 flex items-center justify-center gap-2">
-            <button
-              disabled={listPage <= 1}
-              onClick={() => fetchList(listPage - 1)}
-              className="rounded-lg border border-[#2a3570] px-3 py-1 text-xs text-[#8080a8] disabled:opacity-40 hover:border-[#6868b8] hover:text-white transition"
-            >
-              Prev
-            </button>
-            <span className="text-xs text-[#5a5a78]">{listPage} / {totalPages}</span>
-            <button
-              disabled={listPage >= totalPages}
-              onClick={() => fetchList(listPage + 1)}
-              className="rounded-lg border border-[#2a3570] px-3 py-1 text-xs text-[#8080a8] disabled:opacity-40 hover:border-[#6868b8] hover:text-white transition"
-            >
-              Next
-            </button>
-          </div>
-        )}
+        <p className="mb-3 text-[10px] font-semibold uppercase tracking-widest text-text-faint">All early adopters — {listTotal.toLocaleString()}</p>
+        {listError && <ErrorNote className="mb-3">{listError}</ErrorNote>}
+        <DataTable columns={columns} rows={rows} rowKey={(u) => u.id} loading={listLoading} emptyTitle="No early adopters yet." dense />
+        <Pager page={listPage} totalPages={totalPages} onPage={fetchList} loading={listLoading} />
       </section>
     </div>
   );

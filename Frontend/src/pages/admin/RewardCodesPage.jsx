@@ -1,66 +1,49 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRewardCodes } from "../../features/admin/hooks/useRewardCodes.js";
+import PageHeader from "../../components/ui/PageHeader.jsx";
+import PillTabs from "../../components/ui/PillTabs.jsx";
+import Button from "../../components/ui/Button.jsx";
+import Input from "../../components/ui/Input.jsx";
+import Select from "../../components/ui/Select.jsx";
+import Badge from "../../components/ui/Badge.jsx";
+import Modal from "../../components/ui/Modal.jsx";
+import ErrorNote from "../../components/ui/ErrorNote.jsx";
+import DataTable from "../../components/ui/DataTable.jsx";
+import { DownloadIcon } from "../../components/icons/index.jsx";
 
 const TIERS = ["premium", "pro", "pro_plus"];
 const TIER_LABELS = { premium: "Premium", pro: "Pro", pro_plus: "Pro+" };
 const STATUS_TABS = ["all", "active", "expired", "depleted", "inactive"];
-
-const STATUS_BADGE = {
-  active:   "bg-emerald-900/40 text-emerald-400 border-emerald-700/50",
-  expired:  "bg-amber-900/40 text-amber-400 border-amber-700/50",
-  depleted: "bg-[#1a1f3a] text-[#6868b8] border-[#2a3570]",
-  inactive: "bg-[#1a1f3a] text-[#5a5a78] border-[#2a3570]/50",
-};
-
+const STATUS_VARIANT = { active: "success", expired: "warning", depleted: "neutral", inactive: "neutral" };
 const EMPTY_FORM = { tier: "premium", durationDays: 30, maxUses: 1, expiresAt: "" };
 
-function FieldLabel({ children }) {
-  return <span className="text-[10px] uppercase tracking-wider text-[#5a5a78]">{children}</span>;
-}
-
-function Input({ ...props }) {
+function Field({ label, children }) {
   return (
-    <input
-      {...props}
-      className="rounded-lg border border-[#2a3570] bg-[#12163a] px-2 py-1.5 text-sm text-white outline-none focus:border-[#6868b8] placeholder-[#4a4a8a] w-full"
-    />
-  );
-}
-
-function Select({ children, ...props }) {
-  return (
-    <select
-      {...props}
-      className="rounded-lg border border-[#2a3570] bg-[#12163a] px-2 py-1.5 text-sm text-white outline-none focus:border-[#6868b8] w-full"
-    >
+    <label className="flex flex-col gap-1">
+      <span className="text-[10px] uppercase tracking-wider text-text-faint">{label}</span>
       {children}
-    </select>
+    </label>
   );
 }
 
 function FormFields({ form, onChange }) {
   return (
     <>
-      <label className="flex flex-col gap-1">
-        <FieldLabel>Tier</FieldLabel>
-        <Select value={form.tier} onChange={(e) => onChange("tier", e.target.value)}>
-          {TIERS.map((t) => <option key={t} value={t}>{TIER_LABELS[t]}</option>)}
-        </Select>
-      </label>
-      <label className="flex flex-col gap-1">
-        <FieldLabel>Duration (days)</FieldLabel>
-        <Input type="number" min="1" placeholder="blank = lifetime" value={form.durationDays} onChange={(e) => onChange("durationDays", e.target.value)} />
-      </label>
-      <label className="flex flex-col gap-1">
-        <FieldLabel>Max uses/code</FieldLabel>
-        <Input type="number" min="1" placeholder="blank = unlimited" value={form.maxUses} onChange={(e) => onChange("maxUses", e.target.value)} />
-      </label>
-      <label className="flex flex-col gap-1">
-        <FieldLabel>Code expiry</FieldLabel>
-        <Input type="date" value={form.expiresAt} onChange={(e) => onChange("expiresAt", e.target.value)} />
-      </label>
+      <Field label="Tier"><Select size="sm" value={form.tier} onChange={(v) => onChange("tier", v)} options={TIERS.map((t) => ({ value: t, label: TIER_LABELS[t] }))} full /></Field>
+      <Field label="Duration (days)"><Input size="md" type="number" min="1" placeholder="blank = lifetime" value={form.durationDays} onChange={(e) => onChange("durationDays", e.target.value)} className="h-9 text-xs" /></Field>
+      <Field label="Max uses/code"><Input size="md" type="number" min="1" placeholder="blank = unlimited" value={form.maxUses} onChange={(e) => onChange("maxUses", e.target.value)} className="h-9 text-xs" /></Field>
+      <Field label="Code expiry"><Input size="md" type="date" value={form.expiresAt} onChange={(e) => onChange("expiresAt", e.target.value)} className="h-9 text-xs" /></Field>
     </>
   );
+}
+
+function downloadCsv(name, header, lines) {
+  const url = URL.createObjectURL(new Blob([header + lines.join("\n")], { type: "text/csv" }));
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `${name}-${new Date().toISOString().slice(0, 10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 function RewardCodesPage() {
@@ -70,513 +53,240 @@ function RewardCodesPage() {
   const [page, setPage] = useState(1);
   const limit = 50;
 
-  // Selection state
+  // Selection
   const [selected, setSelected] = useState(new Set());
   const selectAllRef = useRef(null);
-
-  const toggleSelect = (id) =>
-    setSelected((prev) => {
-      const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
-      return next;
-    });
-
-  const toggleSelectAll = () => {
-    if (selected.size === codes.length) {
-      setSelected(new Set());
-    } else {
-      setSelected(new Set(codes.map((c) => c.id)));
-    }
-  };
-
-  // Indeterminate checkbox state for "select all"
+  const toggleSelect = (id) => setSelected((prev) => { const next = new Set(prev); if (next.has(id)) next.delete(id); else next.add(id); return next; });
+  const toggleSelectAll = () => setSelected(selected.size === codes.length ? new Set() : new Set(codes.map((c) => c.id)));
   useEffect(() => {
-    if (!selectAllRef.current) return;
-    const some = selected.size > 0 && selected.size < codes.length;
-    selectAllRef.current.indeterminate = some;
+    if (selectAllRef.current) selectAllRef.current.indeterminate = selected.size > 0 && selected.size < codes.length;
   }, [selected, codes]);
 
-  // Clear selection on page/filter change
-  useEffect(() => { setSelected(new Set()); }, [page, statusFilter]);
+  const reload = useCallback(() => fetchCodes({ page, limit, status: statusFilter }), [fetchCodes, page, statusFilter]);
+  useEffect(() => { reload(); }, [reload]);
+  const changeFilter = (s) => { setStatusFilter(s); setPage(1); setSelected(new Set()); };
+  const changePage = (p) => { setPage(p); setSelected(new Set()); };
 
-  // Bulk actions
+  // Bulk
   const [bulkBusy, setBulkBusy] = useState(false);
   const [bulkError, setBulkError] = useState(null);
-
   const handleBulk = async (action) => {
     const ids = [...selected];
     if (!ids.length) return;
     if (action === "delete" && !window.confirm(`Delete ${ids.length} code(s)? This cannot be undone.`)) return;
     setBulkBusy(true);
     setBulkError(null);
-    try {
-      await bulkAction(action, ids);
-      setSelected(new Set());
-      reload();
-    } catch (e) {
-      setBulkError(e.message);
-    }
+    try { await bulkAction(action, ids); setSelected(new Set()); reload(); } catch (e) { setBulkError(e.message); }
     setBulkBusy(false);
   };
-
   const exportSelected = () => {
     const rows = codes.filter((c) => selected.has(c.id));
     if (!rows.length) return;
-    const header = "code,tier,duration_days,max_uses,current_uses,expires_at,is_active,status,created_at\n";
-    const csv = rows.map((c) =>
-      [c.code, c.tier, c.duration_days ?? "", c.max_uses ?? "", c.current_uses,
-       c.expires_at ?? "", c.is_active, c.status, c.created_at].join(",")
-    ).join("\n");
-    const blob = new Blob([header + csv], { type: "text/csv" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `reward-codes-selected-${new Date().toISOString().slice(0, 10)}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+    downloadCsv("reward-codes-selected", "code,tier,duration_days,max_uses,current_uses,expires_at,is_active,status,created_at\n",
+      rows.map((c) => [c.code, c.tier, c.duration_days ?? "", c.max_uses ?? "", c.current_uses, c.expires_at ?? "", c.is_active, c.status, c.created_at].join(",")));
   };
 
-  const reload = useCallback(() => fetchCodes({ page, limit, status: statusFilter }), [fetchCodes, page, statusFilter]);
-  useEffect(() => { reload(); }, [reload]);
-
-  // Generate panel
-  const [genMode, setGenMode] = useState("random"); // "random" | "custom"
+  // Generate / create
+  const [genMode, setGenMode] = useState("random");
   const [genForm, setGenForm] = useState({ ...EMPTY_FORM, count: 10 });
   const [customForm, setCustomForm] = useState({ ...EMPTY_FORM, code: "" });
   const [genResult, setGenResult] = useState(null);
   const [genError, setGenError] = useState(null);
   const [generating, setGenerating] = useState(false);
-
   const setField = (setter) => (key, val) => setter((f) => ({ ...f, [key]: val }));
+  const toParams = (f) => ({ tier: f.tier, durationDays: f.durationDays === "" ? null : Number(f.durationDays), maxUses: f.maxUses === "" ? null : Number(f.maxUses), expiresAt: f.expiresAt || null });
 
   const handleGenerate = async (e) => {
     e.preventDefault();
-    setGenError(null);
-    setGenResult(null);
-    setGenerating(true);
-    try {
-      const params = {
-        tier: genForm.tier,
-        durationDays: genForm.durationDays === "" ? null : Number(genForm.durationDays),
-        maxUses: genForm.maxUses === "" ? null : Number(genForm.maxUses),
-        expiresAt: genForm.expiresAt || null,
-      };
-      const result = await generateCodes({ count: Number(genForm.count), ...params });
-      setGenResult(result);
-      reload();
-    } catch (e) {
-      setGenError(e.message);
-    }
+    setGenError(null); setGenResult(null); setGenerating(true);
+    try { setGenResult(await generateCodes({ count: Number(genForm.count), ...toParams(genForm) })); reload(); } catch (err) { setGenError(err.message); }
     setGenerating(false);
   };
-
   const handleCreateCustom = async (e) => {
     e.preventDefault();
-    setGenError(null);
-    setGenResult(null);
-    setGenerating(true);
+    setGenError(null); setGenResult(null); setGenerating(true);
     try {
-      const created = await createCustomCode({
-        code: customForm.code.trim().toUpperCase(),
-        tier: customForm.tier,
-        durationDays: customForm.durationDays === "" ? null : Number(customForm.durationDays),
-        maxUses: customForm.maxUses === "" ? null : Number(customForm.maxUses),
-        expiresAt: customForm.expiresAt || null,
-      });
+      const created = await createCustomCode({ code: customForm.code.trim().toUpperCase(), ...toParams(customForm) });
       setGenResult([created]);
       setCustomForm({ ...EMPTY_FORM, code: "" });
       reload();
-    } catch (e) {
-      setGenError(e.message);
-    }
+    } catch (err) { setGenError(err.message); }
     setGenerating(false);
   };
+  const downloadGenerated = () => genResult?.length && downloadCsv("generated-codes", "code,tier,duration_days,max_uses\n", genResult.map((c) => `${c.code},${c.tier},${c.duration_days ?? ""},${c.max_uses ?? ""}`));
 
-  const downloadGenerated = () => {
-    if (!genResult?.length) return;
-    const header = "code,tier,duration_days,max_uses\n";
-    const rows = genResult.map((c) => `${c.code},${c.tier},${c.duration_days ?? ""},${c.max_uses ?? ""}`).join("\n");
-    const blob = new Blob([header + rows], { type: "text/csv" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `generated-codes-${new Date().toISOString().slice(0, 10)}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
-
-  // Edit modal
+  // Edit
   const [editTarget, setEditTarget] = useState(null);
   const [editForm, setEditForm] = useState(null);
   const [editSaving, setEditSaving] = useState(false);
   const [editError, setEditError] = useState(null);
-
   const openEdit = (code) => {
     setEditTarget(code);
-    setEditForm({
-      tier: code.tier,
-      durationDays: code.duration_days ?? "",
-      maxUses: code.max_uses ?? "",
-      expiresAt: code.expires_at ? code.expires_at.slice(0, 10) : "",
-      isActive: code.is_active,
-    });
+    setEditForm({ tier: code.tier, durationDays: code.duration_days ?? "", maxUses: code.max_uses ?? "", expiresAt: code.expires_at ? code.expires_at.slice(0, 10) : "", isActive: code.is_active });
     setEditError(null);
   };
-
   const handleSaveEdit = async (e) => {
     e.preventDefault();
-    setEditSaving(true);
-    setEditError(null);
-    try {
-      await editCode(editTarget.id, {
-        tier: editForm.tier,
-        durationDays: editForm.durationDays === "" ? null : Number(editForm.durationDays),
-        maxUses: editForm.maxUses === "" ? null : Number(editForm.maxUses),
-        expiresAt: editForm.expiresAt || null,
-        isActive: editForm.isActive,
-      });
-      setEditTarget(null);
-      reload();
-    } catch (e) {
-      setEditError(e.message);
-    }
+    setEditSaving(true); setEditError(null);
+    try { await editCode(editTarget.id, { ...toParams(editForm), isActive: editForm.isActive }); setEditTarget(null); reload(); } catch (err) { setEditError(err.message); }
     setEditSaving(false);
   };
 
-  // Delete confirmation (per-row inline)
+  // Delete
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState(null);
-
-  const handleDelete = async (code) => {
-    setDeleting(true);
-    setDeleteError(null);
-    try {
-      await deleteCode(code.id);
-      setDeleteTarget(null);
-      reload();
-    } catch (e) {
-      setDeleteError(e.message);
-    }
+  const handleDelete = async () => {
+    setDeleting(true); setDeleteError(null);
+    try { await deleteCode(deleteTarget.id); setDeleteTarget(null); reload(); } catch (err) { setDeleteError(err.message); }
     setDeleting(false);
   };
 
-  // Claims drawer
+  // Claims
   const [claimsDrawer, setClaimsDrawer] = useState(null);
   const [claims, setClaims] = useState([]);
   const [claimsLoading, setClaimsLoading] = useState(false);
+  const openClaims = async (code) => { setClaimsDrawer(code); setClaimsLoading(true); setClaims(await fetchClaims(code.id)); setClaimsLoading(false); };
 
-  const openClaims = async (code) => {
-    setClaimsDrawer(code);
-    setClaimsLoading(true);
-    setClaims(await fetchClaims(code.id));
-    setClaimsLoading(false);
-  };
-
-  const handleToggle = async (code) => {
-    await toggleActive(code.id, !code.is_active);
-    reload();
-  };
-
+  const handleToggle = async (code) => { await toggleActive(code.id, !code.is_active); reload(); };
   const totalPages = Math.max(1, Math.ceil(total / limit));
 
+  const actions = (c) => (
+    <>
+      <Button variant="ghost" size="xs" onClick={() => handleToggle(c)}>{c.is_active ? "Disable" : "Enable"}</Button>
+      <Button variant="ghost" size="xs" onClick={() => openEdit(c)}>Edit</Button>
+      <Button variant="ghost" size="xs" onClick={() => openClaims(c)}>Claims</Button>
+      <Button variant="ghost" size="xs" onClick={() => { setDeleteTarget(c); setDeleteError(null); }} className="text-red-300 hover:text-red-200">Delete</Button>
+    </>
+  );
+
+  const columns = [
+    {
+      key: "select", label: <input ref={selectAllRef} type="checkbox" checked={codes.length > 0 && selected.size === codes.length} onChange={toggleSelectAll} className="h-4 w-4 cursor-pointer accent-brand" aria-label="Select all" />,
+      render: (c) => <input type="checkbox" checked={selected.has(c.id)} onChange={() => toggleSelect(c.id)} onClick={(e) => e.stopPropagation()} className="h-4 w-4 cursor-pointer accent-brand" aria-label={`Select ${c.code}`} />,
+      className: "w-10", cardHidden: true,
+    },
+    { key: "code", label: "Code", primary: true, render: (c) => <span className="font-mono text-white">{c.code}</span> },
+    { key: "tier", label: "Tier", render: (c) => TIER_LABELS[c.tier] ?? c.tier },
+    { key: "duration", label: "Duration", render: (c) => (c.duration_days ? `${c.duration_days}d` : "Lifetime") },
+    { key: "uses", label: "Uses", render: (c) => `${c.current_uses}/${c.max_uses ?? "∞"}` },
+    { key: "expiry", label: "Expiry", hideBelow: "lg", render: (c) => (c.expires_at ? new Date(c.expires_at).toLocaleDateString() : "—") },
+    { key: "status", label: "Status", render: (c) => <Badge variant={STATUS_VARIANT[c.status] ?? "neutral"} size="xs" className="capitalize">{c.status}</Badge> },
+    { key: "created", label: "Created", hideBelow: "xl", render: (c) => new Date(c.created_at).toLocaleDateString() },
+    { key: "actions", label: "Actions", cardHidden: true, render: (c) => <div className="flex flex-wrap gap-1">{actions(c)}</div> },
+  ];
+
   return (
-    <div className="space-y-8">
-      <h1 className="text-xl font-bold text-white">Reward Codes</h1>
+    <div className="space-y-6">
+      <PageHeader size="sm" title="Reward Codes" subtitle="Generate promo codes, manage their status and see who claimed them." />
 
-      {/* Create panel */}
-      <section className="rounded-2xl border border-[#2a3570]/50 bg-[#0a0c18] p-5">
-        {/* Mode tabs */}
-        <div className="mb-4 flex gap-1">
-          {[["random", "Generate random"], ["custom", "Create custom"]].map(([mode, label]) => (
-            <button
-              key={mode}
-              onClick={() => { setGenMode(mode); setGenError(null); setGenResult(null); }}
-              className={`rounded-lg px-3 py-1 text-xs font-semibold transition ${genMode === mode ? "bg-[#1a1d35] text-white" : "text-[#6868b8] hover:text-white"}`}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-
+      <section className="rounded-2xl border border-border/50 bg-surface p-4 sm:p-5">
+        <PillTabs size="sm" aria-label="Create mode" className="mb-4 w-fit" tabs={[{ value: "random", label: "Generate random" }, { value: "custom", label: "Create custom" }]} value={genMode} onChange={(m) => { setGenMode(m); setGenError(null); setGenResult(null); }} />
         {genMode === "random" ? (
-          <form onSubmit={handleGenerate} className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+          <form onSubmit={handleGenerate} className="grid grid-cols-1 gap-3 xs:grid-cols-2 sm:grid-cols-3 xl:grid-cols-6">
             <FormFields form={genForm} onChange={setField(setGenForm)} />
-            <label className="flex flex-col gap-1">
-              <FieldLabel>Count</FieldLabel>
-              <Input type="number" min="1" max="1000" value={genForm.count} onChange={(e) => setGenForm((f) => ({ ...f, count: e.target.value }))} />
-            </label>
-            <div className="flex items-end">
-              <button type="submit" disabled={generating} className="w-full rounded-lg border border-[#6868b8] bg-[#12163a] px-3 py-1.5 text-xs font-semibold text-[#a0a0e8] transition hover:border-[#9b9bf0] hover:text-white disabled:opacity-50">
-                {generating ? "Generating…" : "Generate"}
-              </button>
-            </div>
+            <Field label="Count"><Input size="md" type="number" min="1" max="1000" value={genForm.count} onChange={(e) => setGenForm((f) => ({ ...f, count: e.target.value }))} className="h-9 text-xs" /></Field>
+            <div className="flex items-end"><Button type="submit" size="sm" full loading={generating}>Generate</Button></div>
           </form>
         ) : (
-          <form onSubmit={handleCreateCustom} className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-            <label className="col-span-2 sm:col-span-1 flex flex-col gap-1">
-              <FieldLabel>Code name</FieldLabel>
-              <Input
-                type="text"
-                placeholder="e.g. SUMMER25"
-                value={customForm.code}
-                onChange={(e) => setCustomForm((f) => ({ ...f, code: e.target.value.toUpperCase() }))}
-                required
-              />
-            </label>
+          <form onSubmit={handleCreateCustom} className="grid grid-cols-1 gap-3 xs:grid-cols-2 sm:grid-cols-3 xl:grid-cols-6">
+            <Field label="Code name"><Input size="md" placeholder="e.g. SUMMER25" value={customForm.code} onChange={(e) => setCustomForm((f) => ({ ...f, code: e.target.value.toUpperCase() }))} required className="h-9 font-mono text-xs uppercase" /></Field>
             <FormFields form={customForm} onChange={setField(setCustomForm)} />
-            <div className="flex items-end">
-              <button type="submit" disabled={generating || !customForm.code.trim()} className="w-full rounded-lg border border-[#6868b8] bg-[#12163a] px-3 py-1.5 text-xs font-semibold text-[#a0a0e8] transition hover:border-[#9b9bf0] hover:text-white disabled:opacity-50">
-                {generating ? "Creating…" : "Create"}
-              </button>
-            </div>
+            <div className="flex items-end"><Button type="submit" size="sm" full loading={generating} disabled={!customForm.code.trim()}>Create</Button></div>
           </form>
         )}
-
-        {genError && <p className="mt-2 text-xs text-red-400">{genError}</p>}
+        {genError && <ErrorNote inline className="mt-3">{genError}</ErrorNote>}
         {genResult && (
           <div className="mt-4">
-            <div className="flex items-center justify-between mb-2">
-              <p className="text-xs text-emerald-400 font-semibold">
-                {genResult.length} code{genResult.length !== 1 ? "s" : ""} created
-              </p>
-              {genResult.length > 1 && (
-                <button onClick={downloadGenerated} className="text-xs text-[#9b9bf0] underline hover:text-white transition">Download CSV</button>
-              )}
+            <div className="mb-2 flex items-center justify-between">
+              <p className="text-xs font-semibold text-emerald-400">{genResult.length} code{genResult.length !== 1 ? "s" : ""} created</p>
+              {genResult.length > 1 && <Button variant="ghost" size="xs" icon={DownloadIcon} onClick={downloadGenerated}>Download CSV</Button>}
             </div>
-            <div className="max-h-40 overflow-y-auto rounded-lg border border-[#2a3570]/50 bg-[#06070f] p-2">
-              <table className="w-full text-xs font-mono">
-                <tbody>
-                  {genResult.map((c) => (
-                    <tr key={c.code}>
-                      <td className="py-0.5 pr-4 text-white">{c.code}</td>
-                      <td className="pr-4 text-[#8080a8]">{TIER_LABELS[c.tier]}</td>
-                      <td className="text-[#5a5a78]">{c.duration_days ? `${c.duration_days}d` : "lifetime"}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <div className="max-h-40 overflow-y-auto rounded-lg border border-border/50 bg-bg p-2 font-mono text-xs">
+              {genResult.map((c) => (
+                <div key={c.code} className="flex gap-4 py-0.5"><span className="text-white">{c.code}</span><span className="text-text-muted">{TIER_LABELS[c.tier]}</span><span className="text-text-faint">{c.duration_days ? `${c.duration_days}d` : "lifetime"}</span></div>
+              ))}
             </div>
           </div>
         )}
       </section>
 
-      {/* Codes table */}
       <section>
         <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex flex-wrap gap-1">
-            {STATUS_TABS.map((s) => (
-              <button key={s} onClick={() => { setStatusFilter(s); setPage(1); }} className={`rounded-lg px-3 py-1 text-xs font-semibold transition capitalize ${statusFilter === s ? "bg-[#141728] text-white" : "text-[#6868b8] hover:text-white"}`}>
-                {s}
-              </button>
-            ))}
-          </div>
-          <button onClick={() => exportCsv(statusFilter)} className="self-start text-xs text-[#9b9bf0] underline hover:text-white transition sm:self-auto">Export CSV</button>
+          <PillTabs size="sm" aria-label="Status" tabs={STATUS_TABS.map((s) => ({ value: s, label: s[0].toUpperCase() + s.slice(1) }))} value={statusFilter} onChange={changeFilter} className="w-fit max-w-full" />
+          <Button variant="ghost" size="xs" icon={DownloadIcon} onClick={() => exportCsv(statusFilter)} className="self-start sm:self-auto">Export CSV</Button>
         </div>
+        {error && <ErrorNote className="mb-3">{error}</ErrorNote>}
 
-        {error && <p className="mb-2 text-sm text-red-400">{error}</p>}
-
-        {/* Bulk action toolbar */}
         {selected.size > 0 && (
-          <div className="mb-3 flex flex-wrap items-center gap-2 rounded-xl border border-[#2a3570] bg-[#0d0f1e] px-4 py-2.5">
+          <div className="mb-3 flex flex-wrap items-center gap-2 rounded-xl border border-border bg-surface px-3 py-2">
             <span className="text-xs font-semibold text-white">{selected.size} selected</span>
-            <button
-              onClick={() => setSelected(new Set())}
-              className="text-xs text-[#6868b8] hover:text-white transition"
-            >
-              Clear
-            </button>
-            <div className="mx-1 h-4 w-px bg-[#2a3570]" />
-            <button
-              onClick={() => handleBulk("enable")}
-              disabled={bulkBusy}
-              className="rounded-lg border border-emerald-700/50 px-3 py-1 text-xs font-semibold text-emerald-400 transition hover:bg-emerald-900/20 disabled:opacity-50"
-            >
-              Enable
-            </button>
-            <button
-              onClick={() => handleBulk("disable")}
-              disabled={bulkBusy}
-              className="rounded-lg border border-[#2a3570] px-3 py-1 text-xs font-semibold text-[#8080a8] transition hover:text-white disabled:opacity-50"
-            >
-              Disable
-            </button>
-            <button
-              onClick={exportSelected}
-              className="rounded-lg border border-[#2a3570] px-3 py-1 text-xs font-semibold text-[#9b9bf0] transition hover:text-white"
-            >
-              Export CSV
-            </button>
-            <button
-              onClick={() => handleBulk("delete")}
-              disabled={bulkBusy}
-              className="rounded-lg border border-red-700/50 px-3 py-1 text-xs font-semibold text-red-400 transition hover:bg-red-900/20 disabled:opacity-50"
-            >
-              {bulkBusy ? "Working…" : "Delete"}
-            </button>
-            {bulkError && <p className="text-xs text-red-400">{bulkError}</p>}
+            <Button variant="ghost" size="xs" onClick={() => setSelected(new Set())}>Clear</Button>
+            <span className="mx-1 h-4 w-px bg-border" />
+            <Button variant="success" size="xs" onClick={() => handleBulk("enable")} disabled={bulkBusy}>Enable</Button>
+            <Button variant="outline" size="xs" onClick={() => handleBulk("disable")} disabled={bulkBusy}>Disable</Button>
+            <Button variant="outline" size="xs" onClick={exportSelected}>Export CSV</Button>
+            <Button variant="danger" size="xs" onClick={() => handleBulk("delete")} loading={bulkBusy}>Delete</Button>
+            {bulkError && <span className="text-xs text-red-300">{bulkError}</span>}
           </div>
         )}
 
-        <div className="overflow-x-auto rounded-2xl border border-[#2a3570]/50">
-          <table className="w-full text-sm min-w-[760px]">
-            <thead>
-              <tr className="border-b border-[#2a3570]/50 text-[10px] uppercase tracking-wider text-[#5a5a78]">
-                <th className="px-4 py-3">
-                  <input
-                    ref={selectAllRef}
-                    type="checkbox"
-                    checked={codes.length > 0 && selected.size === codes.length}
-                    onChange={toggleSelectAll}
-                    className="accent-[#6868b8] cursor-pointer"
-                  />
-                </th>
-                {["Code", "Tier", "Duration", "Uses", "Expiry", "Status", "Created", "Actions"].map((h) => (
-                  <th key={h} className="px-4 py-3 text-left font-semibold">{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {isLoading ? (
-                <tr><td colSpan={9} className="py-10 text-center text-[#5a5a78]">Loading…</td></tr>
-              ) : codes.length === 0 ? (
-                <tr><td colSpan={9} className="py-10 text-center text-[#5a5a78]">No codes found.</td></tr>
-              ) : codes.map((c) => (
-                <tr
-                  key={c.id}
-                  className={`border-b border-[#2a3570]/50 last:border-0 transition ${selected.has(c.id) ? "bg-[#111430]" : "hover:bg-[#0a0c18]"}`}
-                >
-                  <td className="px-4 py-3">
-                    <input
-                      type="checkbox"
-                      checked={selected.has(c.id)}
-                      onChange={() => toggleSelect(c.id)}
-                      className="accent-[#6868b8] cursor-pointer"
-                    />
-                  </td>
-                  <td className="px-4 py-3 font-mono text-white">{c.code}</td>
-                  <td className="px-4 py-3 text-[#c0c0e8]">{TIER_LABELS[c.tier] ?? c.tier}</td>
-                  <td className="px-4 py-3 text-[#8080a8]">{c.duration_days ? `${c.duration_days}d` : "Lifetime"}</td>
-                  <td className="px-4 py-3 text-[#8080a8]">{c.current_uses}/{c.max_uses ?? "∞"}</td>
-                  <td className="px-4 py-3 text-[#8080a8]">{c.expires_at ? new Date(c.expires_at).toLocaleDateString() : "—"}</td>
-                  <td className="px-4 py-3">
-                    <span className={`rounded border px-2 py-0.5 text-[10px] font-semibold capitalize ${STATUS_BADGE[c.status] ?? ""}`}>{c.status}</span>
-                  </td>
-                  <td className="px-4 py-3 text-[#5a5a78]">{new Date(c.created_at).toLocaleDateString()}</td>
-                  <td className="px-4 py-3">
-                    {deleteTarget?.id === c.id ? (
-                      <div className="flex flex-col gap-1">
-                        {deleteError && <p className="text-[10px] text-red-400">{deleteError}</p>}
-                        <div className="flex gap-2">
-                          <button onClick={() => handleDelete(c)} disabled={deleting} className="text-xs font-semibold text-red-400 hover:text-red-300 transition disabled:opacity-50">
-                            {deleting ? "Deleting…" : "Confirm"}
-                          </button>
-                          <button onClick={() => { setDeleteTarget(null); setDeleteError(null); }} className="text-xs text-[#6868b8] hover:text-white transition">Cancel</button>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="flex gap-3">
-                        <button onClick={() => handleToggle(c)} className="text-xs text-[#8080a8] underline hover:text-white transition">
-                          {c.is_active ? "Disable" : "Enable"}
-                        </button>
-                        <button onClick={() => openEdit(c)} className="text-xs text-[#8080a8] underline hover:text-white transition">Edit</button>
-                        <button onClick={() => openClaims(c)} className="text-xs text-[#8080a8] underline hover:text-white transition">Claims</button>
-                        <button onClick={() => { setDeleteTarget(c); setDeleteError(null); }} className="text-xs text-red-500/70 underline hover:text-red-400 transition">Delete</button>
-                      </div>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <DataTable columns={columns} rows={codes} rowKey={(c) => c.id} loading={isLoading} emptyTitle="No codes found." dense cardActions={(c) => (
+          <>
+            <label className="mr-auto flex items-center gap-2 text-xs text-text-muted"><input type="checkbox" checked={selected.has(c.id)} onChange={() => toggleSelect(c.id)} className="h-4 w-4 accent-brand" /> Select</label>
+            {actions(c)}
+          </>
+        )} />
 
         {totalPages > 1 && (
-          <div className="mt-4 flex items-center justify-center gap-2">
-            <button disabled={page <= 1} onClick={() => setPage((p) => p - 1)} className="rounded-lg border border-[#2a3570] px-3 py-1 text-xs text-[#8080a8] disabled:opacity-40 hover:border-[#6868b8] hover:text-white transition">Prev</button>
-            <span className="text-xs text-[#5a5a78]">{page} / {totalPages}</span>
-            <button disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)} className="rounded-lg border border-[#2a3570] px-3 py-1 text-xs text-[#8080a8] disabled:opacity-40 hover:border-[#6868b8] hover:text-white transition">Next</button>
+          <div className="mt-4 flex items-center justify-center gap-2 text-xs text-text-faint">
+            <Button variant="outline" size="xs" disabled={page <= 1} onClick={() => changePage(page - 1)}>Prev</Button>
+            <span>{page} / {totalPages}</span>
+            <Button variant="outline" size="xs" disabled={page >= totalPages} onClick={() => changePage(page + 1)}>Next</Button>
           </div>
         )}
       </section>
 
-      {/* Edit modal */}
-      {editTarget && editForm && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center" onClick={() => setEditTarget(null)}>
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
-          <div onClick={(e) => e.stopPropagation()} className="relative w-full max-w-md rounded-t-2xl sm:rounded-2xl border border-[#2a3570] bg-[#0d0f1e] p-5 shadow-2xl">
-            <div className="mb-4 flex items-center justify-between">
-              <p className="font-bold text-white">Edit <span className="font-mono">{editTarget.code}</span></p>
-              <button onClick={() => setEditTarget(null)} className="text-[#5a5a78] hover:text-white transition">✕</button>
-            </div>
-            <form onSubmit={handleSaveEdit} className="space-y-3">
-              <div className="grid grid-cols-2 gap-3">
-                <label className="flex flex-col gap-1">
-                  <FieldLabel>Tier</FieldLabel>
-                  <Select value={editForm.tier} onChange={(e) => setEditForm((f) => ({ ...f, tier: e.target.value }))}>
-                    {TIERS.map((t) => <option key={t} value={t}>{TIER_LABELS[t]}</option>)}
-                  </Select>
-                </label>
-                <label className="flex flex-col gap-1">
-                  <FieldLabel>Duration (days)</FieldLabel>
-                  <Input type="number" min="1" placeholder="blank = lifetime" value={editForm.durationDays} onChange={(e) => setEditForm((f) => ({ ...f, durationDays: e.target.value }))} />
-                </label>
-                <label className="flex flex-col gap-1">
-                  <FieldLabel>Max uses</FieldLabel>
-                  <Input type="number" min="1" placeholder="blank = unlimited" value={editForm.maxUses} onChange={(e) => setEditForm((f) => ({ ...f, maxUses: e.target.value }))} />
-                </label>
-                <label className="flex flex-col gap-1">
-                  <FieldLabel>Code expiry</FieldLabel>
-                  <Input type="date" value={editForm.expiresAt} onChange={(e) => setEditForm((f) => ({ ...f, expiresAt: e.target.value }))} />
-                </label>
-              </div>
-              <label className="flex items-center gap-2 text-sm text-[#c0c0e8]">
-                <input
-                  type="checkbox"
-                  checked={editForm.isActive}
-                  onChange={(e) => setEditForm((f) => ({ ...f, isActive: e.target.checked }))}
-                  className="accent-[#6868b8]"
-                />
-                Active
-              </label>
-              {editError && <p className="text-xs text-red-400">{editError}</p>}
-              <div className="flex justify-end gap-2 pt-1">
-                <button type="button" onClick={() => setEditTarget(null)} className="rounded-lg border border-[#2a3570] px-3 py-1.5 text-xs text-[#6868b8] transition hover:text-white">Cancel</button>
-                <button type="submit" disabled={editSaving} className="rounded-lg border border-[#6868b8] bg-[#12163a] px-3 py-1.5 text-xs font-semibold text-[#a0a0e8] transition hover:border-[#9b9bf0] hover:text-white disabled:opacity-50">
-                  {editSaving ? "Saving…" : "Save"}
-                </button>
-              </div>
-            </form>
+      <Modal open={!!(editTarget && editForm)} onClose={() => setEditTarget(null)} title={editTarget ? `Edit ${editTarget.code}` : ""} size="md"
+        footer={editTarget && (
+          <div className="flex justify-end gap-2">
+            <Button variant="ghost" size="sm" onClick={() => setEditTarget(null)}>Cancel</Button>
+            <Button size="sm" form="edit-code-form" type="submit" loading={editSaving}>Save</Button>
           </div>
-        </div>
-      )}
+        )}>
+        {editForm && (
+          <form id="edit-code-form" onSubmit={handleSaveEdit} className="space-y-3">
+            <div className="grid grid-cols-1 gap-3 xs:grid-cols-2"><FormFields form={editForm} onChange={setField(setEditForm)} /></div>
+            <label className="flex items-center gap-2 text-sm text-text"><input type="checkbox" checked={editForm.isActive} onChange={(e) => setEditForm((f) => ({ ...f, isActive: e.target.checked }))} className="h-4 w-4 accent-brand" /> Active</label>
+            {editError && <ErrorNote inline>{editError}</ErrorNote>}
+          </form>
+        )}
+      </Modal>
 
-      {/* Claims drawer */}
-      {claimsDrawer && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center" onClick={() => setClaimsDrawer(null)}>
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
-          <div onClick={(e) => e.stopPropagation()} className="relative w-full max-w-md rounded-t-2xl sm:rounded-2xl border border-[#2a3570] bg-[#0d0f1e] p-5 shadow-2xl">
-            <div className="mb-4 flex items-center justify-between">
-              <p className="font-bold text-white">Claims for <span className="font-mono">{claimsDrawer.code}</span></p>
-              <button onClick={() => setClaimsDrawer(null)} className="text-[#5a5a78] hover:text-white transition">✕</button>
-            </div>
-            {claimsLoading ? (
-              <p className="text-sm text-[#5a5a78]">Loading…</p>
-            ) : claims.length === 0 ? (
-              <p className="text-sm text-[#5a5a78]">No claims yet.</p>
-            ) : (
-              <ul className="space-y-2">
-                {claims.map((c) => (
-                  <li key={c.profile_id} className="flex justify-between text-sm">
-                    <span className="font-semibold text-white">{c.username}</span>
-                    <span className="text-[#5a5a78]">{new Date(c.claimed_at).toLocaleDateString()}</span>
-                  </li>
-                ))}
-              </ul>
-            )}
+      <Modal open={!!deleteTarget} onClose={() => setDeleteTarget(null)} title="Delete code?" size="sm"
+        footer={
+          <div className="flex justify-end gap-2">
+            <Button variant="ghost" size="sm" onClick={() => setDeleteTarget(null)} disabled={deleting}>Cancel</Button>
+            <Button variant="danger" size="sm" onClick={handleDelete} loading={deleting}>Delete</Button>
           </div>
-        </div>
-      )}
+        }>
+        <p className="text-sm text-text">Permanently delete <span className="font-mono text-white">{deleteTarget?.code}</span>? This cannot be undone.</p>
+        {deleteError && <ErrorNote inline className="mt-3">{deleteError}</ErrorNote>}
+      </Modal>
+
+      <Modal open={!!claimsDrawer} onClose={() => setClaimsDrawer(null)} title={claimsDrawer ? `Claims for ${claimsDrawer.code}` : ""} size="sm">
+        {claimsLoading ? (
+          <p className="text-sm text-text-faint">Loading…</p>
+        ) : claims.length === 0 ? (
+          <p className="text-sm text-text-faint">No claims yet.</p>
+        ) : (
+          <ul className="divide-y divide-border/40">
+            {claims.map((c) => (
+              <li key={c.profile_id} className="flex justify-between py-2 text-sm"><span className="font-semibold text-white">{c.username}</span><span className="text-text-faint">{new Date(c.claimed_at).toLocaleDateString()}</span></li>
+            ))}
+          </ul>
+        )}
+      </Modal>
     </div>
   );
 }

@@ -12,6 +12,8 @@ export function useEditProfile(session) {
   const uid = session?.user?.id;
   const [bio, setBio] = useState("");
   const [avatar, setAvatar] = useState(DEFAULT_AVATAR);
+  const [banner, setBanner] = useState({ position: null, crop: null });
+  const [bannerSaving, setBannerSaving] = useState(false);
   const [favRows, setFavRows] = useState([]); // [{ position, media_type, tmdb_id }]
   const [saving, setSaving] = useState(false);
   const [avatarSaving, setAvatarSaving] = useState(false);
@@ -24,7 +26,7 @@ export function useEditProfile(session) {
     Promise.all([
       supabase
         .from("profile")
-        .select("bio, avatar_type, avatar_poster_media_type, avatar_poster_tmdb_id, avatar_poster_path, avatar_upload_path")
+        .select("bio, avatar_type, avatar_poster_media_type, avatar_poster_tmdb_id, avatar_poster_path, avatar_upload_path, banner_favourite_position, banner_crop")
         .eq("id", uid)
         .single(),
       supabase
@@ -43,6 +45,7 @@ export function useEditProfile(session) {
         uploadPath: profileRes.data?.avatar_upload_path ?? null,
       });
       setFavRows((favRes.data ?? []).map((r) => ({ ...r, tmdb_id: Number(r.tmdb_id) })));
+      setBanner({ position: profileRes.data?.banner_favourite_position ?? null, crop: profileRes.data?.banner_crop ?? null });
       setLoaded(true);
     });
     return () => {
@@ -58,7 +61,7 @@ export function useEditProfile(session) {
     () =>
       favRows.map((r) => {
         const c = cards[cardKey({ type: r.media_type, id: r.tmdb_id })];
-        const media = c ? { id: r.tmdb_id, title: c.title, name: c.title, poster_path: c.poster_path, release_date: c.date, first_air_date: c.date } : null;
+        const media = c ? { id: r.tmdb_id, title: c.title, name: c.title, poster_path: c.poster_path, backdrop_path: c.backdrop_path ?? null, release_date: c.date, first_air_date: c.date } : null;
         return {
           position: r.position,
           media_type: r.media_type,
@@ -212,12 +215,33 @@ export function useEditProfile(session) {
     if (prevUploadPath) await supabase.storage.from("avatars").remove([prevUploadPath]);
   }, [uid, avatar.uploadPath]);
 
+  // Profile banner: which favourite (1-5, null = first) and its % crop
+  // (react-easy-crop `croppedArea`, null = centred).
+  const saveBanner = useCallback(
+    async ({ position, crop }) => {
+      if (!uid) return { error: "Not signed in" };
+      setBannerSaving(true);
+      const { error: err } = await supabase
+        .from("profile")
+        .update({ banner_favourite_position: position ?? null, banner_crop: crop ?? null, updated_at: new Date().toISOString() })
+        .eq("id", uid);
+      setBannerSaving(false);
+      if (err) { setError(err.message); return { error: err.message }; }
+      setBanner({ position: position ?? null, crop: crop ?? null });
+      return { error: null };
+    },
+    [uid],
+  );
+
   return {
     bio,
     setBio,
     saveBio,
     favourites,
     setFavourite,
+    banner,
+    bannerSaving,
+    saveBanner,
     avatar,
     avatarSaving,
     setAvatarPoster,

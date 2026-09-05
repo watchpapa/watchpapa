@@ -25,7 +25,7 @@ function Switch({ checked = false, onChange, disabled = false, label, className,
       >
         <span
           className={cn(
-            "absolute top-1/2 h-[18px] w-[18px] -translate-y-1/2 rounded-full bg-white shadow transition-transform",
+            "absolute left-0 top-1/2 h-[18px] w-[18px] -translate-y-1/2 rounded-full bg-white shadow transition-transform",
             checked ? "translate-x-[22px]" : "translate-x-[2px]",
           )}
         />

@@ -25,7 +25,7 @@ export function useProfileData(username, session) {
 
     supabase
       .from("profile")
-      .select("id, username, bio, created_at, is_private, setting_allow_profile_share, avatar_type, avatar_poster_path, avatar_upload_path")
+      .select("id, username, bio, created_at, is_private, setting_allow_profile_share, avatar_type, avatar_poster_path, avatar_upload_path, banner_favourite_position, banner_crop")
       .eq("username", username)
       .maybeSingle()
       .then(async ({ data: profileData }) => {
@@ -71,7 +71,7 @@ export function useProfileData(username, session) {
       favRows.map((r) => {
         const c = cards[cardKey({ type: r.media_type, id: r.tmdb_id })];
         const media = c
-          ? { id: r.tmdb_id, title: c.title, name: c.title, poster_path: c.poster_path, release_date: c.date, first_air_date: c.date }
+          ? { id: r.tmdb_id, title: c.title, name: c.title, poster_path: c.poster_path, backdrop_path: c.backdrop_path ?? null, release_date: c.date, first_air_date: c.date }
           : null;
         return {
           position: r.position,

@@ -19,7 +19,7 @@ import { ProfileStats } from "../../components/profile/ProfileStats.jsx";
 import { ProfileRatingCard } from "../../components/profile/ProfileRatingCard.jsx";
 import ProfileShareModal from "../../components/profile/ProfileShareModal.jsx";
 import { TIER_BADGE_VARIANTS, tierLabel } from "../../lib/tierMeta.js";
-import { tmdbImg } from "../../lib/tmdbImage.js";
+import ProfileBanner from "../../components/profile/ProfileBanner.jsx";
 import { EditIcon, LockIcon, SettingsIcon, ShareIcon, UserIcon } from "../../components/icons/index.jsx";
 
 // Observe + block controls shown on another user's profile.
@@ -89,9 +89,6 @@ function ProfilePage({ session }) {
     );
   }
 
-  // Banner: the first favourite's poster, blurred — or a brand gradient.
-  const firstFav = favourites.find((f) => f.position === 1) ?? favourites[0];
-  const bannerPoster = firstFav ? (firstFav.movie ?? firstFav.show)?.poster_path : null;
   const canShare = isOwn || profile?.setting_allow_profile_share;
   const memberSince = new Date(profile.created_at).toLocaleDateString("en-US", { month: "long", year: "numeric" });
 
@@ -102,14 +99,12 @@ function ProfilePage({ session }) {
       <PageContainer width="standard" className="space-y-6">
         {/* Header: banner + overlapping avatar */}
         <header className="rounded-3xl border border-border/50 bg-surface">
-          <div className="relative h-32 overflow-hidden rounded-t-3xl sm:h-44">
-            {bannerPoster ? (
-              <img src={tmdbImg(bannerPoster, "w500")} alt="" className="h-full w-full scale-110 object-cover object-top opacity-60 blur-md" aria-hidden />
-            ) : (
-              <div className="h-full w-full bg-gradient-to-br from-brand-deep via-[#1f1a55] to-accent/40" aria-hidden />
-            )}
-            <div className="absolute inset-0 bg-gradient-to-t from-surface via-surface/40 to-transparent" />
-          </div>
+          <ProfileBanner
+            favourites={favourites}
+            position={profile.banner_favourite_position}
+            crop={profile.banner_crop}
+            className="h-32 rounded-t-3xl sm:h-44 lg:h-52"
+          />
 
           {/* relative z-10: the banner above is positioned, so without this the
               overlapping avatar + name would paint underneath it. */}
