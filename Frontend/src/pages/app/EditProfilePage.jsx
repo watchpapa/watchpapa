@@ -1,119 +1,83 @@
-import { useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useState } from "react";
 import AppLayout from "../../layouts/AppLayout.jsx";
 import { PageHead } from "../../components/ui/PageHead.jsx";
+import PageContainer from "../../components/ui/PageContainer.jsx";
+import PageHeader from "../../components/ui/PageHeader.jsx";
+import Button from "../../components/ui/Button.jsx";
+import ErrorNote from "../../components/ui/ErrorNote.jsx";
+import { Skeleton } from "../../components/ui/Skeleton.jsx";
+import SettingsSection from "../../components/settings/SettingsSection.jsx";
 import { useEditProfile } from "../../features/profile/hooks/useEditProfile.js";
-import { useSubscription } from "../../features/subscription/hooks/useSubscription.js";
+import { useCurrentUser } from "../../features/profile/CurrentUserContext.jsx";
 import { FavouritesEditor } from "../../components/profile/FavouritesEditor.jsx";
 import AvatarPicker from "../../components/profile/AvatarPicker.jsx";
+import { ArrowLeftIcon } from "../../components/icons/index.jsx";
 
 function EditProfilePage({ session }) {
-  const navigate = useNavigate();
-  const { bio, setBio, saveBio, favourites, setFavourite, avatar, avatarSaving, setAvatarPoster, uploadAvatarPhoto, setAvatarDefault, saving, error, loaded } = useEditProfile(session);
-  const { tier } = useSubscription(session);
-  const [localBio, setLocalBio] = useState("");
+  const { bio, saveBio, favourites, setFavourite, avatar, avatarSaving, setAvatarPoster, uploadAvatarPhoto, setAvatarDefault, saving, error, loaded } = useEditProfile(session);
+  const me = useCurrentUser();
+  const [localBio, setLocalBio] = useState(null); // null = not edited yet → mirrors saved bio
   const [bioSaved, setBioSaved] = useState(false);
+  const draft = localBio ?? bio ?? "";
 
-  useEffect(() => { if (loaded) setLocalBio(bio ?? ""); }, [loaded, bio]);
-
-  const username = session?.user?.user_metadata?.username ?? "";
-  const breadcrumbs = [
-    { label: username, to: `/u/${username}` },
-    { label: "Edit Profile" },
-  ];
+  const username = me.username || session?.user?.user_metadata?.username || "";
+  const breadcrumbs = [{ label: username, to: `/u/${username}` }, { label: "Edit profile" }];
 
   const handleSaveBio = async () => {
-    await saveBio(localBio);
+    await saveBio(draft);
+    setLocalBio(null);
     setBioSaved(true);
     setTimeout(() => setBioSaved(false), 2000);
   };
 
-  if (!loaded) {
-    return (
-      <AppLayout session={session} breadcrumbs={breadcrumbs}>
-        <div className="mx-auto max-w-xl animate-pulse space-y-4 pt-6">
-          <div className="h-32 rounded-2xl bg-[#1a1f3a]" />
-        </div>
-      </AppLayout>
-    );
-  }
-
   return (
     <AppLayout session={session} breadcrumbs={breadcrumbs}>
-      <PageHead title="Edit Profile — watchpapa" path="/profile/edit" />
+      <PageHead title="Edit profile — watchpapa" path="/profile/edit" noindex />
+      <PageContainer width="narrow" className="space-y-5">
+        <PageHeader title="Edit profile" actions={<Button to={`/u/${username}`} variant="ghost" size="sm" icon={ArrowLeftIcon}>Back to profile</Button>} />
 
-      <div className="mx-auto max-w-xl space-y-6 py-6 px-4 sm:px-0">
-        <h1 className="text-xl font-bold text-white">Edit Profile</h1>
+        {error && <ErrorNote inline>{error}</ErrorNote>}
 
-        {error && (
-          <p className="rounded-xl border border-red-800/40 bg-red-900/10 px-4 py-2 text-sm text-red-400">{error}</p>
+        {!loaded ? (
+          <>
+            <Skeleton className="h-44 rounded-2xl" />
+            <Skeleton className="h-40 rounded-2xl" />
+          </>
+        ) : (
+          <>
+            <SettingsSection id="avatar" title="Avatar" description="Shown next to your name everywhere in the app.">
+              <div className="px-4 py-4 sm:px-5">
+                <AvatarPicker username={username} tier={me.tier} avatar={avatar} avatarSaving={avatarSaving} setAvatarPoster={setAvatarPoster} uploadAvatarPhoto={uploadAvatarPhoto} setAvatarDefault={setAvatarDefault} />
+              </div>
+            </SettingsSection>
+
+            <SettingsSection id="bio" title="Bio">
+              <div className="space-y-3 px-4 py-4 sm:px-5">
+                <textarea
+                  value={draft}
+                  onChange={(e) => { setLocalBio(e.target.value); setBioSaved(false); }}
+                  maxLength={200}
+                  rows={3}
+                  placeholder="Tell people a bit about yourself…"
+                  className="w-full resize-none rounded-xl border border-border-strong bg-surface-3/80 px-4 py-3 text-sm text-white placeholder:text-text-faint outline-none transition focus:border-brand-light focus:ring-1 focus:ring-brand"
+                />
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-text-faint">{draft.length}/200</span>
+                  <Button size="sm" onClick={handleSaveBio} loading={saving} disabled={draft === (bio ?? "")}>
+                    {bioSaved ? "Saved!" : "Save bio"}
+                  </Button>
+                </div>
+              </div>
+            </SettingsSection>
+
+            <SettingsSection id="favourites" title="Favourites" description="Five movies or shows, shown on your profile and share cards.">
+              <div className="px-4 py-4 sm:px-5">
+                <FavouritesEditor favourites={favourites} setFavourite={setFavourite} />
+              </div>
+            </SettingsSection>
+          </>
         )}
-
-        {/* Avatar */}
-        <section className="rounded-2xl border border-[#2a3570]/50 bg-[#0a0c18]">
-          <div className="border-b border-[#2a3570]/50 px-5 py-4">
-            <h2 className="text-sm font-semibold uppercase tracking-widest text-[#6868b8]">Avatar</h2>
-          </div>
-          <div className="px-5 py-4">
-            <AvatarPicker
-              username={username}
-              tier={tier}
-              avatar={avatar}
-              avatarSaving={avatarSaving}
-              setAvatarPoster={setAvatarPoster}
-              uploadAvatarPhoto={uploadAvatarPhoto}
-              setAvatarDefault={setAvatarDefault}
-            />
-          </div>
-        </section>
-
-        {/* Bio */}
-        <section className="rounded-2xl border border-[#2a3570]/50 bg-[#0a0c18]">
-          <div className="border-b border-[#2a3570]/50 px-5 py-4">
-            <h2 className="text-sm font-semibold uppercase tracking-widest text-[#6868b8]">Bio</h2>
-          </div>
-          <div className="px-5 py-4 space-y-3">
-            <textarea
-              value={localBio}
-              onChange={(e) => { setLocalBio(e.target.value); setBioSaved(false); }}
-              maxLength={200}
-              rows={3}
-              placeholder="Tell people a bit about yourself…"
-              className="w-full resize-none rounded-xl border border-[#2a3570] bg-[#0d0f1e] px-4 py-3 text-sm text-white placeholder-[#4a4a7a] outline-none focus:border-[#5a5aaa]"
-            />
-            <div className="flex items-center justify-between">
-              <span className="text-xs text-[#4a4a7a]">{localBio.length}/200</span>
-              <button
-                onClick={handleSaveBio}
-                disabled={saving || localBio === (bio ?? "")}
-                className="rounded-xl border border-[#3a3a7a] bg-[#1a1d35] px-4 py-1.5 text-xs font-semibold text-[#a0a0e8] transition hover:border-[#5a5aaa] hover:text-white disabled:opacity-40"
-              >
-                {saving ? "Saving…" : bioSaved ? "Saved!" : "Save bio"}
-              </button>
-            </div>
-          </div>
-        </section>
-
-        {/* Favourites */}
-        <section className="rounded-2xl border border-[#2a3570]/50 bg-[#0a0c18]">
-          <div className="border-b border-[#2a3570]/50 px-5 py-4">
-            <h2 className="text-sm font-semibold uppercase tracking-widest text-[#6868b8]">Favourites</h2>
-          </div>
-          <div className="px-5 py-4">
-            <FavouritesEditor favourites={favourites} setFavourite={setFavourite} />
-          </div>
-        </section>
-
-        {/* Actions */}
-        <div className="flex items-center gap-3">
-          <Link
-            to={`/u/${username}`}
-            className="rounded-xl border border-[#3a3a7a] bg-[#1a1d35] px-4 py-2 text-sm font-semibold text-[#a0a0e8] transition hover:border-[#5a5aaa] hover:text-white"
-          >
-            ← Back to profile
-          </Link>
-        </div>
-      </div>
+      </PageContainer>
     </AppLayout>
   );
 }
