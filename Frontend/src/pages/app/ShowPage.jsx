@@ -15,8 +15,9 @@ import CrewSection from "../../components/detail/CrewSection.jsx";
 import AuthPromptModal from "../../components/AuthPromptModal.jsx";
 import { useShowData } from "../../features/show/hooks/useShowData.js";
 import { showFollowBlock } from "../../lib/followGate.js";
-import MarkWatchedButton from "../../components/watchlist/MarkWatchedButton.jsx";
-import { useWatchedStatus } from "../../features/watchlist/hooks/useWatchedStatus.js";
+import WatchedPanel from "../../components/watchlist/WatchedPanel.jsx";
+import { useWatchLog } from "../../features/watchlist/hooks/useWatchLog.js";
+import RatingHistoryPanel from "../../components/rating/RatingHistoryPanel.jsx";
 import WhereToWatch from "../../components/detail/WhereToWatch.jsx";
 import UpgradePromptToast from "../../components/subscription/UpgradePromptToast.jsx";
 import { PageHead } from "../../components/ui/PageHead.jsx";
@@ -24,6 +25,8 @@ import { MediaShareModal } from "../../components/detail/MediaShareModal.jsx";
 import { tmdbImg } from "../../lib/tmdbImage.js";
 import { useCertifications } from "../../features/content/hooks/useContent.js";
 import { certificationMeaning } from "../../lib/certifications.js";
+import { useRating } from "../../features/rating/hooks/useRating.js";
+import { useShowCompletion } from "../../features/rating/hooks/useShowCompletion.js";
 
 function fmt(val, fallback = "—") {
   return val ?? fallback;
@@ -73,7 +76,9 @@ function ShowPage({ session, showAdult }) {
   const { show, genres, seasons, cast, crew, isFollowing, followLimitError, clearFollowLimitError, isLoading, error, toggleFollow } = useShowData(id, session, showAdult);
   const { data: certCatalog } = useCertifications();
   const handleFollow = session ? toggleFollow : () => setShowAuthPrompt(true);
-  const watchedStatus = useWatchedStatus("show", id ? Number(id) : null, session);
+  const { value: ratingValue } = useRating("show", id ? Number(id) : null, session);
+  const seasonsComplete = useShowCompletion(id ? Number(id) : null, seasons, session);
+  const watchLog = useWatchLog("show", id ? Number(id) : null, session);
 
   const breadcrumbs = show ? [{ label: "Shows", to: "/shows" }, { label: show.name }] : undefined;
 
@@ -140,11 +145,6 @@ function ShowPage({ session, showAdult }) {
               session={session}
               onAuthPrompt={() => setShowAuthPrompt(true)}
             />
-            <MarkWatchedButton
-              isWatched={watchedStatus.isWatched}
-              onToggle={session ? watchedStatus.toggleWatched : () => setShowAuthPrompt(true)}
-              disabled={watchedStatus.busy}
-            />
           </div>
         }
         sidebarTop={<PosterCard title={show.name} posterPath={show.poster_path} />}
@@ -162,8 +162,22 @@ function ShowPage({ session, showAdult }) {
               ))}
             </ul>
             <RatingSidebar mediaType="show" entityId={show.id} session={session} onAuthPrompt={() => setShowAuthPrompt(true)} isUnreleased={!!(show.first_air_date && new Date(show.first_air_date) > new Date())} />
+            <RatingHistoryPanel mediaType="show" entityId={show.id} session={session} />
             <ObservedRatingsPanel mediaType="show" entityId={show.id} session={session} />
             <RatingHistogram mediaType="show" entityId={show.id} tmdbVoteAvg={show.tmdb_vote_avg} />
+            <div className="mt-4">
+              <WatchedPanel
+                entries={watchLog.entries}
+                count={watchLog.count}
+                loading={watchLog.loading}
+                impliedWatched={ratingValue != null || seasonsComplete}
+                busy={watchLog.busy}
+                onLogWatch={watchLog.logWatch}
+                onRemoveEntry={watchLog.removeEntry}
+                onAuthPrompt={() => setShowAuthPrompt(true)}
+                session={session}
+              />
+            </div>
             <button
               onClick={() => setShareOpen(true)}
               className="mt-4 w-full rounded-lg border border-[#2a3570] bg-transparent px-3 py-2 text-xs font-medium uppercase tracking-widest text-[#6868b8] transition hover:border-[#3a3a7a] hover:text-white"

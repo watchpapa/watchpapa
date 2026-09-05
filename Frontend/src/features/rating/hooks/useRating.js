@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "../../../lib/supabase.js";
 import { removeFromWatchlistsOnRating } from "../../watchlist/lib/removeFromWatchlistsOnRating.js";
+import { ensureWatchLogSeed } from "../../watchlist/lib/watchLog.js";
 
 // mediaType: 'movie' | 'show' | 'season' | 'episode'
 // entityId:  the TMDB id of the rated entity
@@ -63,7 +64,13 @@ export function useRating(mediaType, entityId, session, ctx = {}) {
           .update({ value: newValue, updated_at: now })
           .eq("id", ratingId);
         if (error) setValue(prev);
-        else await removeFromWatchlistsOnRating(mediaType, tmdbId, tmdbShowId);
+        else {
+          // Seed before dispatching the removal event (inside
+          // removeFromWatchlistsOnRating) — useWatchLog.js reloads on that
+          // event, so the log row needs to exist first or it'd refetch too early.
+          await ensureWatchLogSeed(mediaType, tmdbId, tmdbShowId, session.user.id);
+          await removeFromWatchlistsOnRating(mediaType, tmdbId, tmdbShowId);
+        }
       } else {
         setLoading(true);
         const { data, error } = await supabase
@@ -75,6 +82,7 @@ export function useRating(mediaType, entityId, session, ctx = {}) {
         if (!error && data) {
           setRatingId(data.id);
           setValue(data.value);
+          await ensureWatchLogSeed(mediaType, tmdbId, tmdbShowId, session.user.id);
           await removeFromWatchlistsOnRating(mediaType, tmdbId, tmdbShowId);
         }
       }

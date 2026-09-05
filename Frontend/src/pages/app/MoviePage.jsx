@@ -15,8 +15,9 @@ import CrewSection from "../../components/detail/CrewSection.jsx";
 import AuthPromptModal from "../../components/AuthPromptModal.jsx";
 import { useMovieData } from "../../features/movie/hooks/useMovieData.js";
 import { movieFollowBlock } from "../../lib/followGate.js";
-import MarkWatchedButton from "../../components/watchlist/MarkWatchedButton.jsx";
-import { useWatchedStatus } from "../../features/watchlist/hooks/useWatchedStatus.js";
+import WatchedPanel from "../../components/watchlist/WatchedPanel.jsx";
+import { useWatchLog } from "../../features/watchlist/hooks/useWatchLog.js";
+import RatingHistoryPanel from "../../components/rating/RatingHistoryPanel.jsx";
 import WhereToWatch from "../../components/detail/WhereToWatch.jsx";
 import UpgradePromptToast from "../../components/subscription/UpgradePromptToast.jsx";
 import { PageHead } from "../../components/ui/PageHead.jsx";
@@ -24,6 +25,7 @@ import { MediaShareModal } from "../../components/detail/MediaShareModal.jsx";
 import { tmdbImg } from "../../lib/tmdbImage.js";
 import { useCertifications } from "../../features/content/hooks/useContent.js";
 import { certificationMeaning } from "../../lib/certifications.js";
+import { useRating } from "../../features/rating/hooks/useRating.js";
 
 function fmt(val, fallback = "—") {
   return val ?? fallback;
@@ -53,7 +55,8 @@ function MoviePage({ session, showAdult }) {
   const { movie, genres, cast, crew, isFollowing, followLimitError, clearFollowLimitError, isLoading, error, toggleFollow } = useMovieData(id, session, showAdult);
   const { data: certCatalog } = useCertifications();
   const handleFollow = session ? toggleFollow : () => setShowAuthPrompt(true);
-  const watchedStatus = useWatchedStatus("movie", id ? Number(id) : null, session);
+  const { value: ratingValue } = useRating("movie", id ? Number(id) : null, session);
+  const watchLog = useWatchLog("movie", id ? Number(id) : null, session);
 
   const breadcrumbs = movie ? [{ label: "Movies", to: "/movies" }, { label: movie.title }] : undefined;
 
@@ -119,11 +122,6 @@ function MoviePage({ session, showAdult }) {
               session={session}
               onAuthPrompt={() => setShowAuthPrompt(true)}
             />
-            <MarkWatchedButton
-              isWatched={watchedStatus.isWatched}
-              onToggle={session ? watchedStatus.toggleWatched : () => setShowAuthPrompt(true)}
-              disabled={watchedStatus.busy}
-            />
           </div>
         }
         sidebarTop={<PosterCard title={movie.title} posterPath={movie.poster_path} />}
@@ -135,8 +133,22 @@ function MoviePage({ session, showAdult }) {
               ))}
             </ul>
             <RatingSidebar mediaType="movie" entityId={movie.id} session={session} onAuthPrompt={() => setShowAuthPrompt(true)} isUnreleased={!!(movie.release_date && new Date(movie.release_date) > new Date())} />
+            <RatingHistoryPanel mediaType="movie" entityId={movie.id} session={session} />
             <ObservedRatingsPanel mediaType="movie" entityId={movie.id} session={session} />
             <RatingHistogram mediaType="movie" entityId={movie.id} tmdbVoteAvg={movie.tmdb_vote_avg} />
+            <div className="mt-4">
+              <WatchedPanel
+                entries={watchLog.entries}
+                count={watchLog.count}
+                loading={watchLog.loading}
+                impliedWatched={ratingValue != null}
+                busy={watchLog.busy}
+                onLogWatch={watchLog.logWatch}
+                onRemoveEntry={watchLog.removeEntry}
+                onAuthPrompt={() => setShowAuthPrompt(true)}
+                session={session}
+              />
+            </div>
             <button
               onClick={() => setShareOpen(true)}
               className="mt-4 w-full rounded-lg border border-[#2a3570] bg-transparent px-3 py-2 text-xs font-medium uppercase tracking-widest text-[#6868b8] transition hover:border-[#3a3a7a] hover:text-white"

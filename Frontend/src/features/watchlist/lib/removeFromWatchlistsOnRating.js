@@ -1,15 +1,12 @@
 import { supabase } from "../../../lib/supabase.js";
+import { resolveWatchTarget } from "./watchTarget.js";
 
 // Rating means watched — remove the matching movie/show from all of the user's
-// watchlists. Watchlists only hold movies + shows, so a season/episode rating maps
-// to its parent show (tmdb_show_id, passed in from the rating context — no lookup).
+// watchlists. A season/episode rating maps to its parent show (tmdbShowId,
+// passed in from the rating context — no lookup); see watchTarget.js.
 export async function removeFromWatchlistsOnRating(mediaType, tmdbId, tmdbShowId) {
-  let target;
-  if (mediaType === "movie") target = { mediaType: "movie", tmdbId };
-  else if (mediaType === "show") target = { mediaType: "show", tmdbId };
-  else if ((mediaType === "season" || mediaType === "episode") && tmdbShowId) {
-    target = { mediaType: "show", tmdbId: tmdbShowId };
-  } else return;
+  const target = resolveWatchTarget(mediaType, tmdbId, tmdbShowId);
+  if (!target) return;
 
   await supabase
     .from("watchlist_item")

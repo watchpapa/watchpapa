@@ -2,7 +2,10 @@ import { useCallback, useEffect, useState } from "react";
 import { supabase } from "../../../lib/supabase.js";
 
 // For detail pages: fetches all user watchlists and whether this item is in each one.
-// membershipMap: { [watchlistId]: itemId | null }
+// membershipMap: { [watchlistId]: itemId | null } — a row marked `watched`
+// (a pre-migration leftover; watched status now lives in watch_log, see
+// useWatchLog.js) doesn't count as membership, so it maps to null there even
+// though the row still exists in the DB.
 export function useItemWatchlistStatus(mediaType, entityId, session) {
   const [watchlists, setWatchlists] = useState([]);
   const [membershipMap, setMembershipMap] = useState({});
@@ -27,7 +30,7 @@ export function useItemWatchlistStatus(mediaType, entityId, session) {
         .order("created_at"),
       supabase
         .from("watchlist_item")
-        .select("id, watchlist_id")
+        .select("id, watchlist_id, watched")
         .eq("media_type", mediaType)
         .eq("tmdb_id", entityId),
     ]).then(([listsResult, itemsResult]) => {
@@ -38,7 +41,7 @@ export function useItemWatchlistStatus(mediaType, entityId, session) {
       const map = {};
       for (const list of lists) map[list.id] = null;
       for (const item of existingItems) {
-        if (map[item.watchlist_id] !== undefined) {
+        if (map[item.watchlist_id] !== undefined && !item.watched) {
           map[item.watchlist_id] = item.id;
         }
       }
@@ -81,9 +84,15 @@ export function useItemWatchlistStatus(mediaType, entityId, session) {
         setMembershipMap((prev) => ({ ...prev, [watchlistId]: null }));
       }
     } else {
+      // Upsert, not insert: a watched=true row may already exist for this
+      // exact (watchlist_id, media_type, tmdb_id) — adding it back here means
+      // "actively want to watch this", so it also clears any watched flag.
       const { data, error } = await supabase
         .from("watchlist_item")
-        .insert({ watchlist_id: watchlistId, media_type: mediaType, tmdb_id: entityId })
+        .upsert(
+          { watchlist_id: watchlistId, media_type: mediaType, tmdb_id: entityId, watched: false },
+          { onConflict: "watchlist_id,media_type,tmdb_id" },
+        )
         .select("id")
         .single();
 

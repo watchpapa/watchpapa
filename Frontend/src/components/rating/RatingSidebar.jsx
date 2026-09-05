@@ -2,7 +2,11 @@ import { useState } from "react";
 import { useRating } from "../../features/rating/hooks/useRating.js";
 
 // Always-visible sidebar rating widget.
-// 5 hearts shown at all times. Hover to preview, click to set.
+// Unrated: 5 hearts shown live — hover to preview, click to set.
+// Already rated: the hearts are static (no hover/click) so a stray click
+// can't silently overwrite a rating that now has history behind it
+// (RatingHistoryPanel) — changing it is a deliberate "Add new rating" click,
+// which reveals the same live hearts to pick a new value.
 // Logged-out users: shows empty hearts; clicking triggers onAuthPrompt.
 // isUnreleased: when true, shows "Not yet released" instead of rating controls.
 // Inspired by Letterboxd's sidebar star rating.
@@ -17,6 +21,7 @@ export function RatingSidebar({ mediaType, entityId, session, onAuthPrompt, isUn
     episodeNumber,
   });
   const [preview, setPreview] = useState(null);
+  const [changing, setChanging] = useState(false);
 
   if (isUnreleased) {
     return (
@@ -26,6 +31,7 @@ export function RatingSidebar({ mediaType, entityId, session, onAuthPrompt, isUn
     );
   }
 
+  const isEditable = value == null || changing;
   const displayValue = preview ?? value ?? 0;
 
   const getHeartValue = (e, heartIndex) => {
@@ -35,18 +41,17 @@ export function RatingSidebar({ mediaType, entityId, session, onAuthPrompt, isUn
   };
 
   const handleMouseMove = (e, heartIndex) => {
-    if (!session) return;
+    if (!session || !isEditable) return;
     setPreview(getHeartValue(e, heartIndex));
   };
 
   const handleClick = (e, heartIndex) => {
     if (!session) { onAuthPrompt?.(); return; }
+    if (!isEditable) return;
     const v = getHeartValue(e, heartIndex);
-    if (v === value) {
-      clearRating();
-    } else {
-      setRating(v);
-    }
+    setRating(v);
+    setPreview(null);
+    setChanging(false);
   };
 
   return (
@@ -70,7 +75,9 @@ export function RatingSidebar({ mediaType, entityId, session, onAuthPrompt, isUn
               height={SIZE}
               viewBox="0 0 16 16"
               fill="none"
-              className={`shrink-0 transition-transform ${session ? "cursor-pointer hover:scale-110" : "cursor-pointer opacity-60"}`}
+              className={`shrink-0 transition-transform ${
+                !isEditable ? "cursor-default" : session ? "cursor-pointer hover:scale-110" : "cursor-pointer opacity-60"
+              }`}
               onMouseMove={(e) => handleMouseMove(e, i)}
               onClick={(e) => handleClick(e, i)}
             >
@@ -92,12 +99,28 @@ export function RatingSidebar({ mediaType, entityId, session, onAuthPrompt, isUn
         })}
       </div>
 
-      {value != null && (
+      {value != null && !changing && (
+        <div className="mt-2 flex items-center gap-3">
+          <button
+            onClick={() => (session ? setChanging(true) : onAuthPrompt?.())}
+            className="text-[10px] text-[#5050a0] transition hover:text-[#a090ff]"
+          >
+            Add new rating
+          </button>
+          <button
+            onClick={() => clearRating()}
+            className="text-[10px] text-[#5050a0] transition hover:text-red-400"
+          >
+            Clear rating
+          </button>
+        </div>
+      )}
+      {changing && (
         <button
-          onClick={() => clearRating()}
-          className="mt-2 text-[10px] text-[#5050a0] transition hover:text-[#a090ff]"
+          onClick={() => { setChanging(false); setPreview(null); }}
+          className="mt-2 text-[10px] text-[#5050a0] transition hover:text-white"
         >
-          Clear rating
+          Cancel
         </button>
       )}
     </div>

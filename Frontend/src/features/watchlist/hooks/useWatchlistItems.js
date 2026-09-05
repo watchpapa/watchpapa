@@ -99,7 +99,14 @@ export function useWatchlistItems(watchlistId, session, refreshKey = 0) {
     useMemo(() => rows.map((r) => ({ type: r.media_type, id: r.tmdb_id })), [rows]),
   );
 
-  const items = useMemo(() => rows.map((r) => withCard(r, cards)), [rows, cards]);
+  // Watched titles are removed from the watchlist (see markWatched below and
+  // useWatchLog.js) — this filter is only a safety net for any pre-migration
+  // row that still has the old watched=true flag set (that column is no
+  // longer written to by new code).
+  const items = useMemo(
+    () => rows.filter((r) => !r.watched).map((r) => withCard(r, cards)),
+    [rows, cards],
+  );
 
   const addItem = useCallback(
     async (mediaType, entityId) => {
@@ -120,18 +127,26 @@ export function useWatchlistItems(watchlistId, session, refreshKey = 0) {
     return { error };
   }, []);
 
-  // Toggle "watched" on this one row — a title left un-rated but marked
-  // watched, independent of rating (rating still removes the item from every
-  // watchlist entirely, via removeFromWatchlistsOnRating — a separate "I've
-  // formed an opinion" signal, not touched by this).
-  const toggleWatched = useCallback(async (itemId, watched) => {
-    setRows((prev) => prev.map((r) => (r.id === itemId ? { ...r, watched } : r)));
-    const { error } = await supabase.from("watchlist_item").update({ watched }).eq("id", itemId);
-    if (error) {
-      setRows((prev) => prev.map((r) => (r.id === itemId ? { ...r, watched: !watched } : r)));
-    }
-    return { error };
-  }, []);
+  // Mark a title watched from the grid: logs one watch_log entry (dated
+  // today — see useWatchLog.js, the same rewatch diary MoviePage/ShowPage
+  // use) and removes the item from this watchlist. There's no toggle back to
+  // unwatched from here — undoing a watch (or logging its actual date) is a
+  // detail-page action via WatchedPanel.
+  const markWatched = useCallback(
+    async (itemId) => {
+      if (!session?.user?.id) return { error: "Not signed in" };
+      const row = rows.find((r) => r.id === itemId);
+      if (!row) return { error: "Item not found" };
+      const { error } = await supabase
+        .from("watch_log")
+        .insert({ profile_id: session.user.id, media_type: row.media_type, tmdb_id: row.tmdb_id });
+      if (error) return { error };
+      await supabase.from("watchlist_item").delete().eq("id", itemId);
+      setRows((prev) => prev.filter((r) => r.id !== itemId));
+      return { error: null };
+    },
+    [rows, session?.user?.id],
+  );
 
   const moveItem = useCallback(
     async (itemId, targetWatchlistId) => {
@@ -148,5 +163,5 @@ export function useWatchlistItems(watchlistId, session, refreshKey = 0) {
     [rows],
   );
 
-  return { items, isLoading: isLoading || cardsLoading, addItem, removeItem, moveItem, toggleWatched };
+  return { items, isLoading: isLoading || cardsLoading, addItem, removeItem, moveItem, markWatched };
 }

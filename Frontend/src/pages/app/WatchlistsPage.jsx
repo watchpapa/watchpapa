@@ -40,14 +40,6 @@ function TrashIcon() {
   );
 }
 
-function CheckIcon() {
-  return (
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-      <polyline points="20 6 9 17 4 12" />
-    </svg>
-  );
-}
-
 function PencilIcon() {
   return (
     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -85,7 +77,7 @@ function BookmarkIcon() {
 
 // ── Item card (grid) ──────────────────────────────────────────────────────────
 
-function ItemGridCard({ item, onRemove, onToggleWatched, session, onMembershipChange }) {
+function ItemGridCard({ item, onRemove, onMarkWatched, session, onMembershipChange }) {
   const [confirmingRemove, setConfirmingRemove] = useState(false);
   const media = item.media_type === "movie" ? item.movie : item.show;
   const title = media?.title ?? media?.name ?? "Unknown";
@@ -127,15 +119,6 @@ function ItemGridCard({ item, onRemove, onToggleWatched, session, onMembershipCh
             </span>
           )}
 
-          {item.watched && (
-            <span
-              className="absolute bottom-2 right-2 flex h-5 w-5 items-center justify-center rounded-full text-green-400 ring-1 ring-green-500/60 backdrop-blur-sm"
-              style={{ background: "rgba(10,12,35,0.9)" }}
-              title="Watched"
-            >
-              <CheckIcon />
-            </span>
-          )}
         </Link>
 
           {!confirmingRemove ? (
@@ -167,13 +150,10 @@ function ItemGridCard({ item, onRemove, onToggleWatched, session, onMembershipCh
 
       <div className="flex items-center justify-center gap-2">
         <button
-          onClick={() => onToggleWatched(item.id, !item.watched)}
-          className={`flex items-center gap-1 text-xs transition ${
-            item.watched ? "text-green-400 hover:text-green-300" : "text-[#5050a0] hover:text-[#a0a0e8]"
-          }`}
+          onClick={() => onMarkWatched(item.id)}
+          className="flex items-center gap-1 text-xs text-[#5050a0] transition hover:text-[#a0a0e8]"
         >
-          {item.watched && <CheckIcon />}
-          {item.watched ? "Watched" : "Mark watched"}
+          Mark watched
         </button>
         <span className="text-[#3a3a5a]">·</span>
         <AddToWatchlistButton
@@ -261,7 +241,7 @@ function WatchlistsPage({ session }) {
   }, [watchlists, selectedId]);
 
   const activeList = watchlists.find((w) => w.id === selectedId) ?? null;
-  const { items, isLoading: itemsLoading, removeItem, toggleWatched } = useWatchlistItems(selectedId, session, itemsRefreshKey);
+  const { items, isLoading: itemsLoading, removeItem, markWatched } = useWatchlistItems(selectedId, session, itemsRefreshKey);
 
   const sortedItems = useMemo(() => {
     const list = [...items];
@@ -500,7 +480,7 @@ function WatchlistsPage({ session }) {
                     key={item.id}
                     item={item}
                     onRemove={removeItem}
-                    onToggleWatched={toggleWatched}
+                    onMarkWatched={markWatched}
                     session={session}
                     onMembershipChange={handleMembershipChange}
                   />

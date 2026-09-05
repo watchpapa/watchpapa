@@ -8,7 +8,7 @@ import { isProTier } from "../../lib/tier.js";
 
 const MAX_UPLOAD_BYTES = 8 * 1024 * 1024; // 8MB raw pick; cropped output is much smaller
 const ACCEPTED_TYPES = ["image/jpeg", "image/png", "image/webp"];
-const MOVIE_ONLY = ["movie"]; // avatars are movie posters only, not show posters
+const POSTER_MEDIA_TYPES = ["movie", "show"];
 
 function LockIcon() {
   return (
@@ -150,7 +150,7 @@ function AvatarPicker({ username, tier, avatar, avatarSaving, setAvatarPoster, u
                 : "border-[#2a3570] bg-transparent text-[#8888c8] hover:border-[#3a3a7a] hover:text-white"
             }`}
           >
-            Movie poster
+            Movie/show poster
           </button>
           {canUpload ? (
             <button
@@ -183,15 +183,15 @@ function AvatarPicker({ username, tier, avatar, avatarSaving, setAvatarPoster, u
           />
         </div>
         <p className="text-[11px] text-[#5a5a78]">
-          Pick a movie poster as your avatar, or upgrade to Pro to upload your own photo.
+          Pick a movie or show poster as your avatar, or upgrade to Pro to upload your own photo.
         </p>
         {pickError && <p className="text-xs text-red-400">{pickError}</p>}
       </div>
 
       {pickingPoster && (
         <MediaSearchModal
-          title="Search for a movie poster…"
-          mediaTypes={MOVIE_ONLY}
+          title="Search for a movie or show poster…"
+          mediaTypes={POSTER_MEDIA_TYPES}
           onSelect={handlePosterSelect}
           onClose={() => setPickingPoster(false)}
         />

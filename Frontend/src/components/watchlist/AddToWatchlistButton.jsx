@@ -144,9 +144,17 @@ export default function AddToWatchlistButton({ mediaType, entityId, session, onA
         setMembershipMap((prev) => ({ ...prev, [data.id]: null }));
       }
 
+      // Upsert, not insert: a pre-migration watched=true row may still exist
+      // for this exact (watchlist_id, media_type, tmdb_id) — watched status
+      // now lives in watch_log (see useWatchLog.js) — and adding it back
+      // here means "actively want to watch this", so it also clears that
+      // legacy flag.
       const { data: item, error: itemErr } = await supabase
         .from("watchlist_item")
-        .insert({ watchlist_id: target.id, media_type: mediaType, tmdb_id: entityId })
+        .upsert(
+          { watchlist_id: target.id, media_type: mediaType, tmdb_id: entityId, watched: false },
+          { onConflict: "watchlist_id,media_type,tmdb_id" },
+        )
         .select("id")
         .single();
       if (itemErr) throw itemErr;

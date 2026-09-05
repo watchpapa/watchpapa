@@ -120,6 +120,7 @@ export function useEditProfile(session) {
       if (!uid) return;
       setError(null);
       setAvatarSaving(true);
+      const prevUploadPath = avatar.uploadPath;
       const next = {
         type: "poster",
         posterMediaType: item.mediaType,
@@ -141,8 +142,9 @@ export function useEditProfile(session) {
       setAvatarSaving(false);
       if (err) { setError(err.message); return; }
       setAvatar(next);
+      if (prevUploadPath) await supabase.storage.from("avatars").remove([prevUploadPath]);
     },
-    [uid],
+    [uid, avatar.uploadPath],
   );
 
   // Custom photo avatar (Pro+ only — also enforced server-side by the
@@ -154,6 +156,7 @@ export function useEditProfile(session) {
       if (!uid) return { error: "Not signed in" };
       setError(null);
       setAvatarSaving(true);
+      const prevUploadPath = avatar.uploadPath;
       const path = `${uid}/${Date.now()}.jpg`;
       const { error: uploadErr } = await supabase.storage
         .from("avatars")
@@ -177,15 +180,17 @@ export function useEditProfile(session) {
       setAvatarSaving(false);
       if (profileErr) { setError(profileErr.message); return { error: profileErr.message }; }
       setAvatar({ type: "upload", posterMediaType: null, posterTmdbId: null, posterPath: null, uploadPath: path });
+      if (prevUploadPath && prevUploadPath !== path) await supabase.storage.from("avatars").remove([prevUploadPath]);
       return { error: null };
     },
-    [uid],
+    [uid, avatar.uploadPath],
   );
 
   const setAvatarDefault = useCallback(async () => {
     if (!uid) return;
     setError(null);
     setAvatarSaving(true);
+    const prevUploadPath = avatar.uploadPath;
     const { error: err } = await supabase
       .from("profile")
       .update({
@@ -200,7 +205,8 @@ export function useEditProfile(session) {
     setAvatarSaving(false);
     if (err) { setError(err.message); return; }
     setAvatar(DEFAULT_AVATAR);
-  }, [uid]);
+    if (prevUploadPath) await supabase.storage.from("avatars").remove([prevUploadPath]);
+  }, [uid, avatar.uploadPath]);
 
   return {
     bio,
