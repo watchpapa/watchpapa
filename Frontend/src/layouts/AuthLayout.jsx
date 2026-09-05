@@ -3,30 +3,21 @@ import Footer from "../components/layout/Footer.jsx";
 import PosterBackground from "../components/layout/PosterBackground.jsx";
 import watchpapaBanner from "../assets/branding/watchpapa-banner.svg";
 
+// Minimal shell for auth pages: poster wall, logo, one centred card.
 function AuthLayout({ children }) {
   return (
-    <div className="flex min-h-screen flex-col text-[#8383e7]">
+    <div className="flex min-h-svh flex-col text-text">
       <PosterBackground />
-      <main className="mx-auto flex w-full flex-1 flex-col items-center px-4 pb-3 pt-[clamp(12px,3.5vh,34px)] sm:px-8">
-        <Link
-          to="/"
-          className="mb-[clamp(10px,3vh,28px)]"
-          style={{ animation: "authFormIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) both" }}
-        >
+      <main className="mx-auto flex w-full flex-1 flex-col items-center px-4 pb-6 pt-6 sm:px-8 sm:pt-10 landscape-short:pt-3">
+        <Link to="/" className="mb-5 animate-auth-form-in sm:mb-8 landscape-short:mb-3" aria-label="watchpapa home">
           <img
             src={watchpapaBanner}
             alt="watchpapa"
-            className="w-full max-w-[85vw] drop-shadow-[0_9.59px_9.59px_rgba(0,0,0,0.25)] sm:max-w-[min(700px,58vw)]"
+            className="w-[200px] drop-shadow-[0_8px_10px_rgba(0,0,0,0.35)] sm:w-[260px] lg:w-[300px] landscape-short:w-[160px]"
           />
         </Link>
-        <div
-          className="flex w-full justify-center"
-          style={{ animation: "authFormIn 0.6s 0.08s cubic-bezier(0.16, 1, 0.3, 1) both" }}
-        >
-          {children}
-        </div>
+        <div className="flex w-full animate-auth-form-in justify-center [animation-delay:80ms]">{children}</div>
       </main>
-
       <Footer />
     </div>
   );

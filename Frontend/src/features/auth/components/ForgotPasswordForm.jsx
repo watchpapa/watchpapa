@@ -1,148 +1,117 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import Button from "../../../components/ui/Button.jsx";
+import ErrorNote from "../../../components/ui/ErrorNote.jsx";
 import FormField from "../../../components/ui/FormField.jsx";
 import Input from "../../../components/ui/Input.jsx";
 import OtpInput from "../../../components/ui/OtpInput.jsx";
+import { MailIcon } from "../../../components/icons/index.jsx";
+import { validateEmail } from "../../../lib/validate.js";
 import { useAuth } from "../hooks/useAuth.js";
+import AuthCard from "./shared/AuthCard.jsx";
 
+// Two explicit states: request → "we sent a code" (OTP entry, resend, change
+// email). The emailed link also lands on /reset-password directly.
 function ForgotPasswordForm() {
   const navigate = useNavigate();
   const { resetPasswordForEmail, verifyOtp } = useAuth();
 
   const [email, setEmail] = useState("");
-  const [otpCode, setOtpCode] = useState("");
-  const [errors, setErrors] = useState({});
+  const [code, setCode] = useState("");
+  const [sent, setSent] = useState(false);
+  const [emailError, setEmailError] = useState(null);
+  const [codeError, setCodeError] = useState(null);
   const [submitError, setSubmitError] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isVerifying, setIsVerifying] = useState(false);
-  const [sent, setSent] = useState(false);
 
-  const onSubmit = async (event) => {
-    event.preventDefault();
+  const send = async () => {
     setSubmitError(null);
-    setSent(false);
-
-    const nextErrors = {};
-    if (!email.trim()) nextErrors.email = "Email is required.";
-    setErrors(nextErrors);
-
-    if (Object.keys(nextErrors).length > 0) return;
-
+    const err = validateEmail(email);
+    if (err) { setEmailError(err); return false; }
     setIsSubmitting(true);
-    const redirectTo = `${window.location.origin}/reset-password`;
-    const { error } = await resetPasswordForEmail({
-      email: email.trim(),
-      redirectTo,
-    });
+    const { error } = await resetPasswordForEmail({ email: email.trim(), redirectTo: `${window.location.origin}/reset-password` });
     setIsSubmitting(false);
-
-    if (error) {
-      setSubmitError(error.message ?? "Failed to send reset email.");
-      return;
-    }
-
-    setSent(true);
+    if (error) { setSubmitError(error.message ?? "Failed to send the reset email."); return false; }
+    return true;
   };
 
-  const onVerifyCode = async () => {
+  const onRequest = async (event) => {
+    event.preventDefault();
+    if (await send()) setSent(true);
+  };
+
+  const onVerify = async (event) => {
+    event.preventDefault();
     setSubmitError(null);
-
-    const nextErrors = {};
-    if (!email.trim()) nextErrors.email = "Email is required.";
-    if (otpCode.length !== 6) nextErrors.otpCode = "Enter the full 6-digit code.";
-    setErrors(nextErrors);
-
-    if (Object.keys(nextErrors).length > 0) return;
-
+    if (code.length !== 6) { setCodeError("Enter the full 6-digit code."); return; }
+    setCodeError(null);
     setIsVerifying(true);
-    const { error } = await verifyOtp({
-      email: email.trim(),
-      token: otpCode,
-      type: "recovery",
-    });
+    const { error } = await verifyOtp({ email: email.trim(), token: code, type: "recovery" });
     setIsVerifying(false);
-
-    if (error) {
-      setSubmitError(error.message ?? "Invalid reset code.");
-      return;
-    }
-
+    if (error) { setSubmitError(error.message ?? "That code didn't work. Check it and try again."); return; }
     navigate("/reset-password");
   };
 
+  const footer = (
+    <>
+      Remembered it?{" "}
+      <Link to="/login" className="font-semibold text-text-link underline underline-offset-2 hover:text-white">Sign in</Link>
+    </>
+  );
+
+  if (!sent) {
+    return (
+      <AuthCard onSubmit={onRequest} title="Forgot your password?" subtitle="Enter your email and we'll send a reset code and link." footer={footer}>
+        <FormField label="Email" htmlFor="forgot-email" error={emailError}>
+          <Input
+            id="forgot-email"
+            type="email"
+            autoComplete="email"
+            inputMode="email"
+            placeholder="you@example.com"
+            value={email}
+            onChange={(e) => { setEmail(e.target.value); setEmailError(null); }}
+            aria-invalid={Boolean(emailError)}
+            data-autofocus
+          />
+        </FormField>
+        {submitError && <ErrorNote inline className="mt-4">{submitError}</ErrorNote>}
+        <Button type="submit" size="lg" full loading={isSubmitting} className="mt-5">
+          {isSubmitting ? "Sending…" : "Send reset code"}
+        </Button>
+      </AuthCard>
+    );
+  }
+
   return (
-    <form
-      onSubmit={onSubmit}
-      className="w-full max-w-[520px] rounded-[18px] border-[0.833px] border-[#6f6fdc] bg-gradient-to-b from-[rgba(8,11,46,0.82)] to-[rgba(14,19,66,0.88)] px-[clamp(14px,2vw,28px)] pb-[16px] pt-[13px] shadow-[0_3.333px_3.333px_rgba(0,0,0,0.25)] backdrop-blur-[12px]"
-    >
-      <h1 className="mb-[14px] text-center text-[26px] font-extrabold leading-none text-[#8383e7] sm:text-[34px]">
-        Forgot password
-      </h1>
-      <p className="mb-[18px] text-center text-[14px] font-extrabold text-[#8383e7]/80">
-        Enter your email and we&apos;ll send you a reset email with code and link.
-      </p>
-
-      <FormField label="email" htmlFor="forgot-email" error={errors.email} labelClassName="text-[18px] sm:text-[22px]">
-        <Input
-          id="forgot-email"
-          name="email"
-          type="email"
-          autoComplete="email"
-          placeholder="example@watchpapa.tv"
-          value={email}
-          onChange={(event) => setEmail(event.target.value)}
-          aria-invalid={Boolean(errors.email)}
-        />
-      </FormField>
-
-      {submitError ? (
-        <p className="mt-[12px] text-center text-[13px] font-semibold text-pink-300">
-          {submitError}
-        </p>
-      ) : null}
-      {sent ? (
-        <p className="mt-[12px] text-center text-[13px] font-semibold text-emerald-300">
-          If an account exists for {email}, a reset email has been sent.
-        </p>
-      ) : null}
-
-      {sent ? (
-        <div className="mt-[12px]">
-          <p className="mb-[8px] text-center text-[14px] font-extrabold text-[#8383e7]">
-            Enter 6-digit reset code
-          </p>
-          <OtpInput value={otpCode} onChange={setOtpCode} disabled={isVerifying} />
-          {errors.otpCode ? (
-            <p className="mt-[6px] text-center text-[12px] font-semibold text-pink-300">
-              {errors.otpCode}
-            </p>
-          ) : null}
-          <button
-            type="button"
-            onClick={onVerifyCode}
-            disabled={isVerifying}
-            className="mt-[10px] inline-flex w-full items-center justify-center rounded-[14px] border-[0.833px] border-[#8383e7] bg-gradient-to-b from-[rgba(12,16,66,0.5)] to-[rgba(20,27,95,0.5)] px-4 py-2 text-[16px] font-extrabold text-[#8383e7] shadow-[0_3.333px_3.333px_rgba(0,0,0,0.25)] transition hover:text-[#a0a0f7] disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {isVerifying ? "Verifying..." : "Verify code"}
-          </button>
+    <AuthCard onSubmit={onVerify} title="Check your inbox" subtitle="If an account exists for that email, a reset code and link are on their way." footer={footer}>
+      <div className="flex items-center gap-3 rounded-xl border border-border/60 bg-surface-2/60 px-3.5 py-3">
+        <MailIcon size={18} className="shrink-0 text-accent" />
+        <div className="min-w-0 flex-1">
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-text-faint">Sent to</p>
+          <p className="truncate text-sm font-semibold text-white">{email.trim()}</p>
         </div>
-      ) : null}
+        <Button type="button" variant="ghost" size="xs" onClick={() => { setSent(false); setCode(""); setSubmitError(null); }}>Change</Button>
+      </div>
 
-      <button
-        type="submit"
-        disabled={isSubmitting}
-        className="mt-[18px] inline-flex w-full items-center justify-center rounded-[16px] border-[0.833px] border-[#8383e7] bg-gradient-to-b from-[rgba(12,16,66,0.5)] to-[rgba(20,27,95,0.5)] px-4 py-3 text-[18px] font-extrabold text-[#8383e7] shadow-[0_3.333px_3.333px_rgba(0,0,0,0.25)] transition hover:text-[#a0a0f7] disabled:cursor-not-allowed disabled:opacity-60"
-      >
-        {isSubmitting ? "Sending..." : "Send reset link"}
-      </button>
+      <div className="mt-5">
+        <p className="mb-2 text-sm font-semibold text-text">Reset code</p>
+        <OtpInput value={code} onChange={(v) => { setCode(v); setCodeError(null); }} disabled={isVerifying} />
+        {codeError && <p role="alert" className="mt-2 text-center text-xs font-semibold text-red-300">{codeError}</p>}
+      </div>
 
-      <p className="mt-[18px] text-center text-[14px] font-extrabold text-[#8383e7]">
-        Remembered it?{" "}
-        <Link to="/login" className="underline transition hover:text-[#a0a0f7]">
-          Login
-        </Link>
-      </p>
-    </form>
+      {submitError && <ErrorNote inline className="mt-4">{submitError}</ErrorNote>}
+
+      <Button type="submit" size="lg" full loading={isVerifying} className="mt-5">
+        {isVerifying ? "Verifying…" : "Continue"}
+      </Button>
+      <div className="mt-3 text-center">
+        <Button type="button" variant="ghost" size="sm" onClick={send} loading={isSubmitting} disabled={isSubmitting}>
+          Resend code
+        </Button>
+      </div>
+    </AuthCard>
   );
 }
 

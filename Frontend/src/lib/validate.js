@@ -30,6 +30,71 @@ export function normalizeDateInput(value) {
   return value;
 }
 
+export function validateEmail(value) {
+  const v = (value ?? "").trim();
+  if (!v) return "Email is required.";
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)) return "Enter a valid email address.";
+  return null;
+}
+
+// The one password policy (register, reset). Returns per-rule booleans for the
+// live checklist plus a single error message when something is missing.
+export function getPasswordPolicyStatus(pw = "") {
+  return {
+    minLength: pw.length >= 8,
+    lower: /[a-z]/.test(pw),
+    upper: /[A-Z]/.test(pw),
+    digit: /[0-9]/.test(pw),
+    symbol: /[^A-Za-z0-9]/.test(pw),
+  };
+}
+
+export const PASSWORD_RULES = [
+  { key: "minLength", label: "At least 8 characters" },
+  { key: "lower", label: "One lowercase letter" },
+  { key: "upper", label: "One uppercase letter" },
+  { key: "digit", label: "One digit" },
+  { key: "symbol", label: "One symbol (!@#$% etc.)" },
+];
+
+export function validatePassword(pw) {
+  if (!pw) return "Password is required.";
+  const s = getPasswordPolicyStatus(pw);
+  const missing = [];
+  if (!s.minLength) missing.push("at least 8 characters");
+  if (!s.lower) missing.push("a lowercase letter");
+  if (!s.upper) missing.push("an uppercase letter");
+  if (!s.digit) missing.push("a digit");
+  if (!s.symbol) missing.push("a symbol");
+  if (missing.length === 0) return null;
+  const list = missing.length === 1 ? missing[0] : missing.length === 2 ? `${missing[0]} and ${missing[1]}` : `${missing.slice(0, -1).join(", ")}, and ${missing[missing.length - 1]}`;
+  return `Password must include ${list}.`;
+}
+
+// Age in whole years from an ISO date string, or null when unparsable.
+export function ageFromDate(dateString) {
+  if (!dateString) return null;
+  const birth = new Date(dateString);
+  if (Number.isNaN(birth.getTime())) return null;
+  const today = new Date();
+  let age = today.getFullYear() - birth.getFullYear();
+  const m = today.getMonth() - birth.getMonth();
+  if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--;
+  return age;
+}
+
+export function isAdult(dateString) {
+  const age = ageFromDate(dateString);
+  return age != null && age >= 18;
+}
+
+// ISO date of the latest birthday that satisfies `minYears` (for <input max>).
+export function maxDateOfBirth(minYears = 16) {
+  const d = new Date();
+  d.setFullYear(d.getFullYear() - minYears);
+  return d.toISOString().slice(0, 10);
+}
+
 export function validateUsername(value) {
   if (!value || typeof value !== "string") return "Username is required.";
   if (value.length < 4) return "Username must be at least 4 characters.";

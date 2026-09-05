@@ -6,6 +6,7 @@ import { supabase } from "./lib/supabase.js";
 import { PreferencesProvider, usePreferences } from "./features/preferences/PreferencesContext.jsx";
 import { CurrentUserProvider } from "./features/profile/CurrentUserContext.jsx";
 import { notifyProfileUpdated } from "./features/profile/profileEvents.js";
+import { isAdult } from "./lib/validate.js";
 import ForgotPasswordPage from "./pages/auth/ForgotPasswordPage.jsx";
 import LoginPage from "./pages/auth/LoginPage.jsx";
 import RegisterPage from "./pages/auth/RegisterPage.jsx";
@@ -203,20 +204,13 @@ function App() {
       });
       setIsProfileLoading(false);
 
-      if (data && !data.is_adult && data.date_of_birth) {
-        const dob = new Date(data.date_of_birth);
-        const today = new Date();
-        let age = today.getFullYear() - dob.getFullYear();
-        const m = today.getMonth() - dob.getMonth();
-        if (m < 0 || (m === 0 && today.getDate() < dob.getDate())) age--;
-        if (age >= 18) {
-          // Persist adult eligibility update back to the profile table.
-          supabase
-            .from("profile")
-            .update({ is_adult: true, updated_at: new Date().toISOString() })
-            .eq("id", session.user.id)
-            .then(() => {});
-        }
+      if (data && !data.is_adult && isAdult(data.date_of_birth)) {
+        // Persist adult eligibility (turned 18 since sign-up) back to the profile.
+        supabase
+          .from("profile")
+          .update({ is_adult: true, updated_at: new Date().toISOString() })
+          .eq("id", session.user.id)
+          .then(() => {});
       }
       });
 

@@ -1,15 +1,19 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import FormField from "../../../components/ui/FormField.jsx";
-import Input from "../../../components/ui/Input.jsx";
+import Button from "../../../components/ui/Button.jsx";
+import ErrorNote from "../../../components/ui/ErrorNote.jsx";
+import { LockIcon } from "../../../components/icons/index.jsx";
 import { supabase } from "../../../lib/supabase.js";
+import { validatePassword } from "../../../lib/validate.js";
 import { useAuth } from "../hooks/useAuth.js";
+import AuthCard from "./shared/AuthCard.jsx";
+import PasswordField from "./shared/PasswordField.jsx";
 
 function ResetPasswordForm() {
   const navigate = useNavigate();
   const { updatePassword } = useAuth();
 
-  const [hasRecoverySession, setHasRecoverySession] = useState(false);
+  const [hasRecoverySession, setHasRecoverySession] = useState(null); // null = checking
   const [password, setPassword] = useState("");
   const [repeatPassword, setRepeatPassword] = useState("");
   const [errors, setErrors] = useState({});
@@ -19,125 +23,88 @@ function ResetPasswordForm() {
 
   useEffect(() => {
     const { data: subscription } = supabase.auth.onAuthStateChange((event) => {
-      if (event === "PASSWORD_RECOVERY" || event === "SIGNED_IN") {
-        setHasRecoverySession(true);
-      }
+      if (event === "PASSWORD_RECOVERY" || event === "SIGNED_IN") setHasRecoverySession(true);
     });
-
     supabase.auth.getSession().then(({ data }) => {
-      if (data?.session) setHasRecoverySession(true);
+      setHasRecoverySession((prev) => prev ?? Boolean(data?.session));
     });
-
-    return () => {
-      subscription?.subscription?.unsubscribe?.();
-    };
+    return () => subscription?.subscription?.unsubscribe?.();
   }, []);
 
   const onSubmit = async (event) => {
     event.preventDefault();
     setSubmitError(null);
-
-    const nextErrors = {};
-    if (!password) {
-      nextErrors.password = "Password is required.";
-    } else if (password.length < 8) {
-      nextErrors.password = "Password must be at least 8 characters.";
-    }
-    if (repeatPassword !== password) {
-      nextErrors.repeatPassword = "Passwords do not match.";
-    }
-    setErrors(nextErrors);
-
-    if (Object.keys(nextErrors).length > 0) return;
+    const next = {};
+    const pwErr = validatePassword(password);
+    if (pwErr) next.password = pwErr;
+    if (!repeatPassword) next.repeatPassword = "Please repeat your new password.";
+    else if (repeatPassword !== password) next.repeatPassword = "Passwords do not match.";
+    setErrors(next);
+    if (Object.keys(next).length) return;
 
     setIsSubmitting(true);
     const { error } = await updatePassword({ password });
     setIsSubmitting(false);
-
-    if (error) {
-      setSubmitError(error.message ?? "Failed to update password.");
-      return;
-    }
+    if (error) { setSubmitError(error.message ?? "Failed to update the password."); return; }
 
     setSuccess(true);
     await supabase.auth.signOut({ scope: "local" });
     setTimeout(() => navigate("/login"), 1500);
   };
 
+  if (hasRecoverySession === false) {
+    return (
+      <AuthCard title="Reset link needed" subtitle="Open this page from the password-reset email, or request a new code.">
+        <div className="flex flex-col items-center py-2 text-center">
+          <span className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl border border-border/60 bg-surface-2 text-text-dim">
+            <LockIcon size={22} />
+          </span>
+          <Button to="/forgot-password" size="lg" full>Request a new reset code</Button>
+          <Link to="/login" className="mt-4 text-sm font-semibold text-text-link underline underline-offset-2 hover:text-white">Back to sign in</Link>
+        </div>
+      </AuthCard>
+    );
+  }
+
   return (
-    <form
+    <AuthCard
       onSubmit={onSubmit}
-      className="w-full max-w-[520px] rounded-[18px] border-[0.833px] border-[#6f6fdc] bg-gradient-to-b from-[rgba(12,16,66,0.2)] to-[rgba(20,27,95,0.2)] px-[clamp(14px,2vw,28px)] pb-[16px] pt-[13px] shadow-[0_3.333px_3.333px_rgba(0,0,0,0.25)]"
+      title="Choose a new password"
+      subtitle="You'll be signed out of this browser afterwards so you can sign in fresh."
+      footer={
+        <Link to="/login" className="font-semibold text-text-link underline underline-offset-2 hover:text-white">Back to sign in</Link>
+      }
     >
-      <h1 className="mb-[14px] text-center text-[26px] font-extrabold leading-none text-[#8383e7] sm:text-[34px]">
-        Reset password
-      </h1>
-
-      {!hasRecoverySession ? (
-        <p className="mb-[12px] text-center text-[13px] font-semibold text-pink-300">
-          Open this page from the password reset email link to continue.
-        </p>
-      ) : null}
-
-      <div className="space-y-[16px]">
-        <FormField label="new password" htmlFor="new-password" error={errors.password} labelClassName="text-[18px] sm:text-[22px]">
-          <Input
-            id="new-password"
-            name="password"
-            type="password"
-            autoComplete="new-password"
-            placeholder="************"
-            value={password}
-            onChange={(event) => setPassword(event.target.value)}
-            aria-invalid={Boolean(errors.password)}
-          />
-        </FormField>
-
-        <FormField
-          label="repeat password"
-          htmlFor="repeat-new-password"
+      <div className="space-y-4">
+        <PasswordField
+          id="new-password"
+          label="New password"
+          value={password}
+          onChange={(e) => { setPassword(e.target.value); setErrors((x) => ({ ...x, password: undefined, repeatPassword: undefined })); }}
+          error={errors.password}
+          autoComplete="new-password"
+          showPolicy
+          disabled={hasRecoverySession === null}
+        />
+        <PasswordField
+          id="repeat-new-password"
+          label="Repeat new password"
+          value={repeatPassword}
+          onChange={(e) => { setRepeatPassword(e.target.value); setErrors((x) => ({ ...x, repeatPassword: undefined })); }}
           error={errors.repeatPassword}
-          labelClassName="text-[18px] sm:text-[22px]"
-        >
-          <Input
-            id="repeat-new-password"
-            name="repeatPassword"
-            type="password"
-            autoComplete="new-password"
-            placeholder="************"
-            value={repeatPassword}
-            onChange={(event) => setRepeatPassword(event.target.value)}
-            aria-invalid={Boolean(errors.repeatPassword)}
-          />
-        </FormField>
+          autoComplete="new-password"
+          disabled={hasRecoverySession === null}
+          hint={repeatPassword && repeatPassword === password ? "✓ Passwords match" : undefined}
+        />
       </div>
 
-      {submitError ? (
-        <p className="mt-[12px] text-center text-[13px] font-semibold text-pink-300">
-          {submitError}
-        </p>
-      ) : null}
-      {success ? (
-        <p className="mt-[12px] text-center text-[13px] font-semibold text-emerald-300">
-          Password updated. Redirecting to login...
-        </p>
-      ) : null}
+      {submitError && <ErrorNote inline className="mt-4">{submitError}</ErrorNote>}
+      {success && <p className="mt-4 text-center text-sm font-semibold text-emerald-300">Password updated. Taking you to sign in…</p>}
 
-      <button
-        type="submit"
-        disabled={isSubmitting || !hasRecoverySession}
-        className="mt-[18px] inline-flex w-full items-center justify-center rounded-[16px] border-[0.833px] border-[#8383e7] bg-gradient-to-b from-[rgba(12,16,66,0.5)] to-[rgba(20,27,95,0.5)] px-4 py-3 text-[18px] font-extrabold text-[#8383e7] shadow-[0_3.333px_3.333px_rgba(0,0,0,0.25)] transition hover:text-[#a0a0f7] disabled:cursor-not-allowed disabled:opacity-60"
-      >
-        {isSubmitting ? "Updating..." : "Update password"}
-      </button>
-
-      <p className="mt-[18px] text-center text-[14px] font-extrabold text-[#8383e7]">
-        Back to{" "}
-        <Link to="/login" className="underline transition hover:text-[#a0a0f7]">
-          Login
-        </Link>
-      </p>
-    </form>
+      <Button type="submit" size="lg" full loading={isSubmitting} disabled={hasRecoverySession !== true || success} className="mt-5">
+        {isSubmitting ? "Updating…" : "Update password"}
+      </Button>
+    </AuthCard>
   );
 }
 

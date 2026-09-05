@@ -1,16 +1,20 @@
 import { forwardRef } from "react";
 import { cn } from "../../lib/cn.js";
 
-const Input = forwardRef(function Input(
-  { className, type = "text", ...props },
-  ref,
-) {
+const SIZES = {
+  md: "h-11 px-3.5 text-sm rounded-xl",
+  lg: "h-12 px-4 text-base rounded-xl",
+};
+
+// Text input. 44px+ tall for touch; `aria-invalid` paints the error state.
+const Input = forwardRef(function Input({ className, type = "text", size = "lg", ...props }, ref) {
   return (
     <input
       ref={ref}
       type={type}
       className={cn(
-        "h-[46px] w-full rounded-[16px] border-[0.833px] border-[#6f6fdc] bg-gradient-to-b from-[rgba(12,16,66,0.2)] to-[rgba(20,27,95,0.2)] px-[12px] text-[22px] font-extrabold text-[#b2b2f6] placeholder:text-[rgba(111,111,220,0.2)] shadow-[0_3.333px_3.333px_rgba(0,0,0,0.25)] outline-none transition focus:border-[#8b8bff] focus:ring-1 focus:ring-[#6f6fdc]",
+        "w-full border border-border-strong bg-surface-3/80 font-medium text-white placeholder:text-text-faint shadow-sm outline-none transition focus:border-brand-light focus:ring-1 focus:ring-brand disabled:cursor-not-allowed disabled:opacity-60 aria-[invalid=true]:border-red-500/70 aria-[invalid=true]:focus:ring-red-500/60",
+        SIZES[size] ?? SIZES.lg,
         className,
       )}
       {...props}

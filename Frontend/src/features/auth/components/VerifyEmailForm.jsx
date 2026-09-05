@@ -1,9 +1,16 @@
-import { useState, useEffect, useRef } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import Button from "../../../components/ui/Button.jsx";
+import ErrorNote from "../../../components/ui/ErrorNote.jsx";
+import FormField from "../../../components/ui/FormField.jsx";
+import Input from "../../../components/ui/Input.jsx";
 import OtpInput from "../../../components/ui/OtpInput.jsx";
+import { MailIcon } from "../../../components/icons/index.jsx";
+import { validateEmail } from "../../../lib/validate.js";
 import { useAuth } from "../hooks/useAuth.js";
+import { applyPendingPromoCode } from "../lib/applyPendingPromoCode.js";
+import AuthCard from "./shared/AuthCard.jsx";
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "";
 const RESEND_COOLDOWN = 30;
 
 function VerifyEmailForm() {
@@ -11,181 +18,115 @@ function VerifyEmailForm() {
   const [searchParams] = useSearchParams();
   const { verifyOtp, resendOtp } = useAuth();
 
-  const email = searchParams.get("email") ?? "";
+  const [email, setEmail] = useState(searchParams.get("email") ?? "");
+  const [editingEmail, setEditingEmail] = useState(!searchParams.get("email"));
   const [code, setCode] = useState("");
-  const [errors, setErrors] = useState({});
+  const [codeError, setCodeError] = useState(null);
+  const [emailError, setEmailError] = useState(null);
   const [submitError, setSubmitError] = useState(null);
-  const [info, setInfo] = useState(null);
+  const [info, setInfo] = useState(searchParams.get("sent") ? "We sent a 6-digit code to your inbox." : null);
   const [isVerifying, setIsVerifying] = useState(false);
   const [isResending, setIsResending] = useState(false);
-  const [cooldown, setCooldown] = useState(RESEND_COOLDOWN);
-  const intervalRef = useRef(null);
+  // Only count down after a send we know about (just registered, or resend).
+  const [cooldown, setCooldown] = useState(searchParams.get("sent") ? RESEND_COOLDOWN : 0);
 
   useEffect(() => {
-    intervalRef.current = setInterval(() => {
-      setCooldown((prev) => {
-        if (prev <= 1) {
-          clearInterval(intervalRef.current);
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-    return () => clearInterval(intervalRef.current);
-  }, []);
-
-  const startCooldown = () => {
-    clearInterval(intervalRef.current);
-    setCooldown(RESEND_COOLDOWN);
-    intervalRef.current = setInterval(() => {
-      setCooldown((prev) => {
-        if (prev <= 1) {
-          clearInterval(intervalRef.current);
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-  };
+    if (cooldown <= 0) return undefined;
+    const t = setTimeout(() => setCooldown((c) => c - 1), 1000);
+    return () => clearTimeout(t);
+  }, [cooldown]);
 
   const onResend = async () => {
     setSubmitError(null);
     setInfo(null);
-
+    const err = validateEmail(email);
+    if (err) { setEmailError(err); setEditingEmail(true); return; }
     setIsResending(true);
     const { error } = await resendOtp({ email: email.trim(), type: "signup" });
     setIsResending(false);
-
-    if (error) {
-      setSubmitError(error.message ?? "Failed to send verification code.");
-      return;
-    }
-
-    setInfo("Verification code sent. Check your email.");
-    startCooldown();
+    if (error) { setSubmitError(error.message ?? "Failed to send verification code."); return; }
+    setInfo(`Code sent to ${email.trim()}.`);
+    setEditingEmail(false);
+    setCooldown(RESEND_COOLDOWN);
   };
 
   const onVerify = async (event) => {
     event.preventDefault();
     setSubmitError(null);
     setInfo(null);
-
-    const nextErrors = {};
-    if (code.length !== 6) nextErrors.code = "Enter the full 6-digit code.";
-    setErrors(nextErrors);
-
-    if (Object.keys(nextErrors).length > 0) return;
+    const err = validateEmail(email);
+    if (err) { setEmailError(err); setEditingEmail(true); return; }
+    if (code.length !== 6) { setCodeError("Enter the full 6-digit code."); return; }
+    setCodeError(null);
 
     setIsVerifying(true);
-    const { data, error } = await verifyOtp({
-      email: email.trim(),
-      token: code,
-      type: "signup",
-    });
+    const { data, error } = await verifyOtp({ email: email.trim(), token: code, type: "signup" });
     setIsVerifying(false);
 
-    if (error) {
-      setSubmitError(error.message ?? "Invalid verification code.");
-      return;
-    }
-
+    if (error) { setSubmitError(error.message ?? "That code didn't work. Check it and try again."); return; }
     if (data?.session) {
-      const pendingCode = sessionStorage.getItem("pendingPromoCode");
-      if (pendingCode) {
-        sessionStorage.removeItem("pendingPromoCode");
-        const token = data.session.access_token;
-        const res = await fetch(`${API_BASE}/api/referral/use/${encodeURIComponent(pendingCode)}`, {
-          method: "POST",
-          headers: { Authorization: `Bearer ${token}` },
-        }).catch(() => null);
-        if (res && !res.ok && res.status === 404) {
-          fetch(`${API_BASE}/api/rewards/claim`, {
-            method: "POST",
-            headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-            body: JSON.stringify({ code: pendingCode }),
-          }).catch(() => {});
-        }
-      }
+      await applyPendingPromoCode(data.session);
       navigate("/");
       return;
     }
-
     navigate("/login");
   };
 
   return (
-    <form
+    <AuthCard
       onSubmit={onVerify}
-      className="w-full max-w-[1040px] rounded-[18px] border-[0.833px] border-[#6f6fdc] bg-gradient-to-b from-[rgba(8,11,46,0.82)] to-[rgba(14,19,66,0.88)] px-[clamp(14px,2.5vw,32px)] pb-[18px] pt-[13px] shadow-[0_3.333px_3.333px_rgba(0,0,0,0.25)] backdrop-blur-[12px]"
+      title="Check your inbox"
+      subtitle="Enter the 6-digit code we emailed you to activate your account."
+      footer={
+        <>
+          Already verified?{" "}
+          <Link to="/login" className="font-semibold text-text-link underline underline-offset-2 hover:text-white">Sign in</Link>
+        </>
+      }
     >
-      <h1 className="mb-[20px] text-center text-[26px] font-extrabold leading-none text-[#8383e7] sm:text-[34px]">
-        Verify email
-      </h1>
+      {editingEmail ? (
+        <FormField label="Email" htmlFor="verify-email" error={emailError}>
+          <Input
+            id="verify-email"
+            type="email"
+            autoComplete="email"
+            inputMode="email"
+            placeholder="you@example.com"
+            value={email}
+            onChange={(e) => { setEmail(e.target.value); setEmailError(null); }}
+            aria-invalid={Boolean(emailError)}
+          />
+        </FormField>
+      ) : (
+        <div className="flex items-center gap-3 rounded-xl border border-border/60 bg-surface-2/60 px-3.5 py-3">
+          <MailIcon size={18} className="shrink-0 text-accent" />
+          <div className="min-w-0 flex-1">
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-text-faint">Sent to</p>
+            <p className="truncate text-sm font-semibold text-white">{email}</p>
+          </div>
+          <Button type="button" variant="ghost" size="xs" onClick={() => setEditingEmail(true)}>Not you?</Button>
+        </div>
+      )}
 
-      <div className="mx-auto w-full max-w-[528px]">
-        <p className="mb-[6px] text-[16px] font-extrabold text-[#8383e7] sm:text-[18px]">
-          Email sent to:
-        </p>
-        <p className="rounded-[10px] border border-[#6f6fdc] bg-[rgba(255,255,255,0.05)] px-4 py-3 text-[15px] font-semibold text-[#c0c0f8] break-all">
-          {email || "—"}
-        </p>
+      <div className="mt-5">
+        <p className="mb-2 text-sm font-semibold text-text">Verification code</p>
+        <OtpInput value={code} onChange={(v) => { setCode(v); setCodeError(null); }} disabled={isVerifying} />
+        {codeError && <p role="alert" className="mt-2 text-center text-xs font-semibold text-red-300">{codeError}</p>}
       </div>
 
-      <div className="mt-[14px] flex justify-center">
-        <button
-          type="button"
-          onClick={onResend}
-          disabled={isResending || cooldown > 0}
-          className="inline-flex w-full max-w-[405px] items-center justify-center rounded-[24px] border-[0.5px] border-[#8383e7] bg-gradient-to-b from-[rgba(12,16,66,0.5)] to-[rgba(20,27,95,0.5)] px-4 py-3 text-[16px] font-extrabold text-[#8383e7] shadow-[0_3.333px_3.333px_rgba(0,0,0,0.25)] transition hover:text-[#a0a0f7] disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          {isResending
-            ? "Sending..."
-            : cooldown > 0
-            ? `Resend verification code (${cooldown}s)`
-            : "Resend verification code"}
-        </button>
+      {submitError && <ErrorNote inline className="mt-4">{submitError}</ErrorNote>}
+      {info && <p className="mt-4 text-center text-sm font-semibold text-emerald-300">{info}</p>}
+
+      <Button type="submit" size="lg" full loading={isVerifying} className="mt-5">
+        {isVerifying ? "Verifying…" : "Verify email"}
+      </Button>
+
+      <div className="mt-3 text-center">
+        <Button type="button" variant="ghost" size="sm" onClick={onResend} disabled={isResending || cooldown > 0} loading={isResending}>
+          {cooldown > 0 ? `Resend code in ${cooldown}s` : editingEmail ? "Send code" : "Resend code"}
+        </Button>
       </div>
-
-      <div className="mx-auto mt-[18px] w-full max-w-[528px]">
-        <p className="mb-[8px] text-[16px] font-extrabold leading-none text-[#8383e7] sm:text-[18px]">
-          enter 6-digit code from email
-        </p>
-        <OtpInput value={code} onChange={setCode} disabled={isVerifying} />
-        {errors.code ? (
-          <p className="mt-[8px] text-center text-[13px] font-semibold text-pink-300">
-            {errors.code}
-          </p>
-        ) : null}
-      </div>
-
-      {submitError ? (
-        <p className="mt-[14px] text-center text-[13px] font-semibold text-pink-300">
-          {submitError}
-        </p>
-      ) : null}
-      {info ? (
-        <p className="mt-[14px] text-center text-[13px] font-semibold text-emerald-300">
-          {info}
-        </p>
-      ) : null}
-
-      <div className="mt-[18px] flex justify-center">
-        <button
-          type="submit"
-          disabled={isVerifying}
-          className="inline-flex w-full max-w-[222px] items-center justify-center rounded-[24px] border-[0.5px] border-[#8383e7] bg-gradient-to-b from-[rgba(12,16,66,0.5)] to-[rgba(20,27,95,0.5)] px-4 py-3 text-[17px] font-extrabold text-[#8383e7] sm:text-[20px] shadow-[0_3.333px_3.333px_rgba(0,0,0,0.25)] transition hover:text-[#a0a0f7] disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          {isVerifying ? "Verifying..." : "Verify"}
-        </button>
-      </div>
-
-      <p className="mt-[18px] text-center text-[14px] font-extrabold text-[#8383e7]">
-        Already a member?{" "}
-        <Link to="/login" className="underline transition hover:text-[#a0a0f7]">
-          Login
-        </Link>
-      </p>
-    </form>
+    </AuthCard>
   );
 }
 
