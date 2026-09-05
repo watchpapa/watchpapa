@@ -45,7 +45,7 @@ function NotificationBell() {
 
   return (
     <>
-      <IconButton ref={anchorRef} label="Notifications" onClick={handleOpen} badge={me.unreadNotifications} active={open} aria-haspopup="dialog" aria-expanded={open}>
+      <IconButton ref={anchorRef} label="Notifications" onClick={handleOpen} badge={me.unreadNotifications} active={open} aria-haspopup="dialog" aria-expanded={open} className="h-9 w-9 md:h-10 md:w-10">
         <BellIcon size={19} />
       </IconButton>
       <Popover open={open} anchorRef={anchorRef} onClose={() => setOpen(false)} width={340} aria-label="Notifications">

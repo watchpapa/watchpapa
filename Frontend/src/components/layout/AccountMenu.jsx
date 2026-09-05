@@ -137,7 +137,7 @@ export function AccountMenuButton({ className }) {
         aria-expanded={open}
         aria-label="Account menu"
         className={cn(
-          "flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-light",
+          "flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-light md:h-10 md:w-10",
           open ? "ring-2 ring-brand" : "hover:ring-2 hover:ring-brand/70",
           className,
         )}

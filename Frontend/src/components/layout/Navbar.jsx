@@ -17,7 +17,7 @@ import { isPathActive, useNavModel } from "./navigation.js";
 
 const navLinkClass = ({ isActive }, adult = false) =>
   cn(
-    "inline-flex h-9 items-center whitespace-nowrap rounded-lg px-2.5 text-sm font-semibold tracking-wide transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-light lg:px-3",
+    "inline-flex h-9 items-center whitespace-nowrap rounded-lg px-2 text-[13px] font-semibold tracking-wide transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-light lg:px-3 lg:text-sm",
     adult
       ? isActive ? "bg-red-950/40 text-red-400" : "text-red-500/80 hover:bg-red-950/30 hover:text-red-400"
       : isActive ? "bg-surface-2 text-white" : "text-text-muted hover:bg-surface-2/60 hover:text-white",
@@ -86,15 +86,19 @@ function Navbar({ session, onOpenDrawer, onAuthPrompt }) {
     >
       <div className="flex h-14 items-center gap-1 px-2 sm:gap-2 sm:px-4 lg:px-6 xl:px-8 landscape-short:h-12">
         {/* Left: hamburger (<md) + logo + text nav (md+) */}
-        <IconButton label="Open menu" onClick={onOpenDrawer} className="md:hidden">
+        <IconButton label="Open menu" onClick={onOpenDrawer} className="h-9 w-9 md:hidden">
           <MenuIcon size={22} />
         </IconButton>
 
-        <Link to="/" className="flex shrink-0 items-center px-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-light rounded-lg" aria-label="watchpapa home">
-          <img src={watchpapaBanner} alt="watchpapa" className="h-7 w-auto drop-shadow-md sm:h-8 landscape-short:h-6" />
+        {/* Wordmark is 7.6:1 — below `xs` (400px) only the icon mark fits. */}
+        <Link to="/" className="flex shrink-0 items-center rounded-lg px-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-light" aria-label="watchpapa home">
+          <img src="/logo_v3.1.svg" alt="" className="h-8 w-8 xs:hidden" aria-hidden />
+          <img src={watchpapaBanner} alt="watchpapa" className="hidden h-6 w-auto drop-shadow-md xs:block sm:h-7 md:h-6 lg:h-8 landscape-short:h-6" />
         </Link>
 
-        <nav aria-label="Browse" className="ml-1 hidden min-w-0 items-center gap-0.5 md:flex lg:ml-3 lg:gap-1">
+        {/* md–lg is the tightest range (768–1023px with the text nav visible):
+            compact link padding, no Radar icon (it lives in the account menu). */}
+        <nav aria-label="Browse" className="ml-0.5 hidden min-w-0 items-center gap-0 md:flex lg:ml-3 lg:gap-1">
           {nav.browse.map((l) => (
             <NavLink key={l.to} to={l.to} end={l.end} className={(s) => navLinkClass(s)}>
               {l.label}
@@ -104,7 +108,7 @@ function Navbar({ session, onOpenDrawer, onAuthPrompt }) {
         </nav>
 
         {/* Right cluster */}
-        <div className="ml-auto flex min-w-0 items-center gap-0.5 sm:gap-1">
+        <div className="ml-auto flex min-w-0 items-center gap-0 sm:gap-1">
           {/* lg+: inline search field; below that an icon toggles the panel */}
           <div className="hidden w-[200px] shrink lg:block xl:w-[300px]">
             <SearchBar value={searchValue} onChange={(e) => setSearchValue(e.target.value)} maxWidthClass="max-w-none" dense />
@@ -114,17 +118,17 @@ function Navbar({ session, onOpenDrawer, onAuthPrompt }) {
             onClick={() => setSearchOpen((v) => !v)}
             active={searchOpen}
             aria-expanded={searchOpen}
-            className="lg:hidden"
+            className="h-9 w-9 md:h-10 md:w-10 lg:hidden"
           >
             {searchOpen ? <XIcon size={20} /> : <SearchIcon size={20} />}
           </IconButton>
 
           {signedIn ? (
-            <IconButton label="Releases Radar" to="/calendar" className="hidden md:inline-flex" active={location.pathname === "/calendar"}>
+            <IconButton label="Releases Radar" to="/calendar" className="hidden lg:inline-flex" active={location.pathname === "/calendar"}>
               <CalendarIcon size={19} />
             </IconButton>
           ) : (
-            <IconButton label="Releases Radar" onClick={onAuthPrompt} className="hidden md:inline-flex">
+            <IconButton label="Releases Radar" onClick={onAuthPrompt} className="hidden lg:inline-flex">
               <CalendarIcon size={19} />
             </IconButton>
           )}

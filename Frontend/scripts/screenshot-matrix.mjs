@@ -59,10 +59,15 @@ const slug = (p) => p.replace(/^\//, "").replace(/[^a-z0-9]+/gi, "_").replace(/^
 const browser = await chromium.launch();
 const context = await browser.newContext({ colorScheme: "dark", reducedMotion: "reduce" });
 const page = await context.newPage();
+const consoleErrors = [];
+page.on("pageerror", (e) => consoleErrors.push({ url: page.url(), message: String(e.message ?? e) }));
+page.on("console", (m) => {
+  if (m.type() === "error") consoleErrors.push({ url: page.url(), message: m.text() });
+});
 
 // Pre-accept the cookie banner so it doesn't cover every screenshot.
 await context.addInitScript(() => {
-  try { localStorage.setItem("wp_cookie_consent", "accepted"); } catch { /* ignore */ }
+  try { document.cookie = "cookie_consent=accepted; path=/; max-age=31536000"; } catch { /* ignore */ }
 });
 
 if (args.email && args.password) {
@@ -88,21 +93,41 @@ for (const [group, list] of Object.entries(DEVICES)) {
       }
       if (zoom !== 1) await page.evaluate((z) => { document.documentElement.style.zoom = String(z); }, zoom);
       await page.waitForTimeout(600);
-      const overflow = await page.evaluate(() => ({
-        scrollWidth: document.documentElement.scrollWidth,
-        clientWidth: document.documentElement.clientWidth,
-        url: location.pathname,
-      }));
+      // Per-element check: anything whose box extends past the viewport and is
+      // not inside a horizontally scrollable/clipped container is a real overflow
+      // (document.scrollWidth alone is masked by the root's overflow-x rule).
+      const overflow = await page.evaluate(() => {
+        const vw = document.documentElement.clientWidth;
+        const clipped = (el) => {
+          for (let n = el.parentElement; n && n !== document.body; n = n.parentElement) {
+            const ox = getComputedStyle(n).overflowX;
+            if (ox === "auto" || ox === "scroll" || ox === "hidden" || ox === "clip") return true;
+          }
+          return false;
+        };
+        const offenders = [];
+        for (const el of document.querySelectorAll("body *")) {
+          const r = el.getBoundingClientRect();
+          if (r.width === 0 || r.height === 0) continue;
+          if ((r.right > vw + 1 || r.left < -1) && !clipped(el)) {
+            offenders.push(`${el.tagName.toLowerCase()}${el.id ? "#" + el.id : ""}.${String(el.className).split(" ").slice(0, 2).join(".")} right=${Math.round(r.right)}`);
+            if (offenders.length >= 5) break;
+          }
+        }
+        return { scrollWidth: document.documentElement.scrollWidth, clientWidth: vw, url: location.pathname, offenders };
+      });
       const file = path.join(dir, `${w}x${h}-${name}${zoom !== 1 ? `-zoom${zoom}` : ""}.png`);
       await page.screenshot({ path: file, fullPage: true });
-      const bad = overflow.scrollWidth > overflow.clientWidth + 1;
-      report.push({ path: p, landed: overflow.url, device: name, width: w, height: h, zoom, overflow: bad, file });
-      if (bad) console.log(`OVERFLOW ${p} @ ${w}x${h} (${name}): ${overflow.scrollWidth} > ${overflow.clientWidth}`);
+      const bad = overflow.scrollWidth > overflow.clientWidth + 1 || overflow.offenders.length > 0;
+      report.push({ path: p, landed: overflow.url, device: name, width: w, height: h, zoom, overflow: bad, offenders: overflow.offenders, file });
+      if (bad) console.log(`OVERFLOW ${p} @ ${w}x${h} (${name}): ${overflow.offenders.join(" | ") || `${overflow.scrollWidth} > ${overflow.clientWidth}`}`);
     }
   }
 }
 
-await writeFile(path.join(OUT, "report.json"), JSON.stringify(report, null, 2));
+await writeFile(path.join(OUT, "report.json"), JSON.stringify({ shots: report, consoleErrors }, null, 2));
 const bad = report.filter((r) => r.overflow);
-console.log(`\n${report.length} screenshots, ${bad.length} with horizontal overflow → ${OUT}/report.json`);
+const uniqueErrors = [...new Set(consoleErrors.map((e) => e.message))].filter((m) => !/favicon|net::ERR|Failed to load resource/.test(m));
+console.log(`\n${report.length} screenshots, ${bad.length} with horizontal overflow, ${uniqueErrors.length} distinct console errors → ${OUT}/report.json`);
+for (const m of uniqueErrors.slice(0, 15)) console.log(`  ✖ ${m.slice(0, 200)}`);
 await browser.close();
