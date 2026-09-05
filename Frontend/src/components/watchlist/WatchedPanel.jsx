@@ -33,7 +33,12 @@ function WatchedPanel({ entries, count, loading, impliedWatched, busy, onLogWatc
 
   if (!isWatched) {
     return (
-      <ActionChip ref={chipRef} icon={EyeIcon} label="Mark watched" onClick={guarded(() => onLogWatch())} disabled={busy} loading={busy} />
+      // "Mark watched" (12 chars) truncated to "Mark watc…" at this chip
+      // width; splitting it into a label+sublabel made the font treatment
+      // inconsistent with the Watchlist/Share chips next to it (both plain
+      // single-line labels). "Log watch" fits on one line at the same size —
+      // and matches "Log another watch" below, once this is watched.
+      <ActionChip ref={chipRef} icon={EyeIcon} label="Log watch" onClick={guarded(() => onLogWatch())} disabled={busy} loading={busy} />
     );
   }
 
