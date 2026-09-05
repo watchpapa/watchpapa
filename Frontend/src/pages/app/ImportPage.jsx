@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import AppLayout from "../../layouts/AppLayout.jsx";
+import { PageHead } from "../../components/ui/PageHead.jsx";
 import { supabase } from "../../lib/supabase.js";
 import { apiFetch } from "../../lib/api.js";
 
@@ -376,8 +377,12 @@ export default function ImportPage({ session }) {
 
   return (
     <AppLayout session={session} breadcrumbs={breadcrumbs}>
+      <PageHead title="Import data" path="/import" noindex />
       <div className="mx-auto max-w-xl space-y-6">
-        <h1 className="text-2xl font-bold tracking-tight text-white">Import data</h1>
+        <h1 className="flex items-center text-2xl font-extrabold tracking-tight text-white sm:text-3xl">
+          <span className="mr-2.5 h-6 w-1 shrink-0 rounded-full bg-gradient-to-b from-[#c084fc] to-[#6f6fdc]" aria-hidden />
+          Import data
+        </h1>
 
         {/* ── Step 0: Choose source ─────────────────────────────────────────── */}
         {step === STEPS.SOURCE && (

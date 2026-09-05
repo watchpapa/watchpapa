@@ -328,7 +328,7 @@ function FollowedSidebar({ shows, movies, onUnfollowShow, onUnfollowMovie, tier,
   const empty = shows.length === 0 && movies.length === 0;
   return (
     <aside className="order-2 flex w-full flex-col md:order-1 md:w-[230px] md:flex-shrink-0 md:sticky md:top-[4.5rem] md:self-start lg:w-[250px]">
-      <div className="flex flex-col rounded-2xl border border-[#2a3570]/50 bg-[#141728] p-4 overflow-hidden max-h-[55vh] md:max-h-[calc(100vh-5.5rem)]">
+      <div className="flex flex-col rounded-2xl border border-[#2a3570]/50 bg-[#141728] p-4 overflow-hidden max-h-[55svh] md:max-h-[calc(100svh-5.5rem)]">
         <h2 className="mb-3 shrink-0 text-sm font-extrabold text-[#8383e7]">Followed</h2>
         <div className="shrink-0">
           <FollowCounter showCount={shows.length} movieCount={movies.length} tier={tier} />

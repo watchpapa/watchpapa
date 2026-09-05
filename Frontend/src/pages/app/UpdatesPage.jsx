@@ -4,9 +4,14 @@ import { PageHead } from "../../components/ui/PageHead.jsx";
 import RichTextEditor from "../../components/ui/RichTextEditor.jsx";
 import "../../components/ui/RichTextEditor.css";
 import { useAnnouncements } from "../../features/announcements/hooks/useAnnouncements.js";
-import { supabase } from "../../lib/supabase.js";
-
-const EDITOR_ROLES = new Set([3, 4]);
+import { useCurrentUser } from "../../features/profile/CurrentUserContext.jsx";
+import PageContainer from "../../components/ui/PageContainer.jsx";
+import PageHeader from "../../components/ui/PageHeader.jsx";
+import Button from "../../components/ui/Button.jsx";
+import EmptyState from "../../components/ui/EmptyState.jsx";
+import ErrorNote from "../../components/ui/ErrorNote.jsx";
+import { Skeleton } from "../../components/ui/Skeleton.jsx";
+import { PlusIcon } from "../../components/icons/index.jsx";
 
 function formatDate(iso) {
   return new Date(iso).toLocaleDateString("en-GB", {
@@ -200,21 +205,11 @@ function PostModal({ post, onClose, onSaved }) {
 
 function UpdatesPage({ session }) {
   const { announcements, isLoading, error, fetchAnnouncements, archiveAnnouncement } = useAnnouncements();
-  const [canPost, setCanPost] = useState(false);
+  const { isEditor: canPost } = useCurrentUser();
   const [editingPost, setEditingPost] = useState(null);
   const [showModal, setShowModal] = useState(false);
 
   useEffect(() => { fetchAnnouncements(); }, [fetchAnnouncements]);
-
-  useEffect(() => {
-    if (!session?.user?.id) return;
-    supabase
-      .from("profile")
-      .select("role")
-      .eq("id", session.user.id)
-      .single()
-      .then(({ data }) => { if (data && EDITOR_ROLES.has(data.role)) setCanPost(true); });
-  }, [session?.user?.id]);
 
   const openCreate = () => { setEditingPost(null); setShowModal(true); };
   const openEdit = (post) => { setEditingPost(post); setShowModal(true); };
@@ -232,34 +227,19 @@ function UpdatesPage({ session }) {
         description="Latest news, features, and announcements from the watchpapa team."
         path="/updates"
       />
-      <div className="mx-auto max-w-[720px]">
-        <div className="mb-6 flex items-center justify-between gap-4">
-          <div>
-            <h1 className="text-[26px] font-extrabold text-white sm:text-[30px]">Updates</h1>
-            <p className="mt-1 text-[13px] text-[#5a5a78]">News and new features from watchpapa.</p>
-          </div>
-          {canPost && (
-            <button
-              onClick={openCreate}
-              className="shrink-0 rounded-xl border border-[#6f6fdc] bg-gradient-to-b from-[rgba(12,16,66,0.5)] to-[rgba(20,27,95,0.5)] px-4 py-2 text-[13px] font-extrabold text-[#8383e7] transition hover:text-[#a0a0f7]"
-            >
-              + New post
-            </button>
-          )}
-        </div>
+      <PageContainer width="reading">
+        <PageHeader title="Updates" subtitle="News and new features from watchpapa." actions={canPost && <Button size="sm" icon={PlusIcon} onClick={openCreate}>New post</Button>} />
 
-        {isLoading && <p className="text-center text-[14px] text-[#5a5a78]">Loading...</p>}
-        {error && <p className="text-center text-[13px] font-semibold text-pink-300">{error}</p>}
-        {!isLoading && !error && announcements.length === 0 && (
-          <p className="text-center text-[14px] text-[#5a5a78]">No updates yet. Check back soon.</p>
-        )}
+        {isLoading && <div className="space-y-5"><Skeleton className="h-48 rounded-2xl" /><Skeleton className="h-48 rounded-2xl" /></div>}
+        {error && <ErrorNote>{error}</ErrorNote>}
+        {!isLoading && !error && announcements.length === 0 && <EmptyState title="No updates yet" description="Check back soon." />}
 
         <div className="space-y-5">
           {announcements.map((post) => (
             <PostCard key={post.id} post={post} canPost={canPost} onEdit={openEdit} onArchive={handleArchive} />
           ))}
         </div>
-      </div>
+      </PageContainer>
 
       {showModal && (
         <PostModal

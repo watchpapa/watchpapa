@@ -9,102 +9,23 @@ import { usePreferences } from "../../features/preferences/PreferencesContext.js
 import { HOME_ROW_LABELS, effectiveHomeRowOrder } from "../../lib/homeRows.js";
 import UpgradePromptToast from "../../components/subscription/UpgradePromptToast.jsx";
 import { PageHead } from "../../components/ui/PageHead.jsx";
-
-function SkeletonRow() {
-  return (
-    <section className="flex flex-col items-center">
-      <div className="mb-3 h-6 w-32 animate-pulse rounded bg-[#1e2240]" />
-      <div className="flex w-full justify-start gap-3 overflow-x-auto">
-        {Array.from({ length: 8 }).map((_, i) => (
-          <div key={i} className="w-[100px] flex-shrink-0 sm:w-[132px] lg:w-[150px]">
-            <div className="aspect-[2/3] animate-pulse rounded-2xl bg-[#1e2240]" />
-            <div className="mt-2 h-3 animate-pulse rounded bg-[#1e2240]" />
-            <div className="mt-1.5 mx-auto h-5 w-16 animate-pulse rounded-full bg-[#1e2240]" />
-          </div>
-        ))}
-      </div>
-    </section>
-  );
-}
+import PageContainer from "../../components/ui/PageContainer.jsx";
+import ErrorNote from "../../components/ui/ErrorNote.jsx";
+import { SkeletonPosterRow } from "../../components/ui/Skeleton.jsx";
 
 function AppHomePage({ session, showAdult }) {
   const [search, setSearch] = useState("");
   const { homeRowOrder, homeHiddenRows } = usePreferences();
-  const {
-    popular,
-    comingSoonItems,
-    movieItems,
-    showItems,
-    myServicesItems,
-    suggestedItems,
-    suggestedOnServicesItems,
-    isLoading,
-    error,
-    followLimitError,
-    clearFollowLimitError,
-    hasMorePopular,
-    hasMoreMovies,
-    hasMoreShows,
-    hasMoreMyServices,
-    hasMoreSuggested,
-    hasMoreSuggestedOnServices,
-    loadMorePopular,
-    loadMoreMovies,
-    loadMoreShows,
-    loadMoreMyServices,
-    loadMoreSuggested,
-    loadMoreSuggestedOnServices,
-    loadingMorePopular,
-    loadingMoreMovies,
-    loadingMoreShows,
-    loadingMoreMyServices,
-    loadingMoreSuggested,
-    loadingMoreSuggestedOnServices,
-  } = useHomeData(session, showAdult);
+  const d = useHomeData(session, showAdult);
 
   const sectionsByKey = {
-    popular: {
-      items: popular,
-      hasMore: hasMorePopular,
-      onLoadMore: loadMorePopular,
-      isLoadingMore: loadingMorePopular,
-    },
-    suggested: {
-      items: suggestedItems,
-      hasMore: hasMoreSuggested,
-      onLoadMore: loadMoreSuggested,
-      isLoadingMore: loadingMoreSuggested,
-    },
-    popularOnServices: {
-      items: myServicesItems,
-      hasMore: hasMoreMyServices,
-      onLoadMore: loadMoreMyServices,
-      isLoadingMore: loadingMoreMyServices,
-    },
-    suggestedOnServices: {
-      items: suggestedOnServicesItems,
-      hasMore: hasMoreSuggestedOnServices,
-      onLoadMore: loadMoreSuggestedOnServices,
-      isLoadingMore: loadingMoreSuggestedOnServices,
-    },
-    comingSoon: {
-      items: comingSoonItems,
-      hasMore: false,
-      onLoadMore: null,
-      isLoadingMore: false,
-    },
-    movies: {
-      items: movieItems,
-      hasMore: hasMoreMovies,
-      onLoadMore: loadMoreMovies,
-      isLoadingMore: loadingMoreMovies,
-    },
-    shows: {
-      items: showItems,
-      hasMore: hasMoreShows,
-      onLoadMore: loadMoreShows,
-      isLoadingMore: loadingMoreShows,
-    },
+    popular: { items: d.popular, hasMore: d.hasMorePopular, onLoadMore: d.loadMorePopular, isLoadingMore: d.loadingMorePopular },
+    suggested: { items: d.suggestedItems, hasMore: d.hasMoreSuggested, onLoadMore: d.loadMoreSuggested, isLoadingMore: d.loadingMoreSuggested },
+    popularOnServices: { items: d.myServicesItems, hasMore: d.hasMoreMyServices, onLoadMore: d.loadMoreMyServices, isLoadingMore: d.loadingMoreMyServices },
+    suggestedOnServices: { items: d.suggestedOnServicesItems, hasMore: d.hasMoreSuggestedOnServices, onLoadMore: d.loadMoreSuggestedOnServices, isLoadingMore: d.loadingMoreSuggestedOnServices },
+    comingSoon: { items: d.comingSoonItems, hasMore: false, onLoadMore: null, isLoadingMore: false },
+    movies: { items: d.movieItems, hasMore: d.hasMoreMovies, onLoadMore: d.loadMoreMovies, isLoadingMore: d.loadingMoreMovies },
+    shows: { items: d.showItems, hasMore: d.hasMoreShows, onLoadMore: d.loadMoreShows, isLoadingMore: d.loadingMoreShows },
   };
 
   const sections = effectiveHomeRowOrder(homeRowOrder)
@@ -113,55 +34,24 @@ function AppHomePage({ session, showAdult }) {
 
   return (
     <AppLayout session={session}>
-      <PageHead
-        title="Discover Films, Shows & People"
-        description="Browse popular movies and TV shows, explore people and cast, check upcoming releases, and track what to watch next."
-        path="/"
-      />
-      {followLimitError && <UpgradePromptToast message={followLimitError} onDismiss={clearFollowLimitError} session={session} />}
-      {!isLoading && popular.length > 0 ? (
-        <ContentHero items={popular} isAuthenticated={!!session} />
-      ) : (
-        <HeroBanner />
-      )}
-      <div className="mx-auto max-w-[1600px] space-y-8">
+      <PageHead title="Discover Films, Shows & People" description="Browse popular movies and TV shows, explore people and cast, check upcoming releases, and track what to watch next." path="/" />
+      {d.followLimitError && <UpgradePromptToast message={d.followLimitError} onDismiss={d.clearFollowLimitError} session={session} />}
+      {!d.isLoading && d.popular.length > 0 ? <ContentHero items={d.popular} isAuthenticated={!!session} /> : <HeroBanner />}
+      <PageContainer width="wide" className="space-y-8">
         <SearchBar value={search} onChange={(e) => setSearch(e.target.value)} />
-
-        {error && (
-          <p className="text-center text-sm text-red-400">
-            Failed to load content: {error}
-          </p>
-        )}
-
-        {isLoading ? (
-          <>
-            <SkeletonRow />
-            <SkeletonRow />
-            <SkeletonRow />
-          </>
+        {d.error && <ErrorNote>Failed to load content: {d.error}</ErrorNote>}
+        {d.isLoading ? (
+          <><SkeletonPosterRow /><SkeletonPosterRow /><SkeletonPosterRow /></>
         ) : (
           sections
             .filter(({ items }) => items.length > 0)
             .map(({ key, title, items, hasMore, onLoadMore, isLoadingMore }, index) => (
-              <div
-                key={key}
-                style={{
-                  animation: "fadeInUp 0.35s ease-out both",
-                  animationDelay: `${index * 0.08}s`,
-                }}
-              >
-                <MediaRow
-                  title={title}
-                  items={items}
-                  session={session}
-                  hasMore={hasMore}
-                  onLoadMore={onLoadMore}
-                  isLoadingMore={isLoadingMore}
-                />
+              <div key={key} className="animate-slide-up" style={{ animationDelay: `${index * 0.06}s`, animationFillMode: "both" }}>
+                <MediaRow title={title} items={items} session={session} hasMore={hasMore} onLoadMore={onLoadMore} isLoadingMore={isLoadingMore} />
               </div>
             ))
         )}
-      </div>
+      </PageContainer>
     </AppLayout>
   );
 }
