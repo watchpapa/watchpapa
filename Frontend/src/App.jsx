@@ -173,15 +173,28 @@ function App() {
     supabase
       .from("profile")
       .select(
-        "username, is_adult, date_of_birth, setting_display_adult_content, setting_language, setting_title_mode, setting_region, setting_watch_regions, setting_watch_providers, setting_home_row_order, setting_home_hidden_rows, setting_blur_nsfw_posters, setting_show_adult_tab, role, avatar_type, avatar_poster_path, avatar_upload_path, referral_code, is_private",
+        "username, is_adult, date_of_birth, setting_display_adult_content, setting_language, setting_title_mode, setting_region, setting_watch_regions, setting_watch_providers, setting_home_row_order, setting_home_hidden_rows, setting_blur_nsfw_posters, setting_show_adult_tab, setting_bottom_tab_middle, role, avatar_type, avatar_poster_path, avatar_upload_path, referral_code, is_private",
       )
       .eq("id", session.user.id)
       .maybeSingle()
       .then(({ data, error }) => {
       if (!isMounted) return;
+      // Neither "the fetch failed" nor "no row came back" means "this account
+      // has no username" — treating them that way trapped existing users:
+      // PublicRoute redirects to /complete-username whenever
+      // needsUsernameSetup is true, so a transient network/RLS hiccup here
+      // (or a row not yet visible right after sign-up) sent a real user into
+      // a redirect they could never leave, since every other route bounces
+      // them straight back. On either failure, leave the setup flag alone
+      // (default false) and let them use the app; a genuinely new account
+      // will still hit this correctly once the fetch succeeds.
       if (error) {
-        setNeedsUsernameSetup(true);
-        setInitialUsername("");
+        console.error("Failed to load profile:", error);
+        setIsProfileLoading(false);
+        return;
+      }
+      if (!data) {
+        console.error("Profile fetch returned no row for a signed-in user:", session.user.id);
         setIsProfileLoading(false);
         return;
       }
@@ -201,6 +214,7 @@ function App() {
         homeHiddenRows: data?.setting_home_hidden_rows ?? [],
         blurNsfw: data?.setting_blur_nsfw_posters ?? true,
         showAdultTab: data?.setting_show_adult_tab ?? false,
+        bottomTabMiddle: data?.setting_bottom_tab_middle ?? "services",
       });
       setIsProfileLoading(false);
 

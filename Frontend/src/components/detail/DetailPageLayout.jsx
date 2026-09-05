@@ -46,7 +46,20 @@ function DetailPageLayout({ title, subtitle, meta, backdropPath, poster, actions
           // box and bled into the content column next to it (flex children
           // don't clip by default). This leaves real breathing room.
           <aside className="w-full shrink-0 lg:w-[264px] xl:w-[284px]">
-            <div className={`flex flex-col gap-4 lg:sticky ${heroGone ? "lg:top-24" : "lg:top-16"}`}>
+            {/* A sticky element is pinned at a fixed screen position while
+                "stuck" — it does not reveal more of itself as you scroll the
+                page. With the poster plus a rating card that can grow
+                (rating/watch history, observed ratings all expand in place),
+                the column can end up taller than the viewport, permanently
+                hiding whatever's below the fold until it un-sticks near the
+                very bottom of a long page. Capping its own height and
+                scrolling internally means expanding a panel scrolls the
+                sidebar, never hides the rest of it. */}
+            <div
+              className={`flex flex-col gap-4 overflow-y-auto overscroll-contain lg:sticky ${
+                heroGone ? "lg:top-24 lg:max-h-[calc(100svh-7rem)]" : "lg:top-16 lg:max-h-[calc(100svh-5rem)]"
+              }`}
+            >
               {poster && <div className="hidden lg:block">{poster}</div>}
               {panel}
             </div>
