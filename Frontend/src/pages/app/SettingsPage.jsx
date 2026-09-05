@@ -64,7 +64,7 @@ function SettingsPage({ session }) {
             ) : (
               <>
                 <ProfileSection session={session} uid={uid} profile={profile} setProfile={setProfile} />
-                <PreferencesSection uid={uid} profile={profile} setProfile={setProfile} prefs={prefs} updatePref={updatePref} prefsBusy={prefsBusy} />
+                <PreferencesSection uid={uid} profile={profile} setProfile={setProfile} prefs={prefs} updatePref={updatePref} prefsBusy={prefsBusy} tier={me.tier} />
                 <ContentRegionSection prefs={prefs} updatePref={updatePref} prefsBusy={prefsBusy} />
                 <StreamingSection prefs={prefs} updatePref={updatePref} prefsBusy={prefsBusy} tier={me.tier} />
                 <HomeRowsSection prefs={prefs} updatePref={updatePref} prefsBusy={prefsBusy} />

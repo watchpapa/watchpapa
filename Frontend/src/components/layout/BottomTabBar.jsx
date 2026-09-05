@@ -1,24 +1,33 @@
 import { Link, useLocation } from "react-router-dom";
 import { cn } from "../../lib/cn.js";
 import { useCurrentUser } from "../../features/profile/CurrentUserContext.jsx";
+import { usePreferences } from "../../features/preferences/PreferencesContext.jsx";
+import { isProTier } from "../../lib/tier.js";
 import Avatar from "../ui/Avatar.jsx";
-import { CalendarIcon, CompassIcon, HomeIcon, SearchIcon, UserIcon } from "../icons/index.jsx";
+import { CalendarIcon, CompassIcon, HomeIcon, PlayIcon, SearchIcon, UserIcon } from "../icons/index.jsx";
 import { BROWSE_PATH_PREFIXES } from "./navigation.js";
 
 // Phone-only primary navigation (hidden from `md` and on rotated phones).
 // Five thumb-reachable tabs; Browse opens the drawer, You opens the account
 // sheet (or /login when signed out), Calendar prompts sign-in when signed out.
+// The middle slot is Search by default, but Pro+ accounts (who can actually
+// use My Services) default to that instead — Settings → Preferences lets
+// them switch back. Below Pro it's always Search, no toggle shown there.
 function BottomTabBar({ onOpenBrowse, onOpenAccount, onAuthPrompt }) {
   const { pathname } = useLocation();
   const me = useCurrentUser();
+  const { bottomTabMiddle } = usePreferences();
 
   const browseActive = BROWSE_PATH_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}/`));
   const youActive = pathname.startsWith("/u/") || pathname === "/settings" || pathname === "/profile/edit";
+  const middleIsServices = isProTier(me.tier) && bottomTabMiddle === "services";
 
   const tabs = [
     { key: "home", label: "Home", icon: HomeIcon, to: "/", active: pathname === "/" },
     { key: "browse", label: "Browse", icon: CompassIcon, onClick: onOpenBrowse, active: browseActive },
-    { key: "search", label: "Search", icon: SearchIcon, to: "/search", active: pathname === "/search" },
+    middleIsServices
+      ? { key: "services", label: "Services", icon: PlayIcon, to: "/my-services", active: pathname === "/my-services" }
+      : { key: "search", label: "Search", icon: SearchIcon, to: "/search", active: pathname === "/search" },
     me.isAuthenticated
       ? { key: "calendar", label: "Radar", icon: CalendarIcon, to: "/calendar", active: pathname === "/calendar" }
       : { key: "calendar", label: "Radar", icon: CalendarIcon, onClick: onAuthPrompt, active: false },

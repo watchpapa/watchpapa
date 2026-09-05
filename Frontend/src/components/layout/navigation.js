@@ -30,11 +30,11 @@ export const BROWSE_LINKS = [
   { label: "Movies", to: "/movies", icon: FilmIcon },
   { label: "Shows", to: "/shows", icon: TvIcon },
   { label: "People", to: "/people", icon: UsersIcon },
+  { label: "My Services", to: "/my-services", icon: PlayIcon },
 ];
 
 export const MORE_LINKS = [
   { label: "Collections", to: "/collections", icon: LayersIcon },
-  { label: "My Services", to: "/my-services", icon: PlayIcon },
 ];
 
 // Hidden unless BOTH "show adult content" and the separate "Adult tab" opt-in

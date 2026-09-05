@@ -23,8 +23,8 @@ const navLinkClass = ({ isActive }, adult = false) =>
       : isActive ? "bg-surface-2 text-white" : "text-text-muted hover:bg-surface-2/60 hover:text-white",
   );
 
-// "More ▾" — the overflow for secondary browse destinations (Collections, My
-// Services, Adult). Its trigger reads as active when one of its items is.
+// "More ▾" — the overflow for secondary browse destinations (Collections,
+// Adult). Its trigger reads as active when one of its items is.
 function MoreMenu({ items }) {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);

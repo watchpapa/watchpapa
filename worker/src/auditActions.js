@@ -39,6 +39,7 @@ export const AUDIT_ACTIONS = [
   A("locale_changed", "privacy", "Language / region changed"),
   A("watch_settings_changed", "privacy", "Watch regions / services changed"),
   A("home_rows_changed", "privacy", "Home rows changed"),
+  A("bottom_tab_preference_changed", "privacy", "Bottom tab bar preference changed"),
   // Social
   A("observe_requested", "social", "Observe requested"),
   A("observe_accepted", "social", "Observe accepted"),

@@ -26,6 +26,7 @@ const COLUMNS = {
   homeHiddenRows: "setting_home_hidden_rows",
   blurNsfw: "setting_blur_nsfw_posters",
   showAdultTab: "setting_show_adult_tab",
+  bottomTabMiddle: "setting_bottom_tab_middle",
 };
 
 export const DEFAULT_PREFERENCES = {
@@ -45,6 +46,10 @@ export const DEFAULT_PREFERENCES = {
   // showAdult (which only controls nsfw titles appearing inline) — the tab is
   // never shown unless BOTH are on. See migration 037.
   showAdultTab: false,
+  // Phone bottom-tab-bar middle slot: "services" (My Services) or "search".
+  // Only takes effect for Pro+ accounts — BottomTabBar always shows Search
+  // below Pro regardless of this value. See migration 046.
+  bottomTabMiddle: "services",
 };
 
 const ANON_REGION_KEY = "wp:watchRegion";

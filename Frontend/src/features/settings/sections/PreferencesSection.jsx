@@ -1,11 +1,18 @@
 import { useState } from "react";
 import { supabase } from "../../../lib/supabase.js";
 import { isValidBoolean } from "../../../lib/validate.js";
+import { isProTier } from "../../../lib/tier.js";
 import SettingsSection from "../../../components/settings/SettingsSection.jsx";
 import SettingsRow from "../../../components/settings/SettingsRow.jsx";
 import Switch from "../../../components/ui/Switch.jsx";
+import Select from "../../../components/ui/Select.jsx";
 
-function PreferencesSection({ uid, profile, setProfile, prefs, updatePref, prefsBusy }) {
+const BOTTOM_TAB_OPTIONS = [
+  { value: "services", label: "My Services" },
+  { value: "search", label: "Search" },
+];
+
+function PreferencesSection({ uid, profile, setProfile, prefs, updatePref, prefsBusy, tier }) {
   const [marketingBusy, setMarketingBusy] = useState(false);
 
   const handleMarketingOptIn = async (val) => {
@@ -38,6 +45,18 @@ function PreferencesSection({ uid, profile, setProfile, prefs, updatePref, prefs
       <SettingsRow label="Product updates & announcements" hint="Occasional emails about new features. Never marketing from third parties." htmlFor="pref-marketing">
         <Switch id="pref-marketing" checked={profile?.email_marketing_opt_in ?? false} onChange={handleMarketingOptIn} disabled={marketingBusy} label="Product updates & announcements" />
       </SettingsRow>
+      {isProTier(tier) && (
+        <SettingsRow label="Phone bottom bar — middle button" hint="Which shortcut sits between Browse and Radar on your phone's bottom bar." htmlFor="pref-bottom-tab">
+          <Select
+            id="pref-bottom-tab"
+            value={prefs.bottomTabMiddle}
+            onChange={(v) => updatePref({ bottomTabMiddle: v })}
+            options={BOTTOM_TAB_OPTIONS}
+            disabled={prefsBusy}
+            size="sm"
+          />
+        </SettingsRow>
+      )}
     </SettingsSection>
   );
 }
