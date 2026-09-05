@@ -70,10 +70,14 @@ function ContentHero({ items = [], isAuthenticated }) {
       aria-label="Featured trending titles"
     >
       {/* Blurred backdrop. The image lives in a wrapper that overshoots all
-          edges, so the blur feather is clipped by the section. The scrims are
-          separate, aligned to the section edges, so the very left edge is
-          fully-opaque #111320 (no bright bleed line). */}
-      <div className="absolute -inset-8 overflow-hidden">
+          edges well past the blur radius, so the feather never hits a hard
+          clip inside the visible area. The scrims are separate, aligned to
+          the section edges: the bottom/side scrims go fully opaque *before*
+          reaching the actual edge (explicit stops, not the default 0/50/100
+          spacing), so nothing — glow included — is ever still fading right
+          at the section boundary where it would read as a visible seam
+          against the flat page background below. */}
+      <div className="absolute -inset-x-8 -inset-y-20 overflow-hidden">
         <img
           key={current.id}
           src={tmdbImg(current.posterPath, "w780")}
@@ -83,12 +87,12 @@ function ContentHero({ items = [], isAuthenticated }) {
           style={{ animation: "heroBannerFadeIn 0.7s ease-out both" }}
         />
       </div>
-      <div className="absolute inset-0" style={{ background: "radial-gradient(80% 120% at 18% 30%, rgba(192,132,252,0.22) 0%, transparent 60%)" }} />
-      <div className="absolute inset-0 bg-gradient-to-r from-[#111320] via-[#111320]/90 to-[#111320]/40" />
-      <div className="absolute inset-0 bg-gradient-to-t from-[#111320] via-transparent to-[#111320]/55" />
+      <div className="absolute inset-0" style={{ background: "radial-gradient(80% 90% at 18% 22%, rgba(192,132,252,0.22) 0%, transparent 60%)" }} />
+      <div className="absolute inset-0" style={{ background: "linear-gradient(to right, #111320 0%, rgba(17,19,32,0.9) 45%, rgba(17,19,32,0.4) 100%)" }} />
+      <div className="absolute inset-0" style={{ background: "linear-gradient(to top, #111320 0%, #111320 12%, transparent 55%, rgba(17,19,32,0.55) 100%)" }} />
 
       {/* Content */}
-      <div className="relative mx-auto flex max-w-[1500px] items-center gap-5 px-4 py-9 sm:gap-8 sm:px-8 sm:py-12 lg:py-16">
+      <div className="relative mx-auto flex min-h-[300px] max-w-[1500px] items-center gap-5 px-4 py-9 sm:min-h-[360px] sm:gap-8 sm:px-8 sm:py-12 lg:min-h-[420px] lg:py-16">
         <Link
           to={to}
           className="group relative block w-[120px] flex-shrink-0 overflow-hidden rounded-2xl border border-[#2a3570] shadow-[0_18px_40px_-12px_rgba(0,0,0,0.7)] transition duration-300 hover:-translate-y-1 hover:border-[#6f6fdc] hover:shadow-[0_22px_50px_-10px_rgba(111,111,220,0.5)] sm:w-[160px] lg:w-[190px]"
@@ -120,7 +124,11 @@ function ContentHero({ items = [], isAuthenticated }) {
             )}
           </div>
 
-          <h1 className="max-w-3xl text-3xl font-extrabold leading-[1.05] tracking-tight text-white drop-shadow-[0_2px_12px_rgba(0,0,0,0.6)] sm:text-5xl lg:text-6xl">
+          {/* line-clamp-2 + a min-height reserving that same 2-line box means
+              a one-line title doesn't shrink the hero and a long title never
+              grows past it — the section's height stays constant regardless
+              of which title is featured. */}
+          <h1 className="line-clamp-2 min-h-[2.1em] max-w-3xl text-3xl font-extrabold leading-[1.05] tracking-tight text-white drop-shadow-[0_2px_12px_rgba(0,0,0,0.6)] sm:text-5xl lg:text-6xl">
             {current.title}
           </h1>
 
