@@ -1,47 +1,11 @@
-import { useState } from "react";
-
-function EyeIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-      <circle cx="12" cy="12" r="3" />
-    </svg>
-  );
-}
-
-function CheckIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-      <polyline points="20 6 9 17 4 12" />
-    </svg>
-  );
-}
-
-function PlusIcon() {
-  return (
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-      <path d="M12 5v14M5 12h14" />
-    </svg>
-  );
-}
-
-function TrashIcon() {
-  return (
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <polyline points="3 6 5 6 21 6" />
-      <path d="M19 6l-1 14H6L5 6" />
-      <path d="M9 6V4h6v2" />
-    </svg>
-  );
-}
-
-function ChevronIcon({ open }) {
-  return (
-    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" className={`flex-shrink-0 transition-transform ${open ? "rotate-180" : ""}`}>
-      <polyline points="6 9 12 15 18 9" />
-    </svg>
-  );
-}
+import { useRef, useState } from "react";
+import ActionChip from "../ui/ActionChip.jsx";
+import Button from "../ui/Button.jsx";
+import IconButton from "../ui/IconButton.jsx";
+import Popover from "../ui/Popover.jsx";
+import Sheet from "../ui/Sheet.jsx";
+import { CheckIcon, EyeIcon, TrashIcon } from "../icons/index.jsx";
+import { useIsPhone } from "../../hooks/useMediaQuery.js";
 
 function fmtDate(isoDate) {
   if (!isoDate) return "";
@@ -50,109 +14,91 @@ function fmtDate(isoDate) {
 
 const today = () => new Date().toISOString().slice(0, 10);
 
-// Sidebar "Watched" section for MoviePage/ShowPage — a rewatch diary, not
-// just a boolean. `impliedWatched` (from a rating, or every season/episode
-// of a show rated — see useShowCompletion.js) is only used as a same-tick
-// placeholder before the real watch_log fetch (`loading`) resolves, so
-// rating something shows "Watched" instantly instead of flashing "Mark
-// watched" first. Once loaded, `count` is the sole source of truth —
-// removing every logged entry always shows unwatched, even for a rated
-// title, since a rating only ever seeds a log entry once (see useRating.js).
-// Logging a watch always removes the title from any watchlist it's on.
+// Rewatch diary control (MediaActionPanel). Unwatched → one tap logs today.
+// Watched → a green chip ("Watched · 2×") opening a popover (desktop) or
+// bottom sheet (phone) with "Log another watch" (dated) and the history with
+// per-entry remove. `impliedWatched` is only a same-tick placeholder while the
+// watch_log fetch is still `loading`; afterwards `count` is the truth.
 function WatchedPanel({ entries, count, loading, impliedWatched, busy, onLogWatch, onRemoveEntry, onAuthPrompt, session }) {
-  const [expanded, setExpanded] = useState(false);
-  const [pickingDate, setPickingDate] = useState(null); // ISO date string while the inline date field is open
+  const isPhone = useIsPhone();
+  const [open, setOpen] = useState(false);
+  const [date, setDate] = useState(today);
+  const chipRef = useRef(null);
   const isWatched = loading ? impliedWatched : count > 0;
 
-  function guarded(fn) {
-    return (...args) => {
-      if (!session) {
-        onAuthPrompt?.();
-        return;
-      }
-      fn(...args);
-    };
-  }
-
-  const openDatePicker = guarded(() => setPickingDate(today()));
+  const guarded = (fn) => (...args) => {
+    if (!session) { onAuthPrompt?.(); return; }
+    fn(...args);
+  };
 
   if (!isWatched) {
     return (
-      <button
-        onClick={guarded(() => onLogWatch())}
-        disabled={busy}
-        className="flex w-full items-center justify-center gap-2 rounded-lg border border-[#2a3570] bg-transparent px-3 py-2 text-xs font-medium uppercase tracking-widest text-[#6868b8] transition hover:border-[#3a3a7a] hover:text-white disabled:opacity-50"
-      >
-        <EyeIcon />
-        Mark watched
-      </button>
+      <ActionChip ref={chipRef} icon={EyeIcon} label="Mark watched" onClick={guarded(() => onLogWatch())} disabled={busy} loading={busy} />
     );
   }
 
-  return (
-    <div className="rounded-lg border border-green-600/50 bg-green-900/10 px-3 py-2">
-      <div className="flex items-center justify-between gap-2 text-xs font-medium uppercase tracking-widest text-green-400">
-        <span className="flex items-center gap-1.5">
-          <CheckIcon />
-          {count > 1 ? `Watched · ${count}×` : "Watched"}
-        </span>
-        <div className="flex items-center gap-2">
-          <button onClick={openDatePicker} disabled={busy} aria-label="Log another watch" className="text-green-400 transition hover:text-green-300 disabled:opacity-50">
-            <PlusIcon />
-          </button>
-          {count > 0 && (
-            <button onClick={() => setExpanded((v) => !v)} aria-label="Show watch history" className="text-green-400 transition hover:text-green-300">
-              <ChevronIcon open={expanded} />
-            </button>
-          )}
-        </div>
-      </div>
-
-      {pickingDate !== null && (
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            guarded(() => {
-              onLogWatch(pickingDate || undefined);
-              setPickingDate(null);
-            })();
-          }}
-          className="mt-2 flex items-center gap-1.5 border-t border-green-600/30 pt-2"
-        >
+  const body = (
+    <div className="space-y-4">
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          guarded(() => { onLogWatch(date || undefined); setDate(today()); if (!isPhone) setOpen(false); })();
+        }}
+        className="space-y-2"
+      >
+        <p className="text-xs font-semibold uppercase tracking-wider text-text-faint">Log another watch</p>
+        <div className="flex gap-2">
           <input
             type="date"
-            value={pickingDate}
-            onChange={(e) => setPickingDate(e.target.value)}
+            value={date}
             max={today()}
-            className="min-w-0 flex-1 rounded border border-green-700/50 bg-[#0a0c18] px-1.5 py-1 text-[11px] text-white outline-none"
+            onChange={(e) => setDate(e.target.value)}
+            aria-label="Watched on"
+            className="h-10 min-w-0 flex-1 rounded-xl border border-border-strong bg-surface-3 px-3 text-sm text-white outline-none focus:border-brand-light"
           />
-          <button type="submit" disabled={busy} className="rounded bg-green-800/60 px-2 py-1 text-[10px] font-bold text-green-200 transition hover:bg-green-700/60 disabled:opacity-50">
-            Save
-          </button>
-          <button type="button" onClick={() => setPickingDate(null)} className="text-[10px] text-green-700 transition hover:text-green-400">
-            Cancel
-          </button>
-        </form>
-      )}
+          <Button type="submit" size="md" variant="success" loading={busy}>Log</Button>
+        </div>
+      </form>
 
-      {expanded && count > 0 && (
-        <div className="mt-2 space-y-1.5 border-t border-green-600/30 pt-2">
-          {entries.map((e) => (
-            <div key={e.id} className="flex items-center justify-between text-[11px] text-green-200/80">
-              <span>{fmtDate(e.watched_at)}</span>
-              <button
-                onClick={guarded(() => onRemoveEntry(e.id))}
-                disabled={busy}
-                aria-label="Remove this watch"
-                className="text-green-700 transition hover:text-red-400 disabled:opacity-50"
-              >
-                <TrashIcon />
-              </button>
-            </div>
-          ))}
+      {entries.length > 0 && (
+        <div>
+          <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-text-faint">History</p>
+          <ul className="divide-y divide-border/40">
+            {entries.map((e) => (
+              <li key={e.id} className="flex min-h-10 items-center justify-between gap-2 text-sm text-text">
+                <span>{fmtDate(e.watched_at)}</span>
+                <IconButton label="Remove this watch" size="sm" onClick={guarded(() => onRemoveEntry(e.id))} disabled={busy} className="-mr-2 h-8 w-8 text-text-faint hover:text-red-300">
+                  <TrashIcon size={15} />
+                </IconButton>
+              </li>
+            ))}
+          </ul>
+          <p className="mt-2 text-[11px] text-text-faint">Removing every entry marks this as unwatched again.</p>
         </div>
       )}
     </div>
+  );
+
+  return (
+    <>
+      <ActionChip
+        ref={chipRef}
+        icon={CheckIcon}
+        tone="success"
+        label={count > 1 ? `Watched · ${count}×` : "Watched"}
+        sublabel="tap for diary"
+        onClick={() => setOpen((v) => !v)}
+        aria-haspopup="dialog"
+        aria-expanded={open}
+      />
+      {isPhone ? (
+        <Sheet open={open} onClose={() => setOpen(false)} title="Rewatch diary">{body}</Sheet>
+      ) : (
+        <Popover open={open} anchorRef={chipRef} onClose={() => setOpen(false)} align="start" width={300} className="p-4" aria-label="Rewatch diary">
+          {body}
+        </Popover>
+      )}
+    </>
   );
 }
 

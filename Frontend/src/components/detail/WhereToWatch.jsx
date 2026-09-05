@@ -10,6 +10,7 @@ import { createPortal } from "react-dom";
 import { tmdbImg } from "../../lib/tmdbImage.js";
 import { usePreferences } from "../../features/preferences/PreferencesContext.jsx";
 import { useWatchRegionCatalog } from "../../features/preferences/hooks/useWatchProviderCatalog.js";
+import PillTabs from "../ui/PillTabs.jsx";
 import { JUSTWATCH_ATTRIBUTION_URL, TMDB_ATTRIBUTION_URL } from "../../lib/constants.js";
 
 const BUCKETS = [
@@ -256,21 +257,14 @@ function WhereToWatch({ data }) {
       ) : (
         <>
           {tabs.length > 1 && (
-            <div className="mb-3 flex flex-wrap gap-1 rounded-xl border border-[#2a3570]/50 bg-[#0a0c18] p-1">
-              {tabs.map((r) => (
-                <button
-                  key={r}
-                  type="button"
-                  onClick={() => { setActiveTab(r); setManualRegion(null); }}
-                  className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
-                    active === r ? "bg-gradient-to-b from-[#6f6fdc] to-[#4b3bb0] text-white" : "text-[#8888c8] hover:text-white"
-                  }`}
-                  title={regionName(r)}
-                >
-                  {r}
-                </button>
-              ))}
-            </div>
+            <PillTabs
+              size="sm"
+              aria-label="Watch region"
+              className="mb-3 w-fit max-w-full"
+              tabs={tabs.map((r) => ({ value: r, label: r }))}
+              value={active}
+              onChange={(r) => { setActiveTab(r); setManualRegion(null); }}
+            />
           )}
 
           {preferredRegions.length === 0 && (

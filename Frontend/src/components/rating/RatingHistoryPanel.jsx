@@ -1,33 +1,16 @@
 import { useState } from "react";
 import { useRatingHistory } from "../../features/rating/hooks/useRatingHistory.js";
-
-function ChevronIcon({ open }) {
-  return (
-    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" className={`flex-shrink-0 transition-transform ${open ? "rotate-180" : ""}`}>
-      <polyline points="6 9 12 15 18 9" />
-    </svg>
-  );
-}
-
-function TrashIcon() {
-  return (
-    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <polyline points="3 6 5 6 21 6" />
-      <path d="M19 6l-1 14H6L5 6" />
-      <path d="M9 6V4h6v2" />
-    </svg>
-  );
-}
+import IconButton from "../ui/IconButton.jsx";
+import { ChevronDownIcon, TrashIcon } from "../icons/index.jsx";
 
 function fmtDate(iso) {
   return new Date(iso).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
 }
 
 // Only renders once a rating has actually changed at least once — a fresh,
-// never-edited rating has nothing more to show than what RatingSidebar
-// already displays. Removing entries edits the historical record only (the
-// live rating is untouched) — dropping below 2 entries hides the panel
-// again, same threshold as the initial render.
+// never-edited rating has nothing more to show than RatingSidebar already
+// does. Removing entries edits the historical record only (the live rating is
+// untouched); dropping below 2 entries hides the panel again.
 function RatingHistoryPanel({ mediaType, entityId, session }) {
   const [expanded, setExpanded] = useState(false);
   const { entries, loading, busy, removeEntry } = useRatingHistory(mediaType, entityId, session);
@@ -35,30 +18,25 @@ function RatingHistoryPanel({ mediaType, entityId, session }) {
   if (!session || loading || entries.length < 2) return null;
 
   return (
-    <div className="mt-2">
+    <div className="rounded-xl border border-border/40 bg-surface-2/40">
       <button
+        type="button"
         onClick={() => setExpanded((v) => !v)}
-        className="flex w-full items-center justify-between gap-2 text-[10px] font-semibold uppercase tracking-widest text-[#8383e7] transition hover:text-white"
+        aria-expanded={expanded}
+        className="flex min-h-10 w-full items-center justify-between gap-2 px-3 py-2 text-left text-xs font-semibold text-text-muted transition hover:text-white"
       >
-        <span>Rating history</span>
-        <ChevronIcon open={expanded} />
+        <span>Rating history <span className="text-text-faint">· {entries.length}</span></span>
+        <ChevronDownIcon size={14} className={`shrink-0 transition-transform ${expanded ? "rotate-180" : ""}`} />
       </button>
       {expanded && (
-        <ul className="mt-1.5 space-y-1 border-t border-[#2a3570]/40 pt-1.5">
+        <ul className="border-t border-border/40 px-3 py-1">
           {entries.map((e) => (
-            <li key={e.id} className="flex items-center justify-between text-[11px] text-[#a0a0e8]">
-              <span>{e.value}/10</span>
-              <span className="flex items-center gap-2">
-                <span className="text-[#5050a0]">{fmtDate(e.changed_at)}</span>
-                <button
-                  onClick={() => removeEntry(e.id)}
-                  disabled={busy}
-                  aria-label="Remove this entry"
-                  className="text-[#5050a0] transition hover:text-red-400 disabled:opacity-50"
-                >
-                  <TrashIcon />
-                </button>
-              </span>
+            <li key={e.id} className="flex min-h-9 items-center justify-between gap-2 text-xs text-text">
+              <span className="font-semibold text-[#a090ff]">{e.value}/10</span>
+              <span className="ml-auto text-text-faint">{fmtDate(e.changed_at)}</span>
+              <IconButton label="Remove this entry" size="sm" variant="ghost" onClick={() => removeEntry(e.id)} disabled={busy} className="-mr-2 h-8 w-8 text-text-faint hover:text-red-300">
+                <TrashIcon size={14} />
+              </IconButton>
             </li>
           ))}
         </ul>

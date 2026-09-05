@@ -168,8 +168,10 @@ function MediaCard({ id, type, title, posterPath, isFollowing = false, onFollowT
           onClick={handleFollow}
           onMouseEnter={() => setHovering(true)}
           onMouseLeave={() => setHovering(false)}
-          className={`mx-auto flex w-full max-w-[7rem] items-center justify-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-bold transition active:scale-95 sm:px-3 ${
-            justFollowed ? "animate-[followPop_0.4s_ease-out]" : ""
+          aria-pressed={isFollowing}
+          title={isFollowing ? "Unfollow" : "Follow"}
+          className={`mx-auto flex h-8 w-full max-w-[8rem] items-center justify-center gap-1 rounded-full border px-2 text-[11px] font-bold transition active:scale-95 sm:px-3 ${
+            justFollowed ? "animate-follow-pop" : ""
           } ${
             isFollowing
               ? hovering
@@ -179,7 +181,7 @@ function MediaCard({ id, type, title, posterPath, isFollowing = false, onFollowT
           }`}
         >
           {isFollowing ? (
-            hovering ? <><MinusIcon /> Unfollow</> : <><CheckIcon /> Followed</>
+            hovering ? <><MinusIcon /> Unfollow</> : <><CheckIcon /> Following <span aria-hidden className="opacity-60">✕</span></>
           ) : (
             <><PlusIcon /> Follow</>
           )}

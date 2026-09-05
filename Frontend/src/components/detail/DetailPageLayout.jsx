@@ -1,54 +1,47 @@
-function DetailPageLayout({ title, followButton, sidebarTop, sidebarBottom, sidebarFooter, children }) {
-  const hasSidebar = sidebarTop || sidebarBottom;
+import { useEffect, useRef, useState } from "react";
+import DetailHero from "./DetailHero.jsx";
 
-  const mobileSidebar = hasSidebar && (
-    <div className="mb-4 flex flex-col gap-4 sm:flex-row sm:gap-3 lg:hidden">
-      {sidebarTop && (
-        <div className="w-[80px] flex-shrink-0 sm:w-[100px]">
-          {sidebarTop}
-        </div>
-      )}
-      {sidebarBottom && (
-        <div className="min-w-0 flex-1 rounded-2xl border border-[#2a3570]/50 bg-[#0d0f1e]/70 p-3 backdrop-blur-sm sm:p-4">
-          {sidebarBottom}
-        </div>
-      )}
-      {sidebarFooter}
-    </div>
-  );
+// Detail page shell (movie / show / season / episode / person).
+//   <lg : hero (backdrop + poster + title + actions) → activity panel → content
+//   lg+ : hero (title + actions) over a 240px sticky sidebar (poster + panel) + content
+// The panel is mounted exactly once (in the aside, which is a full-width
+// block below `lg`) so its hooks never diverge between two copies. A slim
+// title bar slides in under the header on phones once the hero scrolls away.
+function DetailPageLayout({ title, subtitle, meta, backdropPath, poster, actions, panel, children }) {
+  const heroRef = useRef(null);
+  const [heroGone, setHeroGone] = useState(false);
+
+  useEffect(() => {
+    const el = heroRef.current;
+    if (!el || typeof IntersectionObserver === "undefined") return undefined;
+    const io = new IntersectionObserver(([entry]) => setHeroGone(!entry.isIntersecting), { rootMargin: "-56px 0px 0px 0px", threshold: 0 });
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
 
   return (
-    <div className="mx-auto max-w-[1400px]">
-      {/* Title + follow — sticky on mobile only */}
-      <div className="sticky top-14 z-10 -mx-3 mb-4 border-b border-[#2a3570]/40 bg-[#111320]/85 px-3 py-3 backdrop-blur-md sm:-mx-5 sm:px-5 lg:static lg:mx-0 lg:border-0 lg:bg-transparent lg:px-0 lg:py-0 lg:backdrop-blur-none">
-        <div className="flex items-start justify-between gap-4">
-          <h1 className="flex min-w-0 flex-1 items-start gap-2.5 break-words text-xl font-extrabold leading-tight text-white sm:text-2xl lg:text-3xl">
-            <span className="mt-1 h-7 w-1 shrink-0 rounded-full bg-gradient-to-b from-[#c084fc] to-[#6f6fdc] sm:h-8 lg:h-9" aria-hidden />
-            <span className="min-w-0">{title}</span>
-          </h1>
-          {followButton && <div className="flex-shrink-0">{followButton}</div>}
-        </div>
+    <div className="mx-auto max-w-[1400px] 3xl:max-w-[1600px]">
+      <div
+        aria-hidden={!heroGone}
+        className={`pointer-events-none fixed inset-x-0 top-14 z-30 border-b border-border/40 bg-surface/90 backdrop-blur-md transition-all duration-200 lg:hidden landscape-short:top-12 ${
+          heroGone ? "translate-y-0 opacity-100" : "-translate-y-2 opacity-0"
+        }`}
+      >
+        <p className="truncate px-4 py-2 text-sm font-bold text-white sm:px-6">{title}</p>
       </div>
 
-      {/* Main layout */}
-      <div className="flex gap-6">
-        {/* Desktop sidebar (lg+): poster + summary stick while main column scrolls */}
-        <aside className="hidden w-[220px] flex-shrink-0 lg:block">
-          <div className="sticky top-16 flex flex-col gap-4">
-            {sidebarTop}
-            {sidebarBottom && (
-              <div className="rounded-2xl border border-[#2a3570]/50 bg-[#0d0f1e]/70 p-4 backdrop-blur-sm">
-                {sidebarBottom}
-              </div>
-            )}
-            {sidebarFooter}
-          </div>
-        </aside>
+      <DetailHero heroRef={heroRef} title={title} subtitle={subtitle} meta={meta} backdropPath={backdropPath} poster={poster} actions={actions} />
 
-        <div className="min-w-0 flex-1 space-y-4">
-          {mobileSidebar}
-          {children}
-        </div>
+      <div className="flex flex-col gap-4 lg:flex-row lg:gap-6">
+        {(poster || panel) && (
+          <aside className="w-full shrink-0 lg:w-[240px] xl:w-[260px]">
+            <div className="flex flex-col gap-4 lg:sticky lg:top-16">
+              {poster && <div className="hidden lg:block">{poster}</div>}
+              {panel}
+            </div>
+          </aside>
+        )}
+        <div className="min-w-0 flex-1 space-y-4">{children}</div>
       </div>
     </div>
   );

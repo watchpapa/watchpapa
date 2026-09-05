@@ -1,31 +1,30 @@
-function SkeletonDetailPage({ withFollow = true }) {
+import { Skeleton } from "../ui/Skeleton.jsx";
+
+// Mirrors DetailPageLayout: hero (poster + title + actions) → panel → content.
+function SkeletonDetailPage() {
   return (
-    <div className="mx-auto w-full max-w-[1400px] animate-pulse px-1">
-      {/* Title + follow button */}
-      <div className="mb-4 flex items-start justify-between gap-4">
-        <div className="h-7 w-56 rounded-lg bg-[#1e2240] sm:h-8 sm:w-72" />
-        {withFollow && <div className="h-9 w-24 flex-shrink-0 rounded-full bg-[#1e2240]" />}
-      </div>
-
-      {/* Mobile compact: poster + info (hidden on lg+) */}
-      <div className="mb-4 flex gap-3 lg:hidden">
-        <div className="w-[80px] flex-shrink-0 rounded-2xl bg-[#1e2240] sm:w-[100px]" style={{ aspectRatio: "2/3" }} />
-        <div className="flex-1 rounded-2xl bg-[#1e2240]" />
-      </div>
-
-      {/* Two-column layout */}
-      <div className="flex gap-6">
-        {/* Desktop sidebar */}
-        <div className="hidden w-[220px] flex-shrink-0 flex-col gap-4 lg:flex">
-          <div className="w-full rounded-2xl bg-[#1e2240]" style={{ aspectRatio: "2/3" }} />
-          <div className="h-36 rounded-2xl bg-[#1e2240]" />
+    <div className="mx-auto w-full max-w-[1400px] 3xl:max-w-[1600px]" aria-busy="true" aria-label="Loading">
+      <div className="-mx-3 mb-4 flex gap-4 bg-surface/60 px-3 py-4 sm:-mx-5 sm:px-5 sm:py-6 lg:mx-0 lg:rounded-3xl lg:px-6">
+        <Skeleton className="aspect-[2/3] w-[104px] shrink-0 rounded-2xl xs:w-[120px] sm:w-[150px] lg:hidden" />
+        <div className="flex min-w-0 flex-1 flex-col justify-end gap-3">
+          <Skeleton className="h-7 w-2/3 sm:h-9" />
+          <Skeleton className="h-4 w-1/3" />
+          <div className="flex gap-2">
+            <Skeleton className="h-10 w-24 rounded-full" />
+            <Skeleton className="h-10 w-28 rounded-full" />
+          </div>
         </div>
-
-        {/* Content panels */}
+      </div>
+      <div className="flex gap-6">
+        <div className="hidden w-[240px] shrink-0 flex-col gap-4 lg:flex xl:w-[260px]">
+          <Skeleton className="aspect-[2/3] w-full rounded-2xl" />
+          <Skeleton className="h-64 rounded-2xl" />
+        </div>
         <div className="min-w-0 flex-1 space-y-4">
-          <div className="h-28 rounded-2xl bg-[#1e2240]" />
-          <div className="h-20 rounded-2xl bg-[#1e2240]" />
-          <div className="h-44 rounded-2xl bg-[#1e2240]" />
+          <Skeleton className="h-48 rounded-2xl lg:hidden" />
+          <Skeleton className="h-28 rounded-2xl" />
+          <Skeleton className="h-20 rounded-2xl" />
+          <Skeleton className="h-44 rounded-2xl" />
         </div>
       </div>
     </div>

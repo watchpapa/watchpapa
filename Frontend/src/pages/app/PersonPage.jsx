@@ -7,7 +7,13 @@ import SkeletonDetailPage from "../../components/detail/SkeletonDetailPage.jsx";
 import { usePersonData } from "../../features/person/hooks/usePersonData.js";
 import { SORTS, sortCredits, filterCredits } from "../../features/person/lib/filmography.js";
 import { PageHead } from "../../components/ui/PageHead.jsx";
+import PillTabs from "../../components/ui/PillTabs.jsx";
+import Select from "../../components/ui/Select.jsx";
+import EmptyState from "../../components/ui/EmptyState.jsx";
+import ErrorNote from "../../components/ui/ErrorNote.jsx";
 import { tmdbImg } from "../../lib/tmdbImage.js";
+import { ageFromDate } from "../../lib/validate.js";
+import { FilmIcon, UserIcon } from "../../components/icons/index.jsx";
 
 function fmt(val, fallback = "—") { return val ?? fallback; }
 
@@ -19,16 +25,13 @@ function fmtDate(val) {
 function ProfilePicture({ name, profilePath }) {
   const imgSrc = tmdbImg(profilePath, "w342");
   return (
-    <div className="relative overflow-hidden rounded-2xl border border-[#2a3570] bg-[#12163a] aspect-[2/3] w-full">
+    <div className="relative aspect-[2/3] w-full overflow-hidden rounded-2xl border border-border bg-surface-4 shadow-[0_18px_40px_-16px_rgba(0,0,0,0.7)]">
       {imgSrc ? (
         <img src={imgSrc} alt={name} className="h-full w-full object-cover" loading="lazy" />
       ) : (
-        <div className="flex h-full w-full flex-col items-center justify-center gap-3 bg-gradient-to-b from-[#181d40] to-[#0e1128] px-4">
-          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#3a3a7a" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-            <circle cx="12" cy="8" r="4" />
-            <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" />
-          </svg>
-          <span className="text-center text-sm font-medium leading-tight text-[#3a3a7a] line-clamp-4">{name}</span>
+        <div className="flex h-full w-full flex-col items-center justify-center gap-3 bg-gradient-to-b from-[#181d40] to-[#0e1128] px-4 text-border-strong">
+          <UserIcon size={40} />
+          <span className="line-clamp-4 text-center text-sm font-medium leading-tight">{name}</span>
         </div>
       )}
     </div>
@@ -44,56 +47,29 @@ function FilmographyCard({ credit }) {
   const showRating = credit.voteCount >= 20;
 
   return (
-    <Link to={to} className="flex items-center gap-3 rounded-xl border border-[#2a3570]/50 bg-[#0d0f1e] p-3 transition hover:border-[#3a3a7a] hover:bg-[#141728]">
-      <div className="h-16 w-11 flex-shrink-0 overflow-hidden rounded-lg border border-[#2a3570] bg-[#12163a]">
+    <Link to={to} className="flex items-center gap-3 rounded-xl border border-border/50 bg-surface p-3 transition hover:border-border-strong hover:bg-surface-2">
+      <div className="h-16 w-11 shrink-0 overflow-hidden rounded-lg border border-border bg-surface-4">
         {imgSrc ? (
           <img src={imgSrc} alt={credit.title} className="h-full w-full object-cover" loading="lazy" />
         ) : (
-          <div className="flex h-full w-full items-center justify-center text-[#3a3a7a]">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="2" y="6" width="20" height="14" rx="2" /><path d="M8 6V4M16 6V4M2 10h20" /></svg>
-          </div>
+          <div className="flex h-full w-full items-center justify-center text-border-strong"><FilmIcon size={14} /></div>
         )}
       </div>
       <div className="min-w-0 flex-1">
-        <p className="font-semibold text-white leading-tight line-clamp-1">
+        <p className="line-clamp-1 font-semibold leading-tight text-white">
           {credit.title}
-          {credit.year && <span className="ml-1.5 font-normal text-[#6868b8]">({credit.year})</span>}
+          {credit.year && <span className="ml-1.5 font-normal text-text-dim">({credit.year})</span>}
         </p>
-        <p className="text-xs text-[#6868b8] line-clamp-1">{subtitle}</p>
+        <p className="line-clamp-1 text-xs text-text-dim">{subtitle}</p>
+        <p className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[10px] font-semibold">
+          <span className={credit.type === "movie" ? "text-text-muted" : "text-[#a088c8]"}>{credit.type === "movie" ? "Movie" : "Show"}</span>
+          {credit.type === "show" && credit.episodeCount ? <span className="text-text-faint">· {credit.episodeCount} eps</span> : null}
+        </p>
       </div>
       {showRating && (
-        <span className="flex-shrink-0 rounded-full bg-[#1a1d35] px-2 py-0.5 text-[10px] font-bold text-[#e8c04a]">
-          ★ {credit.voteAverage.toFixed(1)}
-        </span>
+        <span className="shrink-0 rounded-full bg-surface-3 px-2 py-0.5 text-[10px] font-bold text-[#e8c04a]">★ {credit.voteAverage.toFixed(1)}</span>
       )}
-      {credit.type === "show" && credit.episodeCount ? (
-        <span className="flex-shrink-0 text-[10px] font-semibold text-[#6868b8]">{credit.episodeCount} eps</span>
-      ) : null}
-      <span className={`flex-shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold ${credit.type === "movie" ? "bg-[#1a1d35] text-[#8888c8]" : "bg-[#1d1a35] text-[#a088c8]"}`}>
-        {credit.type === "movie" ? "Movie" : "Show"}
-      </span>
     </Link>
-  );
-}
-
-function PillGroup({ options, value, onChange }) {
-  return (
-    <div className="flex flex-wrap gap-1 rounded-xl border border-[#2a3570]/50 bg-[#0a0c18] p-1">
-      {options.map((opt) => (
-        <button
-          key={opt.value}
-          type="button"
-          onClick={() => onChange(opt.value)}
-          className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
-            value === opt.value
-              ? "bg-gradient-to-b from-[#6f6fdc] to-[#4b3bb0] text-white shadow-[0_4px_14px_-6px_rgba(111,111,220,0.8)]"
-              : "text-[#8888c8] hover:text-white"
-          }`}
-        >
-          {opt.label}
-        </button>
-      ))}
-    </div>
   );
 }
 
@@ -111,8 +87,8 @@ function PersonPage({ session, showAdult }) {
 
   const breadcrumbs = person ? [{ label: "People", to: "/people" }, { label: person.name }] : undefined;
 
-  if (isLoading) return <AppLayout session={session}><SkeletonDetailPage withFollow={false} /></AppLayout>;
-  if (error) return <AppLayout session={session}><p className="text-center text-red-400 mt-12">{error}</p></AppLayout>;
+  if (isLoading) return <AppLayout session={session}><SkeletonDetailPage /></AppLayout>;
+  if (error) return <AppLayout session={session}><ErrorNote className="mt-12">{error}</ErrorNote></AppLayout>;
   if (!person) return null;
 
   const personOgImage = tmdbImg(person.profile_path, "w342");
@@ -130,6 +106,13 @@ function PersonPage({ session, showAdult }) {
 
   const movieCount = credits.filter((c) => c.type === "movie").length;
   const showCount = credits.filter((c) => c.type === "show").length;
+  const age = person.birthday && !person.deathday ? ageFromDate(person.birthday) : null;
+  const meta = [
+    knownForDepartment && <span key="k">{knownForDepartment}</span>,
+    person.birthday && <span key="b">Born {fmtDate(person.birthday)}{age != null ? ` (${age})` : ""}</span>,
+    person.deathday && <span key="d">Died {fmtDate(person.deathday)}</span>,
+    person.place_of_birth && <span key="p">{person.place_of_birth}</span>,
+  ];
 
   return (
     <AppLayout session={session} breadcrumbs={breadcrumbs}>
@@ -142,84 +125,72 @@ function PersonPage({ session, showAdult }) {
       />
       <DetailPageLayout
         title={person.name}
-        sidebarTop={<ProfilePicture name={person.name} profilePath={person.profile_path} />}
-        sidebarBottom={
-          <>
-            <ul className="space-y-1.5 text-xs">
-              {[
-                ["Name", fmt(person.name)],
-                ["Birthday", fmtDate(person.birthday)],
-                ["Popularity", person.popularity?.toFixed(1) ?? "—"],
-              ].map(([k, v]) => (
-                <li key={k}><span className="font-bold text-[#8383e7]">{k}:</span> <span className="text-[#c0c0e8]">{v}</span></li>
-              ))}
-            </ul>
-          </>
-        }
+        subtitle={nicknames.length > 0 ? `Also known as ${nicknames.slice(0, 3).join(", ")}` : undefined}
+        meta={meta}
+        poster={<ProfilePicture name={person.name} profilePath={person.profile_path} />}
       >
-        <ContentPanel label="Details">
-          <ul className="grid grid-cols-1 gap-1.5 text-sm sm:grid-cols-2">
-            {[
-              ["Name", fmt(person.name)],
-              ...(nicknames.length > 0 ? [["AKA", nicknames.join(", ")]] : []),
-              ...(knownForDepartment ? [["Known for", knownForDepartment]] : []),
-              ["Birthday", fmtDate(person.birthday)],
-              ["Place of birth", fmt(person.place_of_birth)],
-              ...(person.deathday ? [["Deathday", fmtDate(person.deathday)]] : []),
-            ].map(([k, v]) => (
-              <li key={k}><span className="font-semibold text-[#8383e7]">{k}:</span> <span className="text-[#c0c0e8]">{v}</span></li>
-            ))}
-          </ul>
-        </ContentPanel>
-
         {person.biography && (
           <ContentPanel label="Bio">
-            <p className="text-sm leading-relaxed text-[#c0c0e8] whitespace-pre-line">{person.biography}</p>
+            <p className="whitespace-pre-line text-sm leading-relaxed text-text">{person.biography}</p>
           </ContentPanel>
         )}
 
         {credits.length > 0 && (
           <ContentPanel label="Filmography">
             <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <PillGroup
-                options={[
-                  { value: "all", label: `All (${credits.length})` },
-                  { value: "movie", label: `Movies (${movieCount})` },
-                  { value: "show", label: `Shows (${showCount})` },
+              <PillTabs
+                size="sm"
+                aria-label="Filmography type"
+                tabs={[
+                  { value: "all", label: "All", count: credits.length },
+                  { value: "movie", label: "Movies", count: movieCount },
+                  { value: "show", label: "Shows", count: showCount },
                 ]}
                 value={kind}
                 onChange={setKind}
+                className="w-fit max-w-full"
               />
-              <select
-                value={sort}
-                onChange={(e) => setSort(e.target.value)}
-                className="rounded-lg border border-[#3a3a7a] bg-[#1a1d35] px-3 py-2 text-sm text-white transition hover:border-[#5a5aaa]"
-              >
-                {SORTS.map((s) => (
-                  <option key={s.id} value={s.id}>{s.label}</option>
-                ))}
-              </select>
+              <Select size="sm" value={sort} onChange={setSort} options={SORTS.map((s) => ({ value: s.id, label: s.label }))} aria-label="Sort filmography" />
             </div>
 
             {departments.length > 1 && (
-              <div className="mb-4">
-                <PillGroup
-                  options={[{ value: "all", label: "All roles" }, ...departments.map((d) => ({ value: d, label: d }))]}
-                  value={department}
-                  onChange={setDepartment}
-                />
-              </div>
+              <PillTabs
+                size="sm"
+                aria-label="Department"
+                className="mb-4 w-fit max-w-full"
+                tabs={[{ value: "all", label: "All roles" }, ...departments.map((d) => ({ value: d, label: d }))]}
+                value={department}
+                onChange={setDepartment}
+              />
             )}
 
             {filmography.length === 0 ? (
-              <p className="py-6 text-center text-sm text-[#6868b8]">Nothing matches this filter.</p>
+              <EmptyState compact title="Nothing matches this filter." />
             ) : (
-              <div className="space-y-2">
+              <div className="grid grid-cols-1 gap-2 xl:grid-cols-2">
                 {filmography.map((c) => <FilmographyCard key={c.key} credit={c} />)}
               </div>
             )}
           </ContentPanel>
         )}
+
+        <ContentPanel label="Details">
+          <dl className="grid grid-cols-1 gap-x-6 gap-y-2 text-sm sm:grid-cols-2">
+            {[
+              ["Name", fmt(person.name)],
+              ...(nicknames.length > 0 ? [["Also known as", nicknames.join(", ")]] : []),
+              ...(knownForDepartment ? [["Known for", knownForDepartment]] : []),
+              ["Birthday", fmtDate(person.birthday)],
+              ["Place of birth", fmt(person.place_of_birth)],
+              ...(person.deathday ? [["Died", fmtDate(person.deathday)]] : []),
+            ].map(([k, v]) => (
+              <div key={k} className="flex gap-2">
+                <dt className="shrink-0 font-semibold text-heading">{k}:</dt>
+                <dd className="min-w-0 break-words text-text">{v}</dd>
+              </div>
+            ))}
+          </dl>
+        </ContentPanel>
       </DetailPageLayout>
     </AppLayout>
   );

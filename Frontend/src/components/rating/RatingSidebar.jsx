@@ -1,32 +1,26 @@
 import { useState } from "react";
 import { useRating } from "../../features/rating/hooks/useRating.js";
+import Button from "../ui/Button.jsx";
 
-// Always-visible sidebar rating widget.
-// Unrated: 5 hearts shown live — hover to preview, click to set.
-// Already rated: the hearts are static (no hover/click) so a stray click
-// can't silently overwrite a rating that now has history behind it
-// (RatingHistoryPanel) — changing it is a deliberate "Add new rating" click,
-// which reveals the same live hearts to pick a new value.
-// Logged-out users: shows empty hearts; clicking triggers onAuthPrompt.
-// isUnreleased: when true, shows "Not yet released" instead of rating controls.
-// Inspired by Letterboxd's sidebar star rating.
+// The rating control inside MediaActionPanel.
+// Unrated: 5 hearts shown live — hover/drag to preview half steps, tap to set.
+// Rated: the hearts go static so a stray tap can't overwrite a rating that now
+// has history behind it; "Change" re-enables them, "Clear" removes the rating.
+// Logged-out users see empty hearts; tapping triggers onAuthPrompt.
+// isUnreleased: shows "Not yet released" instead of the controls.
 
 const HEART_PATH = "M8 14.7C3.8 11.2 1 8.8 1 6.1 1 4 2.7 2.4 4.8 2.4c1.1 0 2.2.5 3.2 1.8C9 2.9 10.1 2.4 11.2 2.4 13.3 2.4 15 4 15 6.1c0 2.7-2.8 5.1-7 8.6z";
-const SIZE = 28;
 
 export function RatingSidebar({ mediaType, entityId, session, onAuthPrompt, isUnreleased, tmdbShowId, seasonNumber, episodeNumber }) {
-  const { value, setRating, clearRating } = useRating(mediaType, entityId, session, {
-    tmdbShowId,
-    seasonNumber,
-    episodeNumber,
-  });
+  const { value, setRating, clearRating } = useRating(mediaType, entityId, session, { tmdbShowId, seasonNumber, episodeNumber });
   const [preview, setPreview] = useState(null);
   const [changing, setChanging] = useState(false);
 
   if (isUnreleased) {
     return (
-      <div className="mt-4 rounded-xl border border-[#2a3570]/50 bg-[#0a0c18] px-4 py-3">
-        <p className="text-xs text-[#5050a0] italic">Not yet released</p>
+      <div>
+        <p className="text-[11px] font-semibold uppercase tracking-widest text-accent">Your rating</p>
+        <p className="mt-1 text-sm italic text-text-faint">Not yet released</p>
       </div>
     );
   }
@@ -34,94 +28,84 @@ export function RatingSidebar({ mediaType, entityId, session, onAuthPrompt, isUn
   const isEditable = value == null || changing;
   const displayValue = preview ?? value ?? 0;
 
-  const getHeartValue = (e, heartIndex) => {
+  const heartValue = (e, heartIndex) => {
     const rect = e.currentTarget.getBoundingClientRect();
-    const x = e.clientX - rect.left;
+    const x = (e.clientX ?? e.touches?.[0]?.clientX ?? rect.left) - rect.left;
     return x < rect.width / 2 ? heartIndex * 2 - 1 : heartIndex * 2;
   };
 
-  const handleMouseMove = (e, heartIndex) => {
+  const onMove = (e, i) => {
     if (!session || !isEditable) return;
-    setPreview(getHeartValue(e, heartIndex));
+    setPreview(heartValue(e, i));
   };
 
-  const handleClick = (e, heartIndex) => {
+  const onPick = (e, i) => {
     if (!session) { onAuthPrompt?.(); return; }
     if (!isEditable) return;
-    const v = getHeartValue(e, heartIndex);
-    setRating(v);
+    setRating(heartValue(e, i));
     setPreview(null);
     setChanging(false);
   };
 
   return (
-    <div className="mt-4 rounded-xl border border-[#2a3570]/50 bg-[#0a0c18] px-4 py-3">
-      <p className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-[#c084fc]">
-        {value != null ? `Your rating · ${value}/10` : `Rate this ${mediaType}`}
-      </p>
+    <div>
+      <div className="flex items-baseline justify-between gap-2">
+        <p className="text-[11px] font-semibold uppercase tracking-widest text-accent">
+          {value != null ? "Your rating" : `Rate this ${mediaType}`}
+        </p>
+        {(preview ?? value) != null && (
+          <span className="text-sm font-bold text-[#a090ff]" aria-live="polite">{preview ?? value}/10</span>
+        )}
+      </div>
 
       <div
-        className="flex items-center gap-1"
+        role="group"
+        aria-label={`Rating, ${value ?? 0} out of 10`}
+        className="mt-2 flex items-center gap-1.5"
         onMouseLeave={() => setPreview(null)}
         title={session ? undefined : "Sign in to rate"}
       >
         {[1, 2, 3, 4, 5].map((i) => {
           const fill = displayValue >= i * 2 ? "full" : displayValue >= i * 2 - 1 ? "half" : "empty";
-          const isPreviewHeart = preview !== null;
+          const previewing = preview !== null;
           return (
-            <svg
+            <button
               key={i}
-              width={SIZE}
-              height={SIZE}
-              viewBox="0 0 16 16"
-              fill="none"
-              className={`shrink-0 transition-transform ${
-                !isEditable ? "cursor-default" : session ? "cursor-pointer hover:scale-110" : "cursor-pointer opacity-60"
+              type="button"
+              aria-label={`${i * 2} out of 10`}
+              disabled={!!session && !isEditable}
+              onMouseMove={(e) => onMove(e, i)}
+              onClick={(e) => onPick(e, i)}
+              className={`-m-0.5 flex h-10 w-10 items-center justify-center rounded-lg p-0 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-light ${
+                !isEditable && session ? "cursor-default" : session ? "cursor-pointer hover:scale-110" : "cursor-pointer opacity-60"
               }`}
-              onMouseMove={(e) => handleMouseMove(e, i)}
-              onClick={(e) => handleClick(e, i)}
             >
-              {fill === "half" && (
-                <defs>
-                  <clipPath id={`rsc-${i}`}><rect x="0" y="0" width="8" height="16" /></clipPath>
-                </defs>
-              )}
-              <path
-                d={HEART_PATH}
-                stroke={fill === "empty" ? (isPreviewHeart ? "#6a6ab0" : "#3a3a7a") : "#a090ff"}
-                strokeWidth="1.2"
-                fill="none"
-              />
-              {fill === "full" && <path d={HEART_PATH} fill="#a090ff" />}
-              {fill === "half" && <path d={HEART_PATH} fill="#a090ff" clipPath={`url(#rsc-${i})`} />}
-            </svg>
+              <svg width={30} height={30} viewBox="0 0 16 16" fill="none" className="shrink-0" aria-hidden>
+                {fill === "half" && (
+                  <defs>
+                    <clipPath id={`rsc-${mediaType}-${i}`}><rect x="0" y="0" width="8" height="16" /></clipPath>
+                  </defs>
+                )}
+                <path d={HEART_PATH} stroke={fill === "empty" ? (previewing ? "#6a6ab0" : "#3a3a7a") : "#a090ff"} strokeWidth="1.2" fill="none" />
+                {fill === "full" && <path d={HEART_PATH} fill="#a090ff" />}
+                {fill === "half" && <path d={HEART_PATH} fill="#a090ff" clipPath={`url(#rsc-${mediaType}-${i})`} />}
+              </svg>
+            </button>
           );
         })}
       </div>
 
       {value != null && !changing && (
-        <div className="mt-2 flex items-center gap-3">
-          <button
-            onClick={() => (session ? setChanging(true) : onAuthPrompt?.())}
-            className="text-[10px] text-[#5050a0] transition hover:text-[#a090ff]"
-          >
-            Add new rating
-          </button>
-          <button
-            onClick={() => clearRating()}
-            className="text-[10px] text-[#5050a0] transition hover:text-red-400"
-          >
-            Clear rating
-          </button>
+        <div className="mt-2 flex items-center gap-1">
+          <Button variant="ghost" size="xs" onClick={() => (session ? setChanging(true) : onAuthPrompt?.())}>Change</Button>
+          <Button variant="ghost" size="xs" onClick={() => clearRating()} className="text-text-faint hover:text-red-300">Clear</Button>
         </div>
       )}
       {changing && (
-        <button
-          onClick={() => { setChanging(false); setPreview(null); }}
-          className="mt-2 text-[10px] text-[#5050a0] transition hover:text-white"
-        >
-          Cancel
-        </button>
+        <div className="mt-2 flex items-center gap-2">
+          <span className="text-xs text-text-faint">Pick a new rating</span>
+          <Button variant="ghost" size="xs" onClick={() => { setChanging(false); setPreview(null); }}>Cancel</Button>
+        </div>
       )}
     </div>
   );
