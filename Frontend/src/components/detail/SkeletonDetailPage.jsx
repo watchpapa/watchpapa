@@ -16,7 +16,7 @@ function SkeletonDetailPage() {
         </div>
       </div>
       <div className="flex gap-6">
-        <div className="hidden w-[240px] shrink-0 flex-col gap-4 lg:flex xl:w-[260px]">
+        <div className="hidden w-[264px] shrink-0 flex-col gap-4 lg:flex xl:w-[284px]">
           <Skeleton className="aspect-[2/3] w-full rounded-2xl" />
           <Skeleton className="h-64 rounded-2xl" />
         </div>

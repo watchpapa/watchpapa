@@ -3,7 +3,7 @@ import DetailHero from "./DetailHero.jsx";
 
 // Detail page shell (movie / show / season / episode / person).
 //   <lg : hero (backdrop + poster + title + actions) → activity panel → content
-//   lg+ : hero (title + actions) over a 240px sticky sidebar (poster + panel) + content
+//   lg+ : hero (title + actions) over a 264px sticky sidebar (poster + panel) + content
 // The panel is mounted exactly once (in the aside, which is a full-width
 // block below `lg`) so its hooks never diverge between two copies. A slim
 // title bar slides in under the header once the hero scrolls away — on every
@@ -40,7 +40,12 @@ function DetailPageLayout({ title, subtitle, meta, backdropPath, poster, actions
 
       <div className={`flex flex-col gap-4 lg:flex-row lg:gap-6 ${heroGone ? "pt-10" : ""}`}>
         {(poster || panel) && (
-          <aside className="w-full shrink-0 lg:w-[240px] xl:w-[260px]">
+          // 264/284px, not 240/260 — the panel's 5-heart rating row (5×40px
+          // + gaps ≈ 210px) plus its own p-4 padding left almost no margin
+          // at 240px: any rendering variance overflowed the sidebar's own
+          // box and bled into the content column next to it (flex children
+          // don't clip by default). This leaves real breathing room.
+          <aside className="w-full shrink-0 lg:w-[264px] xl:w-[284px]">
             <div className={`flex flex-col gap-4 lg:sticky ${heroGone ? "lg:top-24" : "lg:top-16"}`}>
               {poster && <div className="hidden lg:block">{poster}</div>}
               {panel}
