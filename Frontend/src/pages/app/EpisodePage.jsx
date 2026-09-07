@@ -75,15 +75,15 @@ function EpisodePage({ session }) {
   const { isFollowing, toggleFollow, followLimitError, clearFollowLimitError } = useShowFollow(showId, session, { blocked: !!followBlockedLabel });
   const handleFollow = session ? toggleFollow : () => setShowAuthPrompt(true);
 
-  const breadcrumbs = episode && season && show ? [
+  const breadcrumbs = [
     { label: "Shows", to: "/shows" },
-    { label: show.name, to: `/shows/${showId}` },
-    { label: season.name, to: `/shows/${showId}/seasons/${seasonNumber}` },
-    { label: episode.name },
-  ] : undefined;
+    { label: show?.name ?? "Show", to: `/shows/${showId}` },
+    { label: season?.name ?? "Season", to: `/shows/${showId}/seasons/${seasonNumber}` },
+    ...(episode ? [{ label: episode.name }] : []),
+  ];
 
-  if (isLoading) return <AppLayout session={session}><SkeletonDetailPage /></AppLayout>;
-  if (error) return <AppLayout session={session}><ErrorNote className="mt-12">{error}</ErrorNote></AppLayout>;
+  if (isLoading) return <AppLayout session={session} breadcrumbs={breadcrumbs}><SkeletonDetailPage /></AppLayout>;
+  if (error) return <AppLayout session={session} breadcrumbs={breadcrumbs}><ErrorNote className="mt-12">{error}</ErrorNote></AppLayout>;
   if (!episode || !season || !show) return null;
 
   const episodeJsonLd = {

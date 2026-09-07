@@ -7,10 +7,21 @@ import { cn } from "../../lib/cn.js";
 //
 // tabs: [{ value, label, count?, badge?, icon?: Component, disabled?, className? }]
 function PillTabs({ tabs, value, onChange, size = "md", className, fill = false, "aria-label": ariaLabel }) {
+  const listRef = useRef(null);
   const activeRef = useRef(null);
 
+  // Keep the active pill visible by scrolling ONLY this tablist's own
+  // horizontal overflow — never scrollIntoView(), which also walks the window
+  // and yanks the whole page vertically when the strip is below the fold.
   useEffect(() => {
-    activeRef.current?.scrollIntoView?.({ block: "nearest", inline: "nearest" });
+    const c = listRef.current;
+    const a = activeRef.current;
+    if (!c || !a) return;
+    const cr = c.getBoundingClientRect();
+    const ar = a.getBoundingClientRect();
+    const pad = 8;
+    if (ar.left < cr.left + pad) c.scrollLeft -= cr.left + pad - ar.left;
+    else if (ar.right > cr.right - pad) c.scrollLeft += ar.right - (cr.right - pad);
   }, [value]);
 
   const sizeClass = size === "sm" ? "h-8 px-3 text-xs" : size === "lg" ? "h-11 px-5 text-sm" : "h-10 px-4 text-sm";
@@ -32,6 +43,7 @@ function PillTabs({ tabs, value, onChange, size = "md", className, fill = false,
   return (
     <div
       role="tablist"
+      ref={listRef}
       aria-label={ariaLabel}
       onKeyDown={onKeyDown}
       className={cn(

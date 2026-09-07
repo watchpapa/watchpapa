@@ -31,6 +31,17 @@ export function useContent(path) {
   });
   const reloadRef = useRef(0);
 
+  // Resync synchronously when the key changes (locale switch, or a detail page
+  // navigating to another id) so a render never shows the previous entity's
+  // data at the previous scroll position. React's supported "adjust state while
+  // rendering" pattern; the effect below still does the actual fetch.
+  const [seenKey, setSeenKey] = useState(key);
+  if (seenKey !== key) {
+    setSeenKey(key);
+    const hit = key ? cached(key) : undefined;
+    setState({ data: hit ?? null, loading: !!key && hit === undefined, error: null });
+  }
+
   useEffect(() => {
     if (!key) {
       setState({ data: null, loading: false, error: null });

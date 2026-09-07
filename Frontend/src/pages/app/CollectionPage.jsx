@@ -15,8 +15,10 @@ function CollectionPage({ session }) {
   const { id } = useParams();
   const { collection, items, isLoading, error, followLimitError, clearFollowLimitError } = useCollectionData(id, session);
 
-  if (isLoading) return <AppLayout session={session}><SkeletonDetailPage /></AppLayout>;
-  if (error) return <AppLayout session={session}><ErrorNote className="mt-12">{error}</ErrorNote></AppLayout>;
+  const breadcrumbs = [{ label: "Collections", to: "/collections" }, ...(collection ? [{ label: collection.name }] : [])];
+
+  if (isLoading) return <AppLayout session={session} breadcrumbs={breadcrumbs}><SkeletonDetailPage /></AppLayout>;
+  if (error) return <AppLayout session={session} breadcrumbs={breadcrumbs}><ErrorNote className="mt-12">{error}</ErrorNote></AppLayout>;
   if (!collection) return null;
 
   const ogImage = tmdbImg(collection.backdrop_path, "w1280") ?? tmdbImg(collection.poster_path, "w500");
@@ -24,7 +26,7 @@ function CollectionPage({ session }) {
   const span = years.length ? (years[0] === years[years.length - 1] ? years[0] : `${years[0]}–${years[years.length - 1]}`) : null;
 
   return (
-    <AppLayout session={session} breadcrumbs={[{ label: "Collections", to: "/collections" }, { label: collection.name }]}>
+    <AppLayout session={session} breadcrumbs={breadcrumbs}>
       <PageHead title={collection.name} description={collection.overview?.slice(0, 155) || `Every film in the ${collection.name}.`} image={ogImage} path={`/collections/${id}`} />
       {followLimitError && <UpgradePromptToast message={followLimitError} onDismiss={clearFollowLimitError} session={session} />}
       <DetailPageLayout

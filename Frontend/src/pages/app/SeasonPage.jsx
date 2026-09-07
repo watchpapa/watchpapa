@@ -75,14 +75,14 @@ function SeasonPage({ session }) {
   const prevSeason = currentIdx > 0 ? seasons[currentIdx - 1] : null;
   const nextSeason = currentIdx >= 0 && currentIdx < seasons.length - 1 ? seasons[currentIdx + 1] : null;
 
-  const breadcrumbs = season && show ? [
+  const breadcrumbs = [
     { label: "Shows", to: "/shows" },
-    { label: show.name, to: `/shows/${showId}` },
-    { label: season.name },
-  ] : undefined;
+    { label: show?.name ?? "Show", to: `/shows/${showId}` },
+    ...(season ? [{ label: season.name }] : []),
+  ];
 
-  if (isLoading) return <AppLayout session={session}><SkeletonDetailPage /></AppLayout>;
-  if (error) return <AppLayout session={session}><ErrorNote className="mt-12">{error}</ErrorNote></AppLayout>;
+  if (isLoading) return <AppLayout session={session} breadcrumbs={breadcrumbs}><SkeletonDetailPage /></AppLayout>;
+  if (error) return <AppLayout session={session} breadcrumbs={breadcrumbs}><ErrorNote className="mt-12">{error}</ErrorNote></AppLayout>;
   if (!season || !show) return null;
 
   const episodeCount = episodes.length || season.episodes?.length || 0;

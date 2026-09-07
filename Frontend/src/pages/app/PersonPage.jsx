@@ -85,10 +85,10 @@ function PersonPage({ session, showAdult }) {
     [credits, kind, department, sort],
   );
 
-  const breadcrumbs = person ? [{ label: "People", to: "/people" }, { label: person.name }] : undefined;
+  const breadcrumbs = [{ label: "People", to: "/people" }, ...(person ? [{ label: person.name }] : [])];
 
-  if (isLoading) return <AppLayout session={session}><SkeletonDetailPage /></AppLayout>;
-  if (error) return <AppLayout session={session}><ErrorNote className="mt-12">{error}</ErrorNote></AppLayout>;
+  if (isLoading) return <AppLayout session={session} breadcrumbs={breadcrumbs}><SkeletonDetailPage /></AppLayout>;
+  if (error) return <AppLayout session={session} breadcrumbs={breadcrumbs}><ErrorNote className="mt-12">{error}</ErrorNote></AppLayout>;
   if (!person) return null;
 
   const personOgImage = tmdbImg(person.profile_path, "w342");

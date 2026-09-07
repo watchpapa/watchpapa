@@ -74,10 +74,10 @@ function ShowPage({ session, showAdult }) {
   const seasonsComplete = useShowCompletion(id ? Number(id) : null, seasons, session);
   const watchLog = useWatchLog("show", id ? Number(id) : null, session);
 
-  const breadcrumbs = show ? [{ label: "Shows", to: "/shows" }, { label: show.name }] : undefined;
+  const breadcrumbs = [{ label: "Shows", to: "/shows" }, ...(show ? [{ label: show.name }] : [])];
 
-  if (isLoading) return <AppLayout session={session}><SkeletonDetailPage /></AppLayout>;
-  if (error) return <AppLayout session={session}><ErrorNote className="mt-12">{error}</ErrorNote></AppLayout>;
+  if (isLoading) return <AppLayout session={session} breadcrumbs={breadcrumbs}><SkeletonDetailPage /></AppLayout>;
+  if (error) return <AppLayout session={session} breadcrumbs={breadcrumbs}><ErrorNote className="mt-12">{error}</ErrorNote></AppLayout>;
   if (!show) return null;
 
   const firstYear = show.first_air_date ? new Date(show.first_air_date).getFullYear() : null;

@@ -66,10 +66,10 @@ function MoviePage({ session, showAdult }) {
   const { value: ratingValue } = useRating("movie", id ? Number(id) : null, session);
   const watchLog = useWatchLog("movie", id ? Number(id) : null, session);
 
-  const breadcrumbs = movie ? [{ label: "Movies", to: "/movies" }, { label: movie.title }] : undefined;
+  const breadcrumbs = [{ label: "Movies", to: "/movies" }, ...(movie ? [{ label: movie.title }] : [])];
 
-  if (isLoading) return <AppLayout session={session}><SkeletonDetailPage /></AppLayout>;
-  if (error) return <AppLayout session={session}><ErrorNote className="mt-12">{error}</ErrorNote></AppLayout>;
+  if (isLoading) return <AppLayout session={session} breadcrumbs={breadcrumbs}><SkeletonDetailPage /></AppLayout>;
+  if (error) return <AppLayout session={session} breadcrumbs={breadcrumbs}><ErrorNote className="mt-12">{error}</ErrorNote></AppLayout>;
   if (!movie) return null;
 
   const year = movie.release_date ? new Date(movie.release_date).getFullYear() : null;
