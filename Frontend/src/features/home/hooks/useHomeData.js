@@ -388,10 +388,17 @@ export function useHomeData(session, showAdult = false) {
     () => showCards.map((c) => ({ ...cardToItem(c, followedShowIds), onFollowToggle: () => toggleFollow("show", c.id) })),
     [showCards, followedShowIds, toggleFollow],
   );
+  // movies-popular / shows-popular are TMDB's /trending/{movie,tv}/day feeds —
+  // interleave them, preserving each feed's own trending order, rather than
+  // re-sorting by tmdb_popularity (a slow-moving average that would undo the
+  // trending order and make the row look static day to day).
   const popular = useMemo(() => {
-    return [...movieItems, ...showItems]
-      .sort((a, b) => b.tmdbPopularity - a.tmdbPopularity)
-      .slice(0, popularCount);
+    const merged = [];
+    for (let i = 0; i < Math.max(movieItems.length, showItems.length); i += 1) {
+      if (movieItems[i]) merged.push(movieItems[i]);
+      if (showItems[i]) merged.push(showItems[i]);
+    }
+    return merged.slice(0, popularCount);
   }, [movieItems, showItems, popularCount]);
 
   const myServicesMovieItems = useMemo(

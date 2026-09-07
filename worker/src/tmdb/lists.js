@@ -3,20 +3,23 @@
 //
 // `discover` kinds are served through /discover/{movie,tv} instead of the raw TMDB
 // list endpoint (/movie/popular etc.) — TMDB's list endpoints ignore `include_adult`
-// and have no keyword-exclusion param, so Popular/Top-rated route through discover to
+// and have no keyword-exclusion param, so Top-rated routes through discover to
 // get language/region/adult/NSFW-keyword filtering consistently with the rest of the
 // app. Kinds with no `discover` key stay on the plain list endpoint (Worker-side NSFW
 // post-filtering only); `regional: true` marks the ones TMDB accepts a `region` on.
+//
+// `movies-popular` / `shows-popular` are backed by TMDB's /trending/{movie,tv}/day
+// feed, not `/discover?sort_by=popularity.desc`: the discover popularity sort is a
+// slow-moving average that stays near-identical for days ("Popular never refreshes"),
+// whereas /trending genuinely rotates daily. /trending has no keyword-exclusion
+// param, so these fall back to the Worker-side filterNsfw() post-filter (`adult` flag
+// + title regex) like the other plain-list kinds.
 //
 // The hidden /adult page is NOT a list kind — it goes through /discover/:type
 // with `adult_only=1` (+ optional `keyword`/`sort`), see tmdb/discover.js.
 
 export const LIST_KINDS = {
-  "movies-popular": {
-    discover: { type: "movie", params: { sort_by: "popularity.desc" } },
-    media: "movie",
-    ttl: 21600,
-  },
+  "movies-popular": { path: "/trending/movie/day", media: "movie", ttl: 21600 },
   "movies-top-rated": {
     discover: { type: "movie", params: { sort_by: "vote_average.desc", "vote_count.gte": 300 } },
     media: "movie",
@@ -24,11 +27,7 @@ export const LIST_KINDS = {
   },
   "movies-upcoming": { path: "/movie/upcoming", media: "movie", ttl: 21600, regional: true },
   "movies-now-playing": { path: "/movie/now_playing", media: "movie", ttl: 21600, regional: true },
-  "shows-popular": {
-    discover: { type: "tv", params: { sort_by: "popularity.desc" } },
-    media: "show",
-    ttl: 21600,
-  },
+  "shows-popular": { path: "/trending/tv/day", media: "show", ttl: 21600 },
   "shows-top-rated": {
     discover: { type: "tv", params: { sort_by: "vote_average.desc", "vote_count.gte": 200 } },
     media: "show",
