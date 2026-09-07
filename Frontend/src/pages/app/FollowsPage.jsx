@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
+import { useSearchParamState } from "../../hooks/index.js";
 import AppLayout from "../../layouts/AppLayout.jsx";
 import { PageHead } from "../../components/ui/PageHead.jsx";
 import PageContainer from "../../components/ui/PageContainer.jsx";
@@ -48,7 +49,7 @@ function FollowCard({ title, poster, year, to, onUnfollow, unfollowing, chip }) 
 function FollowsPage({ session }) {
   const { shows, movies, loading, unfollowShow, unfollowMovie } = useFollows(session);
   const { tier } = useCurrentUser();
-  const [tab, setTab] = useState("shows");
+  const [tab, setTab] = useSearchParamState("tab", "shows");
   const [unfollowing, setUnfollowing] = useState(new Set());
 
   const wrap = (fn) => async (id) => {

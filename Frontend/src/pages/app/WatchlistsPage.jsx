@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
+import { useSearchParamState } from "../../hooks/index.js";
 import AppLayout from "../../layouts/AppLayout.jsx";
 import { PageHead } from "../../components/ui/PageHead.jsx";
 import UpgradePromptToast from "../../components/subscription/UpgradePromptToast.jsx";
@@ -102,8 +103,8 @@ function WatchlistsPage({ session }) {
   const { watchlists, isLoading: listsLoading, limitError, clearLimitError, createWatchlist, renameWatchlist, deleteWatchlist } = useWatchlists(session);
   const { status: overageStatus, isOverWatchlistLimit } = useOverageStatus(session);
 
-  const [selectedId, setSelectedId] = useState(null);
-  const [sortBy, setSortBy] = useState("added");
+  const [listParam, setListParam] = useSearchParamState("list", null);
+  const [sortBy, setSortBy] = useSearchParamState("sort", "added");
   const [renaming, setRenaming] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [showNewForm, setShowNewForm] = useState(false);
@@ -118,19 +119,21 @@ function WatchlistsPage({ session }) {
     return () => window.removeEventListener("watchpapa:watchlist-item-removed", bump);
   }, []);
 
-  // Auto-select the first list once loaded; fall over to the next one if the
-  // active list is deleted. (Derived during render, no effects.)
-  const [autoPicked, setAutoPicked] = useState(false);
-  if (!listsLoading && watchlists.length > 0 && selectedId === null && !autoPicked) {
-    setAutoPicked(true);
-    setSelectedId(watchlists[0].id);
-  }
-  if (selectedId !== null && !listsLoading && !watchlists.find((w) => w.id === selectedId)) {
-    setSelectedId(watchlists[0]?.id ?? null);
-  }
+  // Selected list = the `?list=` param when it names a real list, else auto-fall
+  // to the first list (never written to the URL, so a bare /watchlists stays bare).
+  const firstId = watchlists[0]?.id != null ? String(watchlists[0].id) : null;
+  const paramIsValid = listParam != null && watchlists.some((w) => String(w.id) === listParam);
+  const selectedId = paramIsValid ? listParam : firstId;
 
-  const activeList = watchlists.find((w) => w.id === selectedId) ?? null;
-  const { items, isLoading: itemsLoading, removeItem, markWatched } = useWatchlistItems(selectedId, session, itemsRefreshKey);
+  // Tidy a stale `?list=` (deleted list, or a different account) out of the URL.
+  useEffect(() => {
+    if (listParam != null && !listsLoading && watchlists.length > 0 && !watchlists.some((w) => String(w.id) === listParam)) {
+      setListParam(null);
+    }
+  }, [listParam, listsLoading, watchlists, setListParam]);
+
+  const activeList = watchlists.find((w) => String(w.id) === selectedId) ?? null;
+  const { items, isLoading: itemsLoading, removeItem, markWatched } = useWatchlistItems(activeList?.id ?? null, session, itemsRefreshKey);
 
   const sortedItems = useMemo(() => {
     const list = [...items];
@@ -152,11 +155,11 @@ function WatchlistsPage({ session }) {
     setCreating(true);
     const { data, error } = await createWatchlist(newName.trim());
     setCreating(false);
-    if (!error && data) { setNewName(""); setShowNewForm(false); setSelectedId(data.id); }
+    if (!error && data) { setNewName(""); setShowNewForm(false); setListParam(data.id); }
   };
-  const handleRename = async (name) => { await renameWatchlist(selectedId, name); setRenaming(false); };
-  const handleDelete = async () => { await deleteWatchlist(selectedId); setConfirmingDelete(false); setRenaming(false); };
-  const handleTabSelect = (id) => { setSelectedId(id); setSortBy("added"); setRenaming(false); setConfirmingDelete(false); };
+  const handleRename = async (name) => { if (activeList) await renameWatchlist(activeList.id, name); setRenaming(false); };
+  const handleDelete = async () => { if (activeList) await deleteWatchlist(activeList.id); setConfirmingDelete(false); setRenaming(false); };
+  const handleTabSelect = (id) => { setListParam(id); setSortBy("added"); setRenaming(false); setConfirmingDelete(false); };
 
   return (
     <AppLayout session={session}>
@@ -186,7 +189,7 @@ function WatchlistsPage({ session }) {
           <PillTabs
             aria-label="Watchlists"
             className="mb-5"
-            tabs={watchlists.map((w) => ({ value: w.id, label: w.name }))}
+            tabs={watchlists.map((w) => ({ value: String(w.id), label: w.name }))}
             value={selectedId}
             onChange={handleTabSelect}
           />

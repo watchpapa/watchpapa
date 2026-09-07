@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Navigate } from "react-router-dom";
+import { useCallback, useState } from "react";
+import { Navigate, useSearchParams } from "react-router-dom";
 import AppLayout from "../../layouts/AppLayout.jsx";
 import MediaGrid from "../../components/home/MediaGrid.jsx";
 import { PageHead } from "../../components/ui/PageHead.jsx";
@@ -38,6 +38,9 @@ const SORTS = [
   { value: "newest", label: "Newest" },
 ];
 
+// URL-param defaults — a param at its default is dropped to keep /adult clean.
+const PARAM_DEFAULTS = { type: "movie", sort: "popular", cat: "" };
+
 // Category select value encoding: "" = all, "k:<ids>" = NSFW keyword category,
 // "g:<id>" = genre (within adult titles).
 function parseCategory(value) {
@@ -73,9 +76,32 @@ function Warning({ onConfirm }) {
 function AdultPage({ session, showAdult }) {
   const { showAdultTab } = usePreferences();
   const [confirmed, setConfirmed] = useState(readConfirmed);
-  const [type, setType] = useState("movie");
-  const [sort, setSort] = useState("popular");
-  const [category, setCategory] = useState("");
+
+  // type / sort / category live in the URL so Back restores them (paired with
+  // the grid-data cache in useAdultPageData). `cat` encodes all|keyword|genre.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const type = searchParams.get("type") ?? PARAM_DEFAULTS.type;
+  const sort = searchParams.get("sort") ?? PARAM_DEFAULTS.sort;
+  const category = searchParams.get("cat") ?? PARAM_DEFAULTS.cat;
+
+  const setParams = useCallback(
+    (patch) => {
+      setSearchParams(
+        (prev) => {
+          const p = new URLSearchParams(prev);
+          for (const [k, v] of Object.entries(patch)) {
+            if (v == null || v === "" || v === PARAM_DEFAULTS[k]) p.delete(k);
+            else p.set(k, v);
+          }
+          return p;
+        },
+        { replace: true },
+      );
+    },
+    [setSearchParams],
+  );
+  const setSort = useCallback((v) => setParams({ sort: v }), [setParams]);
+  const setCategory = useCallback((v) => setParams({ cat: v }), [setParams]);
 
   const allowed = showAdult && showAdultTab;
   const enabled = allowed && confirmed;
@@ -96,8 +122,8 @@ function AdultPage({ session, showAdult }) {
   }
 
   function changeType(next) {
-    setType(next);
-    if (category.startsWith("g:")) setCategory(""); // genre ids differ between movie/tv
+    // genre ids differ between movie/tv → drop a genre category on the switch
+    setParams({ type: next, ...(category.startsWith("g:") ? { cat: "" } : {}) });
   }
 
   const activeLabel = category.startsWith("k:")

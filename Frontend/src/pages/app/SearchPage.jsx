@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
+import { useSearchParamState } from "../../hooks/index.js";
 import AppLayout from "../../layouts/AppLayout.jsx";
 import MediaCard from "../../components/home/MediaCard.jsx";
 import PosterGrid from "../../components/home/PosterGrid.jsx";
@@ -70,19 +71,17 @@ function SearchPage({ session, showAdult }) {
   const qFromUrl = searchParams.get("q") ?? "";
   const q = qFromUrl.trim();
   const [barValue, setBarValue] = useState(qFromUrl);
-  const [filters, setFilters] = useState({ q, typeFilter: "all", sort: "relevance" });
 
-  // Keep the bar in sync with the URL and reset filter/sort when the query
-  // itself changes (state adjusted during render — no effects).
+  // Keep the bar in sync with the URL query (state adjusted during render — no
+  // effects). Type filter + sort are URL-backed so Back restores them; they now
+  // persist across query edits rather than resetting to defaults.
   const [seenUrlQ, setSeenUrlQ] = useState(qFromUrl);
   if (seenUrlQ !== qFromUrl) {
     setSeenUrlQ(qFromUrl);
     setBarValue(qFromUrl);
   }
-  if (filters.q !== q) setFilters({ q, typeFilter: "all", sort: "relevance" });
-  const { typeFilter, sort } = filters;
-  const setTypeFilter = (v) => setFilters((f) => ({ ...f, typeFilter: v }));
-  const setSort = (v) => setFilters((f) => ({ ...f, sort: v }));
+  const [typeFilter, setTypeFilter] = useSearchParamState("type", "all");
+  const [sort, setSort] = useSearchParamState("sort", "relevance");
 
   const { results, isLoading, isLoadingMore, status, hasMore, loadMore } = useSearch(q, { showAdult });
 
