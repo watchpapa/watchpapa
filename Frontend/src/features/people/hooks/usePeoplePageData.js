@@ -4,15 +4,21 @@
 // People come from TMDB /person/popular via the Worker. TMDB paginates 20/page.
 import { useCallback, useEffect, useRef, useState } from "react";
 import { apiFetch } from "../../../lib/api.js";
+import { listKey, readList, writeList } from "../../../lib/listCache.js";
+import { usePreferences } from "../../preferences/PreferencesContext.jsx";
 
 export function usePeoplePageData(showAdult = false) {
-  const [people, setPeople] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const { localeKey } = usePreferences();
+  const key = listKey("people", { showAdult, localeKey });
+  const seed = readList(key);
+
+  const [people, setPeople] = useState(() => seed?.people ?? []);
+  const [isLoading, setIsLoading] = useState(seed === undefined);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
-  const [hasMore, setHasMore] = useState(true);
+  const [hasMore, setHasMore] = useState(seed?.hasMore ?? true);
   const [error, setError] = useState(null);
-  const pageRef = useRef(1);
-  const totalPagesRef = useRef(1);
+  const pageRef = useRef(seed?.page ?? 1);
+  const totalPagesRef = useRef(seed?.totalPages ?? 1);
   const busyRef = useRef(false);
 
   const loadPage = useCallback(async (page) => {
@@ -46,10 +52,27 @@ export function usePeoplePageData(showAdult = false) {
     }
   }, [showAdult]);
 
+  // Hydrate from the snapshot on Back; otherwise fetch page 1.
   useEffect(() => {
+    const warm = readList(key);
+    if (warm) {
+      setPeople(warm.people);
+      pageRef.current = warm.page;
+      totalPagesRef.current = warm.totalPages;
+      setHasMore(warm.hasMore);
+      setIsLoading(false);
+      return;
+    }
     pageRef.current = 1;
     loadPage(1);
-  }, [loadPage]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key]);
+
+  // Write-through so Back restores the loaded pages + scroll.
+  useEffect(() => {
+    if (isLoading) return;
+    writeList(key, { people, page: pageRef.current, totalPages: totalPagesRef.current, hasMore });
+  }, [key, isLoading, people, hasMore]);
 
   const loadMore = useCallback(() => {
     if (!busyRef.current && hasMore) loadPage(pageRef.current + 1);

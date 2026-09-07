@@ -7,6 +7,11 @@ import { useLocation, useNavigationType } from "react-router-dom";
 // so saved positions are naturally dropped then.
 const positions = new Map();
 
+// Latest window scrollY, tracked continuously. Read synchronously in the layout
+// effect to save the *outgoing* entry's position before this commit's DOM swap
+// can clamp window.scrollY (navigating to a shorter page).
+let lastScrollY = typeof window !== "undefined" ? window.scrollY : 0;
+
 const ABORT_EVENTS = ["wheel", "touchmove", "keydown", "pointerdown"];
 
 function setManualRestoration() {
@@ -19,34 +24,49 @@ setManualRestoration();
 // Drive window.scrollTo(0, targetY) until the document is tall enough and we've
 // landed (async pages grow after they fetch). Returns a canceller.
 function restoreScroll(targetY, restoringRef) {
+  if (targetY <= 0) {
+    window.scrollTo(0, 0);
+    return () => {};
+  }
   restoringRef.current = true;
   let done = false;
-  let timer = 0;
+  let raf = 0;
+  const start = performance.now();
 
   const maxY = () => Math.max(0, document.documentElement.scrollHeight - window.innerHeight);
   const apply = () => window.scrollTo(0, Math.min(targetY, maxY()));
+  const atTarget = () => Math.abs(window.scrollY - targetY) <= 2;
 
   const finish = () => {
     if (done) return;
     done = true;
+    cancelAnimationFrame(raf);
     ro.disconnect();
-    clearTimeout(timer);
     ABORT_EVENTS.forEach((e) => window.removeEventListener(e, onAbort));
     restoringRef.current = false;
   };
 
   const onAbort = () => finish(); // user took over — never fight them
+  // <body> grows as content streams in; <html>'s own box stays viewport-sized,
+  // so observe the body.
   const ro = new ResizeObserver(() => {
+    if (done) return;
     apply();
-    if (Math.abs(window.scrollY - targetY) <= 2) finish();
+    if (atTarget()) finish();
   });
 
-  ABORT_EVENTS.forEach((e) => window.addEventListener(e, onAbort, { passive: true, once: true }));
-  ro.observe(document.documentElement);
-  apply();
+  const tick = () => {
+    if (done) return;
+    apply();
+    // Stop once we've reached the saved offset, or the page genuinely can't
+    // scroll that far yet and we've been retrying for a while.
+    if (atTarget() || performance.now() - start > 1500) return finish();
+    raf = requestAnimationFrame(tick);
+  };
 
-  if (Math.abs(window.scrollY - targetY) <= 2) finish();
-  else timer = setTimeout(finish, 2000);
+  ABORT_EVENTS.forEach((e) => window.addEventListener(e, onAbort, { passive: true, once: true }));
+  ro.observe(document.body);
+  tick();
 
   return finish;
 }
@@ -62,30 +82,29 @@ export default function ScrollManager() {
   const location = useLocation();
   const navType = useNavigationType(); // "PUSH" | "POP" | "REPLACE"
 
-  const keyRef = useRef(location.key);
+  const prevKeyRef = useRef(location.key);
   const prevPathRef = useRef(location.pathname);
   const restoringRef = useRef(false);
   const cancelRef = useRef(null);
 
-  // Remember where the user is on the current history entry.
   useEffect(() => {
     setManualRestoration(); // re-assert after HMR / bfcache restore
-    let raf = 0;
     const onScroll = () => {
-      if (restoringRef.current) return;
-      cancelAnimationFrame(raf);
-      raf = requestAnimationFrame(() => positions.set(keyRef.current, window.scrollY));
+      if (!restoringRef.current) lastScrollY = window.scrollY;
     };
     window.addEventListener("scroll", onScroll, { passive: true });
-    return () => {
-      window.removeEventListener("scroll", onScroll);
-      cancelAnimationFrame(raf);
-    };
+    return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
   useLayoutEffect(() => {
+    const prevKey = prevKeyRef.current;
     const prevPath = prevPathRef.current;
-    keyRef.current = location.key;
+
+    // Save the position of the entry we're leaving — `lastScrollY` still holds
+    // the pre-navigation value here (the browser's scroll-clamp on a shorter
+    // new page fires its event asynchronously, after this effect).
+    if (prevKey !== location.key) positions.set(prevKey, lastScrollY);
+    prevKeyRef.current = location.key;
     prevPathRef.current = location.pathname;
 
     if (cancelRef.current) {
@@ -96,16 +115,22 @@ export default function ScrollManager() {
     if (location.hash) {
       const el = document.getElementById(decodeURIComponent(location.hash.slice(1)));
       if (el) el.scrollIntoView();
+      lastScrollY = window.scrollY;
       return undefined;
     }
 
     if (navType === "POP") {
-      cancelRef.current = restoreScroll(positions.get(location.key) ?? 0, restoringRef);
+      const target = positions.get(location.key) ?? 0;
+      lastScrollY = target;
+      cancelRef.current = restoreScroll(target, restoringRef);
     } else if (navType === "REPLACE") {
-      // Same page, new key — carry the position forward so a later POP restores it.
-      positions.set(location.key, window.scrollY);
+      // Same page, new key (a tab/filter/query edit) — carry the position over.
+      positions.set(location.key, lastScrollY);
     } else if (location.pathname !== prevPath) {
       window.scrollTo(0, 0);
+      lastScrollY = 0;
+    } else {
+      lastScrollY = window.scrollY;
     }
 
     return () => {

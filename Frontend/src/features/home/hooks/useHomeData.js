@@ -7,6 +7,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "../../../lib/supabase.js";
 import { apiFetch } from "../../../lib/api.js";
 import { followBlock } from "../../../lib/followGate.js";
+import { listKey, readList, writeList } from "../../../lib/listCache.js";
 import { usePreferences } from "../../preferences/PreferencesContext.jsx";
 import { useSuggestionSeeds } from "./useSuggestionSeeds.js";
 
@@ -51,49 +52,65 @@ async function fetchMyServicesPage(type, page, includeAdult, providersKey, regio
 }
 
 export function useHomeData(session, showAdult = false) {
-  const { watchProviders, effectiveWatchRegions } = usePreferences();
+  const { watchProviders, effectiveWatchRegions, localeKey } = usePreferences();
   const myServicesRegion = effectiveWatchRegions[0] ?? null;
   const providersKey = watchProviders.slice().sort((a, b) => a - b).join("|");
 
-  const [movieCards, setMovieCards] = useState([]);
-  const [showCards, setShowCards] = useState([]);
-  const [comingSoon, setComingSoon] = useState([]);
-  const [followedMovieIds, setFollowedMovieIds] = useState(new Set());
-  const [followedShowIds, setFollowedShowIds] = useState(new Set());
-  const [isLoading, setIsLoading] = useState(true);
+  const { items: seedItems, exclude: seedExclude, loaded: seedsLoaded } = useSuggestionSeeds(session);
+
+  // Two snapshot keys: the core rows (popular / coming soon / my services) are
+  // independent of the recommendation seeds; the "Suggested" rows also key on a
+  // seed signature so rating something refreshes them.
+  const coreKey = listKey("home", {
+    uid: session?.user?.id ?? "anon",
+    showAdult,
+    localeKey,
+    providersKey,
+    region: myServicesRegion ?? "",
+  });
+  const seedSig = seedsLoaded ? `${seedItems.map((s) => `${s.type}:${s.id}`).join(",")}#${seedExclude.length}` : "pending";
+  const sugKey = `${coreKey}::sug=${seedSig}`;
+  const coreSeed = readList(coreKey);
+  const sugSeed = readList(sugKey);
+
+  const [movieCards, setMovieCards] = useState(() => coreSeed?.movieCards ?? []);
+  const [showCards, setShowCards] = useState(() => coreSeed?.showCards ?? []);
+  const [comingSoon, setComingSoon] = useState(() => coreSeed?.comingSoon ?? []);
+  const [followedMovieIds, setFollowedMovieIds] = useState(() => coreSeed?.followedMovieIds ?? new Set());
+  const [followedShowIds, setFollowedShowIds] = useState(() => coreSeed?.followedShowIds ?? new Set());
+  const [isLoading, setIsLoading] = useState(coreSeed === undefined);
   const [error, setError] = useState(null);
   const [followLimitError, setFollowLimitError] = useState(null);
 
-  const [moviePage, setMoviePage] = useState(1);
-  const [showPage, setShowPage] = useState(1);
-  const [movieTotal, setMovieTotal] = useState(1);
-  const [showTotal, setShowTotal] = useState(1);
-  const [popularCount, setPopularCount] = useState(20);
+  const [moviePage, setMoviePage] = useState(() => coreSeed?.moviePage ?? 1);
+  const [showPage, setShowPage] = useState(() => coreSeed?.showPage ?? 1);
+  const [movieTotal, setMovieTotal] = useState(() => coreSeed?.movieTotal ?? 1);
+  const [showTotal, setShowTotal] = useState(() => coreSeed?.showTotal ?? 1);
+  const [popularCount, setPopularCount] = useState(() => coreSeed?.popularCount ?? 20);
   const [busy, setBusy] = useState({ movies: false, shows: false, popular: false, myServices: false });
 
-  const [myServicesMovieCards, setMyServicesMovieCards] = useState([]);
-  const [myServicesShowCards, setMyServicesShowCards] = useState([]);
-  const [myServicesMoviePage, setMyServicesMoviePage] = useState(1);
-  const [myServicesShowPage, setMyServicesShowPage] = useState(1);
-  const [myServicesMovieTotal, setMyServicesMovieTotal] = useState(1);
-  const [myServicesShowTotal, setMyServicesShowTotal] = useState(1);
-  const [myServicesCount, setMyServicesCount] = useState(20);
+  const [myServicesMovieCards, setMyServicesMovieCards] = useState(() => coreSeed?.myServicesMovieCards ?? []);
+  const [myServicesShowCards, setMyServicesShowCards] = useState(() => coreSeed?.myServicesShowCards ?? []);
+  const [myServicesMoviePage, setMyServicesMoviePage] = useState(() => coreSeed?.myServicesMoviePage ?? 1);
+  const [myServicesShowPage, setMyServicesShowPage] = useState(() => coreSeed?.myServicesShowPage ?? 1);
+  const [myServicesMovieTotal, setMyServicesMovieTotal] = useState(() => coreSeed?.myServicesMovieTotal ?? 1);
+  const [myServicesShowTotal, setMyServicesShowTotal] = useState(() => coreSeed?.myServicesShowTotal ?? 1);
+  const [myServicesCount, setMyServicesCount] = useState(() => coreSeed?.myServicesCount ?? 20);
 
-  const { items: seedItems, exclude: seedExclude, loaded: seedsLoaded } = useSuggestionSeeds(session);
-  const [suggestedCards, setSuggestedCards] = useState([]);
-  const [suggestedOnServicesCards, setSuggestedOnServicesCards] = useState([]);
+  const [suggestedCards, setSuggestedCards] = useState(() => sugSeed?.suggestedCards ?? []);
+  const [suggestedOnServicesCards, setSuggestedOnServicesCards] = useState(() => sugSeed?.suggestedOnServicesCards ?? []);
   const [loadingSuggested, setLoadingSuggested] = useState(false);
-  const [suggestedPage, setSuggestedPage] = useState(1);
-  const [suggestedOnServicesPage, setSuggestedOnServicesPage] = useState(1);
-  const [hasMoreSuggested, setHasMoreSuggested] = useState(false);
-  const [hasMoreSuggestedOnServices, setHasMoreSuggestedOnServices] = useState(false);
+  const [suggestedPage, setSuggestedPage] = useState(() => sugSeed?.suggestedPage ?? 1);
+  const [suggestedOnServicesPage, setSuggestedOnServicesPage] = useState(() => sugSeed?.suggestedOnServicesPage ?? 1);
+  const [hasMoreSuggested, setHasMoreSuggested] = useState(() => sugSeed?.hasMoreSuggested ?? false);
+  const [hasMoreSuggestedOnServices, setHasMoreSuggestedOnServices] = useState(() => sugSeed?.hasMoreSuggestedOnServices ?? false);
   const [loadingMoreSuggested, setLoadingMoreSuggested] = useState(false);
   const [loadingMoreSuggestedOnServices, setLoadingMoreSuggestedOnServices] = useState(false);
   // Every id shown so far in either suggested row, across pages — folded into
   // `exclude` on every /recommendations call so paginating never repeats a
   // title (the endpoint is stateless/per-user, never edge-cached; see
   // worker/src/routes/content.js POST /recommendations).
-  const shownSuggestedIdsRef = useRef(new Set());
+  const shownSuggestedIdsRef = useRef(new Set(sugSeed?.shownSuggestedIds ?? []));
 
   const fetchRecommendations = useCallback(
     (page) => {
@@ -119,6 +136,43 @@ export function useHomeData(session, showAdult = false) {
 
   useEffect(() => {
     let cancelled = false;
+
+    // Warm snapshot (Back nav): restore the core rows, refresh only follow state.
+    const warm = readList(coreKey);
+    if (warm) {
+      setMovieCards(warm.movieCards);
+      setShowCards(warm.showCards);
+      setComingSoon(warm.comingSoon);
+      setMoviePage(warm.moviePage);
+      setShowPage(warm.showPage);
+      setMovieTotal(warm.movieTotal);
+      setShowTotal(warm.showTotal);
+      setPopularCount(warm.popularCount);
+      setMyServicesMovieCards(warm.myServicesMovieCards);
+      setMyServicesShowCards(warm.myServicesShowCards);
+      setMyServicesMoviePage(warm.myServicesMoviePage);
+      setMyServicesShowPage(warm.myServicesShowPage);
+      setMyServicesMovieTotal(warm.myServicesMovieTotal);
+      setMyServicesShowTotal(warm.myServicesShowTotal);
+      setMyServicesCount(warm.myServicesCount);
+      setFollowedMovieIds(warm.followedMovieIds);
+      setFollowedShowIds(warm.followedShowIds);
+      setIsLoading(false);
+      if (session?.user?.id) {
+        Promise.all([
+          supabase.from("user_followed_movies").select("tmdb_id").eq("profile_id", session.user.id),
+          supabase.from("user_followed_shows").select("tmdb_id").eq("profile_id", session.user.id),
+        ]).then(([fm, fs]) => {
+          if (cancelled) return;
+          if (fm.data) setFollowedMovieIds(new Set(fm.data.map((r) => Number(r.tmdb_id))));
+          if (fs.data) setFollowedShowIds(new Set(fs.data.map((r) => Number(r.tmdb_id))));
+        });
+      }
+      return () => {
+        cancelled = true;
+      };
+    }
+
     (async () => {
       setIsLoading(true);
       try {
@@ -157,12 +211,14 @@ export function useHomeData(session, showAdult = false) {
     return () => {
       cancelled = true;
     };
-  }, [session?.user?.id, showAdult]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [coreKey]);
 
   // "Popular on my streamings" — independent of the fetch above, only runs
   // once the user has picked at least one provider (Pro+ only, see
   // SettingsPage) and a watch region.
   useEffect(() => {
+    if (readList(coreKey)) return undefined; // warm — restored by the main effect
     if (!providersKey || !myServicesRegion) {
       setMyServicesMovieCards([]);
       setMyServicesShowCards([]);
@@ -201,14 +257,17 @@ export function useHomeData(session, showAdult = false) {
     return () => {
       cancelled = true;
     };
-  }, [providersKey, myServicesRegion, showAdult]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [coreKey]);
 
   // "Suggested for you" — seeded from the user's own ratings + watched
   // watchlist items (useSuggestionSeeds), aggregated server-side by
   // /api/content/recommendations. No taste signal yet (new user, or logged
   // out) -> no seeds -> row stays empty and simply doesn't render.
   useEffect(() => {
-    if (!seedsLoaded || seedItems.length === 0) {
+    if (!seedsLoaded) return undefined; // seeds still loading — don't thrash the row
+    if (readList(sugKey)) return undefined; // warm — suggested rows restored from the snapshot
+    if (seedItems.length === 0) {
       setSuggestedCards([]);
       setSuggestedOnServicesCards([]);
       setSuggestedPage(1);
@@ -216,7 +275,7 @@ export function useHomeData(session, showAdult = false) {
       setHasMoreSuggested(false);
       setHasMoreSuggestedOnServices(false);
       shownSuggestedIdsRef.current = new Set();
-      return;
+      return undefined;
     }
     let cancelled = false;
     shownSuggestedIdsRef.current = new Set();
@@ -247,7 +306,7 @@ export function useHomeData(session, showAdult = false) {
     return () => {
       cancelled = true;
     };
-  }, [seedsLoaded, seedItems, seedExclude, providersKey, myServicesRegion, showAdult, watchProviders, fetchRecommendations]);
+  }, [sugKey, seedsLoaded, seedItems, seedExclude, providersKey, myServicesRegion, showAdult, watchProviders, fetchRecommendations]);
 
   const loadMoreSuggested = useCallback(async () => {
     if (loadingMoreSuggested || !hasMoreSuggested) return;
@@ -377,6 +436,40 @@ export function useHomeData(session, showAdult = false) {
       myServicesRegion,
     ],
   );
+
+  // Write-through: persist so Back restores the page instead of refetching.
+  useEffect(() => {
+    if (isLoading) return;
+    writeList(coreKey, {
+      movieCards, showCards, comingSoon,
+      moviePage, showPage, movieTotal, showTotal, popularCount,
+      followedMovieIds, followedShowIds,
+      myServicesMovieCards, myServicesShowCards,
+      myServicesMoviePage, myServicesShowPage, myServicesMovieTotal, myServicesShowTotal, myServicesCount,
+    });
+  }, [
+    coreKey, isLoading,
+    movieCards, showCards, comingSoon,
+    moviePage, showPage, movieTotal, showTotal, popularCount,
+    followedMovieIds, followedShowIds,
+    myServicesMovieCards, myServicesShowCards,
+    myServicesMoviePage, myServicesShowPage, myServicesMovieTotal, myServicesShowTotal, myServicesCount,
+  ]);
+
+  useEffect(() => {
+    if (!seedsLoaded || seedItems.length === 0) return;
+    writeList(sugKey, {
+      suggestedCards, suggestedOnServicesCards,
+      suggestedPage, suggestedOnServicesPage,
+      hasMoreSuggested, hasMoreSuggestedOnServices,
+      shownSuggestedIds: [...shownSuggestedIdsRef.current],
+    });
+  }, [
+    sugKey, seedsLoaded, seedItems,
+    suggestedCards, suggestedOnServicesCards,
+    suggestedPage, suggestedOnServicesPage,
+    hasMoreSuggested, hasMoreSuggestedOnServices,
+  ]);
 
   const today = new Date().toISOString().slice(0, 10);
 

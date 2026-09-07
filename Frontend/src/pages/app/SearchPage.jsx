@@ -83,7 +83,7 @@ function SearchPage({ session, showAdult }) {
   const [typeFilter, setTypeFilter] = useSearchParamState("type", "all");
   const [sort, setSort] = useSearchParamState("sort", "relevance");
 
-  const { results, isLoading, isLoadingMore, status, hasMore, loadMore } = useSearch(q, { showAdult });
+  const { results, isLoading, isLoadingMore, status, hasMore, loadMore } = useSearch(q, { showAdult, cache: true });
 
   const counts = useMemo(
     () => ({

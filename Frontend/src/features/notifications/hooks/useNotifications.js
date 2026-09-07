@@ -1,16 +1,21 @@
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "../../../lib/supabase.js";
+import { listKey, readList, writeList } from "../../../lib/listCache.js";
 
 const PAGE_SIZE = 30;
+const TTL = 120_000; // "live" surface — restore on quick Back, else refetch
 
 // Loads the current user's notifications + unread count, and marks them read.
 export function useNotifications(session) {
   const uid = session?.user?.id ?? null;
-  const [items, setItems] = useState([]);
+  const key = uid ? listKey("notifications", { uid }) : null;
+  const seed = readList(key, TTL);
+
+  const [items, setItems] = useState(() => seed?.items ?? []);
   const [unread, setUnread] = useState(0);
   const [loading, setLoading] = useState(false);
-  const [hasMore, setHasMore] = useState(true);
-  const [page, setPage] = useState(0);
+  const [hasMore, setHasMore] = useState(seed?.hasMore ?? true);
+  const [page, setPage] = useState(seed?.page ?? 0);
 
   const loadUnread = useCallback(async () => {
     if (!uid) { setUnread(0); return; }
@@ -32,14 +37,32 @@ export function useNotifications(session) {
   }, [uid]);
 
   useEffect(() => {
+    if (!uid) {
+      setItems([]);
+      setPage(0);
+      setHasMore(true);
+      return;
+    }
+    loadUnread();
+    const warm = readList(key, TTL);
+    if (warm) {
+      setItems(warm.items);
+      setPage(warm.page);
+      setHasMore(warm.hasMore);
+      return;
+    }
     setItems([]);
     setPage(0);
     setHasMore(true);
-    if (uid) {
-      fetchPage(0, false);
-      loadUnread();
-    }
+    fetchPage(0, false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [uid, fetchPage, loadUnread]);
+
+  // Write-through (short TTL).
+  useEffect(() => {
+    if (!key || loading || items.length === 0) return;
+    writeList(key, { items, page, hasMore });
+  }, [key, loading, items, page, hasMore]);
 
   const loadMore = useCallback(() => {
     const next = page + 1;
@@ -61,7 +84,8 @@ export function useNotifications(session) {
     setItems([]);
     setUnread(0);
     setLoading(false);
-  }, [uid]);
+    if (key) writeList(key, { items: [], page: 0, hasMore: false });
+  }, [uid, key]);
 
   return { items, unread, loading, hasMore, loadMore, markAllRead, clearAll, reloadUnread: loadUnread };
 }

@@ -11,6 +11,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "../../../lib/supabase.js";
 import { apiFetch } from "../../../lib/api.js";
 import { followBlock } from "../../../lib/followGate.js";
+import { listKey, readList, writeList } from "../../../lib/listCache.js";
 import { usePreferences } from "../../preferences/PreferencesContext.jsx";
 import { useSuggestionSeeds } from "../../home/hooks/useSuggestionSeeds.js";
 import { useWatchProviderList } from "../../preferences/hooks/useWatchProviderCatalog.js";
@@ -33,15 +34,16 @@ async function fetchDiscover(type, page, { providersKey, region, sort, genreId, 
 // One row of merged movie+show cards, paginated independently per media kind
 // but presented (and "loaded more") as a single row — same merge-by-popularity
 // approach useHomeData.js already uses for its "myServices" teaser row.
-function useMergedDiscoverRow({ sort, providersKey, region, showAdult, enabled }) {
-  const [movieCards, setMovieCards] = useState([]);
-  const [showCards, setShowCards] = useState([]);
-  const [moviePage, setMoviePage] = useState(1);
-  const [showPage, setShowPage] = useState(1);
-  const [movieTotal, setMovieTotal] = useState(1);
-  const [showTotal, setShowTotal] = useState(1);
-  const [count, setCount] = useState(20);
-  const [loading, setLoading] = useState(false);
+function useMergedDiscoverRow({ sort, providersKey, region, showAdult, enabled, cacheKey }) {
+  const seed = cacheKey ? readList(cacheKey) : undefined;
+  const [movieCards, setMovieCards] = useState(() => seed?.movieCards ?? []);
+  const [showCards, setShowCards] = useState(() => seed?.showCards ?? []);
+  const [moviePage, setMoviePage] = useState(() => seed?.moviePage ?? 1);
+  const [showPage, setShowPage] = useState(() => seed?.showPage ?? 1);
+  const [movieTotal, setMovieTotal] = useState(() => seed?.movieTotal ?? 1);
+  const [showTotal, setShowTotal] = useState(() => seed?.showTotal ?? 1);
+  const [count, setCount] = useState(() => seed?.count ?? 20);
+  const [loading, setLoading] = useState(!!cacheKey && seed === undefined && enabled);
   const [loadingMore, setLoadingMore] = useState(false);
 
   useEffect(() => {
@@ -53,6 +55,18 @@ function useMergedDiscoverRow({ sort, providersKey, region, showAdult, enabled }
       setMovieTotal(1);
       setShowTotal(1);
       setCount(20);
+      return;
+    }
+    const warm = cacheKey ? readList(cacheKey) : undefined;
+    if (warm) {
+      setMovieCards(warm.movieCards);
+      setShowCards(warm.showCards);
+      setMoviePage(warm.moviePage);
+      setShowPage(warm.showPage);
+      setMovieTotal(warm.movieTotal);
+      setShowTotal(warm.showTotal);
+      setCount(warm.count);
+      setLoading(false);
       return;
     }
     let cancelled = false;
@@ -83,7 +97,12 @@ function useMergedDiscoverRow({ sort, providersKey, region, showAdult, enabled }
     return () => {
       cancelled = true;
     };
-  }, [enabled, providersKey, region, sort, showAdult]);
+  }, [enabled, providersKey, region, sort, showAdult, cacheKey]);
+
+  useEffect(() => {
+    if (!cacheKey || !enabled || loading) return;
+    writeList(cacheKey, { movieCards, showCards, moviePage, showPage, movieTotal, showTotal, count });
+  }, [cacheKey, enabled, loading, movieCards, showCards, moviePage, showPage, movieTotal, showTotal, count]);
 
   const loadMore = useCallback(async () => {
     if (loadingMore) return;
@@ -125,10 +144,15 @@ function useMergedDiscoverRow({ sort, providersKey, region, showAdult, enabled }
 }
 
 export function useMyServicesPageData(session, showAdult = false, tier = "free") {
-  const { watchProviders, effectiveWatchRegions } = usePreferences();
+  const { watchProviders, effectiveWatchRegions, localeKey } = usePreferences();
   const region = effectiveWatchRegions[0] ?? null;
   const providersKey = watchProviders.slice().sort((a, b) => a - b).join("|");
   const eligible = isProTier(tier) && !!providersKey && !!region;
+
+  const cacheBase = { uid: session?.user?.id ?? "anon", showAdult, localeKey, providersKey, region: region ?? "" };
+  const popularKey = eligible ? listKey("myservices:popular", cacheBase) : null;
+  const ratedKey = eligible ? listKey("myservices:rated", cacheBase) : null;
+  const providersRowKey = eligible ? listKey("myservices:providerrows", cacheBase) : null;
 
   const [followedMovieIds, setFollowedMovieIds] = useState(new Set());
   const [followedShowIds, setFollowedShowIds] = useState(new Set());
@@ -207,8 +231,8 @@ export function useMyServicesPageData(session, showAdult = false, tier = "free")
     [toItem],
   );
 
-  const popular = useMergedDiscoverRow({ providersKey, region, showAdult, enabled: eligible });
-  const topRated = useMergedDiscoverRow({ sort: "rated", providersKey, region, showAdult, enabled: eligible });
+  const popular = useMergedDiscoverRow({ providersKey, region, showAdult, enabled: eligible, cacheKey: popularKey });
+  const topRated = useMergedDiscoverRow({ sort: "rated", providersKey, region, showAdult, enabled: eligible, cacheKey: ratedKey });
 
   const popularItems = useMemo(
     () => mergeSort(popular.movieCards, popular.showCards, popular.count),
@@ -222,12 +246,16 @@ export function useMyServicesPageData(session, showAdult = false, tier = "free")
   // --- Suggested for you, scoped to services (paginated the same way the
   // home page's suggested rows are — see features/home/hooks/useHomeData.js).
   const { items: seedItems, exclude: seedExclude, loaded: seedsLoaded } = useSuggestionSeeds(session);
-  const [suggestedCards, setSuggestedCards] = useState([]);
-  const [suggestedPage, setSuggestedPage] = useState(1);
-  const [hasMoreSuggested, setHasMoreSuggested] = useState(false);
+  const seedSig = seedsLoaded ? `${seedItems.map((s) => `${s.type}:${s.id}`).join(",")}#${seedExclude.length}` : "pending";
+  const sugKey = eligible ? `${listKey("myservices:sug", cacheBase)}::${seedSig}` : null;
+  const sugSeed = sugKey ? readList(sugKey) : undefined;
+
+  const [suggestedCards, setSuggestedCards] = useState(() => sugSeed?.suggestedCards ?? []);
+  const [suggestedPage, setSuggestedPage] = useState(() => sugSeed?.suggestedPage ?? 1);
+  const [hasMoreSuggested, setHasMoreSuggested] = useState(() => sugSeed?.hasMoreSuggested ?? false);
   const [loadingSuggested, setLoadingSuggested] = useState(false);
   const [loadingMoreSuggested, setLoadingMoreSuggested] = useState(false);
-  const shownSuggestedIdsRef = useRef(new Set());
+  const shownSuggestedIdsRef = useRef(new Set(sugSeed?.shownSuggestedIds ?? []));
 
   const fetchSuggested = useCallback(
     (page) => {
@@ -257,6 +285,14 @@ export function useMyServicesPageData(session, showAdult = false, tier = "free")
       shownSuggestedIdsRef.current = new Set();
       return;
     }
+    const warm = sugKey ? readList(sugKey) : undefined;
+    if (warm) {
+      setSuggestedCards(warm.suggestedCards);
+      setSuggestedPage(warm.suggestedPage);
+      setHasMoreSuggested(warm.hasMoreSuggested);
+      shownSuggestedIdsRef.current = new Set(warm.shownSuggestedIds ?? []);
+      return;
+    }
     let cancelled = false;
     shownSuggestedIdsRef.current = new Set();
     (async () => {
@@ -280,7 +316,17 @@ export function useMyServicesPageData(session, showAdult = false, tier = "free")
     return () => {
       cancelled = true;
     };
-  }, [eligible, seedsLoaded, seedItems, fetchSuggested]);
+  }, [eligible, seedsLoaded, seedItems, fetchSuggested, sugKey]);
+
+  useEffect(() => {
+    if (!sugKey || !seedsLoaded || suggestedCards.length === 0) return;
+    writeList(sugKey, {
+      suggestedCards,
+      suggestedPage,
+      hasMoreSuggested,
+      shownSuggestedIds: [...shownSuggestedIdsRef.current],
+    });
+  }, [sugKey, seedsLoaded, suggestedCards, suggestedPage, hasMoreSuggested]);
 
   const loadMoreSuggested = useCallback(async () => {
     if (loadingMoreSuggested || !hasMoreSuggested) return;
@@ -319,11 +365,17 @@ export function useMyServicesPageData(session, showAdult = false, tier = "free")
     return map;
   }, [providerCatalog]);
 
-  const [providerRowState, setProviderRowState] = useState({});
+  const providerRowsSeed = providersRowKey ? readList(providersRowKey) : undefined;
+  const [providerRowState, setProviderRowState] = useState(() => providerRowsSeed?.state ?? {});
 
   useEffect(() => {
     if (!eligible || providerIds.length === 0) {
       setProviderRowState({});
+      return;
+    }
+    const warm = providersRowKey ? readList(providersRowKey) : undefined;
+    if (warm && providerIds.every((pid) => warm.state[pid])) {
+      setProviderRowState(warm.state);
       return;
     }
     let cancelled = false;
@@ -369,7 +421,15 @@ export function useMyServicesPageData(session, showAdult = false, tier = "free")
     return () => {
       cancelled = true;
     };
-  }, [eligible, providerIds, region, showAdult]);
+  }, [eligible, providerIds, region, showAdult, providersRowKey]);
+
+  // Write-through for the per-service rows (skip while any row is still loading).
+  useEffect(() => {
+    if (!providersRowKey || providerIds.length === 0) return;
+    const rows = providerIds.map((pid) => providerRowState[pid]);
+    if (rows.some((r) => !r || r.loading)) return;
+    writeList(providersRowKey, { state: providerRowState });
+  }, [providersRowKey, providerIds, providerRowState]);
 
   const loadMoreProviderRow = useCallback(
     async (providerId) => {

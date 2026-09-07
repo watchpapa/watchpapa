@@ -11,6 +11,8 @@ import { useCallback, useEffect, useState } from "react";
 import { supabase } from "../../../lib/supabase.js";
 import { apiFetch } from "../../../lib/api.js";
 import { followBlock } from "../../../lib/followGate.js";
+import { listKey, readList, writeList } from "../../../lib/listCache.js";
+import { usePreferences } from "../../preferences/PreferencesContext.jsx";
 
 const KIND = {
   movie: { discover: "movie", followTable: "user_followed_movies" },
@@ -28,17 +30,39 @@ function buildPath(type, { sort, keyword, genreId }, page) {
 export function useAdultPageData(session, enabled, filters) {
   const { type, sort, keyword, genreId } = filters;
   const K = KIND[type];
-  const [cards, setCards] = useState([]);
-  const [page, setPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
+  const { localeKey } = usePreferences();
+  const key = enabled
+    ? listKey("adult", {
+        uid: session?.user?.id ?? "anon",
+        type,
+        sort: sort ?? "",
+        keyword: keyword ?? "",
+        genreId: genreId ?? "",
+        localeKey,
+      })
+    : null;
+  const seed = key ? readList(key) : undefined;
+
+  const [cards, setCards] = useState(() => seed?.cards ?? []);
+  const [page, setPage] = useState(() => seed?.page ?? 1);
+  const [totalPages, setTotalPages] = useState(() => seed?.totalPages ?? 1);
   const [followedIds, setFollowedIds] = useState(new Set());
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(seed === undefined);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState(null);
 
-  // First page — refetched whenever any filter changes.
+  // First page — refetched whenever any filter changes; restored from the
+  // snapshot on Back.
   useEffect(() => {
-    if (!enabled) return;
+    if (!enabled) return undefined;
+    const warm = key ? readList(key) : undefined;
+    if (warm) {
+      setCards(warm.cards);
+      setPage(warm.page);
+      setTotalPages(warm.totalPages);
+      setIsLoading(false);
+      return undefined;
+    }
     let cancelled = false;
     (async () => {
       setIsLoading(true);
@@ -58,7 +82,14 @@ export function useAdultPageData(session, enabled, filters) {
     return () => {
       cancelled = true;
     };
-  }, [enabled, type, sort, keyword, genreId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [enabled, key]);
+
+  // Write-through so Back restores the loaded pages + scroll.
+  useEffect(() => {
+    if (!key || isLoading) return;
+    writeList(key, { cards, page, totalPages });
+  }, [key, isLoading, cards, page, totalPages]);
 
   // Follow state — only depends on type + user, not the other filters.
   useEffect(() => {

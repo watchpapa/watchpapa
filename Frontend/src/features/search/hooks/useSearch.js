@@ -7,6 +7,7 @@
 // `needsInjection` — every result links straight to /movies|shows|people/:tmdbId.
 import { useCallback, useEffect, useReducer, useRef } from "react";
 import { apiFetch } from "../../../lib/api.js";
+import { listKey, readList, writeList } from "../../../lib/listCache.js";
 import { usePreferences } from "../../preferences/PreferencesContext.jsx";
 
 const DEBOUNCE_MS = 300;
@@ -68,13 +69,24 @@ const initialState = {
   totalPages: 1,
 };
 
+const cacheKey = (q, showAdult) => listKey("search", { q, showAdult });
+
 // `showAdult` defaults to the user's real preference (from context) when the
 // caller doesn't pass one explicitly — fixes the navbar typeahead always
 // searching with adult content off regardless of the user's setting.
+// Pass `opts.cache` (SearchPage does) to snapshot results per query so Back
+// restores them instead of re-searching.
 export function useSearch(query, opts = {}) {
   const prefs = usePreferences();
   const showAdult = opts.showAdult ?? prefs.showAdult;
-  const [state, dispatch] = useReducer(reducer, initialState);
+  const cacheEnabled = !!opts.cache;
+  const [state, dispatch] = useReducer(reducer, undefined, () => {
+    const t = (query ?? "").trim();
+    const warm = cacheEnabled && t.length >= 2 ? readList(cacheKey(t, showAdult)) : undefined;
+    return warm
+      ? { ...initialState, results: warm.results, status: "success", page: warm.page, totalPages: warm.totalPages }
+      : initialState;
+  });
   const timerRef = useRef(null);
   const genRef = useRef(0);
   const trimmedRef = useRef("");
@@ -85,6 +97,14 @@ export function useSearch(query, opts = {}) {
     if (trimmed.length < 2) {
       clearTimeout(timerRef.current);
       dispatch({ type: "CLEAR" });
+      return;
+    }
+
+    const warm = cacheEnabled ? readList(cacheKey(trimmed, showAdult)) : undefined;
+    if (warm) {
+      clearTimeout(timerRef.current);
+      genRef.current += 1; // drop any in-flight response
+      dispatch({ type: "LOADED", results: warm.results, page: warm.page, totalPages: warm.totalPages });
       return;
     }
 
@@ -108,7 +128,15 @@ export function useSearch(query, opts = {}) {
     }, DEBOUNCE_MS);
 
     return () => clearTimeout(timerRef.current);
-  }, [query, showAdult]);
+  }, [query, showAdult, cacheEnabled]);
+
+  // Write-through: snapshot each query's results (SearchPage only).
+  useEffect(() => {
+    if (!cacheEnabled || state.status !== "success") return;
+    const t = trimmedRef.current;
+    if (t.length < 2) return;
+    writeList(cacheKey(t, showAdult), { results: state.results, page: state.page, totalPages: state.totalPages });
+  }, [cacheEnabled, showAdult, state.status, state.results, state.page, state.totalPages]);
 
   const loadMore = useCallback(() => {
     const trimmed = trimmedRef.current;

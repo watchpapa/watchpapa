@@ -54,13 +54,13 @@ function MediaBrowsePage({ kind, session, showAdult }) {
           </>
         ) : (
           <>
-            <MediaRow title="Popular" items={popular} session={session} hasMore={hasMorePopular} onLoadMore={loadMorePopular} isLoadingMore={loadingMorePopular} />
-            {comingSoonItems.length > 0 && <MediaRow title="Coming Soon" items={comingSoonItems} session={session} />}
+            <MediaRow rowKey="popular" title="Popular" items={popular} session={session} hasMore={hasMorePopular} onLoadMore={loadMorePopular} isLoadingMore={loadingMorePopular} />
+            {comingSoonItems.length > 0 && <MediaRow rowKey="coming-soon" title="Coming Soon" items={comingSoonItems} session={session} />}
             {myServicesItems.length > 0 && (
-              <MediaRow title="Available on your services" items={myServicesItems} session={session} hasMore={hasMoreMyServices} onLoadMore={loadMoreMyServices} isLoadingMore={loadingMyServices} />
+              <MediaRow rowKey="my-services" title="Available on your services" items={myServicesItems} session={session} hasMore={hasMoreMyServices} onLoadMore={loadMoreMyServices} isLoadingMore={loadingMyServices} />
             )}
             {byGenre.map(({ genreId, genreName, items, hasMore, onLoadMore, isLoadingMore }) => (
-              <MediaRow key={genreId} title={genreName} items={items} session={session} hasMore={hasMore} onLoadMore={onLoadMore} isLoadingMore={isLoadingMore} />
+              <MediaRow key={genreId} rowKey={`genre-${genreId}`} title={genreName} items={items} session={session} hasMore={hasMore} onLoadMore={onLoadMore} isLoadingMore={isLoadingMore} />
             ))}
           </>
         )}

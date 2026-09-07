@@ -3,6 +3,7 @@ import MediaCard from "./MediaCard.jsx";
 import SectionTitle from "../ui/SectionTitle.jsx";
 import { ChevronLeftIcon, ChevronRightIcon, SpinnerIcon } from "../icons/index.jsx";
 import { cn } from "../../lib/cn.js";
+import { useRowScrollRestore } from "../../hooks/index.js";
 
 const SCROLL_EDGE = 8;
 const LOAD_MORE_SCROLL_THRESHOLD = 72;
@@ -13,10 +14,12 @@ export const ROW_SLOT_CLASS = "w-[104px] shrink-0 snap-start xs:w-[112px] sm:w-[
 
 // Horizontal poster strip. Touch: swipe with scroll-snap, loads more at the
 // end. Pointer devices (lg+): hover chevrons; the right one also loads more.
-function MediaRow({ title, items, session, onLoadMore, hasMore = false, isLoadingMore = false, action }) {
+function MediaRow({ title, items, session, onLoadMore, hasMore = false, isLoadingMore = false, action, rowKey }) {
   const scrollRef = useRef(null);
   const loadMoreTimerRef = useRef(null);
   const loadMoreTriggeredRef = useRef(false);
+
+  useRowScrollRestore(scrollRef, rowKey ?? title, items.length > 0);
   const [showLeftArrow, setShowLeftArrow] = useState(false);
   const [showRightArrow, setShowRightArrow] = useState(true);
 

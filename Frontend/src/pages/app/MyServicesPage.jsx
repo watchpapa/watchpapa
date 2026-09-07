@@ -69,11 +69,11 @@ function MyServicesPage({ session, showAdult }) {
           <><SkeletonPosterRow /><SkeletonPosterRow /><SkeletonPosterRow /></>
         ) : (
           <>
-            {popularItems.length > 0 && <MediaRow title="Popular" items={popularItems} session={session} hasMore={hasMorePopular} onLoadMore={loadMorePopular} isLoadingMore={loadingMorePopular} />}
-            {suggestedItems.length > 0 && <MediaRow title="Suggested For You" items={suggestedItems} session={session} hasMore={hasMoreSuggested} onLoadMore={loadMoreSuggested} isLoadingMore={loadingMoreSuggested} />}
-            {topRatedItems.length > 0 && <MediaRow title="Top Rated" items={topRatedItems} session={session} hasMore={hasMoreTopRated} onLoadMore={loadMoreTopRated} isLoadingMore={loadingMoreTopRated} />}
+            {popularItems.length > 0 && <MediaRow rowKey="popular" title="Popular" items={popularItems} session={session} hasMore={hasMorePopular} onLoadMore={loadMorePopular} isLoadingMore={loadingMorePopular} />}
+            {suggestedItems.length > 0 && <MediaRow rowKey="suggested" title="Suggested For You" items={suggestedItems} session={session} hasMore={hasMoreSuggested} onLoadMore={loadMoreSuggested} isLoadingMore={loadingMoreSuggested} />}
+            {topRatedItems.length > 0 && <MediaRow rowKey="top-rated" title="Top Rated" items={topRatedItems} session={session} hasMore={hasMoreTopRated} onLoadMore={loadMoreTopRated} isLoadingMore={loadingMoreTopRated} />}
             {providerRows.filter((row) => row.items.length > 0).map((row) => (
-              <MediaRow key={row.providerId} title={`Popular on ${row.providerName}`} items={row.items} session={session} hasMore={row.hasMore} onLoadMore={row.onLoadMore} isLoadingMore={row.isLoadingMore} />
+              <MediaRow key={row.providerId} rowKey={`provider-${row.providerId}`} title={`Popular on ${row.providerName}`} items={row.items} session={session} hasMore={row.hasMore} onLoadMore={row.onLoadMore} isLoadingMore={row.isLoadingMore} />
             ))}
           </>
         )}

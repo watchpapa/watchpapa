@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigationType } from "react-router-dom";
 import AppLayout from "../../layouts/AppLayout.jsx";
 import HeroBanner from "../../components/home/HeroBanner.jsx";
 import ContentHero from "../../components/home/ContentHero.jsx";
@@ -17,6 +18,8 @@ function AppHomePage({ session, showAdult }) {
   const [search, setSearch] = useState("");
   const { homeRowOrder, homeHiddenRows } = usePreferences();
   const d = useHomeData(session, showAdult);
+  // On Back the rows are restored from cache — don't replay the entrance animation.
+  const isBack = useNavigationType() === "POP";
 
   const sectionsByKey = {
     popular: { items: d.popular, hasMore: d.hasMorePopular, onLoadMore: d.loadMorePopular, isLoadingMore: d.loadingMorePopular },
@@ -46,8 +49,12 @@ function AppHomePage({ session, showAdult }) {
           sections
             .filter(({ items }) => items.length > 0)
             .map(({ key, title, items, hasMore, onLoadMore, isLoadingMore }, index) => (
-              <div key={key} className="animate-slide-up" style={{ animationDelay: `${index * 0.06}s`, animationFillMode: "both" }}>
-                <MediaRow title={title} items={items} session={session} hasMore={hasMore} onLoadMore={onLoadMore} isLoadingMore={isLoadingMore} />
+              <div
+                key={key}
+                className={isBack ? undefined : "animate-slide-up"}
+                style={isBack ? undefined : { animationDelay: `${index * 0.06}s`, animationFillMode: "both" }}
+              >
+                <MediaRow rowKey={key} title={title} items={items} session={session} hasMore={hasMore} onLoadMore={onLoadMore} isLoadingMore={isLoadingMore} />
               </div>
             ))
         )}
