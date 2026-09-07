@@ -440,9 +440,9 @@ function RouteTree({ session, needsUsernameSetup, initialUsername, onUsernameCom
       <Route
         path="/calendar"
         element={
-          <PublicRoute session={session} needsUsernameSetup={needsUsernameSetup}>
+          <ProtectedRoute session={session} needsUsernameSetup={needsUsernameSetup}>
             <ReleasesCalendarPage session={session} showAdult={showAdult} />
-          </PublicRoute>
+          </ProtectedRoute>
         }
       />
       <Route

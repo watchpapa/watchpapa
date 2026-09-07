@@ -40,7 +40,7 @@ function ItemGridCard({ item, onRemove, onMarkWatched, session, onMembershipChan
   const displayYear = year ? new Date(year).getFullYear() : null;
   const posterSrc = media?.poster_path ? tmdbImg(media.poster_path, "w300") : null;
   const tmdbVote = media?.tmdb_vote_avg;
-  const detailPath = item.media_type === "movie" ? `/movies/${item.movie_id}` : `/shows/${item.show_id}`;
+  const detailPath = item.media_type === "movie" ? `/movies/${item.tmdb_id}` : `/shows/${item.tmdb_id}`;
 
   return (
     <article className="group flex w-full min-w-0 flex-col gap-2">
@@ -79,7 +79,7 @@ function ItemGridCard({ item, onRemove, onMarkWatched, session, onMembershipChan
 
       <div className="flex items-center justify-center gap-1">
         <Button variant="ghost" size="xs" icon={EyeIcon} onClick={() => onMarkWatched(item.id)} className="text-text-dim">Watched</Button>
-        <AddToWatchlistButton mediaType={item.media_type} entityId={item.media_type === "movie" ? item.movie_id : item.show_id} session={session} onMembershipChange={onMembershipChange} compact />
+        <AddToWatchlistButton mediaType={item.media_type} entityId={item.tmdb_id} session={session} onMembershipChange={onMembershipChange} compact />
       </div>
     </article>
   );

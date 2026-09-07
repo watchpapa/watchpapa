@@ -6,6 +6,7 @@ import { PageHead } from "../../components/ui/PageHead.jsx";
 import { useCalendarData } from "../../features/calendar/hooks/useCalendarData.js";
 import { useSubscription } from "../../features/subscription/hooks/useSubscription.js";
 import { tmdbImg } from "../../lib/tmdbImage.js";
+import { CalendarIcon, ListIcon } from "../../components/icons/index.jsx";
 
 const TIER_LIMITS = {
   free:     { type: "separate", shows: 3, movies: 1 },
@@ -38,6 +39,35 @@ function buildCalendarDays(year, month) {
 
 function toDateKey(date) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
+
+// Split a buildCalendarDays() array into Mon–Sun rows. Every row holds at least
+// one real date (the builder only pads partial edge weeks, never whole ones).
+function toWeeks(days) {
+  const out = [];
+  for (let i = 0; i < days.length; i += 7) out.push(days.slice(i, i + 7));
+  return out;
+}
+
+// The true Mon–Sun dates for a calendar row, filling in the null pad slots with
+// their real (adjacent-month) dates so the week always shows seven days.
+function weekRowDates(row) {
+  const firstIdx = row.findIndex(Boolean);
+  const firstDate = row[firstIdx];
+  return Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(firstDate);
+    d.setDate(firstDate.getDate() + (i - firstIdx));
+    return d;
+  });
+}
+
+// Index of the week row containing `date`, or 0 if it isn't in this month.
+function weekIndexOf(year, month, date) {
+  const key = toDateKey(date);
+  const idx = toWeeks(buildCalendarDays(year, month)).findIndex((w) =>
+    w.some((d) => d && toDateKey(d) === key),
+  );
+  return idx < 0 ? 0 : idx;
 }
 
 function MinusIcon() {
@@ -198,6 +228,31 @@ function DockCalendarGrid({ days, calendarEntries }) {
   );
 }
 
+function GridView({ days, calendarEntries, isLoading }) {
+  return (
+    <>
+      <div className="grid grid-cols-7 gap-1 mb-2">
+        {DAY_LABELS.map((d, i) => (
+          <div key={d} className="rounded-xl border border-[#2a3570]/50 py-2 text-center text-xs font-bold text-[#8383e7]">
+            <span className="hidden lg:inline">{d}</span>
+            <span className="lg:hidden">{DAY_SHORT[i]}</span>
+          </div>
+        ))}
+      </div>
+
+      {isLoading ? (
+        <div className="grid grid-cols-7 gap-1">
+          {Array.from({ length: 35 }).map((_, i) => (
+            <div key={i} className="min-h-[90px] animate-pulse rounded-xl bg-[#1e2240] md:min-h-[100px] md:rounded-2xl" />
+          ))}
+        </div>
+      ) : (
+        <DockCalendarGrid days={days} calendarEntries={calendarEntries} />
+      )}
+    </>
+  );
+}
+
 function AgendaView({ year, month, calendarEntries }) {
   const days = buildCalendarDays(year, month);
   const activeDays = days
@@ -229,6 +284,50 @@ function AgendaView({ year, month, calendarEntries }) {
             <div className="space-y-1">
               {collapsed.map((e, i) => <CalendarEntry key={i} entry={e} isToday={isToday} />)}
             </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// Phone-only. Seven Mon–Sun rows for one week. Days outside the loaded month
+// (a week straddling a month boundary) render greyed with no entries — the
+// calendar data hook is month-scoped, so those days never carry releases here.
+function WeekView({ weekDates, calendarEntries, currentMonth }) {
+  const todayKey = toDateKey(new Date());
+  return (
+    <div className="space-y-1.5">
+      {weekDates.map((d) => {
+        const key = toDateKey(d);
+        const inMonth = d.getMonth() + 1 === currentMonth;
+        const entries = inMonth ? (calendarEntries[key] ?? []) : [];
+        const collapsed = collapseEntries(entries);
+        const isToday = key === todayKey;
+        const label = d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+        return (
+          <div
+            key={key}
+            className={`rounded-xl border p-2.5 ${
+              isToday
+                ? "border-amber-700/60 bg-[#1a1510]"
+                : inMonth
+                ? "border-[#2a3570]/50 bg-[#0d0f1e]"
+                : "border-[#1e2240]/60 bg-[#0a0b16]"
+            }`}
+          >
+            <p className={`mb-1 text-[11px] font-bold ${
+              isToday ? "text-amber-400" : inMonth ? "text-[#8383e7]" : "text-[#3a3a6a]"
+            }`}>
+              {isToday ? "Today · " : ""}{label}
+            </p>
+            {collapsed.length > 0 ? (
+              <div className="space-y-0.5">
+                {collapsed.map((e, i) => <CalendarEntry key={i} entry={e} isToday={isToday} />)}
+              </div>
+            ) : (
+              <p className="text-[11px] text-[#3a3a6a]">—</p>
+            )}
           </div>
         );
       })}
@@ -425,6 +524,8 @@ function ReleasesCalendarPage({ session }) {
   const now = new Date();
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth() + 1);
+  const [mobileView, setMobileView] = useState("list"); // "list" | "week" — phone only
+  const [weekIdx, setWeekIdx] = useState(() => weekIndexOf(now.getFullYear(), now.getMonth() + 1, now));
   const [pendingUnfollows, setPendingUnfollows] = useState(new Map());
   const undoTimers = useRef({});
 
@@ -475,6 +576,34 @@ function ReleasesCalendarPage({ session }) {
   }
 
   const days = buildCalendarDays(year, month);
+  const weeks = toWeeks(days);
+  const safeWeekIdx = Math.min(Math.max(weekIdx, 0), weeks.length - 1);
+  const weekDates = weekRowDates(weeks[safeWeekIdx]);
+  const weekLabel = `${weekDates[0].toLocaleDateString("en-US", { month: "short", day: "numeric" })} – ${weekDates[6].toLocaleDateString("en-US", { month: "short", day: "numeric" })}`;
+  const showingThisWeek = weekDates.some((d) => toDateKey(d) === toDateKey(now));
+
+  function prevWeek() {
+    if (safeWeekIdx > 0) { setWeekIdx(safeWeekIdx - 1); return; }
+    const pm = month === 1 ? 12 : month - 1;
+    const py = month === 1 ? year - 1 : year;
+    setYear(py); setMonth(pm);
+    setWeekIdx(toWeeks(buildCalendarDays(py, pm)).length - 1);
+  }
+
+  function nextWeek() {
+    if (safeWeekIdx < weeks.length - 1) { setWeekIdx(safeWeekIdx + 1); return; }
+    const nm = month === 12 ? 1 : month + 1;
+    const ny = month === 12 ? year + 1 : year;
+    setYear(ny); setMonth(nm);
+    setWeekIdx(0);
+  }
+
+  function goToThisWeek() {
+    const ty = now.getFullYear();
+    const tm = now.getMonth() + 1;
+    setYear(ty); setMonth(tm);
+    setWeekIdx(weekIndexOf(ty, tm, now));
+  }
 
   const monthNav = (
     <div className="mb-5 flex items-center justify-between gap-4">
@@ -528,7 +657,9 @@ function ReleasesCalendarPage({ session }) {
 
         {/* Calendar main — page scroll height follows calendar (columns align to start) */}
         <div className="order-1 min-w-0 flex-1 rounded-2xl border border-[#2a3570]/50 bg-[#141728] p-3 sm:p-4 md:order-2 md:p-5">
-          {monthNav}
+          {/* Month nav — desktop always; phone only in list view (week view has its own) */}
+          <div className={mobileView === "week" ? "hidden md:block" : ""}>{monthNav}</div>
+
 
           {/* Follow overage gate — blocks calendar until user trims follows */}
           {isOverFollowLimit && (
@@ -559,34 +690,81 @@ function ReleasesCalendarPage({ session }) {
             </div>
           )}
 
-          {/* Grid view — md+ only */}
+          {/* Grid view — always on md+ */}
           {!isOverFollowLimit && (
           <div className="hidden md:block">
-            <div className="grid grid-cols-7 gap-1 mb-2">
-              {DAY_LABELS.map((d, i) => (
-                <div key={d} className="rounded-xl border border-[#2a3570]/50 py-2 text-center text-xs font-bold text-[#8383e7]">
-                  <span className="hidden lg:inline">{d}</span>
-                  <span className="lg:hidden">{DAY_SHORT[i]}</span>
-                </div>
-              ))}
-            </div>
-
-            {isLoading ? (
-              <div className="grid grid-cols-7 gap-1">
-                {Array.from({ length: 35 }).map((_, i) => (
-                  <div key={i} className="min-h-[90px] animate-pulse rounded-xl bg-[#1e2240] md:min-h-[100px] md:rounded-2xl" />
-                ))}
-              </div>
-            ) : (
-              <DockCalendarGrid days={days} calendarEntries={calendarEntries} />
-            )}
+            <GridView days={days} calendarEntries={calendarEntries} isLoading={isLoading} />
           </div>
           )}
 
-          {/* Agenda view — mobile only */}
+          {/* Phone — agenda list or a one-week Mon–Sun view */}
           {!isOverFollowLimit && (
           <div className="md:hidden">
-            {isLoading ? (
+            <div className="mb-3 flex justify-center">
+              <div className="inline-flex rounded-xl border border-[#3a3a7a] bg-[#1a1d35] p-0.5 text-xs font-semibold">
+                <button
+                  type="button"
+                  onClick={() => setMobileView("list")}
+                  aria-pressed={mobileView === "list"}
+                  className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 transition ${
+                    mobileView === "list" ? "bg-[#3a3a7a] text-white" : "text-[#a0a0e8]"
+                  }`}
+                >
+                  <ListIcon size={14} /> List
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMobileView("week")}
+                  aria-pressed={mobileView === "week"}
+                  className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 transition ${
+                    mobileView === "week" ? "bg-[#3a3a7a] text-white" : "text-[#a0a0e8]"
+                  }`}
+                >
+                  <CalendarIcon size={14} /> Week
+                </button>
+              </div>
+            </div>
+
+            {mobileView === "week" ? (
+              <>
+                <div className="mb-4 flex items-center justify-between gap-3">
+                  <button
+                    onClick={prevWeek}
+                    aria-label="Previous week"
+                    className="flex h-9 w-9 items-center justify-center rounded-full border border-[#3a3a7a] bg-[#1a1d35] text-[#8888c8] transition hover:border-[#6060b0] hover:text-white"
+                  >
+                    <ChevronLeft />
+                  </button>
+                  <div className="flex flex-col items-center gap-1.5">
+                    <p className="text-sm font-extrabold text-white">{weekLabel}</p>
+                    <button
+                      onClick={goToThisWeek}
+                      disabled={showingThisWeek}
+                      className="rounded-lg border border-[#3a3a7a] bg-[#1a1d35] px-3 py-1 text-xs font-semibold text-[#a0a0e8] transition hover:border-[#5a5aaa] hover:text-white disabled:cursor-default disabled:opacity-30"
+                    >
+                      This week
+                    </button>
+                  </div>
+                  <button
+                    onClick={nextWeek}
+                    aria-label="Next week"
+                    className="flex h-9 w-9 items-center justify-center rounded-full border border-[#3a3a7a] bg-[#1a1d35] text-[#8888c8] transition hover:border-[#6060b0] hover:text-white"
+                  >
+                    <ChevronRight />
+                  </button>
+                </div>
+
+                {isLoading ? (
+                  <div className="space-y-1.5">
+                    {Array.from({ length: 7 }).map((_, i) => (
+                      <div key={i} className="h-14 animate-pulse rounded-xl bg-[#1e2240]" />
+                    ))}
+                  </div>
+                ) : (
+                  <WeekView weekDates={weekDates} calendarEntries={calendarEntries} currentMonth={month} />
+                )}
+              </>
+            ) : isLoading ? (
               <div className="space-y-2">
                 {Array.from({ length: 6 }).map((_, i) => (
                   <div key={i} className="h-16 animate-pulse rounded-2xl bg-[#1e2240]" />

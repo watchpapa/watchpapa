@@ -229,7 +229,7 @@ Dropped vs the old Express API: `/api/inject`, `/api/resolve`, `/api/import/run`
 | `/my-services` | Public | `MyServicesPage` | Full browse page for "your services" (Pro+ + at least one provider/region picked in Settings, else an upgrade/setup prompt): Popular, Suggested For You, Top Rated (all provider-filtered, paginated), plus one "Popular on `<service>`" row per provider the user picked |
 | `/people` | Public | `PeoplePage` | |
 | `/people/:id` | Public | `PersonPage` | |
-| `/calendar` | Public | `ReleasesCalendarPage` | Today's releases highlighted amber; multiple episodes from same season collapse to "Season X"; hovered day scales 6% with purple border; calendar blocked (overage gate) when follow count exceeds tier limit — computed live from reactive arrays |
+| `/calendar` | Protected | `ReleasesCalendarPage` | Requires session (redirects to `/login` signed-out — the calendar is entirely a followed-titles view). Today's releases highlighted amber; multiple episodes from same season collapse to "Season X"; hovered day scales 6% with purple border; calendar blocked (overage gate) when follow count exceeds tier limit — computed live from reactive arrays. Desktop always shows the month grid; phone has a List ⇆ Week toggle (`mobileView` state, defaults to List). Week view = 7 Mon–Sun full-width rows for one calendar-row week with its own ‹ prev / next › + "This week" nav (`weekIdx` into that month's `toWeeks()` rows; edge nav rolls to the adjacent month). Days outside the loaded month render greyed with no entries — `useCalendarData` is month-scoped |
 | `/updates` | Public | `UpdatesPage` | Announcements feed |
 | `/subscription` | Public | `SubscriptionPage` | |
 | `/about`, `/help`, `/terms`, `/contact`, `/privacy`, `/certifications` | Public | `StaticInfoPages` | Footer pages, rewritten 2026-09-05 to match the current feature set (see Recent Fixes). Internal links use `<Link>`; `LAST_UPDATED` const at the top of the file is the Terms/Privacy "last updated" date — bump it whenever either changes.  `/certifications` (`CertificationsInfoPage`) explains movie/show certifications with a per-country lookup table off `/api/content/certifications`; linked from the badge on `MoviePage`/`ShowPage` and the footer |
@@ -697,6 +697,12 @@ palette pushed vivid. Key recurring conventions introduced:
 ---
 
 ## Recent Fixes & Features
+
+**2026-09-07 post-launch fixes — calendar auth gate, phone calendar toggle, watchlist dead links:**
+
+- **`/calendar` was `PublicRoute`** even though every row on it comes from the signed-in user's follows — a signed-out visitor got an empty shell. Now `ProtectedRoute` (redirects to `/login`). The phone bottom bar and desktop nav already gated the link behind auth; this closes the direct-URL hole.
+- **Phone calendar was agenda-only** — grid was `hidden md:block`, agenda `md:hidden`, hard split. Added a List ⇆ Week segmented toggle on phone (`mobileView` state in `ReleasesCalendarPage`, defaults to `"list"`). Week view is a new `WeekView` component: 7 Mon–Sun full-width rows for one week, with its own ‹ / › week nav + "This week" button (`weekIdx` indexes into that month's `toWeeks(buildCalendarDays(...))` rows; navigating past an edge rolls `year`/`month` to the adjacent month). Pad slots (a week straddling a month boundary) render greyed with `—` since `useCalendarData` only loads the selected month. The desktop month grid was extracted into a `GridView` component but is otherwise unchanged; there is no phone month-grid view (a 7-col grid is unreadable at phone width — hence week rows instead).
+- **Watchlist cards linked to `/movies/undefined` (and `/shows/undefined`).** `WatchlistsPage`'s `ItemGridCard` still read `item.movie_id` / `item.show_id` — columns that stopped existing after the TMDB-live migration (migration 029; `useWatchlistItems` selects `media_type, tmdb_id` only). Fixed the detail link and the `AddToWatchlistButton entityId` to use `item.tmdb_id`. The "10 s to load" the user saw was `MoviePage` mounting with `id="undefined"` and grinding through a doomed Worker fetch before erroring — the broken link and the slowness were the same bug.
 
 **2026-09-07 "Popular" never visibly refreshed:**
 
