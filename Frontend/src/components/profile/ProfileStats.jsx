@@ -55,7 +55,7 @@ function fakeMonthly(profileId) {
   }));
 }
 
-function LockedOverlay({ requiredTier }) {
+function LockedOverlay({ requiredTier, isOwn, username }) {
   return (
     <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 rounded-xl bg-[#0d0f1e]/80 backdrop-blur-[2px]">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#6060a0" strokeWidth="1.8" strokeLinecap="round">
@@ -65,12 +65,18 @@ function LockedOverlay({ requiredTier }) {
       <p className="text-xs font-semibold text-[#7070b0]">
         {requiredTier === "premium" ? "Premium" : "Pro"} feature
       </p>
-      <Link
-        to="/subscription"
-        className="rounded-lg border border-[#3a3a7a] px-3 py-1 text-xs font-semibold text-[#a090ff] transition hover:border-[#6060c0] hover:text-white"
-      >
-        Upgrade
-      </Link>
+      {isOwn ? (
+        <Link
+          to="/subscription"
+          className="rounded-lg border border-[#3a3a7a] px-3 py-1 text-xs font-semibold text-[#a090ff] transition hover:border-[#6060c0] hover:text-white"
+        >
+          Upgrade
+        </Link>
+      ) : (
+        <p className="text-[11px] text-[#5050a0]">
+          {username ? `@${username} hasn't unlocked this` : "Not unlocked"}
+        </p>
+      )}
     </div>
   );
 }
@@ -163,7 +169,7 @@ export function ProfileStats({ profileId, basic, genreStats, decadeStats, monthl
 
       {/* Genre breakdown — Premium+ */}
       <div className={`relative rounded-xl border border-[#2a3570]/50 bg-[#0a0c18] p-4 ${!canSeeGenre ? "overflow-hidden" : ""}`}>
-        {!canSeeGenre && <LockedOverlay requiredTier="premium" />}
+        {!canSeeGenre && <LockedOverlay requiredTier="premium" isOwn={isOwn} username={username} />}
         <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-[#c084fc]">{isOwn ? "Your" : `@${username}`} Top Genres</p>
         <div className={`space-y-2 ${!canSeeGenre ? "select-none" : ""}`}>
           {(canSeeGenre ? genreStats ?? [] : fakeGen).slice(0, 5).map((g, i) => (
@@ -183,7 +189,7 @@ export function ProfileStats({ profileId, basic, genreStats, decadeStats, monthl
 
       {/* Decade breakdown — Pro+ */}
       <div className={`relative rounded-xl border border-[#2a3570]/50 bg-[#0a0c18] p-4 ${!canSeePro ? "overflow-hidden" : ""}`}>
-        {!canSeePro && <LockedOverlay requiredTier="pro" />}
+        {!canSeePro && <LockedOverlay requiredTier="pro" isOwn={isOwn} username={username} />}
         <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-[#c084fc]">{isOwn ? "Your" : `@${username}`} Top Decades</p>
         <div className={!canSeePro ? "select-none" : ""}>
           <div className="flex items-end gap-2" style={{ height: 40 }}>
@@ -212,7 +218,7 @@ export function ProfileStats({ profileId, basic, genreStats, decadeStats, monthl
 
       {/* Monthly heatmap — Pro+ */}
       <div className={`relative rounded-xl border border-[#2a3570]/50 bg-[#0a0c18] p-4 ${!canSeePro ? "overflow-hidden" : ""}`}>
-        {!canSeePro && <LockedOverlay requiredTier="pro" />}
+        {!canSeePro && <LockedOverlay requiredTier="pro" isOwn={isOwn} username={username} />}
         <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-[#c084fc]">{isOwn ? "Your" : `@${username}`} Activity</p>
         <div className={`flex items-end gap-[3px] ${!canSeePro ? "select-none" : ""}`} style={{ height: 40 }}>
           {(canSeePro ? monthlyStats ?? [] : fakeMon).map((m) => {
