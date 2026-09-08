@@ -24,10 +24,10 @@ function timeAgo(dateStr) {
 }
 
 function NotificationRow({ n }) {
-  const { text, to } = notificationContent(n);
+  const { text, to, icon: Icon } = notificationContent(n);
   return (
     <Link to={to} className={`flex min-h-16 items-center gap-3 rounded-xl border px-3 py-3 transition hover:border-border-hover ${n.read_at ? "border-border/50 bg-surface" : "border-brand/40 bg-surface-2"}`}>
-      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-border-strong bg-surface-3 text-sm font-bold text-text-link">{(n.actor_username?.[0] ?? "?").toUpperCase()}</div>
+      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-border-strong bg-surface-3 text-sm font-bold text-text-link">{Icon ? <Icon size={18} /> : (n.actor_username?.[0] ?? "?").toUpperCase()}</div>
       <div className="min-w-0 flex-1">
         <p className="line-clamp-2 text-sm text-white">{text}</p>
         <p className="text-xs text-text-faint">{timeAgo(n.created_at)}</p>

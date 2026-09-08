@@ -36,6 +36,7 @@ import SettingsPage from "./pages/app/SettingsPage.jsx";
 import UpdatesPage from "./pages/app/UpdatesPage.jsx";
 import AdminPage from "./pages/admin/AdminPage.jsx";
 import RewardCodesPage from "./pages/admin/RewardCodesPage.jsx";
+import TierRewardsPage from "./pages/admin/TierRewardsPage.jsx";
 import AnnouncementsPage from "./pages/admin/AnnouncementsPage.jsx";
 import EarlyAdoptersPage from "./pages/admin/EarlyAdoptersPage.jsx";
 import StatsPage from "./pages/admin/StatsPage.jsx";
@@ -623,6 +624,7 @@ function RouteTree({ session, needsUsernameSetup, initialUsername, onUsernameCom
       >
         <Route index element={<StatsPage />} />
         <Route path="reward-codes" element={<RewardCodesPage />} />
+        <Route path="tier-rewards" element={<TierRewardsPage />} />
         <Route path="early-adopters" element={<EarlyAdoptersPage />} />
         <Route path="users" element={<UserLookupPage />} />
         <Route path="referrals" element={<ReferralLeaderboardPage />} />

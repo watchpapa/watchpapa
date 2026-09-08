@@ -62,7 +62,7 @@ function NotificationBell() {
             <p className="py-8 text-center text-xs text-text-faint">No notifications</p>
           ) : (
             items.map((n) => {
-              const { text, to } = notificationContent(n);
+              const { text, to, icon: Icon } = notificationContent(n);
               return (
                 <button
                   key={n.id}
@@ -71,7 +71,7 @@ function NotificationBell() {
                   className="flex min-h-11 w-full items-center gap-2.5 rounded-xl px-3 py-2 text-left transition hover:bg-surface-2"
                 >
                   <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-border-strong bg-surface-3 text-xs font-bold text-text-link">
-                    {(n.actor_username?.[0] ?? "?").toUpperCase()}
+                    {Icon ? <Icon size={15} /> : (n.actor_username?.[0] ?? "?").toUpperCase()}
                   </span>
                   <span className="min-w-0 flex-1 truncate text-sm text-text">{text}</span>
                   <span className="shrink-0 text-[10px] text-text-faint">{timeAgo(n.created_at)}</span>

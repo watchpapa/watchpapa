@@ -6,7 +6,7 @@ import { cn } from "../../lib/cn.js";
 const NAV = [
   { section: "Overview", links: [{ to: "/admin", label: "Stats", end: true }, { to: "/admin/early-adopters", label: "Early Adopters" }] },
   { section: "Users", links: [{ to: "/admin/users", label: "User Lookup" }, { to: "/admin/referrals", label: "Referrals" }, { to: "/admin/staff", label: "Staff" }] },
-  { section: "Codes", links: [{ to: "/admin/reward-codes", label: "Reward Codes" }] },
+  { section: "Rewards", links: [{ to: "/admin/reward-codes", label: "Reward Codes" }, { to: "/admin/tier-rewards", label: "Tier Rewards" }] },
   { section: "Content", links: [{ to: "/admin/catalog-stats", label: "Catalog Stats" }, { to: "/admin/announcements", label: "Announcements" }] },
   { section: "Logs", links: [{ to: "/admin/audit-log", label: "Audit Log" }] },
 ];

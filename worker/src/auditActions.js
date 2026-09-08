@@ -77,6 +77,7 @@ export const AUDIT_ACTIONS = [
   A("admin_role_set", "admin", "Admin: role set", "worker"),
   A("admin_tier_granted", "admin", "Admin: tier granted", "worker"),
   A("admin_tier_set", "admin", "Admin: tier set", "worker"),
+  A("admin_tier_reward", "admin", "Admin: tier reward issued", "worker"),
   A("reward_code_generated", "admin", "Admin: codes generated", "worker"),
   A("reward_code_created", "admin", "Admin: code created", "worker"),
   A("reward_code_toggled", "admin", "Admin: code enabled/disabled", "worker"),
