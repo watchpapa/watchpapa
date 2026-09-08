@@ -18,7 +18,7 @@ Monorepo for watchpapa.tv — a web app for tracking movie/TV show releases. Vit
 |---|---|
 | Frontend | React 19, Vite 5, React Router 7, Tailwind CSS 4 — Cloudflare Pages (`watchpapa.tv`) |
 | API | **Cloudflare Worker** (`worker/`), Hono 4, JS ESM. Reads TMDB v3 live with edge caching; user data via Hyperdrive → Supabase. Served at `api.watchpapa.tv` (Worker route on the proxied A record) + `watchpapa-api.dursky-k.workers.dev` |
-| Worker DB access | `postgres.js` over the `HYPERDRIVE` binding (caching disabled), raw tagged-template SQL. int8 parsed as JS number. |
+| Worker DB access | `postgres.js` over the `HYPERDRIVE` binding (caching disabled), raw tagged-template SQL. int8 parsed as JS number. **`fetch_types:false` ⇒ array bind params are broken** — never `= ANY(${arr})`; pass a comma string + `string_to_array(${csv}, ',')::x[]` or use `IN ${sql(arr)}` (see `db.js`). |
 | Frontend DB access | supabase-js directly (RLS-gated) for user tables; the Worker for all content + the few multi-table endpoints |
 | Database | Supabase PostgreSQL (managed, `slflrvbmlrpwbndzhsjp`, eu-west-1). SSL required. |
 | Auth | Supabase Auth — JWT bearer. Worker verifies **locally** via JWKS (`jose`, ES256) — no service-role round-trip. |

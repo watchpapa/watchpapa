@@ -3,6 +3,12 @@ import postgres from "postgres";
 // One postgres.js client per request, over the Hyperdrive binding (caching disabled).
 // Transaction-mode pooler → prepare:false. Stay under the Workers 6-connection cap.
 //
+// ⚠️  `fetch_types: false` (below) breaks array-typed BIND params: `${jsArray}`
+//     serializes to a bare comma string and Postgres rejects it ("malformed array
+//     literal"). Don't write `= ANY(${arr})` / `unnest(${arr}::x[])`. Pass a
+//     comma-joined string and rebuild with `string_to_array(${csv}, ',')::x[]`,
+//     or use the `IN ${sql(arr)}` helper. (See routes/admin/tierRewards.js.)
+//
 // Usage:
 //   import { withSql } from "../db.js";
 //   return withSql(c, async (sql) => {

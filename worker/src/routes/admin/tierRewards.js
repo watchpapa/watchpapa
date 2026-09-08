@@ -111,6 +111,12 @@ tierRewards.post("/", auditLog("admin_tier_reward", ["tier", "durationDays", "ta
   const expiresAt = days === null ? null : new Date(Date.now() + days * 86_400_000).toISOString();
   const requested = userIds ? userIds.length : null;
 
+  // postgres.js is configured with `fetch_types: false` (worker/src/db.js), which
+  // breaks array-typed bind parameters — they serialize to a bare comma string
+  // and Postgres rejects them as "malformed array literal". So UUID lists travel
+  // as a plain comma-joined string param and are rebuilt server-side with
+  // string_to_array(...)::uuid[]. The ids are validated UUIDs / come straight
+  // from the DB, so they never contain a comma.
   return withSql(c, async (sql) => {
     const granted = await sql.begin(async (tx) => {
       const recipients =
@@ -125,17 +131,18 @@ tierRewards.post("/", auditLog("admin_tier_reward", ["tier", "durationDays", "ta
               SELECT p.id FROM public.profile p
               WHERE p.deleted_at IS NULL
                 AND p.id <> ${adminId}::uuid
-                AND p.id = ANY(${userIds}::uuid[])
+                AND p.id = ANY(string_to_array(${userIds.join(",")}, ',')::uuid[])
                 AND public._tier_rank(public.get_effective_tier(p.id)) < public._tier_rank(${tier})
             `;
 
       const ids = recipients.map((r) => r.id);
       if (ids.length === 0) return 0;
+      const idCsv = ids.join(",");
 
       // Apply the upgrade to every recipient in-DB (one round trip).
       await tx`
         SELECT public.apply_tier_upgrade(t.id, ${tier}, ${days}, 'admin')
-        FROM unnest(${ids}::uuid[]) AS t(id)
+        FROM unnest(string_to_array(${idCsv}, ',')::uuid[]) AS t(id)
       `;
 
       // Record the ledger rows; the AFTER INSERT trigger fans out the bell
@@ -144,7 +151,7 @@ tierRewards.post("/", auditLog("admin_tier_reward", ["tier", "durationDays", "ta
         INSERT INTO public.tier_reward
           (profile_id, batch_id, tier, duration_days, expires_at, message, granted_by)
         SELECT t.id, ${batchId}::uuid, ${tier}, ${days}, ${expiresAt}, ${message}, ${adminId}::uuid
-        FROM unnest(${ids}::uuid[]) AS t(id)
+        FROM unnest(string_to_array(${idCsv}, ',')::uuid[]) AS t(id)
       `;
 
       return ids.length;
