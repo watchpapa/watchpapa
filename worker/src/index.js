@@ -11,7 +11,7 @@ import { rewards } from "./routes/rewards.js";
 import { announcements } from "./routes/announcements.js";
 import { importRoutes } from "./routes/import.js";
 import { admin } from "./routes/admin/index.js";
-import { runImportTick, handleAdvance } from "./cron.js";
+import { runImportTick } from "./cron.js";
 
 const app = new Hono();
 
@@ -39,14 +39,6 @@ app.route("/api/posters", posters);
 app.route("/api/image-proxy", imageProxy);
 app.route("/", sitemap); // /sitemap*.xml
 
-// Internal-only: the Worker calling itself to advance one import-job chunk
-// per invocation (see cron.js). Registered BEFORE the /api/import mount below
-// — importRoutes claims the whole /api/import/* prefix with a blanket
-// requireAuth, which would otherwise intercept this path first and 401 it
-// (Hono matches in registration order) since it's not a route inside
-// importRoutes. Gated on X-Internal-Secret instead of a user JWT.
-app.post("/api/import/_advance/:id", handleAdvance);
-
 // User data (Hyperdrive → Supabase)
 app.route("/api/referral", referral);
 app.route("/api/rewards", rewards);
@@ -66,8 +58,7 @@ app.onError((err, c) => {
 
 export default {
   fetch: app.fetch,
-  // Safety net for background import jobs (worker/src/cron.js) — restarts any
-  // job whose self-chain died. A healthy import never needs this; it advances
-  // itself via POST /api/import/_advance/:id self-fetches instead.
-  scheduled: (event, env, ctx) => ctx.waitUntil(runImportTick(env, ctx)),
+  // Advances background import jobs (worker/src/cron.js), several chunks per
+  // job per tick.
+  scheduled: (event, env, ctx) => ctx.waitUntil(runImportTick(env)),
 };

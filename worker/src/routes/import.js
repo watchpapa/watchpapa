@@ -3,14 +3,14 @@ import { requireAuth } from "../auth.js";
 import { withSql } from "../db.js";
 import { mutationRateLimit } from "../ratelimit.js";
 import { auditLog, setAudit } from "../audit.js";
-import { continueChain } from "../cron.js";
+import { kickstartJob } from "../cron.js";
 
 // Background import: the client parses the CSV and dedupes to a film list,
-// then hands it all to the Worker in one POST /jobs call. The Worker then
-// advances it chunk by chunk via a self-fetch chain (see cron.js) — each
-// chunk is its own invocation, so the import finishes in the background in
-// seconds, even if the tab that started it gets closed. Movies only
-// (Letterboxd is movies-only; the watchpapa CSV round-trips movies).
+// then hands it all to the Worker in one POST /jobs call. A Cloudflare Cron
+// Trigger (cron.js, every minute) advances it several chunks at a time in the
+// background, so the import finishes even if the tab that started it gets
+// closed. Movies only (Letterboxd is movies-only; the watchpapa CSV
+// round-trips movies).
 
 export const importRoutes = new Hono();
 importRoutes.use("*", requireAuth);
@@ -125,7 +125,7 @@ importRoutes.post("/jobs", auditLog("import_job_created"), async (c) => {
     `;
 
     setAudit(c, { extra: { total: uniqueFilms.length } });
-    continueChain({ env: c.env, ctx: c.executionCtx, origin: new URL(c.req.url).origin, jobId: row.id });
+    c.executionCtx.waitUntil(kickstartJob(c.env, row.id));
 
     return c.json({ jobId: row.id });
   });
