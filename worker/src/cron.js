@@ -14,14 +14,24 @@ import { filmKey } from "./import/filmKey.js";
 // import would finish in seconds instead of minutes. In production that self-
 // chain never actually continued past its first hop — confirmed via
 // `wrangler tail`: only the once-a-minute cron sweep ever advanced a job, not
-// the chain calling itself. Rather than keep chasing why (some Workers-side
-// restriction on a self-fetch from inside waitUntil, most likely), this
-// reverts to the simpler thing that's actually proven reliable here: the cron
-// tick itself advances each active job by several chunks in a row (not just
-// one), which is still a real speedup without any fragile moving parts.
+// the chain calling itself. This reverts to the simpler thing proven reliable
+// here: the cron tick advances each active job by a couple of chunks in a row.
+//
+// The real hard ceiling is Cloudflare's 50-subrequests-per-invocation limit
+// (not CPU time) — each IMPORT_CHUNK_MAX(10)-film chunk can cost up to ~20
+// TMDB fetches (`resolveOne` in import/resolve.js: a Letterboxd URI scrape +
+// a /movie lookup, or a /search fallback), so JOBS_PER_TICK * STEPS_PER_JOB
+// * 20 must stay well under 50. A first attempt at 3 jobs * 4 steps (up to
+// 240 subrequests) hit "Too many subrequests by single Worker invocation"
+// partway through and — worse — that error was treated as a permanent job
+// failure. It isn't: the resolved/cursor state from every already-completed
+// step is durably saved before the next step runs, so a mid-tick error here
+// just means "stop for this tick, the next one resumes from the same
+// cursor" — never fail the job for it. Only commitImport's own try/catch
+// marks a job genuinely 'failed' (e.g. WATCHLIST_LIMIT_REACHED).
 const ACTIVE_STATUSES = new Set(["pending", "resolving", "committing"]);
-const JOBS_PER_TICK = 3;
-const STEPS_PER_JOB_PER_TICK = 4;
+const JOBS_PER_TICK = 1;
+const STEPS_PER_JOB_PER_TICK = 2;
 
 async function claimJobs(sql, limit) {
   return sql`
@@ -155,7 +165,12 @@ export async function kickstartJob(env, jobId) {
   try {
     const job = await claimJob(sql, jobId);
     if (job) {
-      await advanceJob(env, sql, job).catch((e) => failJob(sql, job.id, e?.message ?? "Import failed"));
+      // A thrown error here (network blip, subrequest budget) is never the
+      // job's fault — just this invocation's. Leave its DB status untouched
+      // (whatever the last successful step left it as) so the next cron tick
+      // resumes it; only advanceJob's own commit-branch try/catch marks a
+      // job genuinely 'failed'.
+      await advanceJob(env, sql, job).catch((e) => console.error("[IMPORT] kickstart step failed:", e?.message));
     }
   } catch (e) {
     console.error("[IMPORT] kickstart failed:", e?.message);
@@ -174,10 +189,15 @@ export async function runImportTick(env) {
     const jobs = await claimJobs(sql, JOBS_PER_TICK);
     for (let job of jobs) {
       for (let step = 0; step < STEPS_PER_JOB_PER_TICK && ACTIVE_STATUSES.has(job.status); step++) {
-        job = await advanceJob(env, sql, job).catch((e) => {
-          failJob(sql, job.id, e?.message ?? "Import failed");
-          return { ...job, status: "failed" };
-        });
+        try {
+          job = await advanceJob(env, sql, job);
+        } catch (e) {
+          // Transient (subrequest/CPU budget, network blip) — stop advancing
+          // this job for this tick; the next tick resumes from the same
+          // cursor. Never mark the job failed for this (see comment above).
+          console.error(`[IMPORT] job ${job.id} step failed, will retry next tick:`, e?.message);
+          break;
+        }
       }
     }
   } finally {
