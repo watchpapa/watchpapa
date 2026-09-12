@@ -11,7 +11,7 @@ import { rewards } from "./routes/rewards.js";
 import { announcements } from "./routes/announcements.js";
 import { importRoutes } from "./routes/import.js";
 import { admin } from "./routes/admin/index.js";
-import { runImportTick } from "./cron.js";
+import { runImportTick, handleAdvance } from "./cron.js";
 
 const app = new Hono();
 
@@ -46,6 +46,11 @@ app.route("/api/announcements", announcements);
 app.route("/api/import", importRoutes);
 app.route("/api/admin", admin);
 
+// Internal-only: the Worker calling itself to advance one import-job chunk
+// per invocation (see cron.js). Not under importRoutes — no user JWT here,
+// gated on X-Internal-Secret instead.
+app.post("/api/import/_advance/:id", handleAdvance);
+
 app.notFound((c) => c.json({ error: "Not found" }, 404));
 
 app.onError((err, c) => {
@@ -58,8 +63,8 @@ app.onError((err, c) => {
 
 export default {
   fetch: app.fetch,
-  // Advances background import jobs (worker/src/cron.js) — see wrangler.jsonc
-  // `triggers.crons`. No Durable Objects/alarms on the Workers Free plan, so
-  // this cron tick is what finishes an import once the tab may be closed.
-  scheduled: (event, env, ctx) => ctx.waitUntil(runImportTick(env)),
+  // Safety net for background import jobs (worker/src/cron.js) — restarts any
+  // job whose self-chain died. A healthy import never needs this; it advances
+  // itself via POST /api/import/_advance/:id self-fetches instead.
+  scheduled: (event, env, ctx) => ctx.waitUntil(runImportTick(env, ctx)),
 };

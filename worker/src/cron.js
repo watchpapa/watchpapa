@@ -5,24 +5,34 @@ import { resolveChunk } from "./import/resolve.js";
 import { commitImport } from "./import/commit.js";
 import { filmKey } from "./import/filmKey.js";
 
-// Import-job background processor. There are no Durable Objects/alarms on the
-// Workers Free plan, so a Cloudflare Cron Trigger (wrangler.jsonc
-// `triggers.crons`, every 1 minute) is what actually finishes an import once
-// the browser tab that started it may be long closed. Each tick advances a
-// handful of jobs by one chunk; POST /api/import/jobs also fires one
-// immediate tick via `runImportTickForJob` so the UI shows progress right away
-// instead of waiting up to a minute for the first real cron fire.
+// Import-job background processor.
+//
+// Each chunk is advanced by a REAL Worker invocation (a self-fetch to
+// POST /api/import/_advance/:id), not a loop inside one invocation — the
+// Free plan's per-request CPU budget (~10ms) is tight enough that resolving
+// hundreds of films in one invocation isn't safe, but one chunk at a time
+// always was (the old synchronous /resolve route already proved that shape).
+// So `continueChain` below fires the next chunk's invocation from inside the
+// current one via `ctx.waitUntil(fetch(...))`, giving each chunk a fresh
+// budget while still finishing in seconds, not minutes.
+//
+// The Cron Trigger (wrangler.jsonc `triggers.crons`, once a minute — no
+// Durable Objects/alarms on the Workers Free plan) is just a safety net: it
+// sweeps for jobs whose chain died (no progress in STALL_SECONDS, e.g. the
+// self-fetch failed) and restarts them. A healthy import never touches it.
 
-const JOBS_PER_TICK = 2;
+const ACTIVE_STATUSES = new Set(["pending", "resolving", "committing"]);
+const STALL_SECONDS = 90;
+const JOBS_PER_SWEEP = 3;
+// Generous runaway guard, not a real-world ceiling — MAX_FILMS (routes/import.js)
+// is 5000, so even at IMPORT_CHUNK_MAX=1 this covers a full import with margin.
+const DEFAULT_CHAIN_STEPS = 5200;
 
-async function claimJobs(sql, { limit, jobId } = {}) {
-  const filter = jobId != null ? sql`id = ${jobId} AND` : sql``;
-  return sql`
+async function claimJob(sql, jobId) {
+  const [job] = await sql`
     WITH claimed AS (
       SELECT id FROM public.import_job
-      WHERE ${filter} status IN ('pending', 'resolving', 'committing')
-      ORDER BY created_at
-      LIMIT ${limit ?? 1}
+      WHERE id = ${jobId} AND status IN ('pending', 'resolving', 'committing')
       FOR UPDATE SKIP LOCKED
     )
     UPDATE public.import_job j
@@ -31,6 +41,7 @@ async function claimJobs(sql, { limit, jobId } = {}) {
     WHERE j.id = claimed.id
     RETURNING j.id, j.profile_id, j.payload, j.resolved, j.unresolved, j.resolve_cursor, j.total, j.status
   `;
+  return job ?? null;
 }
 
 async function failJob(sql, id, message) {
@@ -101,7 +112,7 @@ async function advanceJob(env, sql, job) {
         userId: job.profile_id,
         email: null,
         ip: null,
-        method: "CRON",
+        method: "CHAIN",
         path: "/api/import/jobs",
         status: 200,
         targetUserId: null,
@@ -117,28 +128,78 @@ async function advanceJob(env, sql, job) {
   }
 }
 
-// One cron tick: advance up to JOBS_PER_TICK unfinished jobs by one step.
-export async function runImportTick(env) {
-  const sql = getSqlFromEnv(env);
-  try {
-    const jobs = await claimJobs(sql, { limit: JOBS_PER_TICK });
-    for (const job of jobs) {
-      await advanceJob(env, sql, job).catch((e) => failJob(sql, job.id, e?.message ?? "Import failed"));
-    }
-  } finally {
-    await sql.end({ timeout: 5 });
-  }
+// Claims a job, advances it by one step, and returns its resulting status
+// ('resolving'|'committing'|'done'|'failed'|'cancelled'), or null if it
+// wasn't claimable (already finished, or another invocation has it).
+export async function advanceOneStep(env, sql, jobId) {
+  const job = await claimJob(sql, jobId);
+  if (!job) return null;
+  await advanceJob(env, sql, job).catch((e) => failJob(sql, job.id, e?.message ?? "Import failed"));
+  const [row] = await sql`SELECT status FROM public.import_job WHERE id = ${jobId}`;
+  return row?.status ?? null;
 }
 
-// Fired once right after job creation for instant feedback — best-effort, the
-// next cron tick picks the job up regardless if this gets cut short.
-export async function runImportTickForJob(env, jobId) {
+// Fires the next chunk's invocation. `steps` only guards against a runaway
+// chain from a logic bug — a real import finishes in well under it.
+export function continueChain({ env, ctx, origin, jobId, steps = DEFAULT_CHAIN_STEPS }) {
+  if (!env.INTERNAL_TICK_SECRET) {
+    console.error("[IMPORT] INTERNAL_TICK_SECRET not set — background import chain disabled");
+    return;
+  }
+  const url = `${origin}/api/import/_advance/${jobId}?steps=${steps}`;
+  ctx.waitUntil(
+    fetch(url, { method: "POST", headers: { "X-Internal-Secret": env.INTERNAL_TICK_SECRET } }).catch((e) =>
+      console.error("[IMPORT] chain continuation failed:", e?.message),
+    ),
+  );
+}
+
+// Handles POST /api/import/_advance/:id (mounted directly in index.js, not
+// under importRoutes — no user JWT here, this is the Worker calling itself,
+// gated on the shared secret instead).
+export async function handleAdvance(c) {
+  if (!c.env.INTERNAL_TICK_SECRET || c.req.header("X-Internal-Secret") !== c.env.INTERNAL_TICK_SECRET) {
+    return c.json({ error: "Forbidden" }, 403);
+  }
+  const jobId = Number(c.req.param("id"));
+  if (!Number.isInteger(jobId) || jobId <= 0) return c.json({ error: "Invalid job id" }, 400);
+  const steps = Number.parseInt(c.req.query("steps") ?? "", 10) || DEFAULT_CHAIN_STEPS;
+
+  const sql = getSqlFromEnv(c.env);
+  try {
+    const status = await advanceOneStep(c.env, sql, jobId);
+    if (status && ACTIVE_STATUSES.has(status)) {
+      if (steps > 1) {
+        continueChain({ env: c.env, ctx: c.executionCtx, origin: new URL(c.req.url).origin, jobId, steps: steps - 1 });
+      } else {
+        await failJob(sql, jobId, "Import chain exceeded its step limit");
+      }
+    }
+  } finally {
+    c.executionCtx.waitUntil(sql.end({ timeout: 5 }));
+  }
+  return c.json({ ok: true });
+}
+
+// Cron Trigger safety net — restarts any job whose self-chain died. `ctx` is
+// the scheduled() handler's own executionCtx, so a restarted chain's fetch is
+// held open by waitUntil the same way it would be from a normal request.
+export async function runImportTick(env, ctx) {
   const sql = getSqlFromEnv(env);
   try {
-    const [job] = await claimJobs(sql, { jobId });
-    if (job) await advanceJob(env, sql, job).catch((e) => failJob(sql, job.id, e?.message ?? "Import failed"));
-  } catch (e) {
-    console.error("[IMPORT] immediate tick failed:", e?.message);
+    const stalled = await sql`
+      SELECT id FROM public.import_job
+      WHERE status IN ('pending', 'resolving', 'committing')
+        AND updated_at < now() - make_interval(secs => ${STALL_SECONDS})
+      ORDER BY created_at
+      LIMIT ${JOBS_PER_SWEEP}
+    `;
+    for (const { id } of stalled) {
+      const status = await advanceOneStep(env, sql, id);
+      if (status && ACTIVE_STATUSES.has(status) && env.API_ORIGIN) {
+        continueChain({ env, ctx, origin: env.API_ORIGIN, jobId: id });
+      }
+    }
   } finally {
     await sql.end({ timeout: 5 });
   }

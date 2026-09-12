@@ -20,8 +20,9 @@
 	],
 	// keep workers.dev reachable as a debugging fallback
 	"workers_dev": true,
-	// Advances background import jobs (worker/src/cron.js) — 1 minute is the
-	// minimum interval on the Free plan.
+	// Safety net for background import jobs (worker/src/cron.js) — restarts any
+	// job whose self-fetch chain died. 1 minute is the minimum interval on the
+	// Free plan; a healthy import never needs this to fire.
 	"triggers": {
 		"crons": ["* * * * *"]
 	},
@@ -36,6 +37,10 @@
 	],
 	"vars": {
 		"ALLOWED_ORIGINS": "https://watchpapa.tv,http://localhost:5173,http://localhost:4173",
+		// Only used by the cron safety net above to restart a stalled import-job
+		// chain (it has no incoming request to derive an origin from, unlike the
+		// normal self-fetch chain kicked off from POST /api/import/jobs).
+		"API_ORIGIN": "https://api.watchpapa.tv",
 		"SUPABASE_URL": "https://slflrvbmlrpwbndzhsjp.supabase.co",
 		"BATCH_MAX": "18",
 		"BATCH_SUBREQ_BUDGET": "36",
