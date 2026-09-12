@@ -46,7 +46,7 @@ async function claimJobs(sql, limit) {
     SET updated_at = now()
     FROM claimed
     WHERE j.id = claimed.id
-    RETURNING j.id, j.profile_id, j.payload, j.resolved, j.unresolved, j.resolve_cursor, j.total, j.status
+    RETURNING j.id, j.profile_id, j.payload, j.resolved, j.unresolved, j.resolve_cursor, j.total, j.status, j.result
   `;
 }
 
@@ -61,7 +61,7 @@ async function claimJob(sql, jobId) {
     SET updated_at = now()
     FROM claimed
     WHERE j.id = claimed.id
-    RETURNING j.id, j.profile_id, j.payload, j.resolved, j.unresolved, j.resolve_cursor, j.total, j.status
+    RETURNING j.id, j.profile_id, j.payload, j.resolved, j.unresolved, j.resolve_cursor, j.total, j.status, j.result
   `;
   return job ?? null;
 }
@@ -74,8 +74,14 @@ async function failJob(sql, id, message) {
   }
 }
 
+const EMPTY_RESULT = { ratingsImported: 0, ratingsSkipped: 0, watchlistAdded: 0, watchlistSkipped: 0 };
+
 // Advances `job` by one step and returns the updated in-memory job (so a
 // caller can loop without re-querying between steps).
+//
+// Each chunk commits its own ratings/watchlist rows immediately (rather than
+// one commit at the very end) so the profile fills in gradually as the
+// import progresses, instead of staying empty until every film has resolved.
 async function advanceJob(env, sql, job) {
   if (job.status === "pending" || job.status === "resolving") {
     const { importChunkMax } = config(env);
@@ -83,25 +89,82 @@ async function advanceJob(env, sql, job) {
     const slice = films.slice(job.resolve_cursor, job.resolve_cursor + importChunkMax);
     const matches = await resolveChunk(env, slice);
 
-    const resolvedMap = { ...job.resolved };
+    // Only this chunk's matches — already-committed films from prior chunks
+    // aren't touched again.
+    const chunkResolved = {};
     const unresolvedList = [...job.unresolved];
     slice.forEach((film, i) => {
-      if (matches[i]) resolvedMap[filmKey(film)] = matches[i].tmdbId;
+      if (matches[i]) chunkResolved[filmKey(film)] = matches[i].tmdbId;
       else unresolvedList.push(`${film.name} (${film.year})`);
     });
 
+    const { ratingsSrc = [], watchlistSrc = [], watchlistId, newWatchlistName, conflictMode } = job.payload;
+    const ratings = [];
+    for (const it of ratingsSrc) {
+      const tmdbId = chunkResolved[filmKey(it)];
+      if (tmdbId) ratings.push({ tmdbId, value: it.value, ratedAt: it.ratedAt });
+    }
+    const watchlistItems = [];
+    for (const it of watchlistSrc) {
+      const tmdbId = chunkResolved[filmKey(it)];
+      if (tmdbId) watchlistItems.push({ tmdbId, watched: it.watched });
+    }
+
+    let payload = job.payload;
+    let result = job.result ?? EMPTY_RESULT;
+    if (ratings.length > 0 || watchlistItems.length > 0) {
+      const commitResult = await commitImport(sql, {
+        profileId: job.profile_id,
+        ratings,
+        watchlistItems,
+        watchlistId,
+        newWatchlistName,
+        conflictMode,
+      });
+      result = {
+        ratingsImported: result.ratingsImported + commitResult.ratingsImported,
+        ratingsSkipped: result.ratingsSkipped + commitResult.ratingsSkipped,
+        watchlistAdded: result.watchlistAdded + commitResult.watchlistAdded,
+        watchlistSkipped: result.watchlistSkipped + commitResult.watchlistSkipped,
+      };
+      // A chunk that just created the watchlist hands its id back — persist
+      // it so later chunks add to that one instead of creating another.
+      if (commitResult.watchlistId != null && watchlistId == null) {
+        payload = { ...job.payload, watchlistId: commitResult.watchlistId, newWatchlistName: null };
+      }
+    }
+
+    const resolvedMap = { ...job.resolved, ...chunkResolved };
     const newCursor = job.resolve_cursor + slice.length;
-    const nextStatus = newCursor >= films.length ? "committing" : "resolving";
+    const nextStatus = newCursor >= films.length ? "done" : "resolving";
 
     await sql`
       UPDATE public.import_job
       SET resolved = ${sql.json(resolvedMap)}, unresolved = ${sql.json(unresolvedList)},
-          resolve_cursor = ${newCursor}, status = ${nextStatus}, updated_at = now()
+          resolve_cursor = ${newCursor}, status = ${nextStatus}, result = ${sql.json(result)},
+          payload = ${sql.json(payload)}, updated_at = now()
       WHERE id = ${job.id}
     `;
-    return { ...job, resolved: resolvedMap, unresolved: unresolvedList, resolve_cursor: newCursor, status: nextStatus };
+    if (nextStatus === "done") {
+      await writeAuditRowEnv(env, {
+        action: "import_committed",
+        userId: job.profile_id,
+        email: null,
+        ip: null,
+        method: "CRON",
+        path: "/api/import/jobs",
+        status: 200,
+        targetUserId: null,
+        body: JSON.stringify({ jobId: job.id, conflictMode, ...result }),
+      });
+    }
+    return { ...job, payload, resolved: resolvedMap, unresolved: unresolvedList, resolve_cursor: newCursor, status: nextStatus, result };
   }
 
+  // Legacy path for a job already in 'committing' from before per-chunk
+  // commits existed (single final commit from the full accumulated map).
+  // New jobs never reach this status — advanceJob above takes them straight
+  // resolving → done.
   if (job.status === "committing") {
     const { ratingsSrc = [], watchlistSrc = [], watchlistId, newWatchlistName, conflictMode } = job.payload;
     const resolvedMap = job.resolved;

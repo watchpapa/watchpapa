@@ -631,6 +631,11 @@ export default function ImportPage({ session }) {
                   {job ? `${job.done}/${job.total} films matched. ` : ""}
                   Your import is running in the background — feel free to close this page. Check back here anytime to see progress.
                 </p>
+                {job?.result && (job.result.ratingsImported > 0 || job.result.watchlistAdded > 0) && (
+                  <p className="text-xs text-[#6868b8]">
+                    Already on your profile: {job.result.ratingsImported} rating{job.result.ratingsImported !== 1 ? "s" : ""}, {job.result.watchlistAdded} watchlist item{job.result.watchlistAdded !== 1 ? "s" : ""} so far.
+                  </p>
+                )}
               </div>
             )}
 

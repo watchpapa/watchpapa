@@ -1,7 +1,13 @@
-// Extracted from the old POST /api/import/commit route so the import-job cron
-// handler (cron.js) can run it outside a Hono request context. Takes a raw
-// `sql` client (postgres.js) instead of the Hono `c`. Throws on failure —
-// callers map errors (e.g. WATCHLIST_LIMIT_REACHED) to a stored job.error.
+// Called once per resolved chunk (cron.js) so ratings/watchlist rows land
+// as soon as their films resolve, rather than in one commit at the very end
+// — the profile fills in gradually as the import progresses. Takes a raw
+// `sql` client (postgres.js), not the Hono `c`, since it runs outside a
+// request. Throws on failure — callers map errors (e.g.
+// WATCHLIST_LIMIT_REACHED) to a stored job.error.
+//
+// Returns `watchlistId` so a chunk that creates a new watchlist can hand its
+// id back to the caller, which persists it onto the job payload — later
+// chunks reuse that id instead of creating a duplicate watchlist each time.
 //
 // { profileId, ratings: [{tmdbId, value, ratedAt?}], watchlistItems: [{tmdbId, watched}],
 //   watchlistId?, newWatchlistName?, conflictMode: 'skip'|'overwrite' }
@@ -10,7 +16,7 @@ export async function commitImport(
   { profileId, ratings = [], watchlistItems = [], watchlistId: rawWatchlistId, newWatchlistName, conflictMode },
 ) {
   if (ratings.length === 0 && watchlistItems.length === 0) {
-    return { ratingsImported: 0, ratingsSkipped: 0, watchlistAdded: 0, watchlistSkipped: 0 };
+    return { ratingsImported: 0, ratingsSkipped: 0, watchlistAdded: 0, watchlistSkipped: 0, watchlistId: rawWatchlistId ?? null };
   }
 
   let watchlistId = rawWatchlistId != null ? Number(rawWatchlistId) : null;
@@ -74,7 +80,7 @@ export async function commitImport(
       watchlistAdded = inserted.length;
     }
 
-    return { ratingsImported, watchlistAdded };
+    return { ratingsImported, watchlistAdded, watchlistId: wlId };
   });
 
   return {
@@ -82,5 +88,6 @@ export async function commitImport(
     ratingsSkipped: ratings.length - result.ratingsImported,
     watchlistAdded: result.watchlistAdded,
     watchlistSkipped: watchlistItems.length - result.watchlistAdded,
+    watchlistId: result.watchlistId ?? null,
   };
 }
