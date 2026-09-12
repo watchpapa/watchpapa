@@ -39,17 +39,20 @@ app.route("/api/posters", posters);
 app.route("/api/image-proxy", imageProxy);
 app.route("/", sitemap); // /sitemap*.xml
 
+// Internal-only: the Worker calling itself to advance one import-job chunk
+// per invocation (see cron.js). Registered BEFORE the /api/import mount below
+// — importRoutes claims the whole /api/import/* prefix with a blanket
+// requireAuth, which would otherwise intercept this path first and 401 it
+// (Hono matches in registration order) since it's not a route inside
+// importRoutes. Gated on X-Internal-Secret instead of a user JWT.
+app.post("/api/import/_advance/:id", handleAdvance);
+
 // User data (Hyperdrive → Supabase)
 app.route("/api/referral", referral);
 app.route("/api/rewards", rewards);
 app.route("/api/announcements", announcements);
 app.route("/api/import", importRoutes);
 app.route("/api/admin", admin);
-
-// Internal-only: the Worker calling itself to advance one import-job chunk
-// per invocation (see cron.js). Not under importRoutes — no user JWT here,
-// gated on X-Internal-Secret instead.
-app.post("/api/import/_advance/:id", handleAdvance);
 
 app.notFound((c) => c.json({ error: "Not found" }, 404));
 
