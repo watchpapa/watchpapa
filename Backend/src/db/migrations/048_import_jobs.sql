@@ -5,7 +5,7 @@
 -- /api/import/commit, all inside a single page load. Closing the tab mid-import
 -- silently abandoned it (commit only ever fired once, at the end) with nothing
 -- written and no way to resume.
---
+-- 
 -- This table is the job queue: the client still parses the CSV and dedupes to
 -- a film list, but now hands it to the Worker once (POST /api/import/jobs) and
 -- polls status (GET /api/import/jobs/:id). A Cloudflare Cron Trigger
