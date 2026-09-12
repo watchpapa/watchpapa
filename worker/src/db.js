@@ -16,8 +16,10 @@ import postgres from "postgres";
 //     return c.json(rows);
 //   });
 
-export function getSql(c) {
-  return postgres(c.env.HYPERDRIVE.connectionString, {
+// Same client, built from a raw `env` (no Hono context) — for code that runs
+// outside a request, e.g. the import-job cron handler (see cron.js).
+export function getSqlFromEnv(env) {
+  return postgres(env.HYPERDRIVE.connectionString, {
     max: 5,
     fetch_types: false,
     prepare: false,
@@ -34,6 +36,10 @@ export function getSql(c) {
       },
     },
   });
+}
+
+export function getSql(c) {
+  return getSqlFromEnv(c.env);
 }
 
 export async function withSql(c, fn) {

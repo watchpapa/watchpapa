@@ -71,7 +71,7 @@ export const AUDIT_ACTIONS = [
   A("referral", "rewards", "Referral code used", "worker"),
   A("rewards", "rewards", "Reward code claimed", "worker"),
   // Import (worker)
-  A("import_resolved", "import", "Import resolved", "worker"),
+  A("import_job_created", "import", "Import started", "worker"),
   A("import_committed", "import", "Import committed", "worker"),
   // Admin (worker)
   A("admin_role_set", "admin", "Admin: role set", "worker"),

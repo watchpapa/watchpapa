@@ -11,6 +11,7 @@ import { rewards } from "./routes/rewards.js";
 import { announcements } from "./routes/announcements.js";
 import { importRoutes } from "./routes/import.js";
 import { admin } from "./routes/admin/index.js";
+import { runImportTick } from "./cron.js";
 
 const app = new Hono();
 
@@ -55,4 +56,10 @@ app.onError((err, c) => {
   return c.json({ error: "Internal server error" }, 500);
 });
 
-export default app;
+export default {
+  fetch: app.fetch,
+  // Advances background import jobs (worker/src/cron.js) — see wrangler.jsonc
+  // `triggers.crons`. No Durable Objects/alarms on the Workers Free plan, so
+  // this cron tick is what finishes an import once the tab may be closed.
+  scheduled: (event, env, ctx) => ctx.waitUntil(runImportTick(env)),
+};

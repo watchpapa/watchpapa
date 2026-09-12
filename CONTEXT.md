@@ -37,9 +37,10 @@ watchpapa/
 ├── worker/                           # ── Cloudflare Worker API (Hono) ──
 │   ├── wrangler.jsonc                # bindings: HYPERDRIVE, RL_GLOBAL/RL_MUTATION; route api.watchpapa.tv/*
 │   ├── src/
-│   │   ├── index.js                 # Hono app — CORS, rate limits, route mounts, error handlers
+│   │   ├── index.js                 # Hono app (fetch) + scheduled() → runImportTick — CORS, rate limits, route mounts, error handlers
+│   │   ├── cron.js                  # runImportTick / runImportTickForJob — advances import_job rows via the Cron Trigger (no Durable Objects on Free plan)
 │   │   ├── env.js                   # parse wrangler vars → typed caps (BATCH_MAX, etc.)
-│   │   ├── db.js                    # getSql(c) / withSql(c, fn) — postgres.js over HYPERDRIVE, int8→number
+│   │   ├── db.js                    # getSql(c) / getSqlFromEnv(env) / withSql(c, fn) — postgres.js over HYPERDRIVE, int8→number
 │   │   ├── auth.js                  # requireAuth (jose JWKS, ES256) / requireAdmin / requireEditor
 │   │   ├── audit.js                 # auditLog(action, fields=[]) middleware (no fields ⇒ records no body) + setAudit(c, {targetUserId, extra}) → executionCtx.waitUntil INSERT
 │   │   ├── auditActions.js          # ACTION_GROUPS / AUDIT_ACTIONS / ACTION_SET / SOURCES — the one registry of audit_events.action values, served at GET /api/admin/audit-log/actions
@@ -56,6 +57,7 @@ watchpapa/
 │   │   │   ├── publicContent.js     # /api/search, /api/posters, /api/image-proxy, /sitemap*.xml
 │   │   │   ├── referral.js  rewards.js  announcements.js  import.js
 │   │   │   └── admin/{index,users,stats,rewardCodes,tierRewards,referrals,auditLog,announcements}.js
+│   │   ├── import/{resolve,commit,filmKey}.js  # shared by routes/import.js and cron.js (HTTP route vs. background tick)
 │   │   └── lib/{letterboxdUri,csv}.js
 │   └── test/                        # vitest — normalize / csv / nsfw / locale / client / discover fixtures
 ├── Backend/src/db/migrations/        # 001–031 SQL — apply via Supabase MCP (only thing left under Backend/)
@@ -63,7 +65,7 @@ watchpapa/
 │   ├── main.jsx                      # Vite entry — mounts <App /> inside <BrowserRouter>
 │   ├── App.jsx                       # Full route tree + auth/session bootstrap
 │   ├── layouts/
-│   │   ├── AppLayout.jsx             # Main shell with Navbar + Footer
+│   │   ├── AppLayout.jsx             # Main shell with Navbar + Footer; mounts TierRewardModal + ImportStatusBadge (global background-import pill)
 │   │   └── AuthLayout.jsx            # Minimal shell for auth pages
 │   ├── pages/
 │   │   ├── app/                      # Public + protected app pages (see route map below)
@@ -125,7 +127,7 @@ watchpapa/
 
 **Backend (root `.env`):**
 
-**Worker** — `wrangler.jsonc` `vars`: `ALLOWED_ORIGINS`, `SUPABASE_URL` (for JWKS), `BATCH_MAX`, `BATCH_SUBREQ_BUDGET`, `IMPORT_CHUNK_MAX`, `RELEASES_MAX_SHOWS`, `SITEMAP_PAGES`. Secret (`wrangler secret put`): `TMDB_API_KEY_SECRET`. Binding: `HYPERDRIVE`. Local dev also needs the shell var `CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE` (= the Supabase pooler URL) + `worker/.dev.vars` with `TMDB_API_KEY_SECRET`.
+**Worker** — `wrangler.jsonc` `vars`: `ALLOWED_ORIGINS`, `SUPABASE_URL` (for JWKS), `BATCH_MAX`, `BATCH_SUBREQ_BUDGET`, `IMPORT_CHUNK_MAX`, `RELEASES_MAX_SHOWS`, `SITEMAP_PAGES`. Secret (`wrangler secret put`): `TMDB_API_KEY_SECRET`. Bindings: `HYPERDRIVE`. `triggers.crons: ["* * * * *"]` (1/min, the Free-plan minimum) drives `scheduled()` → `runImportTick` (background import jobs, `cron.js`) — no Durable Objects/alarms on Free. Local dev also needs the shell var `CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE` (= the Supabase pooler URL) + `worker/.dev.vars` with `TMDB_API_KEY_SECRET`.
 
 **Frontend** — Pages production env vars: `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY` (or `VITE_SUPABASE_ANON_KEY`), **`VITE_API_BASE_URL=https://api.watchpapa.tv`** (must be set — the frontend calls the Worker cross-origin). Local dev: `Frontend/.env` + `vite.config.js` proxies `/api` → `localhost:8787`.
 
@@ -176,8 +178,9 @@ watchpapa/
 | `POST` | `/api/referral/use/:code` | JWT + mutation limit + audit | |
 | `POST` | `/api/rewards/claim` | JWT + mutation limit + audit | `sql.begin()` transaction |
 | `GET`/`POST`/`PATCH` | `/api/announcements[/…]` | public GET; JWT + requireEditor writes | SQL on `announcements`; POST/PATCH/archive audited |
-| `POST` | `/api/import/resolve` | JWT + audit | `{items:[{name,year,uri?}]}` ≤ IMPORT_CHUNK_MAX → `{resolved:[{tmdbId,…}], unresolved}`. No DB writes |
-| `POST` | `/api/import/commit` | JWT + audit | insert `user_rating` / `watchlist_item` by `tmdb_id`, both inside one transaction with `SET LOCAL watchpapa.audit_skip='1'` (so the DB row triggers stay quiet and this route's own `import_committed` summary row is the only audit entry); `WATCHLIST_LIMIT_REACHED → 422` |
+| `POST` | `/api/import/jobs` | JWT + mutation limit + audit | `{uniqueFilms, ratingsSrc, watchlistSrc, watchlistId?, newWatchlistName?, conflictMode}` → inserts an `import_job` row (`pending`), fires one immediate background tick via `waitUntil`, returns `{jobId}`. No synchronous DB writes to `user_rating`/`watchlist_item` |
+| `GET` | `/api/import/jobs/:id` | JWT (no mutation limit — polled every few seconds) | `{status, done, total, unresolvedCount, unresolved?, result?, error?}` — own jobs only |
+| `DELETE` | `/api/import/jobs/:id` | JWT + mutation limit | marks a still-running job `cancelled` |
 | `GET` | `/api/import/export` | JWT | **JSON** `{ratings, watchlistItems}` keyed by tmdb_id — frontend composes the CSV |
 | `*` | `/api/admin/{users,stats,reward-codes,tier-rewards,referrals,audit-log,announcements}/*` | JWT + requireAdmin (role 4) | |
 
@@ -241,7 +244,7 @@ Dropped vs the old Express API: `/api/inject`, `/api/resolve`, `/api/import/run`
 | `/follows` | Protected | `FollowsPage` | All followed shows + movies with unfollow buttons; tabs Shows/Movies; overage banner |
 | `/u/:username` | Protected | `ProfilePage` | Public profile: bio, tier badge, 5 favourites, stats (owner-tier-gated), ratings grid |
 | `/profile/edit` | Protected | `EditProfilePage` | Edit bio (200 chars) + 5 favourites (search picker) |
-| `/import` | Protected | `ImportPage` | Import from Letterboxd CSV or watchpapa CSV; step-by-step UI with resolve + commit flow |
+| `/import` | Protected | `ImportPage` | Import from Letterboxd CSV or watchpapa CSV; parses client-side, then hands off to a background `import_job` (see "Import flow" below) and polls status — safe to close the tab once started |
 | `/admin` | AdminRoute (role=4) | `AdminPage` (nested) | |
 | `/admin` (index) | Admin | `StatsPage` | |
 | `/admin/reward-codes` | Admin | `RewardCodesPage` | |
@@ -285,6 +288,7 @@ Route guards defined in `App.jsx`: `PublicOnlyRoute`, `ProtectedRoute`, `PublicR
 | `announcements` | `uuid` | `title`, `body`, `archived`, `author_id`, `archived_by`, `archived_at` | |
 | `watchlist` | `bigint` identity | `profile_id`, `name`, `created_at`, `updated_at` | Per-tier limit enforced by `enforce_watchlist_limit` trigger |
 | `watchlist_item` | `bigint` identity | `watchlist_id` FK, `media_type` ('movie'\|'show'), `tmdb_id`, `watched` (legacy, unused by new code), `added_at` | UNIQUE `(watchlist_id, media_type, tmdb_id)`. Purely "is this on my to-watch list" now — rating or logging a watch (`watch_log`, above) deletes the row outright rather than flipping `watched`. That column only still matters as a defensive read-side filter for any pre-migration-038 row that has it set. See "Rewatch diary" below. |
+| `import_job` | `bigint` identity | `profile_id`, `status` (`pending`\|`resolving`\|`committing`\|`done`\|`failed`\|`cancelled`), `payload` (jsonb: `uniqueFilms`/`ratingsSrc`/`watchlistSrc`/`watchlistId`/`newWatchlistName`/`conflictMode`), `resolved` (jsonb filmKey→tmdbId), `unresolved` (jsonb display strings), `resolve_cursor`, `total`, `result`, `error` | Background Letterboxd/watchpapa import queue (migration 048). Own-read RLS; Worker writes via the pooler role. Advanced by the `worker/src/cron.js` Cron Trigger (1/min — no Durable Objects on Free plan), `IMPORT_CHUNK_MAX` films resolved per tick, committed once `resolve_cursor >= total`. See "Import flow" below. |
 
 ---
 
@@ -308,7 +312,13 @@ Date,Name,Year,MediaType,WatchlistName,Rating,Watched
 | `Rating` | integer 1–10 | watchpapa scale; empty if not rated |
 | `Watched` | `true`/`false` | Watchlist watched status; empty if not in a watchlist |
 
-The `/api/import/resolve` endpoint also accepts Letterboxd CSV format (auto-detected by headers: `Letterboxd URI` column). Letterboxd ratings (0.5–5) are multiplied by 2 to convert to the 1–10 scale.
+`POST /api/import/jobs` also accepts Letterboxd CSV format (auto-detected by headers: `Letterboxd URI` column). Letterboxd ratings (0.5–5) are multiplied by 2 to convert to the 1–10 scale.
+
+### Import flow (background job)
+
+`ImportPage.jsx` still parses the CSV and dedupes to a unique film list client-side, but no longer drives the resolve/commit loop itself — it hands everything to `POST /api/import/jobs` once and polls `GET /api/import/jobs/:id` (every ~2s on `/import`, every ~5s via the global `ImportStatusBadge` mounted in `AppLayout.jsx`). The job id is cached in `localStorage` (`Frontend/src/lib/importJob.js`) so progress survives a reload or the tab being closed and reopened — the import itself keeps running server-side regardless.
+
+The Worker's `worker/src/cron.js` Cron Trigger (`triggers.crons`, every minute — Durable Objects/alarms aren't available on the Workers Free plan) claims up to 2 unfinished `import_job` rows per tick (`FOR UPDATE SKIP LOCKED`) and advances each by one step: `pending`/`resolving` resolves the next `IMPORT_CHUNK_MAX` films via `worker/src/import/resolve.js` (same TMDB matching logic the old `/resolve` route used) and flips to `committing` once every film is resolved; `committing` maps the original `ratingsSrc`/`watchlistSrc` through the accumulated `resolved` map and writes everything in one transaction via `worker/src/import/commit.js` (same logic as the old `/commit` route), landing on `done` or `failed`. `POST /api/import/jobs` also fires one immediate tick via `ctx.executionCtx.waitUntil` so the UI shows progress right away instead of waiting up to a minute for the first real cron fire.
 
 ---
 

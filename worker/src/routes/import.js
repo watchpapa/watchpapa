@@ -1,21 +1,27 @@
 import { Hono } from "hono";
 import { requireAuth } from "../auth.js";
-import { withSql, pgErrorMessage } from "../db.js";
+import { withSql } from "../db.js";
 import { mutationRateLimit } from "../ratelimit.js";
 import { auditLog, setAudit } from "../audit.js";
-import { config } from "../env.js";
-import { tmdbFetch, TmdbNotFound } from "../tmdb/client.js";
-import { resolveTmdbIdFromLetterboxdUri } from "../lib/letterboxdUri.js";
-import { TTL } from "../tmdb/lists.js";
+import { runImportTickForJob } from "../cron.js";
 
-// Redesigned import: the client parses the CSV and drives resolve (chunked) + a single
-// commit. No mirror, no background full-ingest. Movies only (Letterboxd is movies-only;
-// the watchpapa CSV round-trips movies).
+// Background import: the client parses the CSV and dedupes to a film list,
+// then hands it all to the Worker in one POST /jobs call. A Cloudflare Cron
+// Trigger (cron.js) resolves + commits it in the background, chunk by chunk,
+// so the import finishes even if the tab that started it gets closed. Movies
+// only (Letterboxd is movies-only; the watchpapa CSV round-trips movies).
 
 export const importRoutes = new Hono();
-importRoutes.use("*", requireAuth, mutationRateLimit);
+importRoutes.use("*", requireAuth);
+// GET /jobs/:id is polled every few seconds while a job is in flight (both
+// from ImportPage and the global ImportStatusBadge) — keep it off the
+// mutation limiter so status polling can't itself exhaust a user's mutation
+// budget. Every other route stays mutation-limited as before.
+importRoutes.use("/jobs", mutationRateLimit);
+importRoutes.use("/jobs/:id", async (c, next) => (c.req.method === "GET" ? next() : mutationRateLimit(c, next)));
+importRoutes.use("/export", mutationRateLimit);
 
-const MAX_COMMIT = 1000;
+const MAX_FILMS = 5000;
 
 function isPosInt(v) {
   return Number.isInteger(v) && v > 0;
@@ -23,93 +29,24 @@ function isPosInt(v) {
 function validYear(y) {
   return typeof y === "string" && /^\d{4}$/.test(y) && +y >= 1888 && +y <= 2200;
 }
-
-// --- POST /api/import/resolve ------------------------------------------------
-// Body: { items: [{ name, year, uri? }] }  (<= IMPORT_CHUNK_MAX)
-// Returns: { resolved: [{ name, year, tmdbId, title, releaseYear, posterPath }], unresolved: [{ name, year }] }
-
-importRoutes.post("/resolve", auditLog("import_resolved"), async (c) => {
-  const { importChunkMax } = config(c.env);
-  let body;
-  try {
-    body = await c.req.json();
-  } catch {
-    return c.json({ error: "Bad JSON" }, 400);
-  }
-  const items = Array.isArray(body?.items) ? body.items : [];
-  if (items.length === 0) return c.json({ error: "items must be a non-empty array" }, 400);
-  if (items.length > importChunkMax) {
-    return c.json({ error: `Maximum ${importChunkMax} items per resolve request` }, 400);
-  }
-  for (const it of items) {
-    if (typeof it.name !== "string" || !it.name.trim() || it.name.length > 300) {
-      return c.json({ error: "each item needs a non-empty name (<=300 chars)" }, 400);
-    }
-    if (!validYear(it.year)) return c.json({ error: "each item needs a 4-digit year string" }, 400);
-    if (it.uri != null && (typeof it.uri !== "string" || it.uri.length > 500)) {
-      return c.json({ error: "uri must be a string (<=500 chars)" }, 400);
-    }
-  }
-
-  const resolved = [];
-  const unresolved = [];
-
-  for (const it of items) {
-    const match = await resolveOne(c.env, it.name.trim(), it.year, it.uri?.trim() || null);
-    if (match) {
-      resolved.push({
-        name: it.name,
-        year: it.year,
-        tmdbId: match.id,
-        title: match.title ?? match.original_title ?? it.name,
-        releaseYear: (match.release_date ?? "").slice(0, 4) || it.year,
-        posterPath: match.poster_path ?? null,
-      });
-    } else {
-      unresolved.push({ name: it.name, year: it.year });
-    }
-  }
-
-  setAudit(c, { extra: { requested: items.length, resolved: resolved.length, unresolved: unresolved.length } });
-  return c.json({ resolved, unresolved });
-});
-
-async function resolveOne(env, name, year, uri) {
-  if (uri) {
-    let tmdbId = null;
-    try {
-      tmdbId = await resolveTmdbIdFromLetterboxdUri(uri);
-    } catch {
-      tmdbId = null;
-    }
-    if (tmdbId) {
-      try {
-        return await tmdbFetch(env, `/movie/${tmdbId}`, {}, { ttl: TTL.movie });
-      } catch (e) {
-        if (!(e instanceof TmdbNotFound)) throw e;
-      }
-    }
-  }
-  try {
-    const data = await tmdbFetch(
-      env,
-      "/search/movie",
-      { query: name, year, include_adult: false, page: 1 },
-      { ttl: TTL.search },
-    );
-    const results = data.results ?? [];
-    const hit = results.find((r) => (r.release_date ?? "").startsWith(year)) ?? results[0] ?? null;
-    return hit;
-  } catch {
-    return null;
-  }
+function validFilm(it) {
+  return (
+    it &&
+    typeof it.name === "string" &&
+    it.name.trim() &&
+    it.name.length <= 300 &&
+    validYear(it.year) &&
+    (it.uri == null || (typeof it.uri === "string" && it.uri.length <= 500))
+  );
 }
 
-// --- POST /api/import/commit ------------------------------------------------
-// Body: { ratings: [{ tmdbId, value, ratedAt? }], watchlistItems: [{ tmdbId, watched }],
-//         watchlistId?, newWatchlistName?, conflictMode: 'skip'|'overwrite' }
+// --- POST /api/import/jobs ---------------------------------------------------
+// Body: { uniqueFilms: [{name, year, uri?}], ratingsSrc: [{name, year, uri?, value, ratedAt?}],
+//         watchlistSrc: [{name, year, uri?, watched}], watchlistId?, newWatchlistName?,
+//         conflictMode: 'skip'|'overwrite' }
+// Returns: { jobId }
 
-importRoutes.post("/commit", auditLog("import_committed", ["conflictMode"]), async (c) => {
+importRoutes.post("/jobs", auditLog("import_job_created"), async (c) => {
   let body;
   try {
     body = await c.req.json();
@@ -117,8 +54,9 @@ importRoutes.post("/commit", auditLog("import_committed", ["conflictMode"]), asy
     return c.json({ error: "Bad JSON" }, 400);
   }
   const {
-    ratings = [],
-    watchlistItems = [],
+    uniqueFilms,
+    ratingsSrc = [],
+    watchlistSrc = [],
     watchlistId: rawWatchlistId,
     newWatchlistName,
     conflictMode,
@@ -127,127 +65,113 @@ importRoutes.post("/commit", auditLog("import_committed", ["conflictMode"]), asy
   if (!["skip", "overwrite"].includes(conflictMode)) {
     return c.json({ error: "conflictMode must be 'skip' or 'overwrite'" }, 400);
   }
-  if (!Array.isArray(ratings) || ratings.length > MAX_COMMIT) {
-    return c.json({ error: `ratings must be an array of at most ${MAX_COMMIT}` }, 400);
+  if (!Array.isArray(uniqueFilms) || uniqueFilms.length === 0) {
+    return c.json({ error: "uniqueFilms must be a non-empty array" }, 400);
   }
-  if (!Array.isArray(watchlistItems) || watchlistItems.length > MAX_COMMIT) {
-    return c.json({ error: `watchlistItems must be an array of at most ${MAX_COMMIT}` }, 400);
+  if (uniqueFilms.length > MAX_FILMS) {
+    return c.json({ error: `Maximum ${MAX_FILMS} films per import` }, 400);
   }
-  for (const r of ratings) {
-    if (!isPosInt(r.tmdbId)) return c.json({ error: "ratings[].tmdbId must be a positive integer" }, 400);
+  if (!Array.isArray(ratingsSrc) || ratingsSrc.length > MAX_FILMS) {
+    return c.json({ error: `ratingsSrc must be an array of at most ${MAX_FILMS}` }, 400);
+  }
+  if (!Array.isArray(watchlistSrc) || watchlistSrc.length > MAX_FILMS) {
+    return c.json({ error: `watchlistSrc must be an array of at most ${MAX_FILMS}` }, 400);
+  }
+  if (!uniqueFilms.every(validFilm)) {
+    return c.json({ error: "each film needs a non-empty name (<=300 chars), a 4-digit year, and an optional uri (<=500 chars)" }, 400);
+  }
+  for (const r of ratingsSrc) {
+    if (!validFilm(r)) return c.json({ error: "ratingsSrc[] has an invalid film" }, 400);
     if (!Number.isInteger(r.value) || r.value < 1 || r.value > 10) {
-      return c.json({ error: "ratings[].value must be an integer 1-10" }, 400);
+      return c.json({ error: "ratingsSrc[].value must be an integer 1-10" }, 400);
     }
     if (r.ratedAt != null && !/^\d{4}-\d{2}-\d{2}$/.test(r.ratedAt)) {
-      return c.json({ error: "ratings[].ratedAt must be YYYY-MM-DD" }, 400);
+      return c.json({ error: "ratingsSrc[].ratedAt must be YYYY-MM-DD" }, 400);
     }
   }
-  for (const w of watchlistItems) {
-    if (!isPosInt(w.tmdbId)) return c.json({ error: "watchlistItems[].tmdbId must be a positive integer" }, 400);
-    if (typeof w.watched !== "boolean") return c.json({ error: "watchlistItems[].watched must be a boolean" }, 400);
+  for (const w of watchlistSrc) {
+    if (!validFilm(w)) return c.json({ error: "watchlistSrc[] has an invalid film" }, 400);
+    if (typeof w.watched !== "boolean") return c.json({ error: "watchlistSrc[].watched must be a boolean" }, 400);
   }
-  if (watchlistItems.length > 0 && rawWatchlistId == null && !newWatchlistName?.trim()) {
+  if (watchlistSrc.length > 0 && rawWatchlistId == null && !newWatchlistName?.trim()) {
     return c.json({ error: "Provide watchlistId or newWatchlistName" }, 400);
   }
-  if (ratings.length === 0 && watchlistItems.length === 0) {
-    return c.json({ ratingsImported: 0, ratingsSkipped: 0, watchlistAdded: 0, watchlistSkipped: 0 });
+  let watchlistId = rawWatchlistId != null ? Number(rawWatchlistId) : null;
+  if (watchlistId != null && !isPosInt(watchlistId)) {
+    return c.json({ error: "watchlistId must be a positive integer" }, 400);
   }
 
   const profileId = c.get("user").id;
 
   return withSql(c, async (sql) => {
-    let watchlistId = rawWatchlistId != null ? Number(rawWatchlistId) : null;
-
     if (watchlistId != null) {
-      if (!isPosInt(watchlistId)) return c.json({ error: "watchlistId must be a positive integer" }, 400);
       const [owner] = await sql`SELECT id FROM public.watchlist WHERE id = ${watchlistId} AND profile_id = ${profileId}`;
       if (!owner) return c.json({ error: "Watchlist not found or does not belong to you" }, 403);
     }
 
-    // The writes below happen inside one transaction so a single
-    // `watchpapa.audit_skip` (SET LOCAL — scoped to this transaction only)
-    // suppresses the per-row DB triggers for the whole batch; the worker's
-    // own auditLog middleware records one `import_committed` summary row
-    // instead (see the setAudit call below).
-    try {
-      const result = await sql.begin(async (tx) => {
-        await tx`SELECT set_config('watchpapa.audit_skip', '1', true)`;
+    const payload = {
+      uniqueFilms,
+      ratingsSrc,
+      watchlistSrc,
+      watchlistId,
+      newWatchlistName: newWatchlistName?.trim().slice(0, 100) || null,
+      conflictMode,
+    };
+    const [row] = await sql`
+      INSERT INTO public.import_job (profile_id, status, payload, total)
+      VALUES (${profileId}, 'pending', ${sql.json(payload)}, ${uniqueFilms.length})
+      RETURNING id
+    `;
 
-        let wlId = watchlistId;
-        if (watchlistItems.length > 0 && wlId == null && newWatchlistName?.trim()) {
-          const [row] = await tx`
-            INSERT INTO public.watchlist (profile_id, name, created_at, updated_at)
-            VALUES (${profileId}, ${newWatchlistName.trim().slice(0, 100)}, now(), now())
-            RETURNING id
-          `;
-          wlId = Number(row.id);
-        }
+    setAudit(c, { extra: { total: uniqueFilms.length } });
+    c.executionCtx.waitUntil(runImportTickForJob(c.env, row.id));
 
-        let ratingsImported = 0;
-        let watchlistAdded = 0;
+    return c.json({ jobId: row.id });
+  });
+});
 
-        if (ratings.length > 0) {
-          const values = ratings.map((r) => ({
-            profile_id: profileId,
-            media_type: "movie",
-            tmdb_id: r.tmdbId,
-            value: r.value,
-            created_at: r.ratedAt ? `${r.ratedAt}T00:00:00.000Z` : new Date().toISOString(),
-          }));
-          const conflict =
-            conflictMode === "overwrite"
-              ? tx`DO UPDATE SET value = EXCLUDED.value, created_at = EXCLUDED.created_at, updated_at = now()`
-              : tx`DO NOTHING`;
-          const inserted = await tx`
-            INSERT INTO public.user_rating ${tx(values, "profile_id", "media_type", "tmdb_id", "value", "created_at")}
-            ON CONFLICT (profile_id, media_type, tmdb_id) ${conflict}
-            RETURNING id
-          `;
-          ratingsImported = inserted.length;
-        }
+// --- GET /api/import/jobs/:id -------------------------------------------------
 
-        if (watchlistItems.length > 0 && wlId != null) {
-          const values = watchlistItems.map((w) => ({
-            watchlist_id: wlId,
-            media_type: "movie",
-            tmdb_id: w.tmdbId,
-            watched: w.watched,
-          }));
-          const inserted = await tx`
-            INSERT INTO public.watchlist_item ${tx(values, "watchlist_id", "media_type", "tmdb_id", "watched")}
-            ON CONFLICT (watchlist_id, media_type, tmdb_id)
-            DO UPDATE SET watched = CASE WHEN EXCLUDED.watched THEN true ELSE public.watchlist_item.watched END
-            RETURNING id
-          `;
-          watchlistAdded = inserted.length;
-        }
+importRoutes.get("/jobs/:id", async (c) => {
+  const id = Number(c.req.param("id"));
+  if (!isPosInt(id)) return c.json({ error: "Invalid job id" }, 400);
+  const profileId = c.get("user").id;
 
-        return { ratingsImported, watchlistAdded };
-      });
+  return withSql(c, async (sql) => {
+    const [job] = await sql`
+      SELECT status, resolve_cursor, total, unresolved, result, error
+      FROM public.import_job
+      WHERE id = ${id} AND profile_id = ${profileId}
+    `;
+    if (!job) return c.json({ error: "Not found" }, 404);
 
-      const ratingsSkipped = ratings.length - result.ratingsImported;
-      const watchlistSkipped = watchlistItems.length - result.watchlistAdded;
-      setAudit(c, {
-        extra: {
-          ratingsImported: result.ratingsImported,
-          ratingsSkipped,
-          watchlistAdded: result.watchlistAdded,
-          watchlistSkipped,
-        },
-      });
-      return c.json({
-        ratingsImported: result.ratingsImported,
-        ratingsSkipped,
-        watchlistAdded: result.watchlistAdded,
-        watchlistSkipped,
-      });
-    } catch (e) {
-      const msg = pgErrorMessage(e);
-      if (msg.includes("WATCHLIST_LIMIT_REACHED")) {
-        return c.json({ error: msg.replace("WATCHLIST_LIMIT_REACHED: ", "") }, 422);
-      }
-      throw e;
-    }
+    return c.json({
+      status: job.status,
+      done: job.resolve_cursor,
+      total: job.total,
+      unresolvedCount: Array.isArray(job.unresolved) ? job.unresolved.length : 0,
+      unresolved: job.status === "done" ? job.unresolved : undefined,
+      result: job.result,
+      error: job.error,
+    });
+  });
+});
+
+// --- DELETE /api/import/jobs/:id ----------------------------------------------
+
+importRoutes.delete("/jobs/:id", async (c) => {
+  const id = Number(c.req.param("id"));
+  if (!isPosInt(id)) return c.json({ error: "Invalid job id" }, 400);
+  const profileId = c.get("user").id;
+
+  return withSql(c, async (sql) => {
+    const rows = await sql`
+      UPDATE public.import_job SET status = 'cancelled', updated_at = now()
+      WHERE id = ${id} AND profile_id = ${profileId} AND status IN ('pending', 'resolving', 'committing')
+      RETURNING id
+    `;
+    if (rows.length === 0) return c.json({ error: "Not found or already finished" }, 404);
+    return c.json({ ok: true });
   });
 });
 

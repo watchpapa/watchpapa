@@ -20,6 +20,11 @@
 	],
 	// keep workers.dev reachable as a debugging fallback
 	"workers_dev": true,
+	// Advances background import jobs (worker/src/cron.js) — 1 minute is the
+	// minimum interval on the Free plan.
+	"triggers": {
+		"crons": ["* * * * *"]
+	},
 	// `wrangler hyperdrive create watchpapa-supabase --caching-disabled \
 	//    --connection-string="<supabase session pooler URL>?sslmode=require"`
 	// then paste the id below. User data is read-write per user → caching must stay disabled.

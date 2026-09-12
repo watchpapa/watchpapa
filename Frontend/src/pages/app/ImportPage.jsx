@@ -4,14 +4,8 @@ import AppLayout from "../../layouts/AppLayout.jsx";
 import { PageHead } from "../../components/ui/PageHead.jsx";
 import { supabase } from "../../lib/supabase.js";
 import { apiFetch } from "../../lib/api.js";
+import { readStoredImportJob, writeStoredImportJob, clearStoredImportJob, ACTIVE_STATUSES } from "../../lib/importJob.js";
 
-const RESOLVE_CHUNK = 10;
-
-function chunk(arr, n) {
-  const out = [];
-  for (let i = 0; i < arr.length; i += n) out.push(arr.slice(i, i + n));
-  return out;
-}
 const filmKey = (i) => i.uri?.trim().toLowerCase() || `${i.name.toLowerCase()}|||${i.year}`;
 
 // ── CSV parser ────────────────────────────────────────────────────────────────
@@ -139,7 +133,8 @@ function StepNumber({ n, active, done }) {
 
 // ── Main component ────────────────────────────────────────────────────────────
 
-const STEPS = { SOURCE: 0, UPLOAD: 1, CONFIGURE: 2, DONE: 3 };
+const STEPS = { SOURCE: 0, UPLOAD: 1, CONFIGURE: 2, JOB: 3 };
+const POLL_MS = 2000;
 
 export default function ImportPage({ session }) {
   const uid = session?.user?.id;
@@ -164,13 +159,43 @@ export default function ImportPage({ session }) {
   const [newWatchlistName, setNewWatchlistName] = useState("");
   const [watchlistsLoading, setWatchlistsLoading] = useState(false);
 
-  // Resolve + commit
-  const [starting, setStarting] = useState(false);
-  const [startError, setStartError] = useState(null);
-  const [progress, setProgress] = useState(null); // { done, total }
-  const [startCounts, setStartCounts] = useState(null); // { ratingsImported, watchlistAdded, unresolved }
+  // Background job
+  const [creatingJob, setCreatingJob] = useState(false);
+  const [createError, setCreateError] = useState(null);
+  const [jobId, setJobId] = useState(null);
+  const [job, setJob] = useState(null); // { status, done, total, unresolvedCount, unresolved, result, error }
 
   const fileInputRef = useRef(null);
+
+  // Resume polling a job in flight from a previous visit/tab (see
+  // Frontend/src/lib/importJob.js — the job itself lives server-side).
+  useEffect(() => {
+    if (!uid) return;
+    const stored = readStoredImportJob();
+    if (stored?.uid === uid && stored.jobId) {
+      setJobId(stored.jobId);
+      setStep(STEPS.JOB);
+    }
+  }, [uid]);
+
+  // Poll job status while it's in flight.
+  useEffect(() => {
+    if (jobId == null) return undefined;
+    let alive = true;
+    const tick = async () => {
+      try {
+        const data = await apiFetch(`/api/import/jobs/${jobId}`, { session });
+        if (!alive) return;
+        setJob(data);
+        if (!ACTIVE_STATUSES.has(data.status)) clearStoredImportJob();
+      } catch {
+        /* transient network error — keep polling */
+      }
+    };
+    tick();
+    const id = setInterval(tick, POLL_MS);
+    return () => { alive = false; clearInterval(id); };
+  }, [jobId, session]);
 
   // Load user's watchlists when reaching configure step
   useEffect(() => {
@@ -286,15 +311,14 @@ export default function ImportPage({ session }) {
     ];
 
     if (ratingSrc.length === 0 && watchlistSrc.length === 0) {
-      setStartError("Nothing to import. Select at least one data type above.");
+      setCreateError("Nothing to import. Select at least one data type above.");
       return;
     }
 
-    const session_ = session;
     const watchlistId = selectedWatchlistId === "new" ? null : parseInt(selectedWatchlistId, 10);
     const newWatchlistName_ = selectedWatchlistId === "new" ? (newWatchlistName.trim() || "Imported List") : null;
 
-    // 1. Unique films → resolve to tmdb ids in chunks.
+    // Dedupe to the unique film list the job resolves against.
     const uniqueMap = new Map(); // filmKey -> { name, year, uri }
     for (const it of [...ratingSrc, ...watchlistSrc]) {
       const k = filmKey(it);
@@ -302,70 +326,29 @@ export default function ImportPage({ session }) {
     }
     const uniqueFilms = [...uniqueMap.values()];
 
-    setStarting(true);
-    setStartError(null);
-    setProgress({ done: 0, total: uniqueFilms.length });
-
-    const resolved = new Map(); // filmKey -> tmdbId
-    const unresolved = [];
+    setCreatingJob(true);
+    setCreateError(null);
     try {
-      for (const group of chunk(uniqueFilms, RESOLVE_CHUNK)) {
-        const { resolved: r, unresolved: u } = await apiFetch("/api/import/resolve", {
-          session: session_,
-          method: "POST",
-          body: JSON.stringify({ items: group }),
-        });
-        for (const item of r ?? []) {
-          const src = group.find((g) => g.name === item.name && g.year === item.year);
-          if (src) resolved.set(filmKey(src), item.tmdbId);
-        }
-        for (const item of u ?? []) unresolved.push(`${item.name} (${item.year})`);
-        setProgress((p) => ({ ...p, done: p.done + group.length }));
-      }
-
-      // 2. Build commit payload from resolved ids.
-      const ratings = [];
-      for (const it of ratingSrc) {
-        const id = resolved.get(filmKey(it));
-        if (id) ratings.push({ tmdbId: id, value: it.value, ratedAt: it.ratedAt });
-      }
-      const watchlistItems = [];
-      for (const it of watchlistSrc) {
-        const id = resolved.get(filmKey(it));
-        if (id) watchlistItems.push({ tmdbId: id, watched: it.watched });
-      }
-
-      if (ratings.length === 0 && watchlistItems.length === 0) {
-        setStartError("None of the films could be matched on TMDB.");
-        setStarting(false);
-        return;
-      }
-
-      // 3. Commit once.
-      const body = await apiFetch("/api/import/commit", {
-        session: session_,
+      const { jobId: newJobId } = await apiFetch("/api/import/jobs", {
+        session,
         method: "POST",
         body: JSON.stringify({
-          ratings,
-          watchlistItems,
+          uniqueFilms,
+          ratingsSrc: ratingSrc,
+          watchlistSrc,
           watchlistId,
           newWatchlistName: newWatchlistName_,
           conflictMode,
         }),
       });
-      setStartCounts({
-        ratingsImported: body.ratingsImported ?? 0,
-        ratingsSkipped: body.ratingsSkipped ?? 0,
-        watchlistAdded: body.watchlistAdded ?? 0,
-        watchlistSkipped: body.watchlistSkipped ?? 0,
-        unresolved,
-      });
-      setStep(STEPS.DONE);
+      writeStoredImportJob(newJobId, uid);
+      setJobId(newJobId);
+      setJob({ status: "pending", done: 0, total: uniqueFilms.length });
+      setStep(STEPS.JOB);
     } catch (e) {
-      setStartError(e?.message ?? "Import failed. Please try again.");
+      setCreateError(e?.message ?? "Couldn't start the import. Please try again.");
     }
-    setStarting(false);
-    setProgress(null);
+    setCreatingJob(false);
   };
 
   const hasWatchlistData = (lbWatchlist.length > 0) || (lbWatched.length > 0);
@@ -600,18 +583,18 @@ export default function ImportPage({ session }) {
               </div>
             )}
 
-            {startError && <p className="text-sm text-red-400">{startError}</p>}
+            {createError && <p className="text-sm text-red-400">{createError}</p>}
 
             <div className="flex items-center gap-3">
               <button
                 onClick={handleStart}
-                disabled={starting}
+                disabled={creatingJob}
                 className="rounded-xl border border-[#6868b8] bg-[#1a1d35] px-5 py-2.5 text-sm font-semibold text-[#a0a0e8] transition hover:border-[#9b9bf0] hover:text-white disabled:opacity-50"
               >
-                {starting ? (
+                {creatingJob ? (
                   <span className="flex items-center gap-2">
                     <span className="h-4 w-4 animate-spin rounded-full border-2 border-[#3a3a7a] border-t-[#8383e7]" />
-                    {progress ? `Matching ${progress.done}/${progress.total}…` : "Importing…"}
+                    Starting…
                   </span>
                 ) : "Start import"}
               </button>
@@ -625,60 +608,98 @@ export default function ImportPage({ session }) {
           </div>
         )}
 
-        {/* ── Step 3: Done ─────────────────────────────────────────────────── */}
-        {step === STEPS.DONE && (
+        {/* ── Step 3: Job in progress / done / failed ─────────────────────── */}
+        {step === STEPS.JOB && (
           <div className="space-y-4">
-            <div className="rounded-2xl border border-emerald-800/40 bg-emerald-950/20 p-5 space-y-2">
-              <p className="font-semibold text-emerald-400">Import complete</p>
-              <p className="text-sm text-[#8888c8]">
-                {startCounts ? (
-                  <>
-                    <span className="text-white font-medium">{startCounts.ratingsImported}</span> rating{startCounts.ratingsImported !== 1 ? "s" : ""} imported
-                    {startCounts.ratingsSkipped > 0 && <> ({startCounts.ratingsSkipped} skipped)</>}
-                    {" · "}
-                    <span className="text-white font-medium">{startCounts.watchlistAdded}</span> watchlist item{startCounts.watchlistAdded !== 1 ? "s" : ""} added
-                    {startCounts.watchlistSkipped > 0 && <> ({startCounts.watchlistSkipped} skipped)</>}.
-                  </>
-                ) : "Your data has been imported."}
-              </p>
-              {startCounts?.unresolved?.length > 0 && (
-                <details className="text-xs text-[#6868b8]">
-                  <summary className="cursor-pointer">
-                    {startCounts.unresolved.length} film{startCounts.unresolved.length !== 1 ? "s" : ""} couldn&apos;t be matched on TMDB
-                  </summary>
-                  <ul className="mt-2 max-h-40 space-y-0.5 overflow-y-auto">
-                    {startCounts.unresolved.map((u) => <li key={u}>{u}</li>)}
-                  </ul>
-                </details>
-              )}
-            </div>
+            {(!job || ACTIVE_STATUSES.has(job.status)) && (
+              <div className="rounded-2xl border border-[#2a3570]/50 bg-[#0a0c18] p-5 space-y-3">
+                <div className="flex items-center gap-3">
+                  <span className="h-5 w-5 shrink-0 animate-spin rounded-full border-2 border-[#3a3a7a] border-t-[#8383e7]" />
+                  <p className="font-semibold text-white">
+                    {job?.status === "committing" ? "Saving your import…" : "Matching your films…"}
+                  </p>
+                </div>
+                {job && job.total > 0 && (
+                  <div className="h-2 overflow-hidden rounded-full bg-[#12163a]">
+                    <div
+                      className="h-full rounded-full bg-[#6868b8] transition-all"
+                      style={{ width: `${Math.min(100, (job.done / job.total) * 100)}%` }}
+                    />
+                  </div>
+                )}
+                <p className="text-sm text-[#8888c8]">
+                  {job ? `${job.done}/${job.total} films matched. ` : ""}
+                  Your import is running in the background — feel free to close this page. Check back here anytime to see progress.
+                </p>
+              </div>
+            )}
 
-            <div className="flex flex-wrap gap-3">
-              <Link
-                to="/watchlists"
-                className="rounded-xl border border-[#3a3a7a] bg-[#1a1d35] px-4 py-2 text-sm font-semibold text-[#a0a0e8] transition hover:border-[#5a5aaa] hover:text-white"
-              >
-                View watchlists
-              </Link>
-              <Link
-                to="/settings"
-                className="rounded-xl border border-[#2a2d50] bg-[#0d0f1e] px-4 py-2 text-sm text-[#6868b8] transition hover:text-white"
-              >
-                Back to Settings
-              </Link>
-              <button
-                onClick={() => {
-                  setStep(STEPS.SOURCE);
-                  setSource(null);
-                  setLbRatings([]); setLbWatchlist([]); setLbWatched([]);
-                  setStartError(null); setStartCounts(null);
-                  setParseError(null);
-                }}
-                className="text-xs text-[#6868b8] underline hover:text-white self-center"
-              >
-                Import more
-              </button>
-            </div>
+            {job?.status === "done" && (
+              <div className="rounded-2xl border border-emerald-800/40 bg-emerald-950/20 p-5 space-y-2">
+                <p className="font-semibold text-emerald-400">Import complete</p>
+                <p className="text-sm text-[#8888c8]">
+                  {job.result ? (
+                    <>
+                      <span className="text-white font-medium">{job.result.ratingsImported}</span> rating{job.result.ratingsImported !== 1 ? "s" : ""} imported
+                      {job.result.ratingsSkipped > 0 && <> ({job.result.ratingsSkipped} skipped)</>}
+                      {" · "}
+                      <span className="text-white font-medium">{job.result.watchlistAdded}</span> watchlist item{job.result.watchlistAdded !== 1 ? "s" : ""} added
+                      {job.result.watchlistSkipped > 0 && <> ({job.result.watchlistSkipped} skipped)</>}.
+                    </>
+                  ) : "Your data has been imported."}
+                </p>
+                {job.unresolved?.length > 0 && (
+                  <details className="text-xs text-[#6868b8]">
+                    <summary className="cursor-pointer">
+                      {job.unresolved.length} film{job.unresolved.length !== 1 ? "s" : ""} couldn&apos;t be matched on TMDB
+                    </summary>
+                    <ul className="mt-2 max-h-40 space-y-0.5 overflow-y-auto">
+                      {job.unresolved.map((u) => <li key={u}>{u}</li>)}
+                    </ul>
+                  </details>
+                )}
+              </div>
+            )}
+
+            {job?.status === "failed" && (
+              <div className="rounded-2xl border border-red-800/40 bg-red-950/20 p-5 space-y-2">
+                <p className="font-semibold text-red-400">Import failed</p>
+                <p className="text-sm text-[#8888c8]">{job.error || "Something went wrong. Please try again."}</p>
+              </div>
+            )}
+
+            {job?.status === "cancelled" && (
+              <p className="text-sm text-[#8888c8]">This import was cancelled.</p>
+            )}
+
+            {job && !ACTIVE_STATUSES.has(job.status) && (
+              <div className="flex flex-wrap gap-3">
+                <Link
+                  to="/watchlists"
+                  className="rounded-xl border border-[#3a3a7a] bg-[#1a1d35] px-4 py-2 text-sm font-semibold text-[#a0a0e8] transition hover:border-[#5a5aaa] hover:text-white"
+                >
+                  View watchlists
+                </Link>
+                <Link
+                  to="/settings"
+                  className="rounded-xl border border-[#2a2d50] bg-[#0d0f1e] px-4 py-2 text-sm text-[#6868b8] transition hover:text-white"
+                >
+                  Back to Settings
+                </Link>
+                <button
+                  onClick={() => {
+                    setStep(STEPS.SOURCE);
+                    setSource(null);
+                    setLbRatings([]); setLbWatchlist([]); setLbWatched([]);
+                    setCreateError(null); setJobId(null); setJob(null);
+                    setParseError(null);
+                  }}
+                  className="text-xs text-[#6868b8] underline hover:text-white self-center"
+                >
+                  Import more
+                </button>
+              </div>
+            )}
           </div>
         )}
       </div>

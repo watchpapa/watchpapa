@@ -1,4 +1,4 @@
-import { getSql } from "./db.js";
+import { getSql, getSqlFromEnv } from "./db.js";
 
 // Fire-and-forget audit row for a Worker mutation. Runs AFTER the handler via
 // executionCtx.waitUntil so the response is never delayed.
@@ -48,7 +48,13 @@ export function auditLog(action, bodyFields = []) {
 }
 
 async function writeAuditRow(c, e) {
-  const sql = getSql(c);
+  return writeAuditRowEnv(c.env, e);
+}
+
+// Same as writeAuditRow, but for code with no Hono context (e.g. the import-job
+// cron handler in cron.js) — takes `env` directly.
+export async function writeAuditRowEnv(env, e) {
+  const sql = getSqlFromEnv(env);
   try {
     await sql`
       INSERT INTO public.audit_events (action, user_id, email, ip, method, path, body, status, target_user_id, source)

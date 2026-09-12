@@ -10,6 +10,7 @@ import AuthPromptModal from "../components/AuthPromptModal.jsx";
 import Sheet from "../components/ui/Sheet.jsx";
 import EarlyAdopterBanner from "../components/subscription/EarlyAdopterBanner.jsx";
 import TierRewardModal from "../components/subscription/TierRewardModal.jsx";
+import ImportStatusBadge from "../components/import/ImportStatusBadge.jsx";
 
 // Main app shell. Owns the chrome overlays (drawer, "You" account sheet,
 // sign-in prompt) so both the header and the phone tab bar can open them.
@@ -33,6 +34,7 @@ function AppLayout({ session, children, breadcrumbs }) {
       <Navbar session={session} onOpenDrawer={() => setDrawerOpen(true)} onAuthPrompt={() => setAuthPrompt(true)} />
       <EarlyAdopterBanner session={session} />
       <TierRewardModal session={session} />
+      <ImportStatusBadge session={session} />
       <Breadcrumbs items={breadcrumbs} />
       <main className="flex-1 px-3 py-5 sm:px-5 sm:py-6 lg:px-8">{children}</main>
       <Footer />
