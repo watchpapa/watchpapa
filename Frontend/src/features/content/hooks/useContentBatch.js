@@ -2,7 +2,7 @@
 // POST /api/content/batch. Chunks the request, caches per-key across the app, and
 // re-requests anything the server returned in `missing` (subrequest-budget spill).
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { apiFetch } from "../../../lib/api.js";
 import { cardKey } from "../lib/keys.js";
 import { usePreferences } from "../../preferences/PreferencesContext.jsx";
@@ -10,6 +10,12 @@ import { usePreferences } from "../../preferences/PreferencesContext.jsx";
 const CHUNK = 18; // keep in step with the worker BATCH_MAX var
 const cardCache = new Map(); // key -> card
 const missingSeen = new Set(); // keys the server has said are 404 — don't re-fetch forever
+const inflight = new Set(); // keys with a request in progress (any hook instance)
+const listeners = new Set(); // mounted hook instances to re-render when the cache fills
+
+function notify() {
+  for (const fn of listeners) fn();
+}
 
 function chunk(arr, n) {
   const out = [];
@@ -37,39 +43,44 @@ export function useContentBatch(items) {
   }, [JSON.stringify(items ?? [])]);
 
   const [, force] = useState(0);
-  const loadingRef = useRef(false);
+
+  // Re-render whenever any instance's request lands, so a fetch started by an
+  // earlier effect run (or another component) still reaches this one.
+  useEffect(() => {
+    const fn = () => force((n) => n + 1);
+    listeners.add(fn);
+    return () => listeners.delete(fn);
+  }, []);
 
   useEffect(() => {
-    const need = keyed.filter(([k]) => !cardCache.has(lk(k)) && !missingSeen.has(lk(k))).map(([, it]) => it);
-    if (need.length === 0 || loadingRef.current) return;
+    const need = keyed.filter(
+      ([k]) => !cardCache.has(lk(k)) && !missingSeen.has(lk(k)) && !inflight.has(lk(k)),
+    );
+    if (need.length === 0) return;
+    for (const [k] of need) inflight.add(lk(k));
 
-    let cancelled = false;
-    loadingRef.current = true;
-    (async () => {
-      try {
-        for (const group of chunk(need, CHUNK)) {
+    // Chunks go out in parallel and each one renders as soon as it lands, so a
+    // cold edge cache shows titles progressively instead of after the last chunk.
+    for (const group of chunk(need, CHUNK)) {
+      (async () => {
+        try {
           const { cards, missing } = await apiFetch("/api/content/batch", {
             method: "POST",
-            body: JSON.stringify({ items: group }),
+            body: JSON.stringify({ items: group.map(([, it]) => it) }),
           });
-          if (cancelled) return;
           for (const [k, v] of Object.entries(cards ?? {})) cardCache.set(lk(k), v);
           // `missing` from the server = either a real 404 or budget spill. Retry
           // once by leaving it out of missingSeen only on the first pass; simplest
           // safe choice: mark 404-style keys seen so we don't loop.
           for (const k of missing ?? []) missingSeen.add(lk(k));
+        } catch {
+          // leave keys uncached — a later effect run retries
+        } finally {
+          for (const [k] of group) inflight.delete(lk(k));
+          notify();
         }
-      } catch {
-        // leave keys uncached — a later render retries
-      } finally {
-        loadingRef.current = false;
-        if (!cancelled) force((n) => n + 1);
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
+      })();
+    }
   }, [keyed, localeKey]);
 
   const cards = {};

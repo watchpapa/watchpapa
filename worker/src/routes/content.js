@@ -402,13 +402,17 @@ content.post("/batch", async (c) => {
     return memo.get(key);
   };
 
-  for (const it of items) {
+  // Items resolve concurrently — serial awaits made a cold-cache batch cost ~18
+  // TMDB round trips back to back. The budget check and memoFetch calls run
+  // synchronously before each callback's first await, so `fetches` accounting
+  // is identical to the old sequential loop.
+  await Promise.all(items.map(async (it) => {
     const key = itemKey(it);
     const cost =
       it.type === "movie" || it.type === "show" || it.type === "person" ? 1 : 2;
     if (fetches + cost > cfg.batchSubreqBudget) {
       missing.push(key);
-      continue;
+      return;
     }
     try {
       if (it.type === "movie") {
@@ -473,7 +477,7 @@ content.post("/batch", async (c) => {
     } catch {
       missing.push(key);
     }
-  }
+  }));
 
   return c.json({ cards, missing }, 200, cache(3600));
 });
@@ -515,7 +519,13 @@ content.post("/releases", async (c) => {
     showIds.map(async (showId) => {
       let show;
       try {
-        show = await tmdbFetch(c.env, `/tv/${showId}`, {}, { ttl: TTL.show, language: loc.language });
+        // Same append set as the batch route so both share one edge-cache entry.
+        show = await tmdbFetch(
+          c.env,
+          `/tv/${showId}`,
+          { append_to_response: "keywords" },
+          { ttl: TTL.show, language: loc.language },
+        );
       } catch (e) {
         if (e instanceof TmdbNotFound) return;
         throw e;

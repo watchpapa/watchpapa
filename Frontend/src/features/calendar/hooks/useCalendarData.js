@@ -121,9 +121,11 @@ export function useCalendarData(session, year, month) {
     [state.movieRows, cards],
   );
 
+  // From the Supabase rows, not the hydrated cards — releases only need ids, so
+  // they start in parallel with card hydration instead of waiting for it.
   const visibleShowIds = useMemo(
-    () => followedShows.map((s) => s.id).filter((id) => state.followedShowIds.has(id)),
-    [followedShows, state.followedShowIds],
+    () => state.showRows.map((r) => r.tmdb_id).filter((id) => state.followedShowIds.has(id)),
+    [state.showRows, state.followedShowIds],
   );
   const { entries: episodeEntries } = useReleases(visibleShowIds, year, month);
 

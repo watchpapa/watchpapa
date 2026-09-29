@@ -27,17 +27,21 @@ export function useReleases(showIds, year, month) {
     (async () => {
       const merged = {};
       try {
-        for (const group of chunk(showIds, CHUNK)) {
-          const { entries: e } = await apiFetch("/api/content/releases", {
-            method: "POST",
-            body: JSON.stringify({ showIds: group, year, month }),
-          });
-          if (cancelled) return;
+        const results = await Promise.all(
+          chunk(showIds, CHUNK).map((group) =>
+            apiFetch("/api/content/releases", {
+              method: "POST",
+              body: JSON.stringify({ showIds: group, year, month }),
+            }),
+          ),
+        );
+        if (cancelled) return;
+        for (const { entries: e } of results) {
           for (const [date, list] of Object.entries(e ?? {})) {
             merged[date] = [...(merged[date] ?? []), ...list];
           }
         }
-        if (!cancelled) setEntries(merged);
+        setEntries(merged);
       } catch {
         if (!cancelled) setEntries({});
       } finally {
