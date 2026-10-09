@@ -28,7 +28,7 @@ export function config(env) {
     // candidates get a watch/providers lookup when filtering by "my services".
     // Kept low enough that seeds + status backfill (below) + this always stays
     // under the Free-plan 50-subrequest ceiling in the same request.
-    recommendationsMaxSeeds: int(env.RECOMMENDATIONS_MAX_SEEDS, 8),
+    recommendationsMaxSeeds: int(env.RECOMMENDATIONS_MAX_SEEDS, 6),
     recommendationsProviderCheckMax: int(env.RECOMMENDATIONS_PROVIDER_CHECK_MAX, 15),
     // Show cards from list/discover/recommendations never carry `status` (TMDB
     // detail-only field) — backfilled with one extra /tv/{id} lookup per show,

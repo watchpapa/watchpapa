@@ -12,6 +12,7 @@ import {
   isValidRegion,
   backfillShowStatus,
 } from "../tmdb/discover.js";
+import { addToProfile, sampleSeeds, scoreCandidate, topGenres } from "../tmdb/recommend.js";
 import { filterNsfw, isNsfw, NSFW_CATEGORIES, parseNsfwKeywordIds } from "../tmdb/nsfw.js";
 import {
   normalizeMovie,
@@ -583,10 +584,12 @@ content.post("/releases", async (c) => {
 // /similar, which is just genre/keyword matching, not user-behaviour based).
 // The client supplies "seed" titles from the user's own ratings + watched
 // watchlist items; we fetch TMDB recommendations for each seed, tally how
-// often each candidate is recommended across seeds, and rank by that.
+// often each candidate is recommended across seeds, and rank by that blended
+// with genre overlap against the user's taste and current TMDB popularity (see
+// tmdb/recommend.js). Seeds are weighted-random sampled per request.
 //
 // Body: {
-//   items: [{type:'movie'|'show', id}],      // seeds, capped to recommendationsMaxSeeds
+//   items: [{type:'movie'|'show', id, weight?}], // seed pool (weight = rating); a sample of recommendationsMaxSeeds is used
 //   exclude: [{type:'movie'|'show', id}],     // already rated/watchlisted/followed
 //   providers?: number[],                     // optional: also return a subset available on these
 //   watchRegion?: string,                     // ISO 3166-1, required alongside providers
@@ -620,16 +623,21 @@ content.post("/recommendations", async (c) => {
     return c.json({ error: "Bad JSON" }, 400);
   }
 
-  const items = (Array.isArray(body?.items) ? body.items : [])
+  // Client sends its whole seed pool (each with an optional rating `weight`);
+  // we sample a weighted-random subset per request so the rows rotate instead
+  // of being frozen to the same top-N titles.
+  const pool = (Array.isArray(body?.items) ? body.items : [])
     .filter((it) => (it?.type === "movie" || it?.type === "show") && posInt(it?.id))
-    .slice(0, cfg.recommendationsMaxSeeds);
+    .slice(0, 40)
+    .map((it) => ({ type: it.type, id: it.id, weight: Number(it.weight) }));
+  const items = sampleSeeds(pool, cfg.recommendationsMaxSeeds);
   if (items.length === 0) return c.json({ results: [] });
 
   const excludeKeys = new Set();
   for (const it of (Array.isArray(body?.exclude) ? body.exclude : []).slice(0, 2000)) {
     if ((it?.type === "movie" || it?.type === "show") && posInt(it?.id)) excludeKeys.add(`${it.type}:${it.id}`);
   }
-  for (const it of items) excludeKeys.add(`${it.type}:${it.id}`); // never recommend a seed back to itself
+  for (const it of pool) excludeKeys.add(`${it.type}:${it.id}`); // never recommend a seed back to itself
 
   const providers = (Array.isArray(body?.providers) ? body.providers : [])
     .filter((n) => Number.isInteger(n) && n > 0)
@@ -643,8 +651,17 @@ content.post("/recommendations", async (c) => {
   // later pages from repeating earlier ones.
   const tmdbPage = posInt(String(body?.page)) ?? 1;
 
-  // 1) Fetch TMDB recommendations per seed, tally candidates across seeds.
-  const tally = new Map(); // "type:id" -> { type, id, raw, hits, popularity }
+  // 1) Fetch TMDB recommendations per seed, tally candidates across seeds, and
+  //    build a per-type genre taste profile from what the seeds led to.
+  const tally = new Map(); // "type:id" -> { type, id, raw, recScore, popularity }
+  const profiles = { movie: new Map(), show: new Map() };
+  const addCandidate = (type, r, recScore) => {
+    const key = `${type}:${r.id}`;
+    if (excludeKeys.has(key)) return;
+    const existing = tally.get(key);
+    if (existing) existing.recScore += recScore;
+    else tally.set(key, { type, id: r.id, raw: r, recScore, popularity: r.popularity ?? 0 });
+  };
   await Promise.all(
     items.map(async (it) => {
       const tmdbType = it.type === "show" ? "tv" : "movie";
@@ -659,12 +676,38 @@ content.post("/recommendations", async (c) => {
       } catch {
         return;
       }
+      const w = Number.isFinite(it.weight) && it.weight > 0 ? it.weight : 6;
       for (const r of raw?.results ?? []) {
-        const key = `${it.type}:${r.id}`;
-        if (excludeKeys.has(key)) continue;
-        const existing = tally.get(key);
-        if (existing) existing.hits += 1;
-        else tally.set(key, { type: it.type, id: r.id, raw: r, hits: 1, popularity: r.popularity ?? 0 });
+        addToProfile(profiles[it.type], r.genre_ids, w);
+        addCandidate(it.type, r, w / 10);
+      }
+    }),
+  );
+
+  // 2) "Currently popular" in the user's taste: one genre-filtered discover per
+  //    seed type, sorted by popularity (2 extra subrequests at most). These
+  //    candidates have no recScore, so they rank on genre match + popularity.
+  await Promise.all(
+    ["movie", "show"].map(async (type) => {
+      const genres = topGenres(profiles[type], 3);
+      if (genres.length === 0) return;
+      const tmdbType = type === "show" ? "tv" : "movie";
+      try {
+        const raw = await tmdbFetch(
+          c.env,
+          `/discover/${tmdbType}`,
+          {
+            with_genres: genres.join("|"),
+            sort_by: "popularity.desc",
+            "vote_count.gte": 100,
+            include_adult: false,
+            page: tmdbPage,
+          },
+          { ttl: TTL.discover, language: loc.language },
+        );
+        for (const r of raw?.results ?? []) addCandidate(type, r, 0);
+      } catch {
+        /* popularity blend is best-effort */
       }
     }),
   );
@@ -673,7 +716,13 @@ content.post("/recommendations", async (c) => {
   if (!loc.includeAdult) {
     candidates = candidates.filter((cnd) => !isNsfw(cnd.raw, cnd.type === "show" ? "tv" : "movie"));
   }
-  candidates.sort((a, b) => b.hits - a.hits || b.popularity - a.popularity);
+  for (const cnd of candidates) {
+    cnd.score = scoreCandidate(
+      { recScore: cnd.recScore, genres: cnd.raw.genre_ids, popularity: cnd.popularity },
+      profiles[cnd.type],
+    );
+  }
+  candidates.sort((a, b) => b.score - a.score);
   candidates = candidates.slice(0, RECOMMENDATION_CANDIDATE_POOL);
 
   const cardOpts = { native: loc.native, region: loc.region };

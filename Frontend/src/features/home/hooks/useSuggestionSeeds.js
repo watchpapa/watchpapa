@@ -64,12 +64,12 @@ export function useSuggestionSeeds(session) {
         .filter((r) => r.value >= MIN_RATING_FOR_SEED)
         .sort((a, b) => b.value - a.value)
         .slice(0, MAX_RATING_SEEDS)
-        .map((r) => ({ type: r.media_type, id: r.tmdb_id }));
+        .map((r) => ({ type: r.media_type, id: r.tmdb_id, weight: r.value })); // weight = rating; the Worker samples seeds by it
 
       const watchedSeeds = watchlistRows
         .filter((r) => r.watched && !ratedKeys.has(`${r.media_type}:${r.tmdb_id}`))
         .slice(0, MAX_WATCHED_SEEDS)
-        .map((r) => ({ type: r.media_type, id: r.tmdb_id }));
+        .map((r) => ({ type: r.media_type, id: r.tmdb_id, weight: MIN_RATING_FOR_SEED }));
 
       const seedMap = new Map();
       for (const s of [...ratingSeeds, ...watchedSeeds]) seedMap.set(`${s.type}:${s.id}`, s);
