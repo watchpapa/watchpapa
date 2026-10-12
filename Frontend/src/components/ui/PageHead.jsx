@@ -2,14 +2,15 @@ import { Helmet } from "react-helmet-async";
 
 const SITE_NAME = "watchpapa";
 const DEFAULT_DESC = "Discover and track films, shows, and people. Browse popular movies and TV shows, explore cast and crew, check upcoming releases — all in one place.";
-const DEFAULT_IMAGE = "https://watchpapa.tv/logo_v3.1.svg";
+const DEFAULT_IMAGE = "https://watchpapa.tv/og-default.png";
 const BASE_URL = "https://watchpapa.tv";
 
 export function PageHead({ title, description, image, path, type = "website", noindex = false, jsonLd }) {
-  const fullTitle = title ? `${title} — ${SITE_NAME}` : SITE_NAME;
-  const desc = (description || DEFAULT_DESC).slice(0, 155);
+  const fullTitle = !title ? SITE_NAME : title.endsWith(SITE_NAME) ? title : `${title} — ${SITE_NAME}`;
+  const desc = (description || DEFAULT_DESC).slice(0, 200);
   const img = image || DEFAULT_IMAGE;
   const url = path ? `${BASE_URL}${path}` : BASE_URL;
+  const jsonLdList = [].concat(jsonLd ?? []).filter(Boolean);
 
   return (
     <Helmet>
@@ -26,9 +27,9 @@ export function PageHead({ title, description, image, path, type = "website", no
       <meta name="twitter:title" content={fullTitle} />
       <meta name="twitter:description" content={desc} />
       <meta name="twitter:image" content={img} />
-      {jsonLd && (
-        <script type="application/ld+json">{JSON.stringify(jsonLd)}</script>
-      )}
+      {jsonLdList.map((obj, i) => (
+        <script key={i} type="application/ld+json">{JSON.stringify(obj)}</script>
+      ))}
     </Helmet>
   );
 }

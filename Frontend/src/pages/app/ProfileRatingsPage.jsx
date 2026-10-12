@@ -45,6 +45,7 @@ function ProfileRatingsPage({ session }) {
         title={`${profile.username} — Ratings — watchpapa`}
         description={`${profile.username}'s ratings on watchpapa.`}
         path={`/u/${profile.username}/ratings`}
+        noindex
       />
 
       <div className="mx-auto max-w-3xl space-y-6 py-6 px-4 sm:px-0">

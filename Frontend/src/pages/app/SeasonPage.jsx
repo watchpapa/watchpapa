@@ -17,6 +17,7 @@ import UpgradePromptToast from "../../components/subscription/UpgradePromptToast
 import { PageHead } from "../../components/ui/PageHead.jsx";
 import ErrorNote from "../../components/ui/ErrorNote.jsx";
 import { tmdbImg } from "../../lib/tmdbImage.js";
+import { tvSeasonJsonLd, breadcrumbJsonLd } from "../../lib/structuredData.js";
 import { ChevronLeftIcon, ChevronRightIcon, TvIcon } from "../../components/icons/index.jsx";
 
 function fmt(val, fallback = "—") { return val ?? fallback; }
@@ -102,6 +103,7 @@ function SeasonPage({ session }) {
         title={`${show.name} — ${season.name}`}
         description={season.overview?.slice(0, 155) || `Season ${season.season_number} of ${show.name} on watchpapa.`}
         path={`/shows/${showId}/seasons/${seasonNumber}`}
+        jsonLd={[tvSeasonJsonLd(season, show), breadcrumbJsonLd(breadcrumbs)]}
       />
       {showAuthPrompt && <AuthPromptModal onClose={() => setShowAuthPrompt(false)} />}
       {followLimitError && <UpgradePromptToast message={followLimitError} onDismiss={clearFollowLimitError} session={session} />}

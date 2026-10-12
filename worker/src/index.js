@@ -5,6 +5,7 @@ import { config } from "./env.js";
 import { TmdbError } from "./tmdb/client.js";
 import { globalRateLimit } from "./ratelimit.js";
 import { content } from "./routes/content.js";
+import { meta } from "./routes/meta.js";
 import { search, posters, imageProxy, sitemap } from "./routes/publicContent.js";
 import { referral } from "./routes/referral.js";
 import { rewards } from "./routes/rewards.js";
@@ -34,6 +35,7 @@ app.get("/health", (c) => c.json({ status: "ok" }));
 
 // Public content (TMDB-backed, edge-cached)
 app.route("/api/content", content);
+app.route("/api/meta", meta);
 app.route("/api/search", search);
 app.route("/api/posters", posters);
 app.route("/api/image-proxy", imageProxy);

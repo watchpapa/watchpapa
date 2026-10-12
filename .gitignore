@@ -58,3 +58,6 @@ temp/
 # Worker local state
 worker/.wrangler/
 worker/.dev.vars
+
+# Pages Functions local state
+Frontend/.wrangler/

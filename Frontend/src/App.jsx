@@ -1,70 +1,88 @@
 // Used by:
 // - Frontend/src/main.jsx
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 import { supabase } from "./lib/supabase.js";
 import { PreferencesProvider, usePreferences } from "./features/preferences/PreferencesContext.jsx";
 import { CurrentUserProvider } from "./features/profile/CurrentUserContext.jsx";
 import { notifyProfileUpdated } from "./features/profile/profileEvents.js";
 import { isAdult } from "./lib/validate.js";
-import ForgotPasswordPage from "./pages/auth/ForgotPasswordPage.jsx";
-import LoginPage from "./pages/auth/LoginPage.jsx";
-import RegisterPage from "./pages/auth/RegisterPage.jsx";
-import ResetPasswordPage from "./pages/auth/ResetPasswordPage.jsx";
-import VerifyEmailPage from "./pages/auth/VerifyEmailPage.jsx";
-import CompleteUsernamePage from "./pages/auth/CompleteUsernamePage.jsx";
-import AppHomePage from "./pages/app/AppHomePage.jsx";
-import SearchPage from "./pages/app/SearchPage.jsx";
-import MoviesPage from "./pages/app/MoviesPage.jsx";
-import ShowsPage from "./pages/app/ShowsPage.jsx";
-import PeoplePage from "./pages/app/PeoplePage.jsx";
-import MoviePage from "./pages/app/MoviePage.jsx";
-import ShowPage from "./pages/app/ShowPage.jsx";
-import SeasonPage from "./pages/app/SeasonPage.jsx";
-import EpisodePage from "./pages/app/EpisodePage.jsx";
-import PersonPage from "./pages/app/PersonPage.jsx";
-import CollectionsPage from "./pages/app/CollectionsPage.jsx";
-import CollectionPage from "./pages/app/CollectionPage.jsx";
-import MyServicesPage from "./pages/app/MyServicesPage.jsx";
-import AdultPage from "./pages/app/AdultPage.jsx";
+import { Skeleton } from "./components/ui/Skeleton.jsx";
 import TmdbRedirect from "./components/TmdbRedirect.jsx";
 import CookieConsentBanner from "./components/ui/CookieConsentBanner.jsx";
 import ReportBugButton from "./components/ui/ReportBugButton.jsx";
-import ReleasesCalendarPage from "./pages/app/ReleasesCalendarPage.jsx";
-import SubscriptionPage from "./pages/app/SubscriptionPage.jsx";
-import SettingsPage from "./pages/app/SettingsPage.jsx";
-import UpdatesPage from "./pages/app/UpdatesPage.jsx";
-import AdminPage from "./pages/admin/AdminPage.jsx";
-import RewardCodesPage from "./pages/admin/RewardCodesPage.jsx";
-import TierRewardsPage from "./pages/admin/TierRewardsPage.jsx";
-import AnnouncementsPage from "./pages/admin/AnnouncementsPage.jsx";
-import EarlyAdoptersPage from "./pages/admin/EarlyAdoptersPage.jsx";
-import StatsPage from "./pages/admin/StatsPage.jsx";
-import UserLookupPage from "./pages/admin/UserLookupPage.jsx";
-import ReferralLeaderboardPage from "./pages/admin/ReferralLeaderboardPage.jsx";
-import AuditLogPage from "./pages/admin/AuditLogPage.jsx";
 import AdminRoute from "./components/auth/AdminRoute.jsx";
-import StaffPage from "./pages/admin/StaffPage.jsx";
-import CatalogStatsPage from "./pages/admin/CatalogStatsPage.jsx";
-import WatchlistsPage from "./pages/app/WatchlistsPage.jsx";
-import ProfilePage from "./pages/app/ProfilePage.jsx";
-import ProfileRatingsPage from "./pages/app/ProfileRatingsPage.jsx";
-import EditProfilePage from "./pages/app/EditProfilePage.jsx";
-import FollowsPage from "./pages/app/FollowsPage.jsx";
-import ImportPage from "./pages/app/ImportPage.jsx";
-import UserSearchPage from "./pages/app/UserSearchPage.jsx";
-import ActivityFeedPage from "./pages/app/ActivityFeedPage.jsx";
-import ObserveRequestsPage from "./pages/app/ObserveRequestsPage.jsx";
-import NotificationsPage from "./pages/app/NotificationsPage.jsx";
-import ObserveListPage from "./pages/app/ObserveListPage.jsx";
-import {
-  AboutPage,
-  ContactPage,
-  HelpPage,
-  PrivacyPage,
-  TermsPage,
-  CertificationsInfoPage,
-} from "./pages/app/static/StaticInfoPages.jsx";
+// AppHomePage stays eager — it's the landing route almost every first visit hits.
+import AppHomePage from "./pages/app/AppHomePage.jsx";
+
+// Everything else is route-level code-split: each page (and anything heavy it
+// pulls in — rich-text editor, image cropper, the whole admin subtree) only
+// loads when its route is actually visited. See vite.config.js manualChunks
+// for the shared vendor chunks these fall into.
+const ForgotPasswordPage = lazy(() => import("./pages/auth/ForgotPasswordPage.jsx"));
+const LoginPage = lazy(() => import("./pages/auth/LoginPage.jsx"));
+const RegisterPage = lazy(() => import("./pages/auth/RegisterPage.jsx"));
+const ResetPasswordPage = lazy(() => import("./pages/auth/ResetPasswordPage.jsx"));
+const VerifyEmailPage = lazy(() => import("./pages/auth/VerifyEmailPage.jsx"));
+const CompleteUsernamePage = lazy(() => import("./pages/auth/CompleteUsernamePage.jsx"));
+const SearchPage = lazy(() => import("./pages/app/SearchPage.jsx"));
+const MoviesPage = lazy(() => import("./pages/app/MoviesPage.jsx"));
+const ShowsPage = lazy(() => import("./pages/app/ShowsPage.jsx"));
+const PeoplePage = lazy(() => import("./pages/app/PeoplePage.jsx"));
+const MoviePage = lazy(() => import("./pages/app/MoviePage.jsx"));
+const ShowPage = lazy(() => import("./pages/app/ShowPage.jsx"));
+const SeasonPage = lazy(() => import("./pages/app/SeasonPage.jsx"));
+const EpisodePage = lazy(() => import("./pages/app/EpisodePage.jsx"));
+const PersonPage = lazy(() => import("./pages/app/PersonPage.jsx"));
+const CollectionsPage = lazy(() => import("./pages/app/CollectionsPage.jsx"));
+const CollectionPage = lazy(() => import("./pages/app/CollectionPage.jsx"));
+const MyServicesPage = lazy(() => import("./pages/app/MyServicesPage.jsx"));
+const AdultPage = lazy(() => import("./pages/app/AdultPage.jsx"));
+const ReleasesCalendarPage = lazy(() => import("./pages/app/ReleasesCalendarPage.jsx"));
+const SubscriptionPage = lazy(() => import("./pages/app/SubscriptionPage.jsx"));
+const SettingsPage = lazy(() => import("./pages/app/SettingsPage.jsx"));
+const UpdatesPage = lazy(() => import("./pages/app/UpdatesPage.jsx"));
+const AdminPage = lazy(() => import("./pages/admin/AdminPage.jsx"));
+const RewardCodesPage = lazy(() => import("./pages/admin/RewardCodesPage.jsx"));
+const TierRewardsPage = lazy(() => import("./pages/admin/TierRewardsPage.jsx"));
+const AnnouncementsPage = lazy(() => import("./pages/admin/AnnouncementsPage.jsx"));
+const EarlyAdoptersPage = lazy(() => import("./pages/admin/EarlyAdoptersPage.jsx"));
+const StatsPage = lazy(() => import("./pages/admin/StatsPage.jsx"));
+const UserLookupPage = lazy(() => import("./pages/admin/UserLookupPage.jsx"));
+const ReferralLeaderboardPage = lazy(() => import("./pages/admin/ReferralLeaderboardPage.jsx"));
+const AuditLogPage = lazy(() => import("./pages/admin/AuditLogPage.jsx"));
+const StaffPage = lazy(() => import("./pages/admin/StaffPage.jsx"));
+const CatalogStatsPage = lazy(() => import("./pages/admin/CatalogStatsPage.jsx"));
+const WatchlistsPage = lazy(() => import("./pages/app/WatchlistsPage.jsx"));
+const ProfilePage = lazy(() => import("./pages/app/ProfilePage.jsx"));
+const ProfileRatingsPage = lazy(() => import("./pages/app/ProfileRatingsPage.jsx"));
+const EditProfilePage = lazy(() => import("./pages/app/EditProfilePage.jsx"));
+const FollowsPage = lazy(() => import("./pages/app/FollowsPage.jsx"));
+const ImportPage = lazy(() => import("./pages/app/ImportPage.jsx"));
+const UserSearchPage = lazy(() => import("./pages/app/UserSearchPage.jsx"));
+const ActivityFeedPage = lazy(() => import("./pages/app/ActivityFeedPage.jsx"));
+const ObserveRequestsPage = lazy(() => import("./pages/app/ObserveRequestsPage.jsx"));
+const NotificationsPage = lazy(() => import("./pages/app/NotificationsPage.jsx"));
+const ObserveListPage = lazy(() => import("./pages/app/ObserveListPage.jsx"));
+const NotFoundPage = lazy(() => import("./pages/app/NotFoundPage.jsx"));
+const AboutPage = lazy(() => import("./pages/app/static/StaticInfoPages.jsx").then((m) => ({ default: m.AboutPage })));
+const ContactPage = lazy(() => import("./pages/app/static/StaticInfoPages.jsx").then((m) => ({ default: m.ContactPage })));
+const HelpPage = lazy(() => import("./pages/app/static/StaticInfoPages.jsx").then((m) => ({ default: m.HelpPage })));
+const PrivacyPage = lazy(() => import("./pages/app/static/StaticInfoPages.jsx").then((m) => ({ default: m.PrivacyPage })));
+const TermsPage = lazy(() => import("./pages/app/static/StaticInfoPages.jsx").then((m) => ({ default: m.TermsPage })));
+const CertificationsInfoPage = lazy(() =>
+  import("./pages/app/static/StaticInfoPages.jsx").then((m) => ({ default: m.CertificationsInfoPage })),
+);
+
+// Full-height placeholder shown while a route's chunk is downloading — no
+// AppLayout chrome at this point (that's part of the chunk itself).
+function RouteFallback() {
+  return (
+    <div className="flex min-h-svh items-center justify-center bg-bg p-8">
+      <Skeleton className="h-10 w-10 rounded-full" />
+    </div>
+  );
+}
 
 // Redirect signed-in users away from auth-only pages.
 function PublicOnlyRoute({ session, needsUsernameSetup, children }) {
@@ -267,6 +285,7 @@ function RouteTree({ session, needsUsernameSetup, initialUsername, onUsernameCom
     <>
     <CookieConsentBanner />
     <ReportBugButton />
+    <Suspense fallback={<RouteFallback />}>
     <Routes>
       <Route
         path="/login"
@@ -633,8 +652,9 @@ function RouteTree({ session, needsUsernameSetup, initialUsername, onUsernameCom
         <Route path="staff" element={<StaffPage />} />
         <Route path="catalog-stats" element={<CatalogStatsPage />} />
       </Route>
-      <Route path="*" element={<Navigate to="/" replace />} />
+      <Route path="*" element={<NotFoundPage session={session} />} />
     </Routes>
+    </Suspense>
     </>
   );
 }

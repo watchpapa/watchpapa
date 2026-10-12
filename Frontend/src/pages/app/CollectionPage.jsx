@@ -10,6 +10,7 @@ import { PageHead } from "../../components/ui/PageHead.jsx";
 import ErrorNote from "../../components/ui/ErrorNote.jsx";
 import { useCollectionData } from "../../features/collection/hooks/useCollectionData.js";
 import { tmdbImg } from "../../lib/tmdbImage.js";
+import { collectionJsonLd, breadcrumbJsonLd } from "../../lib/structuredData.js";
 
 function CollectionPage({ session }) {
   const { id } = useParams();
@@ -27,7 +28,13 @@ function CollectionPage({ session }) {
 
   return (
     <AppLayout session={session} breadcrumbs={breadcrumbs}>
-      <PageHead title={collection.name} description={collection.overview?.slice(0, 155) || `Every film in the ${collection.name}.`} image={ogImage} path={`/collections/${id}`} />
+      <PageHead
+        title={collection.name}
+        description={collection.overview?.slice(0, 155) || `Every film in the ${collection.name}.`}
+        image={ogImage}
+        path={`/collections/${id}`}
+        jsonLd={[collectionJsonLd({ ...collection, items }), breadcrumbJsonLd(breadcrumbs)]}
+      />
       {followLimitError && <UpgradePromptToast message={followLimitError} onDismiss={clearFollowLimitError} session={session} />}
       <DetailPageLayout
         title={collection.name}

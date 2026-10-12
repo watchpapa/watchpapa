@@ -8,5 +8,17 @@ Disallow: /verify-email
 Disallow: /forgot-password
 Disallow: /reset-password
 Disallow: /complete-username
+Disallow: /u
+Disallow: /feed
+Disallow: /watchlists
+Disallow: /follows
+Disallow: /notifications
+Disallow: /import
+Disallow: /observe-requests
+Disallow: /users
+Disallow: /calendar
+Disallow: /profile
+Disallow: /my-services
+Disallow: /adult
 
-Sitemap: https://watchpapa.tv/sitemap.xml
+Sitemap: https://api.watchpapa.tv/sitemap.xml

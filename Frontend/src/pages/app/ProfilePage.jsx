@@ -94,7 +94,7 @@ function ProfilePage({ session }) {
 
   return (
     <AppLayout session={session} breadcrumbs={breadcrumbs}>
-      <PageHead title={`${profile.username} — watchpapa`} description={profile.bio ?? `${profile.username}'s profile on watchpapa.`} path={`/u/${profile.username}`} />
+      <PageHead title={`${profile.username} — watchpapa`} description={profile.bio ?? `${profile.username}'s profile on watchpapa.`} path={`/u/${profile.username}`} noindex />
 
       <PageContainer width="standard" className="space-y-6">
         {/* Header: banner + overlapping avatar */}

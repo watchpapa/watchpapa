@@ -91,6 +91,10 @@ imageProxy.get("/", async (c) => {
 
 const BASE_URL = "https://watchpapa.tv";
 
+// Bumped whenever a static route's content changes meaningfully; good enough
+// for <lastmod> on pages with no real per-page modification timestamp.
+const STATIC_LASTMOD = "2026-09-08";
+
 const STATIC_URLS = [
   { path: "/", changefreq: "daily", priority: "1.0" },
   { path: "/movies", changefreq: "daily", priority: "0.8" },
@@ -101,13 +105,15 @@ const STATIC_URLS = [
   { path: "/about", changefreq: "monthly", priority: "0.5" },
   { path: "/help", changefreq: "monthly", priority: "0.5" },
   { path: "/subscription", changefreq: "monthly", priority: "0.5" },
+  { path: "/certifications", changefreq: "monthly", priority: "0.4" },
   { path: "/contact", changefreq: "monthly", priority: "0.4" },
   { path: "/terms", changefreq: "monthly", priority: "0.3" },
   { path: "/privacy", changefreq: "monthly", priority: "0.3" },
 ];
 
-function urlEntry(loc, changefreq, priority) {
-  return `  <url>\n    <loc>${loc}</loc>\n    <changefreq>${changefreq}</changefreq>\n    <priority>${priority}</priority>\n  </url>`;
+function urlEntry(loc, changefreq, priority, lastmod) {
+  const lastmodTag = lastmod ? `\n    <lastmod>${lastmod}</lastmod>` : "";
+  return `  <url>\n    <loc>${loc}</loc>${lastmodTag}\n    <changefreq>${changefreq}</changefreq>\n    <priority>${priority}</priority>\n  </url>`;
 }
 function urlset(entries) {
   return [
@@ -144,7 +150,7 @@ sitemap.get("/sitemap.xml", (c) =>
     [
       `<?xml version="1.0" encoding="UTF-8"?>`,
       `<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">`,
-      `  <sitemap><loc>${BASE_URL}/sitemap-static.xml</loc></sitemap>`,
+      `  <sitemap><loc>${BASE_URL}/sitemap-static.xml</loc><lastmod>${STATIC_LASTMOD}</lastmod></sitemap>`,
       `  <sitemap><loc>${BASE_URL}/sitemap-movies.xml</loc></sitemap>`,
       `  <sitemap><loc>${BASE_URL}/sitemap-shows.xml</loc></sitemap>`,
       `  <sitemap><loc>${BASE_URL}/sitemap-people.xml</loc></sitemap>`,
@@ -154,7 +160,7 @@ sitemap.get("/sitemap.xml", (c) =>
 );
 
 sitemap.get("/sitemap-static.xml", (c) =>
-  xml(c, urlset(STATIC_URLS.map((u) => urlEntry(`${BASE_URL}${u.path}`, u.changefreq, u.priority)))),
+  xml(c, urlset(STATIC_URLS.map((u) => urlEntry(`${BASE_URL}${u.path}`, u.changefreq, u.priority, STATIC_LASTMOD)))),
 );
 
 sitemap.get("/sitemap-movies.xml", async (c) => {

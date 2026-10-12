@@ -12,6 +12,7 @@ import Select from "../../components/ui/Select.jsx";
 import EmptyState from "../../components/ui/EmptyState.jsx";
 import ErrorNote from "../../components/ui/ErrorNote.jsx";
 import { tmdbImg } from "../../lib/tmdbImage.js";
+import { personJsonLd, breadcrumbJsonLd } from "../../lib/structuredData.js";
 import { ageFromDate } from "../../lib/validate.js";
 import { FilmIcon, UserIcon } from "../../components/icons/index.jsx";
 
@@ -92,17 +93,7 @@ function PersonPage({ session, showAdult }) {
   if (!person) return null;
 
   const personOgImage = tmdbImg(person.profile_path, "w342");
-  const jsonLd = {
-    "@context": "https://schema.org",
-    "@type": "Person",
-    name: person.name,
-    ...(person.biography && { description: person.biography.slice(0, 500) }),
-    ...(person.profile_path && { image: tmdbImg(person.profile_path, "w342") }),
-    ...(person.birthday && { birthDate: person.birthday }),
-    ...(person.place_of_birth && { birthPlace: { "@type": "Place", name: person.place_of_birth } }),
-    ...(knownForDepartment && { jobTitle: knownForDepartment }),
-    identifier: { "@type": "PropertyValue", name: "TMDB ID", value: String(person.tmdb_id) },
-  };
+  const jsonLd = [personJsonLd(person, knownForDepartment), breadcrumbJsonLd(breadcrumbs)];
 
   const movieCount = credits.filter((c) => c.type === "movie").length;
   const showCount = credits.filter((c) => c.type === "show").length;

@@ -10,6 +10,7 @@ import { usePreferences } from "../../features/preferences/PreferencesContext.js
 import { HOME_ROW_LABELS, effectiveHomeRowOrder } from "../../lib/homeRows.js";
 import UpgradePromptToast from "../../components/subscription/UpgradePromptToast.jsx";
 import { PageHead } from "../../components/ui/PageHead.jsx";
+import { organizationJsonLd, websiteJsonLd } from "../../lib/structuredData.js";
 import PageContainer from "../../components/ui/PageContainer.jsx";
 import ErrorNote from "../../components/ui/ErrorNote.jsx";
 import { SkeletonPosterRow } from "../../components/ui/Skeleton.jsx";
@@ -37,7 +38,12 @@ function AppHomePage({ session, showAdult }) {
 
   return (
     <AppLayout session={session}>
-      <PageHead title="Discover Films, Shows & People" description="Browse popular movies and TV shows, explore people and cast, check upcoming releases, and track what to watch next." path="/" />
+      <PageHead
+        title="Discover Films, Shows & People"
+        description="Browse popular movies and TV shows, explore people and cast, check upcoming releases, and track what to watch next."
+        path="/"
+        jsonLd={[organizationJsonLd(), websiteJsonLd()]}
+      />
       {d.followLimitError && <UpgradePromptToast message={d.followLimitError} onDismiss={d.clearFollowLimitError} session={session} />}
       {!d.isLoading && d.popular.length > 0 ? <ContentHero items={d.popular} isAuthenticated={!!session} /> : <HeroBanner />}
       <PageContainer width="wide" className="space-y-8">

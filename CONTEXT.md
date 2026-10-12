@@ -16,7 +16,7 @@ Monorepo for watchpapa.tv — a web app for tracking movie/TV show releases. Vit
 
 | Layer | Technology |
 |---|---|
-| Frontend | React 19, Vite 5, React Router 7, Tailwind CSS 4 — Cloudflare Pages (`watchpapa.tv`) |
+| Frontend | React 19, Vite 8, React Router 7, Tailwind CSS 4 — Cloudflare Pages (`watchpapa.tv`), Pages root dir = `Frontend/` |
 | API | **Cloudflare Worker** (`worker/`), Hono 4, JS ESM. Reads TMDB v3 live with edge caching; user data via Hyperdrive → Supabase. Served at `api.watchpapa.tv` (Worker route on the proxied A record) + `watchpapa-api.dursky-k.workers.dev` |
 | Worker DB access | `postgres.js` over the `HYPERDRIVE` binding (caching disabled), raw tagged-template SQL. int8 parsed as JS number. **`fetch_types:false` ⇒ array bind params are broken** — never `= ANY(${arr})`; pass a comma string + `string_to_array(${csv}, ',')::x[]` or use `IN ${sql(arr)}` (see `db.js`). |
 | Frontend DB access | supabase-js directly (RLS-gated) for user tables; the Worker for all content + the few multi-table endpoints |
@@ -257,14 +257,31 @@ Dropped vs the old Express API: `/api/inject`, `/api/resolve`, `/api/import/run`
 | `/admin/users` | Admin | `UserLookupPage` | |
 | `/admin/referrals` | Admin | `ReferralLeaderboardPage` | |
 | `/admin/audit-log` | Admin | `AuditLogPage` | |
-| `/admin/script-logs` | Admin | `ScriptLogsPage` | |
 | `/admin/announcements` | Admin | `AnnouncementsPage` | |
 | `/admin/staff` | Admin | `StaffPage` | |
 | `/admin/catalog-stats` | Admin | `CatalogStatsPage` | Row counts for movies, shows, seasons, episodes, people, credits, ratings, follows, watchlists, favourites |
-| `/admin/resync` | Admin | `ContentResyncPage` | Bulk resync section (type + time window, capped 1,000) + per-item search resync |
-| `*` | — | `<Navigate to="/" />` | Catch-all |
+| `*` | — | `NotFoundPage` | Catch-all (branded 404, `noindex`) — see "SEO & crawlability" below. `/admin/script-logs` and `/admin/resync` rows removed 2026-10 (routes/components don't exist). |
 
 Route guards defined in `App.jsx`: `PublicOnlyRoute`, `ProtectedRoute`, `PublicRoute`, `AdminRoute` (in `components/auth/AdminRoute.jsx`).
+
+All page components in `App.jsx` are `React.lazy()`-loaded (one chunk per route) except `AppHomePage`, which stays eager since it's the landing route; `RouteTree` wraps `<Routes>` in a single `<Suspense fallback={<RouteFallback />}>`. `vite.config.js` also splits vendor code via `build.rollupOptions.output.manualChunks` (`react`, `supabase`, `editor` — the tiptap/prosemirror stack, pulled in only by the public `/updates` page) — Vite 8 runs on Rolldown, which only accepts the function form of `manualChunks`, not Rollup's object shorthand.
+
+---
+
+## SEO & Crawlability
+
+Added 2026-10 (custom 404 + general discoverability pass).
+
+- **`Frontend/functions/_middleware.js`** — a Cloudflare Pages Function (runs in front of every request to `watchpapa.tv`; requires the Pages project's **Root directory set to `Frontend/`**, build command `npm run build`, output `dist` — `Frontend/wrangler.toml` carries `pages_build_output_dir`). Two jobs:
+  1. Returns a real **HTTP 404** for any URL not in its `KNOWN_ROUTES` allowlist (mirrors the route table above) — Cloudflare Pages' default SPA fallback otherwise serves `index.html` with 200 for everything (soft 404s). React still renders `NotFoundPage` for the same request.
+  2. For content-detail routes (`/movies/:id`, `/shows/:id[/seasons/:n[/episodes/:m]]`, `/people/:id`, `/collections/:id`) and a handful of static routes, calls the Worker's `GET /api/meta?path=` and uses `HTMLRewriter` to rewrite `<title>`/description/OG/Twitter/canonical and inject JSON-LD into the SPA shell **before** it reaches the client — social/chat crawlers (Facebook, X, Slack, Discord, iMessage, WhatsApp, LinkedIn) don't execute JS, so without this every shared link previewed as the generic homepage. Rewritten tags carry `data-rh="true"` (matching `index.html`'s static tags) so react-helmet-async reconciles them cleanly on hydration instead of duplicating.
+- **`worker/src/routes/meta.js`** + **`worker/src/lib/{meta,structuredData}.js`** — the `/api/meta` endpoint. Parses the requested path, fetches the minimal TMDB object (no `append_to_response`) via the existing `tmdbFetch`/`normalize*`, and returns `{ httpStatus, noindex, title, description, canonical, ogType, ogImage, jsonLd[] }` (always HTTP 200 itself, `s-maxage=86400` edge-cached — `httpStatus` in the body is what the Pages Function sets on the HTML). `lib/structuredData.js` builders (`movieJsonLd`, `tvSeriesJsonLd`, `tvSeasonJsonLd`, `tvEpisodeJsonLd`, `personJsonLd`, `collectionJsonLd`, `breadcrumbJsonLd`, `organizationJsonLd`, `websiteJsonLd`) are **deliberately duplicated** (not imported) in `Frontend/src/lib/structuredData.js` for the equivalent client-side JSON-LD every detail page's `PageHead` emits — two runtimes, no shared package; keep both in sync. Tested in `worker/test/meta.test.js`.
+- **`Frontend/src/pages/app/NotFoundPage.jsx`** — the catch-all (`App.jsx` `path="*"`) and what `_middleware.js`'s 404 response ultimately renders: `AppLayout` + `PageHead noindex` + `SearchBar` + quick links.
+- **`PageHead.jsx`** — `jsonLd` prop now accepts an object **or an array** (every detail page passes `[entityJsonLd, breadcrumbJsonLd(breadcrumbs)]`); title suffix de-dupes (`title.endsWith(SITE_NAME)`); default OG/Twitter image is `/og-default.png` (1200×630, generated by `Frontend/scripts/gen-og.mjs`, not the old SVG logo — social unfurlers don't render SVG).
+- **Favicon/manifest set** (`Frontend/public/{favicon.ico,favicon-*.png,apple-touch-icon.png,icon-*.png,site.webmanifest}`) generated by `Frontend/scripts/gen-favicons.mjs` (`sharp` + `png-to-ico`, local-only devDeps). Both `gen:*` scripts are run manually (`npm run gen:assets`) and their outputs committed — **never wired into the Pages build** (no headless browser/image lib in CI).
+- `robots.txt` now `Disallow`s every auth-gated/gated prefix (`/u`, `/feed`, `/watchlists`, `/follows`, `/notifications`, `/import`, `/observe-requests`, `/users`, `/calendar`, `/profile`, `/my-services`, `/adult`) and points `Sitemap:` straight at `api.watchpapa.tv` (skips the `_redirects` 301 hop). `ProfilePage`/`ProfileRatingsPage` also set `PageHead noindex` (defense in depth — the routes are `ProtectedRoute`-gated either way, so a crawler can't actually render them).
+- Sitemap (`worker/src/routes/publicContent.js`) entries now carry `<lastmod>` (`STATIC_LASTMOD` const for static routes; content routes still have none — TMDB list endpoints carry no cheap per-item mtime); `/certifications` added to `STATIC_URLS`.
+- Dropped unused frontend deps `react-markdown`, `remark-gfm`, `html2canvas` (zero import sites).
 
 ---
 

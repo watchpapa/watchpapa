@@ -19,6 +19,7 @@ import { PageHead } from "../../components/ui/PageHead.jsx";
 import ErrorNote from "../../components/ui/ErrorNote.jsx";
 import { MediaShareModal } from "../../components/detail/MediaShareModal.jsx";
 import { tmdbImg } from "../../lib/tmdbImage.js";
+import { movieJsonLd, breadcrumbJsonLd } from "../../lib/structuredData.js";
 import { useCertifications } from "../../features/content/hooks/useContent.js";
 import { certificationMeaning } from "../../lib/certifications.js";
 import { useRating } from "../../features/rating/hooks/useRating.js";
@@ -78,18 +79,7 @@ function MoviePage({ session, showAdult }) {
   const directorPeople = crew.find((c) => c.department === "Directing")?.jobs.find((j) => j.job === "Director")?.people ?? [];
   const director = directorPeople[0];
   const isUnreleased = !!(movie.release_date && new Date(movie.release_date) > new Date());
-  const jsonLd = {
-    "@context": "https://schema.org",
-    "@type": "Movie",
-    name: movie.title,
-    ...(movie.overview && { description: movie.overview }),
-    ...(movie.release_date && { datePublished: movie.release_date }),
-    ...(movie.poster_path && { image: tmdbImg(movie.poster_path, "w500") }),
-    ...(movie.runtime && { duration: `PT${movie.runtime}M` }),
-    ...(genres.length > 0 && { genre: genres.map((g) => g.name) }),
-    ...(director && { director: { "@type": "Person", name: director.name } }),
-    identifier: { "@type": "PropertyValue", name: "TMDB ID", value: String(movie.tmdb_id) },
-  };
+  const jsonLd = [movieJsonLd(movie, genres, director), breadcrumbJsonLd(breadcrumbs)];
 
   const details = [
     ["Release date", fmtDate(movie.release_date)],

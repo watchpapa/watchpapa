@@ -16,6 +16,7 @@ import UpgradePromptToast from "../../components/subscription/UpgradePromptToast
 import { PageHead } from "../../components/ui/PageHead.jsx";
 import ErrorNote from "../../components/ui/ErrorNote.jsx";
 import { tmdbImg } from "../../lib/tmdbImage.js";
+import { tvEpisodeJsonLd, breadcrumbJsonLd } from "../../lib/structuredData.js";
 import { ChevronLeftIcon, ChevronRightIcon, TvIcon } from "../../components/icons/index.jsx";
 
 function fmtDate(val) {
@@ -86,16 +87,7 @@ function EpisodePage({ session }) {
   if (error) return <AppLayout session={session} breadcrumbs={breadcrumbs}><ErrorNote className="mt-12">{error}</ErrorNote></AppLayout>;
   if (!episode || !season || !show) return null;
 
-  const episodeJsonLd = {
-    "@context": "https://schema.org",
-    "@type": "TVEpisode",
-    name: episode.name,
-    episodeNumber: episode.episode_number,
-    partOfSeason: { "@type": "TVSeason", seasonNumber: season.season_number },
-    partOfSeries: { "@type": "TVSeries", name: show.name },
-    ...(episode.overview && { description: episode.overview }),
-    ...(episode.air_date && { datePublished: episode.air_date }),
-  };
+  const episodeJsonLd = [tvEpisodeJsonLd(episode, season, show), breadcrumbJsonLd(breadcrumbs)];
 
   const allEps = [...(season.episodes ?? [])].sort((a, b) => a.episode_number - b.episode_number);
   const totalEps = allEps.length;

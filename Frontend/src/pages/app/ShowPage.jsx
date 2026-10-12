@@ -20,6 +20,7 @@ import ErrorNote from "../../components/ui/ErrorNote.jsx";
 import Button from "../../components/ui/Button.jsx";
 import { MediaShareModal } from "../../components/detail/MediaShareModal.jsx";
 import { tmdbImg } from "../../lib/tmdbImage.js";
+import { tvSeriesJsonLd, breadcrumbJsonLd } from "../../lib/structuredData.js";
 import { useCertifications } from "../../features/content/hooks/useContent.js";
 import { certificationMeaning } from "../../lib/certifications.js";
 import { useRating } from "../../features/rating/hooks/useRating.js";
@@ -88,19 +89,7 @@ function ShowPage({ session, showAdult }) {
   const certMeaning = certificationMeaning(certCatalog, "tv", show.certification_region, show.certification);
   const ogImage = tmdbImg(show.backdrop_path, "w1280") ?? tmdbImg(show.poster_path, "w500");
   const isUnreleased = !!(show.first_air_date && new Date(show.first_air_date) > new Date());
-  const jsonLd = {
-    "@context": "https://schema.org",
-    "@type": "TVSeries",
-    name: show.name,
-    ...(show.overview && { description: show.overview }),
-    ...(show.first_air_date && { datePublished: show.first_air_date }),
-    ...(show.status === "Ended" && show.last_air_date && { endDate: show.last_air_date }),
-    ...(show.poster_path && { image: tmdbImg(show.poster_path, "w500") }),
-    ...(show.number_of_seasons && { numberOfSeasons: show.number_of_seasons }),
-    ...(show.number_of_episodes && { numberOfEpisodes: show.number_of_episodes }),
-    ...(genres.length > 0 && { genre: genres.map((g) => g.name) }),
-    identifier: { "@type": "PropertyValue", name: "TMDB ID", value: String(show.tmdb_id) },
-  };
+  const jsonLd = [tvSeriesJsonLd(show, genres), breadcrumbJsonLd(breadcrumbs)];
 
   const details = [
     ["Episode runtime", show.episode_run_time ? `${show.episode_run_time}m` : "—"],
