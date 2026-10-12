@@ -20,7 +20,7 @@ Monorepo for watchpapa.tv — a web app for tracking movie/TV show releases. Vit
 | API | **Cloudflare Worker** (`worker/`), Hono 4, JS ESM. Reads TMDB v3 live with edge caching; user data via Hyperdrive → Supabase. Served at `api.watchpapa.tv` (Worker route on the proxied A record) + `watchpapa-api.dursky-k.workers.dev` |
 | Worker DB access | `postgres.js` over the `HYPERDRIVE` binding (caching disabled), raw tagged-template SQL. int8 parsed as JS number. **`fetch_types:false` ⇒ array bind params are broken** — never `= ANY(${arr})`; pass a comma string + `string_to_array(${csv}, ',')::x[]` or use `IN ${sql(arr)}` (see `db.js`). |
 | Frontend DB access | supabase-js directly (RLS-gated) for user tables; the Worker for all content + the few multi-table endpoints |
-| Database | Supabase PostgreSQL (managed, `slflrvbmlrpwbndzhsjp`, eu-west-1). SSL required. Plan: **moving Pro → Free** (usage is <1% of Pro quotas) — the Pro-only pieces we used are replaced in-repo: breached-password check → `Frontend/src/lib/pwned.js`; daily backups → `.github/workflows/db-backup.yml` (see CI/CD). Free auto-pause is avoided by the Worker's 1/min import cron querying the DB. |
+| Database | Supabase PostgreSQL (managed, `slflrvbmlrpwbndzhsjp`, eu-west-1). SSL required. Plan: **Free** (downgraded from Pro 2026-10-12; usage is <1% of Pro quotas; post-downgrade `npm run test:smoke` 10/10) — the Pro-only pieces we used are replaced in-repo: breached-password check → `Frontend/src/lib/pwned.js`; daily backups → `.github/workflows/db-backup.yml` (see CI/CD). Free auto-pause is avoided by the Worker's 1/min import cron querying the DB. |
 | Auth | Supabase Auth — JWT bearer. Worker verifies **locally** via JWKS (`jose`, ES256) — no service-role round-trip. |
 | Image CDN | TMDB CDN direct: `https://image.tmdb.org/t/p/{size}{path}`. `Frontend/src/lib/tmdbImage.js` builds URLs. Canvas/share cards go through the Worker `/api/image-proxy`. |
 | CI/CD | Cloudflare Pages git build (`watchpapa`, `production` branch) + Cloudflare Workers Builds (`watchpapa-api`, `production`, root `worker/`). `.github/workflows/deploy-worker.yml` is a manual-dispatch backup. |
@@ -727,9 +727,9 @@ palette pushed vivid. Key recurring conventions introduced:
 
 ## Recent Fixes & Features
 
-**2026-10-12 Supabase Pro → Free prep (breached-password check + encrypted nightly backups):**
+**2026-10-12 Supabase Pro → Free (breached-password check + encrypted nightly backups):**
 
-Usage audit (dashboard + live DB): 18 MB DB, ~1 MB storage, <1% of every Pro quota, no Edge Functions/Realtime/MFA/SSO/image transforms/custom domain. The only Pro-only things relied on were **leaked-password protection (HIBP)** and **daily backups**; both are replaced in-repo so the plan can drop to Free (renewal is 2026-10-26). Built test-first.
+Usage audit (dashboard + live DB): 18 MB DB, ~1 MB storage, <1% of every Pro quota, no Edge Functions/Realtime/MFA/SSO/image transforms/custom domain. The only Pro-only things relied on were **leaked-password protection (HIBP)** and **daily backups**; both are replaced in-repo so the plan could drop to Free — **done 2026-10-12**, project stayed `ACTIVE_HEALTHY`. Built test-first. Not yet verified on real infra: the extension-inclusive backup (fix `6da6772`) — run `db-backup.yml` once and check the R2 object is present and slightly larger than the first one; the scratch-project restore drill was deliberately skipped after the downgrade.
 
 - `Frontend/src/lib/pwned.js` + `features/auth/lib/passwordAuth.js` — see Auth Flow. Tests: `tests/unit/pwned.test.js` (41 with `useAuth-guard.test.js`), `tests/e2e/pwned-password.e2e.test.js` (9, Playwright, all network intercepted).
 - `scripts/db-backup.sh` + `.github/workflows/db-backup.yml` — see CI/CD. `tests/backup/db-backup.test.js` (23) includes a full encrypt → decrypt → restore drill and caught three real bugs (the third, missing extensions, surfaced in the real-project drill and is now a regression test): `set -e` is ignored inside a subshell in an `||` list (an empty DB "succeeded"), and `CREATE SCHEMA public;` breaks restore into a project that already has it.
