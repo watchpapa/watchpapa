@@ -6,6 +6,7 @@
 // - Frontend/src/features/auth/components/ResetPasswordForm.jsx
 import { useCallback } from "react";
 import { supabase } from "../../../lib/supabase.js";
+import { signUpWithPwnedCheck, updatePasswordWithPwnedCheck } from "../lib/passwordAuth.js";
 
 export function useAuth() {
   const signIn = useCallback(async ({ email, password }) => {
@@ -14,14 +15,7 @@ export function useAuth() {
 
   const signUp = useCallback(
     async ({ email, password, metadata, emailRedirectTo }) => {
-      return supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: metadata,
-          emailRedirectTo,
-        },
-      });
+      return signUpWithPwnedCheck(supabase, { email, password, metadata, emailRedirectTo });
     },
     [],
   );
@@ -39,7 +33,7 @@ export function useAuth() {
   }, []);
 
   const updatePassword = useCallback(async ({ password }) => {
-    return supabase.auth.updateUser({ password });
+    return updatePasswordWithPwnedCheck(supabase, { password });
   }, []);
 
   const signInWithOAuth = useCallback(async ({ provider, redirectTo }) => {

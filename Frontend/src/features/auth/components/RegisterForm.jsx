@@ -5,6 +5,7 @@ import FormField from "../../../components/ui/FormField.jsx";
 import Input from "../../../components/ui/Input.jsx";
 import ErrorNote from "../../../components/ui/ErrorNote.jsx";
 import { ArrowLeftIcon } from "../../../components/icons/index.jsx";
+import { pwnedPasswordError } from "../../../lib/pwned.js";
 import { validateEmail, validateMinAge, validatePassword, validateUsername } from "../../../lib/validate.js";
 import { useAuth } from "../hooks/useAuth.js";
 import { applyPromoCode, stashPendingPromoCode } from "../lib/applyPendingPromoCode.js";
@@ -59,6 +60,7 @@ function RegisterForm() {
   const [errors, setErrors] = useState({});
   const [submitError, setSubmitError] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isChecking, setIsChecking] = useState(false); // step-1 breached-password lookup
 
   const set = (field, value) => {
     setValues((v) => ({ ...v, [field]: value }));
@@ -71,12 +73,18 @@ function RegisterForm() {
     });
   };
 
-  const goNext = (event) => {
+  const goNext = async (event) => {
     event.preventDefault();
     setSubmitError(null);
     const e = validateStep1(values);
     setErrors(e);
     if (Object.keys(e).length) return;
+    // Breached-password check up front, so the user isn't told only after
+    // filling in step 2. (signUp re-checks as a backstop — see passwordAuth.js.)
+    setIsChecking(true);
+    const pwned = await pwnedPasswordError(values.password);
+    setIsChecking(false);
+    if (pwned) { setErrors({ password: pwned }); return; }
     setStep(2);
   };
 
@@ -174,7 +182,7 @@ function RegisterForm() {
 
         {submitError && <ErrorNote inline className="mt-4">{submitError}</ErrorNote>}
 
-        <Button type="submit" size="lg" full className="mt-5">Continue</Button>
+        <Button type="submit" size="lg" full loading={isChecking} className="mt-5">Continue</Button>
         <OAuthButtons onError={setSubmitError} />
       </AuthCard>
     );

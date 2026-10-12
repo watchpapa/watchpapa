@@ -1,0 +1,66 @@
+name: DB backup (Supabase → R2)
+
+# Supabase Free has no automatic backups. Every night: dump the database, gzip,
+# encrypt with `age` (public key only — the private key stays offline), and store
+# it in a private Cloudflare R2 bucket with a 30-day lifecycle rule.
+# The pipeline itself lives in scripts/db-backup.sh (tested by tests/backup/).
+#
+# Repo secrets: SUPABASE_DB_POOLER_URL (session pooler string), AGE_PUBLIC_KEY,
+#               R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY
+# A failed run emails the repo owner — that is the alert, don't swallow errors here.
+
+on:
+  schedule:
+    - cron: "17 3 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: db-backup
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install postgresql-client-17 and age
+        run: |
+          sudo install -d /usr/share/postgresql-common/pgdg
+          sudo curl -fsSL -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc https://www.postgresql.org/media/keys/ACCC4CF8.asc
+          . /etc/os-release
+          echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt ${VERSION_CODENAME}-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list >/dev/null
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends postgresql-client-17 age
+
+      - name: Dump, compress, encrypt
+        env:
+          SUPABASE_DB_POOLER_URL: ${{ secrets.SUPABASE_DB_POOLER_URL }}
+          AGE_PUBLIC_KEY: ${{ secrets.AGE_PUBLIC_KEY }}
+          BACKUP_OUT_DIR: ${{ runner.temp }}/backup
+          PG_DUMP: /usr/lib/postgresql/17/bin/pg_dump
+        run: bash scripts/db-backup.sh
+
+      - name: Upload to R2
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          R2_BUCKET: watchpapa-db-backups
+          BACKUP_DIR: ${{ runner.temp }}/backup
+        run: |
+          file="$(find "$BACKUP_DIR" -name 'watchpapa-*.sql.gz.age' -print -quit)"
+          test -n "$file"
+          key="$(basename "$file")"
+          endpoint="https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
+          aws s3 cp "$file" "s3://${R2_BUCKET}/${key}" --endpoint-url "$endpoint" --only-show-errors
+          # confirm it landed and the size matches
+          remote="$(aws s3api head-object --bucket "$R2_BUCKET" --key "$key" --endpoint-url "$endpoint" --query ContentLength --output text)"
+          local_size="$(wc -c < "$file" | tr -d ' ')"
+          test "$remote" = "$local_size"
+          echo "Uploaded ${key} (${local_size} bytes)"

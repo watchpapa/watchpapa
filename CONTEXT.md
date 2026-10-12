@@ -20,12 +20,12 @@ Monorepo for watchpapa.tv — a web app for tracking movie/TV show releases. Vit
 | API | **Cloudflare Worker** (`worker/`), Hono 4, JS ESM. Reads TMDB v3 live with edge caching; user data via Hyperdrive → Supabase. Served at `api.watchpapa.tv` (Worker route on the proxied A record) + `watchpapa-api.dursky-k.workers.dev` |
 | Worker DB access | `postgres.js` over the `HYPERDRIVE` binding (caching disabled), raw tagged-template SQL. int8 parsed as JS number. **`fetch_types:false` ⇒ array bind params are broken** — never `= ANY(${arr})`; pass a comma string + `string_to_array(${csv}, ',')::x[]` or use `IN ${sql(arr)}` (see `db.js`). |
 | Frontend DB access | supabase-js directly (RLS-gated) for user tables; the Worker for all content + the few multi-table endpoints |
-| Database | Supabase PostgreSQL (managed, `slflrvbmlrpwbndzhsjp`, eu-west-1). SSL required. |
+| Database | Supabase PostgreSQL (managed, `slflrvbmlrpwbndzhsjp`, eu-west-1). SSL required. Plan: **moving Pro → Free** (usage is <1% of Pro quotas) — the Pro-only pieces we used are replaced in-repo: breached-password check → `Frontend/src/lib/pwned.js`; daily backups → `.github/workflows/db-backup.yml` (see CI/CD). Free auto-pause is avoided by the Worker's 1/min import cron querying the DB. |
 | Auth | Supabase Auth — JWT bearer. Worker verifies **locally** via JWKS (`jose`, ES256) — no service-role round-trip. |
 | Image CDN | TMDB CDN direct: `https://image.tmdb.org/t/p/{size}{path}`. `Frontend/src/lib/tmdbImage.js` builds URLs. Canvas/share cards go through the Worker `/api/image-proxy`. |
 | CI/CD | Cloudflare Pages git build (`watchpapa`, `production` branch) + Cloudflare Workers Builds (`watchpapa-api`, `production`, root `worker/`). `.github/workflows/deploy-worker.yml` is a manual-dispatch backup. |
 | Email | Supabase Auth SMTP via Resend |
-| Testing | Worker: `vitest` (`worker/test/`). Root: `node --test` (`tests/rls_tests/`), pytest (`tests/test_environment.py`). |
+| Testing | Worker: `vitest` (`worker/test/`). Root (`node --test`): `npm run test:rls` (live DB, rolled-back txns), `test:unit` (`tests/unit/` — HIBP check + password-write guard), `test:e2e` (`tests/e2e/` — Playwright against the real UI with all network mocked; needs `cd Frontend && npx playwright install chromium`), `test:backup` (`tests/backup/` — real Postgres 17 in Docker + `age`; includes a restore drill), `test:smoke` (`tests/smoke/` — live Supabase + Worker, creates and deletes one throwaway user). pytest (`tests/test_environment.py`). |
 
 ---
 
@@ -60,6 +60,7 @@ watchpapa/
 │   │   ├── import/{resolve,commit,filmKey}.js  # shared by routes/import.js and cron.js (HTTP route vs. background tick)
 │   │   └── lib/{letterboxdUri,csv}.js
 │   └── test/                        # vitest — normalize / csv / nsfw / locale / client / discover fixtures
+├── scripts/db-backup.sh              # nightly backup pipeline: pg_dump → gzip → age → file (run by the db-backup workflow; tested by tests/backup)
 ├── Backend/src/db/migrations/        # 001–031 SQL — apply via Supabase MCP (only thing left under Backend/)
 ├── Frontend/src/
 │   ├── main.jsx                      # Vite entry — mounts <App /> inside <BrowserRouter>
@@ -109,6 +110,7 @@ watchpapa/
 │   │   └── static/                   # InfoPageShell
 │   └── lib/
 │       ├── supabase.js               # Supabase JS client (anon key, consent-aware storage)
+│       ├── pwned.js                  # HaveIBeenPwned k-anonymity breached-password check (pure, fetch-injected, fails open) — replaces Supabase's Pro-only leaked-password protection
 │       ├── api.js                    # apiFetch(path, {session}) + API_BASE — calls the Worker
 │       ├── tmdbImage.js              # tmdbImg(path, size) / tmdbImgProxied(...) — replaces 21 hard-coded URLs
 │       ├── credits.js                # toCast/toCrew — shape the Worker's flat cast/crew arrays
@@ -117,7 +119,9 @@ watchpapa/
 │       ├── homeRows.js               # HOME_ROW_LABELS + DEFAULT_HOME_ROW_ORDER + effectiveHomeRowOrder() — home page row registry, shared by AppHomePage.jsx and SettingsPage.jsx
 │       ├── cookieConsent.js  cn.js  validate.js  constants.js
 ├── tests/rls_tests/                  # RLS policy tests (node --test) — retarget follow inserts to tmdb_id
+├── tests/{unit,e2e,backup,smoke}/    # breached-password check · Playwright UI e2e (mocked network) · backup pipeline + restore drill · live post-downgrade smoke
 ├── .github/workflows/deploy-worker.yml  # manual-dispatch backup; primary deploy = Cloudflare Workers/Pages Builds
+├── .github/workflows/db-backup.yml      # nightly encrypted Supabase dump → R2 (Free plan has no backups)
 └── docs/                             # (gitignored) architecture/security deep-dives — mostly pre-migration
 ```
 
@@ -430,6 +434,7 @@ Locked widgets show **fake seeded data** under a blur overlay + upgrade CTA (not
 - New users with no `profile.username` are gated to `/complete-username` before any other protected route.
 - Content preferences (`showAdult`, language, title mode, region, watch regions/providers) live in `features/preferences/PreferencesContext.jsx` — `PreferencesProvider` wraps the route tree (extracted into `RouteTree` in `App.jsx` so it can consume the context App itself renders), seeded from the same profile fetch, remounted via a `key={session?.user?.id}` on sign-in/out. `usePreferences().update(partial)` writes straight to `profile` and updates every consumer immediately — fixes the old bug where toggling adult content in Settings needed a reload to take effect. `showAdult` is still passed down as a prop from `RouteTree` to match existing page signatures.
 - Storage is consent-aware: `localStorage` if cookie consent accepted, `sessionStorage` otherwise.
+- **Breached-password check (client-side).** Supabase's own HIBP protection is Pro-only, so `lib/pwned.js` does it in the browser: SHA-1 → send only the first 5 hex chars to `api.pwnedpasswords.com/range/` (`Add-Padding: true`, HIBP allows that header + any origin via CORS) → match the suffix locally, ignoring padding rows (count 0). **Fails open** (3 s timeout, any error/non-2xx ⇒ allowed). It runs in `RegisterForm.goNext` (step 1, so the user hears about it before step 2) and again inside `features/auth/lib/passwordAuth.js` (`signUpWithPwnedCheck` / `updatePasswordWithPwnedCheck`, called by `useAuth`) which is the single choke point for every password write; `tests/unit/useAuth-guard.test.js` fails if any other file calls `auth.signUp` / `auth.updateUser({password})` directly. Not server-enforced: someone calling Supabase's API directly with the anon key bypasses it (accepted at this scale).
 
 **Auth UI (2026-09 redesign, phase 2)** — `features/auth/components/`:
 - Every form renders inside `shared/AuthCard.jsx` (one shell: 440px, `width="md"` = 520px, `noValidate` form when `onSubmit` is passed). Shared pieces: `shared/PasswordField.jsx` (show/hide toggle on every password input, `showPolicy` renders the live checklist), `shared/OAuthButtons.jsx` (Google/GitHub with one shared pending state), `shared/StepIndicator.jsx`, `shared/ProfileDetailsFields.jsx` (username · date of birth · optional referral code · terms + marketing consent · adult-content `Switch` once the DOB says 18+).
@@ -527,12 +532,17 @@ Three `profile.avatar_type` values, no Worker involvement — all pure Frontend 
 | Frontend (`watchpapa` Pages) | Cloudflare Pages git build — `cd Frontend && npm run build`, publish `Frontend/dist` | push to `production` |
 | Worker (`watchpapa-api`) | Cloudflare Workers Builds — root `worker/`, `npx wrangler deploy` | push to `production` |
 | Worker (backup) | `.github/workflows/deploy-worker.yml` — `npm ci && npm test && wrangler deploy` | `workflow_dispatch` only |
+| DB backup | `.github/workflows/db-backup.yml` → `scripts/db-backup.sh` (pg_dump client 17 via the **session pooler**, gzip, `age`-encrypt) → private R2 bucket `watchpapa-db-backups` (30-day lifecycle rule) | daily 03:17 UTC + `workflow_dispatch`; a failed run emails the repo owner |
 
 **Pages production env vars** (dashboard): `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY`, **`VITE_API_BASE_URL=https://api.watchpapa.tv`** (the frontend calls the Worker cross-origin directly — the `_redirects` `/api/*` proxy does not forward).
 
 **Worker secret** (`wrangler secret put`): `TMDB_API_KEY_SECRET`. **Worker binding**: `HYPERDRIVE` id `1b02c04c106949288724ad2a003ee046` (→ Supabase session pooler, caching disabled).
 
 **deploy-worker.yml GitHub secrets** (if used): `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`.
+
+**db-backup.yml GitHub secrets:** `SUPABASE_DB_POOLER_URL` (session pooler string — the direct host is IPv6-only, GitHub runners have no IPv6), `AGE_PUBLIC_KEY` (the matching **private key is kept offline** — without it backups are unreadable), `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`.
+
+**What a backup contains / restore:** data-only `auth.users`, `auth.identities`, `auth.audit_log_entries`, `storage.buckets`, `storage.objects` + the **full `public` schema** (DDL, data, RLS policies, functions, triggers, GRANT/REVOKE — privileges are deliberately kept). Not included: sessions/refresh tokens (users sign in again), `auth`/`storage` migration bookkeeping, the trigger on `auth.users` (re-apply `Backend/src/db/migrations/026_handle_new_user_trigger.sql`), and the avatar **files** themselves (only their metadata). Restore into a fresh Supabase project: `age -d -i key.txt watchpapa-YYYY-MM-DD.sql.gz.age | gunzip | psql "<url>" -v ON_ERROR_STOP=1`. The pipeline + that exact restore is exercised by `npm run test:backup` against a plain Postgres 17 modelled as a fresh Supabase project; it has **not** been run into a real Supabase project yet — do one restore drill into a scratch project before relying on it.
 
 **Production:** Frontend `https://watchpapa.tv` (Pages). API `https://api.watchpapa.tv` (Worker route on the still-proxied A record; also `watchpapa-api.dursky-k.workers.dev`). No origin server — the droplet is decommissioned.
 
@@ -716,6 +726,16 @@ palette pushed vivid. Key recurring conventions introduced:
 ---
 
 ## Recent Fixes & Features
+
+**2026-10-12 Supabase Pro → Free prep (breached-password check + encrypted nightly backups):**
+
+Usage audit (dashboard + live DB): 18 MB DB, ~1 MB storage, <1% of every Pro quota, no Edge Functions/Realtime/MFA/SSO/image transforms/custom domain. The only Pro-only things relied on were **leaked-password protection (HIBP)** and **daily backups**; both are replaced in-repo so the plan can drop to Free (renewal is 2026-10-26). Built test-first.
+
+- `Frontend/src/lib/pwned.js` + `features/auth/lib/passwordAuth.js` — see Auth Flow. Tests: `tests/unit/pwned.test.js` (41 with `useAuth-guard.test.js`), `tests/e2e/pwned-password.e2e.test.js` (9, Playwright, all network intercepted).
+- `scripts/db-backup.sh` + `.github/workflows/db-backup.yml` — see CI/CD. `tests/backup/db-backup.test.js` (22) includes a full encrypt → decrypt → restore drill and caught two real bugs: `set -e` is ignored inside a subshell in an `||` list (an empty DB "succeeded"), and `CREATE SCHEMA public;` breaks restore into a project that already has it.
+- `RegisterForm`: breached-password check on **step 1** (Continue shows a loading state while it runs).
+- `tests/smoke/post-downgrade.smoke.test.js` — run on Pro before and on Free after the downgrade (Auth, RLS, Storage, Worker JWT/Hyperdrive, live TMDB).
+- Pre-existing, unrelated, found on the way (not fixed): `tests/rls_tests/rls_policy_isolation.test.js` "User B cannot SELECT User A profile" fails (profiles are readable by other users now — the test is stale); `storage.objects` has **no SELECT policy**, so a user-side `storage.remove()` silently deletes nothing (replaced avatars are orphaned); `ResetPasswordForm` flashes "Reset link needed" instead of the success text after the local sign-out.
 
 **2026-09-08 admin bulk tier rewards + one-time upgrade popup:**
 
