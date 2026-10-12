@@ -6,7 +6,7 @@ import { PageHead } from "../../../components/ui/PageHead.jsx";
 import { useCertifications } from "../../../features/content/hooks/useContent.js";
 import { usePreferences } from "../../../features/preferences/PreferencesContext.jsx";
 
-const LAST_UPDATED = { iso: "2026-09-05", label: "5 September 2026" };
+const LAST_UPDATED = { iso: "2026-10-12", label: "12 October 2026" };
 
 function Ext({ href, children }) {
   return (
@@ -133,8 +133,8 @@ function AboutPage({ session }) {
         <p>
           watchpapa is an independent project built and run by Krzysztof Durski in Poland. The site
           and its API run on Cloudflare’s edge network; your account and activity live in a Supabase
-          PostgreSQL database hosted in the EU. Content is never stored on our side — every page asks
-          TMDB for the latest data.
+          PostgreSQL database hosted in the EU, with an encrypted nightly backup kept for 30 days.
+          Content is never stored on our side — every page asks TMDB for the latest data.
         </p>
 
         <h2>What’s next</h2>
@@ -473,6 +473,15 @@ function HelpPage({ session }) {
         <p>
           With email and password, or with Google or GitHub. New email accounts confirm their address
           with a one-time code. Locked out? Use <strong>Forgot password</strong> on the sign-in page.
+        </p>
+        <h3>Why was my password rejected as “appeared in a data breach”?</h3>
+        <p>
+          When you set a password, watchpapa checks it against the{" "}
+          <Ext href="https://haveibeenpwned.com/Passwords">Have I Been Pwned</Ext> list of passwords
+          exposed in known breaches. If yours is on it, criminals already have it in their guessing
+          lists, so please choose a different one — a long phrase works well. The check is private:
+          only the first five characters of a one-way hash leave your browser, never the password,
+          and if the service can’t be reached you can carry on without it.
         </p>
         <h3>Can I change my username?</h3>
         <p>
@@ -848,6 +857,13 @@ function PrivacyPage({ session }) {
           requests carry your language and country, never your identity.
         </p>
         <p>
+          When you choose a password (at sign-up or when resetting it), your browser checks it against
+          the Have I Been Pwned database of passwords exposed in data breaches, so we can ask you to
+          pick a different one. Only the first five characters of a one-way hash of the password are
+          sent, never the password itself, your email address or your username — see “Data processors
+          and third-party services” below.
+        </p>
+        <p>
           Ratings, diary entries, watchlists, follows and favourites exist so you can manage your own
           activity. “Suggested for you” is computed from your ratings and watched titles on request;
           we do not build or store a taste profile beyond the activity you can already see. Your
@@ -869,8 +885,9 @@ function PrivacyPage({ session }) {
           authentication and every feature tied to your account are based on contract performance.
           Age verification is required by GDPR Article 8 (protection of children’s data). Persistent
           session storage requires your consent, given via the banner on first visit. Product emails
-          are sent only with your consent. Security logging is based on our legitimate interest in
-          preventing abuse and detecting threats.
+          are sent only with your consent. Security logging, the breached-password check and
+          keeping encrypted backups of our database are based on our legitimate interest in
+          preventing abuse, detecting threats and protecting your data from loss.
         </p>
 
         <h2>Data processors and third-party services</h2>
@@ -886,7 +903,24 @@ function PrivacyPage({ session }) {
             <span>
               <strong>Cloudflare</strong> (hosting, API and network security; USA-based, global edge
               network) — serves the site and the API, and sees your IP address and requests in the
-              course of doing so.
+              course of doing so. It also stores our encrypted database backups (R2 storage) — see
+              “Data retention” below.
+            </span>
+          </li>
+          <li>
+            <span>
+              <strong>GitHub</strong> (automation; USA) — runs the scheduled job that makes our
+              nightly database backup. Your data passes through the job’s memory in transit and is
+              encrypted before it is stored; GitHub does not keep a copy.
+            </span>
+          </li>
+          <li>
+            <span>
+              <strong>Have I Been Pwned</strong> (breached-password check) — when you set a password,
+              your browser contacts its Pwned Passwords service directly and sends the first five
+              characters of a one-way hash of the password, which on its own cannot reveal the
+              password. Like any web service it also sees your IP address and browser details. It
+              receives no email address, username or other account data from us.
             </span>
           </li>
           <li>
@@ -953,7 +987,8 @@ function PrivacyPage({ session }) {
         <h2>Data retention</h2>
         <p>
           Account data and activity are kept until you delete your account, at which point they are
-          removed from our database immediately; residual copies in backups expire within 30 days.
+          removed from our database immediately; residual copies in our encrypted nightly backups
+          (kept for 30 days, then deleted automatically) expire within 30 days.
           Our own audit log is deleted automatically after 90 days. Supabase’s authentication log is
           retained under its own policy (see “Audit and security logs” above). Session tokens are
           cleared on sign-out or when the tab closes, depending on your consent choice.

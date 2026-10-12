@@ -56,7 +56,8 @@ The full architecture, with the reasoning behind each design decision, will be i
 | Auth | Supabase Auth (email + OAuth); the Worker verifies JWTs locally with `jose` |
 | Content | TMDB API v3, read live and never stored |
 | Email | Supabase Auth SMTP via Resend |
-| Tests | Vitest (Worker), `node --test` and pytest (RLS and environment checks) |
+| Backups | GitHub Actions nightly `pg_dump` → `age`-encrypted → private Cloudflare R2 bucket, 30-day retention ([`scripts/db-backup.sh`](scripts/db-backup.sh)) — Supabase runs on the Free plan |
+| Tests | Vitest (Worker), `node --test` (RLS, unit, Playwright e2e, backup pipeline, live smoke) and pytest (environment checks) |
 | Deployment | Cloudflare Pages and Workers Builds on push to `production` |
 
 ## Quick start
@@ -106,6 +107,8 @@ The full architecture, with the reasoning behind each design decision, will be i
    Open `http://localhost:5173`. You should see the home page with live posters from TMDB. Vite proxies `/api` requests to the Worker, so you don't need to configure CORS locally.
 
 To run the tests, use `cd worker && npm test` (unit tests) and `npm install && npm run test:rls` from the repository root (RLS policy tests; these need `DATABASE_URL`, `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` in a root `.env`).
+
+The other root suites: `npm run test:unit` (breached-password check), `npm run test:e2e` (Playwright against the real UI with all network mocked; first run `cd Frontend && npx playwright install chromium`), `npm run test:backup` (backup pipeline with a restore drill; needs Docker and [`age`](https://github.com/FiloSottile/age)) and `npm run test:smoke` (live Supabase + Worker; creates and deletes one throwaway user).
 
 A step-by-step setup guide with troubleshooting will be in `docs/tutorials/getting-started.md` _(coming soon)_.
 
