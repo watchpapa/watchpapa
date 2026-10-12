@@ -12,7 +12,7 @@
 #                           (keep it offline — without it backups are unreadable)
 #   BACKUP_OUT_DIR          output directory (default .)
 #   MIN_BACKUP_BYTES        refuse a gzipped+encrypted result smaller than this (default 10000)
-#   PG_DUMP                 pg_dump binary, major version must be >= the server's (default pg_dump)
+#   PG_DUMP / PSQL          pg_dump and psql binaries, major version must be >= the server's (default: on PATH)
 #
 # What is backed up (restore into a fresh Supabase project, which already has the
 # auth/storage tables and roles — schema DDL for `public` is also in
@@ -20,7 +20,10 @@
 #   1. DATA ONLY: auth.users, auth.identities, auth.audit_log_entries,
 #      storage.buckets, storage.objects   (sessions/refresh tokens/migration
 #      bookkeeping are deliberately excluded — users just sign in again)
-#   2. FULL `public` schema (DDL + data + RLS policies + functions + triggers + GRANT/REVOKE)
+#   2. `CREATE EXTENSION` for every extension installed in `public` (pg_trgm, unaccent, …).
+#      pg_dump --schema skips extensions, so without this a restore loses their functions and
+#      every index that uses them (found by the restore drill against a real Supabase project)
+#   3. FULL `public` schema (DDL + data + RLS policies + functions + triggers + GRANT/REVOKE)
 # Storage OBJECTS (avatar files) are not in a database dump; only their metadata is.
 #
 # Safety: the plaintext dump is only ever piped (never written to disk); the output
@@ -37,9 +40,10 @@ die() { echo "db-backup: $*" >&2; exit 1; }
 OUT_DIR="${BACKUP_OUT_DIR:-.}"
 MIN_BYTES="${MIN_BACKUP_BYTES:-10000}"
 PG_DUMP="${PG_DUMP:-pg_dump}"
+PSQL="${PSQL:-psql}"
 [[ "$MIN_BYTES" =~ ^[0-9]+$ ]] || die "MIN_BACKUP_BYTES must be a number"
 
-for bin in "$PG_DUMP" age gzip; do
+for bin in "$PG_DUMP" "$PSQL" age gzip; do
   command -v "$bin" >/dev/null 2>&1 || die "required tool not found: $bin"
 done
 
@@ -61,6 +65,10 @@ trap 'rm -f "$tmp"' EXIT
   "$PG_DUMP" "$SUPABASE_DB_POOLER_URL" --no-owner --data-only --strict-names \
     -t auth.users -t auth.identities -t auth.audit_log_entries \
     -t storage.buckets -t storage.objects \
+  && "$PSQL" "$SUPABASE_DB_POOLER_URL" -X -A -t -v ON_ERROR_STOP=1 -c \
+    "SELECT format('CREATE EXTENSION IF NOT EXISTS %I WITH SCHEMA public;', e.extname)
+       FROM pg_extension e JOIN pg_namespace n ON n.oid = e.extnamespace
+      WHERE n.nspname = 'public' ORDER BY e.extname" \
   && "$PG_DUMP" "$SUPABASE_DB_POOLER_URL" --no-owner --schema=public
 ) | sed '/^CREATE SCHEMA public;$/d' | gzip -9 | age -r "$AGE_PUBLIC_KEY" > "$tmp" || die "dump/encrypt failed"
 

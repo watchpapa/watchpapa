@@ -11,7 +11,7 @@
  *   AGE_PUBLIC_KEY          `age1…` recipient; the private key is never on the runner
  *   BACKUP_OUT_DIR          where to write watchpapa-YYYY-MM-DD.sql.gz.age (default .)
  *   MIN_BACKUP_BYTES        sanity floor for the *encrypted, gzipped* output (default 10000)
- *   PG_DUMP                 pg_dump binary to use (default `pg_dump`)
+ *   PG_DUMP / PSQL          pg_dump / psql binaries (default on PATH; major must be >= the server's)
  *   The plaintext dump must never touch disk; failures leave NO files behind.
  *
  * Prerequisites (this suite fails loudly instead of skipping, so a green run means something):
@@ -63,6 +63,9 @@ describe("db-backup.yml (static)", () => {
   test("uploads to R2 through its S3 endpoint", () => {
     assert.match(yml, /r2\.cloudflarestorage\.com/);
     assert.match(yml, /aws s3 cp/);
+  });
+  test("passes the pg 17 psql to the script alongside pg_dump", () => {
+    assert.match(yml, /PSQL:\s*\/usr\/lib\/postgresql\/17\/bin\/psql/);
   });
   test("least privilege + never echoes secrets", () => {
     assert.match(yml, /permissions:\s*\n\s*contents:\s*read/);
@@ -159,10 +162,13 @@ describe("scripts/db-backup.sh", () => {
   `;
 
   const APP_SCHEMA = `
+    CREATE EXTENSION pg_trgm WITH SCHEMA public;
+    CREATE EXTENSION unaccent WITH SCHEMA public;
     CREATE TABLE public.profile (id uuid PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE, username text UNIQUE, role int NOT NULL DEFAULT 0);
     ALTER TABLE public.profile ENABLE ROW LEVEL SECURITY;
     CREATE POLICY profile_own ON public.profile FOR SELECT TO authenticated USING (id = auth.uid());
     GRANT SELECT ON public.profile TO authenticated;
+    CREATE INDEX profile_username_trgm ON public.profile USING gin (username public.gin_trgm_ops);
     CREATE TABLE public.user_rating (id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY, profile_id uuid REFERENCES public.profile(id), tmdb_id int NOT NULL, value int NOT NULL);
     GRANT SELECT, INSERT ON public.user_rating TO authenticated;
     REVOKE ALL ON public.user_rating FROM PUBLIC;
@@ -198,7 +204,9 @@ describe("scripts/db-backup.sh", () => {
   const catalog = (url) => psql(url, `
     SELECT (SELECT count(*) FROM pg_policies WHERE schemaname='public') || '/' ||
            (SELECT count(*) FROM pg_trigger t JOIN pg_class c ON c.oid=t.tgrelid JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND NOT t.tgisinternal) || '/' ||
-           (SELECT count(*) FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='public')`);
+           (SELECT count(*) FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='public') || '/' ||
+           (SELECT count(*) FROM pg_indexes WHERE schemaname='public') || '/' ||
+           (SELECT coalesce(string_agg(extname, ',' ORDER BY extname), '') FROM pg_extension e JOIN pg_namespace n ON n.oid=e.extnamespace WHERE n.nspname='public')`);
 
   const env = (url, extra = {}) => ({ SUPABASE_DB_POOLER_URL: url, AGE_PUBLIC_KEY: keys.pub, MIN_BACKUP_BYTES: "500", ...extra });
   const filesIn = (d) => readdirSync(d);
@@ -309,7 +317,10 @@ describe("scripts/db-backup.sh", () => {
 
       // schema objects came across: policies / triggers / functions
       assert.equal(catalog(fresh), catalog(srcUrl));
-      assert.equal(catalog(fresh), "1/1/1");
+      // regression: pg_dump --schema=public silently skips extensions, which dropped the
+      // pg_trgm/unaccent functions and every trigram index on a real restore
+      assert.match(catalog(fresh), /pg_trgm,plpgsql|pg_trgm,unaccent/);
+      assert.equal(psql(fresh, "select count(*) from pg_indexes where indexname='profile_username_trgm'"), "1");
 
       // GRANT/REVOKE state restored identically (not just via Supabase default privileges)
       const grants = "select string_agg(grantee||':'||table_name||':'||privilege_type, ',' order by grantee, table_name, privilege_type) from information_schema.role_table_grants where table_schema='public' and grantee in ('anon','authenticated')";

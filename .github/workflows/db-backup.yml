@@ -43,6 +43,7 @@ jobs:
           AGE_PUBLIC_KEY: ${{ secrets.AGE_PUBLIC_KEY }}
           BACKUP_OUT_DIR: ${{ runner.temp }}/backup
           PG_DUMP: /usr/lib/postgresql/17/bin/pg_dump
+          PSQL: /usr/lib/postgresql/17/bin/psql
         run: bash scripts/db-backup.sh
 
       - name: Upload to R2
