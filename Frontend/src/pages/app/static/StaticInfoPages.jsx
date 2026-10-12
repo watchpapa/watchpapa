@@ -650,11 +650,11 @@ function TermsPage({ session }) {
         <h2>Changes to the Service and these Terms</h2>
         <p>
           We reserve the right to modify, suspend or discontinue the Service (or any part of it) at
-          any time. We reserve the right to update these Terms at any time. For material changes
-          (additions to restrictions, changes to liability, or other significant modifications), we
-          will notify you by email at least 14 days before the changes take effect. Continued use
-          after that period constitutes acceptance. For minor updates or clarifications, we may update
-          the date below without prior notice.
+          any time. We reserve the right to update these Terms at any time. The current version is
+          always on this page, with the date it was last updated shown below. We will announce
+          material changes (additions to restrictions, changes to liability, or other significant
+          modifications) on the <Link to="/updates">Updates page</Link>. Continued use of the
+          Service after a change constitutes acceptance of the updated Terms.
         </p>
 
         <h2>Geographic availability</h2>
