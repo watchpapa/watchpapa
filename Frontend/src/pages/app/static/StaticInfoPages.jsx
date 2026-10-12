@@ -1019,12 +1019,10 @@ function PrivacyPage({ session }) {
 
         <h2>Changes to this policy</h2>
         <p>
-          We may update this policy from time to time. For material changes (changes that expand what
-          data we collect or how we use it), we will announce them on the{" "}
-          <Link to="/updates">Updates page</Link> at least 14 days before they take effect.
-          Continued use of the service after that period constitutes acceptance of the updated
-          policy. For minor clarifications or corrections, we will update the date below without prior
-          notice.
+          We may update this policy from time to time. The current version is always on this page,
+          with the date it was last updated shown below. We will announce material changes on the{" "}
+          <Link to="/updates">Updates page</Link>. Continued use of the service after a change
+          constitutes acceptance of the updated policy.
         </p>
 
         <p className="muted">
