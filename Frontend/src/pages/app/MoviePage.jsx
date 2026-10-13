@@ -24,6 +24,12 @@ import { useCertifications } from "../../features/content/hooks/useContent.js";
 import { certificationMeaning } from "../../lib/certifications.js";
 import { useRating } from "../../features/rating/hooks/useRating.js";
 
+// TMDB collection names already end in "Collection" ("The Matrix Collection"); avoid "the The … Collection Collection".
+function collectionLabel(name) {
+  const base = String(name ?? "").replace(/^the\s+/i, "");
+  return `Part of the ${/collection$/i.test(base) ? base : `${base} Collection`}`;
+}
+
 function fmt(val, fallback = "—") {
   return val ?? fallback;
 }
@@ -156,7 +162,7 @@ function MoviePage({ session, showAdult }) {
         {movie.collection && (
           <div className="px-1">
             <Link to={`/collections/${movie.collection.id}`} className="text-sm font-semibold text-text-link underline decoration-border-strong underline-offset-4 hover:text-white">
-              Part of the {movie.collection.name} Collection
+              {collectionLabel(movie.collection.name)}
             </Link>
           </div>
         )}
