@@ -1,5 +1,5 @@
 /**
- * Integration tests for T8 (threat model: docs/threat_model_guide.md).
+ * Integration tests for T8 (threat model: Documentation/security/security.md).
  *
  * Verifies that Supabase Row Level Security policies prevent cross-user data
  * access on every user-scoped table. A policy drift — a policy going missing

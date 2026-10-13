@@ -1,6 +1,6 @@
 # Announcements / Updates System
 
-> Added: May 2026
+> Added: May 2026 · Backend updated October 2026 (Express → Cloudflare Worker; behaviour is unchanged)
 
 The announcements system powers the public `/updates` page where watchpapa staff (editors and admins) can publish news posts about new features, changes, and platform updates. Posts support rich text formatting. All writes are role-gated on the server; the public can only read live (non-archived) posts.
 
@@ -58,7 +58,7 @@ CREATE INDEX announcements_archived_idx   ON public.announcements(archived, crea
 
 ### RLS
 
-Row Level Security is **enabled** on the table. There are no user-facing RLS policies — all reads and writes go through the Express backend using the service-role key, which bypasses RLS entirely. This means RLS acts as a safety net preventing direct client-side Supabase access.
+Row Level Security is **enabled** on the table. There are no user-facing RLS policies — all reads and writes go through the Cloudflare Worker (`worker/src/routes/announcements.js`, `routes/admin/announcements.js`), which connects to Postgres over Hyperdrive as the pooler role and so bypasses RLS. This means RLS acts as a safety net preventing direct client-side Supabase access.
 
 ---
 
@@ -124,7 +124,7 @@ Creates a new post. Requires auth + role 3 or 4.
 
 #### `PATCH /api/announcements/:id`
 
-Updates an existing post. Requires auth + role 3 or 4. **Cannot edit archived posts** (`.eq("archived", false)` filter applied — request silently fails to match if the post is archived).
+Updates an existing post. Requires auth + role 3 or 4. **Cannot edit archived posts** (`WHERE archived = false` — an archived post returns `404 Announcement not found or archived`).
 
 **Request body** — same shape as POST.
 
@@ -145,7 +145,7 @@ Soft-deletes a post. Requires auth + role 3 or 4. Sets `archived = true`, record
 
 ### Admin endpoints
 
-All admin endpoints are mounted under `/api/admin/announcements` and require **auth + role 4** enforced at the Express mount level in `app.js`. Individual route handlers do not need to re-check the role.
+All admin endpoints are mounted under `/api/admin/announcements` and require **auth + role 4** enforced once at the mount in `worker/src/routes/admin/index.js` (`requireAuth` + `requireAdmin`). Individual route handlers do not need to re-check the role.
 
 #### `GET /api/admin/announcements`
 
@@ -178,35 +178,35 @@ Permanently deletes a post. **Irreversible.** Admin (role 4) only. The admin pan
 | Role value | Name | Permissions |
 |---|---|---|
 | `0` | User | Read public announcements only |
-| `3` | Moderator | Create, edit, archive |
+| `3` | Editor | Create, edit, archive |
 | `4` | Admin | Create, edit, archive + restore, hard delete |
 
 ### Enforcement layers
 
 **Server-side (authoritative):**
 
-All role checks are performed server-side against the `profile` table using the Supabase **service-role key** — they cannot be bypassed by forging a JWT claim.
+All role checks are performed server-side against the `profile` table (`SELECT role FROM public.profile`) over Hyperdrive — they cannot be bypassed by forging a JWT claim. The JWT itself is verified locally against Supabase's JWKS.
 
 | Middleware | File | Used for |
 |---|---|---|
-| `requireAuth` | `Backend/src/middleware/requireAuth.js` | Validates the Bearer token via `supabase.auth.getUser()`, attaches `req.user` |
-| `requireEditor` | `Backend/src/middleware/requireEditor.js` | Checks `profile.role` is `3` or `4` |
-| `requireAdmin` | `Backend/src/middleware/requireAdmin.js` | Checks `profile.role` is `4` |
+| `requireAuth` | `worker/src/auth.js` | Verifies the Bearer JWT locally (`jose`, ES256 JWKS), sets `c.get("user")` |
+| `requireEditor` | `worker/src/auth.js` | Checks `profile.role` is `3` or `4` |
+| `requireAdmin` | `worker/src/auth.js` | Checks `profile.role` is `4` |
 
 **Middleware chain per route:**
 
 ```
-POST   /api/announcements            → globalLimiter → mutationLimiter → requireAuth → requireEditor → handler
-PATCH  /api/announcements/:id        → globalLimiter → mutationLimiter → requireAuth → requireEditor → handler
-PATCH  /api/announcements/:id/archive→ globalLimiter → mutationLimiter → requireAuth → requireEditor → handler
-GET    /api/announcements            → globalLimiter → handler (public)
+POST   /api/announcements            → RL_GLOBAL → requireAuth → mutationRateLimit → requireEditor → auditLog → handler
+PATCH  /api/announcements/:id        → RL_GLOBAL → requireAuth → mutationRateLimit → requireEditor → auditLog → handler
+PATCH  /api/announcements/:id/archive→ RL_GLOBAL → requireAuth → mutationRateLimit → requireEditor → auditLog → handler
+GET    /api/announcements            → RL_GLOBAL → handler (public)
 
-GET    /api/admin/announcements      → globalLimiter → adminLimiter → requireAuth → requireAdmin → handler
-PATCH  /api/admin/.../:id/restore    → globalLimiter → adminLimiter → requireAuth → requireAdmin → handler
-DELETE /api/admin/.../:id            → globalLimiter → adminLimiter → requireAuth → requireAdmin → handler
+GET    /api/admin/announcements      → RL_GLOBAL → requireAuth → requireAdmin → handler
+PATCH  /api/admin/.../:id/restore    → RL_GLOBAL → requireAuth → requireAdmin → auditLog → handler
+DELETE /api/admin/.../:id            → RL_GLOBAL → requireAuth → requireAdmin → auditLog → handler
 ```
 
-Note: `mutationLimiter` is wrapped with `mutationOnly()` so it skips GET requests. The public GET runs under the global limiter only (120 req/min/IP).
+Note: the limiters are Workers Rate Limiting bindings (`worker/src/ratelimit.js`): `RL_GLOBAL` is 240 req/min per IP on every route, `RL_MUTATION` is 30 req/min per user and is only attached to write routes. Every write is recorded in `audit_events` (`announcement_created/edited/archived/restored/deleted`).
 
 **Frontend (UI only — not security):**
 
@@ -215,7 +215,7 @@ The `UpdatesPage` fetches `profile.role` from Supabase to conditionally show the
 ### Security properties
 
 - `author_id`, `archived_by`, `archived_at` are **never exposed** via the public GET endpoint
-- The edit endpoint (`PATCH /:id`) silently ignores requests targeting archived posts via `.eq("archived", false)` — there is no way to edit an archived post via the API
+- The edit endpoint (`PATCH /:id`) rejects requests targeting archived posts (`WHERE archived = false`, 404) — there is no way to edit an archived post via the API
 - Input validation: title ≤ 300 chars, body ≤ 100,000 chars on both create and edit
 - HTML body is created only by trusted roles (3/4); `dangerouslySetInnerHTML` is used for rendering on the public page — this is acceptable given the trust level of the authors
 - Hard delete requires a browser `window.confirm()` in the admin UI and targets role 4 only at the API level
@@ -302,38 +302,36 @@ Accessible to role 4 (admin) only via `AdminRoute`. Features:
 
 ### Admin panel shortcut
 
-Users with `profile.role = 4` see an ★ **Admin panel** link at the top of the `ProfileMenu` dropdown. The role is fetched alongside tier and early-adopter status when the menu is opened.
+Users with `profile.role = 4` see an **Admin panel** entry in the account menu (`AccountMenu.jsx`, shared by the desktop popover, the phone account sheet and the mobile drawer). The role comes from `useCurrentUser()`.
 
 ### Admin nav entry
 
-`AdminPage.jsx` includes an **Announcements** link under the **Content** section in the sidebar/tab strip.
+`AdminPage.jsx` includes an **Announcements** link in the sidebar/tab strip.
 
 ---
 
 ## File Map
 
 ```
-Backend/
+worker/
   src/
-    middleware/
-      requireEditor.js          Role 3 or 4 check (server-side, service-role key)
+    auth.js                     requireAuth / requireEditor / requireAdmin
     routes/
       announcements.js          Public GET + editor-only POST, PATCH, PATCH archive
       admin/
         announcements.js        Admin GET, PATCH restore, DELETE
-    db/
-      migrations/
-        014_announcements.sql           Create table
-        015_announcements_archive_tracking.sql  Add archived_by, archived_at
+    index.js                    Route mounting + global rate limiter
 
-app.js                          Route mounting + rate limiter wiring
+Backend/src/db/migrations/
+  014_announcements.sql                   Create table
+  015_announcements_archive_tracking.sql  Add archived_by, archived_at
 
 Frontend/
   src/
     components/
       layout/
         Footer.jsx              "Updates" link added
-        ProfileMenu.jsx         Admin panel shortcut for role 4
+        AccountMenu.jsx         Admin panel shortcut for role 4
       ui/
         ReportBugButton.jsx     Floating bug report button (Google Forms)
         RichTextEditor.jsx      TipTap WYSIWYG editor component

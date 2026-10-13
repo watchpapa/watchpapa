@@ -1,6 +1,6 @@
 # CONTEXT.md — watchpapa.tv Codebase Reference
 
-Monorepo for watchpapa.tv — a web app for tracking movie/TV show releases. Vite React frontend (`Frontend/`, Cloudflare Pages) + a Cloudflare Worker API (`worker/`, Hono). Content is read live from TMDB v3; only user data is stored (Supabase). For product narrative see `README.md`; for recent releases see `releases.md`.
+Monorepo for watchpapa.tv — a web app for tracking movie/TV show releases. Vite React frontend (`Frontend/`, Cloudflare Pages) + a Cloudflare Worker API (`worker/`, Hono). Content is read live from TMDB v3; only user data is stored (Supabase). For product narrative see `README.md`; for the user-facing changelog see `Documentation/releases.md`; all other docs are indexed in `Documentation/README.md`.
 
 ---
 
@@ -12,7 +12,7 @@ Monorepo for watchpapa.tv — a web app for tracking movie/TV show releases. Vit
 > DigitalOcean droplet, its self-hosted runner, and the ingestion scripts are
 > decommissioned. User tables key on `tmdb_id`. The 15 mirror tables still exist as
 > **empty scaffolding** (migration 031 `TRUNCATE`d them). See migrations 029–031 and
-> the plan at `~/.claude/plans/big-job-ahead-of-crystalline-journal.md`.
+> the original plan (kept outside the repo, no longer on disk).
 
 | Layer | Technology |
 |---|---|
@@ -33,7 +33,7 @@ Monorepo for watchpapa.tv — a web app for tracking movie/TV show releases. Vit
 
 ```
 watchpapa/
-├── package.json                      # root: DB-migration home + RLS tests only (test:rls, test:py)
+├── package.json                      # root: test runners only (test:rls/unit/e2e/backup/smoke/py)
 ├── worker/                           # ── Cloudflare Worker API (Hono) ──
 │   ├── wrangler.jsonc                # bindings: HYPERDRIVE, RL_GLOBAL/RL_MUTATION; route api.watchpapa.tv/*
 │   ├── src/
@@ -50,18 +50,22 @@ watchpapa/
 │   │   │   ├── normalize.js         # TMDB payloads → the field names the UI reads (id === tmdb_id); native-title swap, regional release date, watch-provider compaction, NSFW flag
 │   │   │   ├── lists.js             # list-kind → TMDB endpoint (or a /discover spec) + TTL map
 │   │   │   ├── locale.js            # readLocale(c) — parses/validates lang/region/native/include_adult/providers query params
+│   │   │   ├── recommend.js         # weighted-seed sampling + genre-taste scoring for POST /api/content/recommendations
 │   │   │   ├── nsfw.js              # NSFW_KEYWORD_IDS / NSFW_TITLE_RE / NSFW_ALLOW_IDS / isNsfw() / filterNsfw() — single tunable module for adult-flag-evading content
 │   │   │   └── discover.js          # discoverParams() + runDiscover() — shared /discover/{movie,tv} builder (popular/top-rated list kinds, coming-soon, "available on your services", /discover/:type incl. the /adult page's adult_only/keyword/sort); backfillShowStatus() — see "Show status backfill" below
 │   │   ├── routes/
 │   │   │   ├── content.js           # /api/content/* — detail, list, discover, genres, watch/regions, watch/providers, config/locales, POST batch, POST releases
 │   │   │   ├── publicContent.js     # /api/search, /api/posters, /api/image-proxy, /sitemap*.xml
+│   │   │   ├── meta.js              # GET /api/meta?path= — link-preview/JSON-LD payload for the Pages Function (see SEO & Crawlability)
 │   │   │   ├── referral.js  rewards.js  announcements.js  import.js
 │   │   │   └── admin/{index,users,stats,rewardCodes,tierRewards,referrals,auditLog,announcements}.js
 │   │   ├── import/{resolve,commit,filmKey}.js  # shared by routes/import.js and cron.js (HTTP route vs. background tick)
-│   │   └── lib/{letterboxdUri,csv}.js
-│   └── test/                        # vitest — normalize / csv / nsfw / locale / client / discover fixtures
+│   │   └── lib/{letterboxdUri,csv,meta,structuredData}.js
+│   └── test/                        # vitest — normalize / csv / nsfw / locale / client / discover / recommend / meta / audit / tierRewards
 ├── scripts/db-backup.sh              # nightly backup pipeline: pg_dump → gzip → age → file (run by the db-backup workflow; tested by tests/backup)
-├── Backend/src/db/migrations/        # 001–031 SQL — apply via Supabase MCP (only thing left under Backend/)
+├── Backend/src/db/migrations/        # 001–048 SQL (no 022) — apply via Supabase MCP (only thing left under Backend/)
+├── Frontend/functions/_middleware.js  # Cloudflare Pages Function: real 404s + edge link-preview injection (see SEO & Crawlability)
+├── Frontend/scripts/                 # gen-og.mjs / gen-favicons.mjs (run via `npm run gen:assets`), readme-shots.mjs (regenerates Documentation/images/readme — public pages live, signed-in screens from an intercepted-Supabase demo account, never touches the real DB), screenshot + test-account helpers
 ├── Frontend/src/
 │   ├── main.jsx                      # Vite entry — mounts <App /> inside <BrowserRouter>
 │   ├── App.jsx                       # Full route tree + auth/session bootstrap
@@ -115,6 +119,7 @@ watchpapa/
 │       ├── tmdbImage.js              # tmdbImg(path, size) / tmdbImgProxied(...) — replaces 21 hard-coded URLs
 │       ├── credits.js                # toCast/toCrew — shape the Worker's flat cast/crew arrays
 │       ├── followGate.js             # movieFollowBlock/showFollowBlock/followBlock — blocks NEW follows of released movies/finished shows (existing follows untouched); movieLifecycleLabel/showStatusInfo chips for FollowsPage
+│       ├── importJob.js  listCache.js  profileBanner.js  certifications.js  structuredData.js  tierMeta.js  # background-import job id cache · list/browse snapshot cache · banner crop maths · cert labels · client JSON-LD builders · tier display metadata
 │       ├── tier.js  cropImage.js  avatarUrl.js  # avatar support: isProTier()/isPremiumTier(); getCroppedImageBlob() (react-easy-crop pixel-crop → square JPEG Blob); avatarUploadUrl(path) (Supabase Storage public URL, sync)
 │       ├── homeRows.js               # HOME_ROW_LABELS + DEFAULT_HOME_ROW_ORDER + effectiveHomeRowOrder() — home page row registry, shared by AppHomePage.jsx and SettingsPage.jsx
 │       ├── cookieConsent.js  cn.js  validate.js  constants.js
@@ -122,16 +127,14 @@ watchpapa/
 ├── tests/{unit,e2e,backup,smoke}/    # breached-password check · Playwright UI e2e (mocked network) · backup pipeline + restore drill · live post-downgrade smoke
 ├── .github/workflows/deploy-worker.yml  # manual-dispatch backup; primary deploy = Cloudflare Workers/Pages Builds
 ├── .github/workflows/db-backup.yml      # nightly encrypted Supabase dump → R2 (Free plan has no backups)
-└── docs/                             # (gitignored) architecture/security deep-dives — mostly pre-migration
+└── Documentation/                    # the one docs folder (README.md indexes it): releases, announcements_system, deployment, subscription_system, tech-stack, database/schema, security/security, compliance/ (GDPR records, breach plan, rights-request SOP, NDA), images/readme (README screenshots)
 ```
 
 ---
 
 ## Environment Variables
 
-**Backend (root `.env`):**
-
-**Worker** — `wrangler.jsonc` `vars`: `ALLOWED_ORIGINS`, `SUPABASE_URL` (for JWKS), `BATCH_MAX`, `BATCH_SUBREQ_BUDGET`, `IMPORT_CHUNK_MAX`, `RELEASES_MAX_SHOWS`, `SITEMAP_PAGES`. Secret (`wrangler secret put`): `TMDB_API_KEY_SECRET`. Bindings: `HYPERDRIVE`. `triggers.crons: ["* * * * *"]` (1/min, the Free-plan minimum) drives `scheduled()` → `runImportTick` (background import jobs, `cron.js`) — no Durable Objects/alarms on Free. Local dev also needs the shell var `CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE` (= the Supabase pooler URL) + `worker/.dev.vars` with `TMDB_API_KEY_SECRET`.
+**Worker** — `wrangler.jsonc` `vars`: `ALLOWED_ORIGINS`, `SUPABASE_URL` (for JWKS), `BATCH_MAX` (18), `BATCH_SUBREQ_BUDGET` (36), `IMPORT_CHUNK_MAX` (10), `RELEASES_MAX_SHOWS` (12), `SITEMAP_PAGES` (8), `RECOMMENDATIONS_MAX_SEEDS` (6), `RECOMMENDATIONS_PROVIDER_CHECK_MAX` (15), `SHOW_STATUS_BACKFILL_MAX` (20) — defaults in `env.js`. Secret (`wrangler secret put`): `TMDB_API_KEY_SECRET`. Bindings: `HYPERDRIVE`. `triggers.crons: ["* * * * *"]` (1/min, the Free-plan minimum) drives `scheduled()` → `runImportTick` (background import jobs, `cron.js`) — no Durable Objects/alarms on Free. Local dev also needs the shell var `CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE` (= the Supabase pooler URL) + `worker/.dev.vars` with `TMDB_API_KEY_SECRET`.
 
 **Frontend** — Pages production env vars: `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY` (or `VITE_SUPABASE_ANON_KEY`), **`VITE_API_BASE_URL=https://api.watchpapa.tv`** (must be set — the frontend calls the Worker cross-origin). Local dev: `Frontend/.env` + `vite.config.js` proxies `/api` → `localhost:8787`.
 
@@ -173,6 +176,7 @@ watchpapa/
 | `GET` | `/api/posters` | 80 popular poster paths (auth-page wall) |
 | `GET` | `/api/image-proxy?path=&size=` | streamed, CORS, edge-cached — for canvas/share cards |
 | `GET` | `/sitemap.xml` · `/sitemap-{static,movies,shows,people}.xml` | from TMDB lists, 24h cache |
+| `GET` | `/api/meta?path=` | Link-preview/JSON-LD payload `{httpStatus, noindex, title, description, canonical, ogType, ogImage, jsonLd[]}` for a frontend path — consumed only by `Frontend/functions/_middleware.js` (see SEO & Crawlability); always HTTP 200, `s-maxage=86400` |
 | `GET` | `/health` | `{status:"ok"}` |
 
 **User data** (`routes/referral.js`, `rewards.js`, `announcements.js`, `import.js`, `admin/*`):
@@ -188,7 +192,7 @@ watchpapa/
 | `GET` | `/api/import/export` | JWT | **JSON** `{ratings, watchlistItems}` keyed by tmdb_id — frontend composes the CSV |
 | `*` | `/api/admin/{users,stats,reward-codes,tier-rewards,referrals,audit-log,announcements}/*` | JWT + requireAdmin (role 4) | |
 
-Dropped vs the old Express API: `/api/inject`, `/api/resolve`, `/api/import/run`, `/api/import/sync-status`, `/api/admin/resync`, `/api/admin/script-logs`, `/api/admin/stats/queue`.
+Dropped vs the old Express API: `/api/inject`, `/api/resolve`, `/api/import/run`, `/api/import/sync-status`, `/api/import/resolve`, `/api/import/commit` (replaced by `/api/import/jobs`), `/api/admin/resync*`, `/api/admin/script-logs`, `/api/admin/stats/queue`.
 
 **Admin routes** (all: adminLimiter + requireAuth + requireAdmin, role = 4):
 
@@ -199,19 +203,15 @@ Dropped vs the old Express API: `/api/inject`, `/api/resolve`, `/api/import/run`
 | `PATCH` | `/api/admin/users/:id/role` | Set user role (0, 3, or 4) — audited (`admin_role_set`, `target_user_id` set) |
 | `POST` | `/api/admin/users/:id/grant-tier` | Upgrade tier via `apply_tier_upgrade` (upgrade-only, no downgrade) — audited (`admin_tier_granted`) |
 | `PATCH` | `/api/admin/users/:id/tier` | Direct tier set — any tier incl. `free` and `god`; bypasses rank guards; `free` deletes the subscription row — audited (`admin_tier_set`) |
-| `*` | `/api/admin/reward-codes` | Reward code CRUD — every write audited (`reward_code_generated/created/toggled/updated/deleted/bulk`) |
+| `*` | `/api/admin/reward-codes` | `GET /` list · `POST /generate` · `GET /export` · `POST /bulk` · `GET /:id/claims` · `POST /` · `PATCH /:id` (toggle) · `PUT /:id` · `DELETE /:id` — every write audited (`reward_code_generated/created/toggled/updated/deleted/bulk`) |
 | `POST` | `/api/admin/tier-rewards` | Bulk tier reward — `{tier, durationDays, message?, target:'all'\|'selected', userIds?}` → grants a higher plan (via `apply_tier_upgrade`, upgrade-only) to every eligible active user or a picked set, writes a `tier_reward` ledger row per genuine recipient (drives the one-time popup + a `tier_reward` notification via that table's trigger). One audit row (`admin_tier_reward`, batch id + counts in `body`); the `tier_reward` rows are the per-user trail |
 | `GET` | `/api/admin/tier-rewards` | Recent reward batches (grouped by `batch_id`) for the history table |
 | `GET` | `/api/admin/tier-rewards/eligible-count?tier=` | `{total, eligible}` active users — blast radius for the "All users" confirm dialog |
-| `GET` | `/api/admin/stats` | Platform statistics |
-| `GET` | `/api/admin/referrals` | Referral leaderboard |
+| `GET` | `/api/admin/stats/early-adopters` · `/stats/early-adopters/list` · `/stats/tiers` | Early-adopter count + paginated list; tier distribution |
+| `GET` | `/api/admin/referrals/leaderboard` | Referral summary + top 100 referrers |
 | `GET` | `/api/admin/audit-log[/actions\|/auth]` | App-event log with `action`/`email`/`user_id`/`target_user_id`/`path`/`source`/date filters (`/actions` serves the registry that drives them); `/auth` is a read-only tab over Supabase's own `auth.audit_log_entries` (sign-in/out, OAuth, recovery, token refresh, deletion) |
-| `GET` | `/api/admin/script-logs` | Ingestion script run logs |
-| `GET` | `/api/admin/stats/catalog` | Row counts for all content + activity tables (movies, shows, seasons, episodes, people, credits, ratings, follows, watchlists, favourites) |
-| `*` | `/api/admin/announcements` | Announcement management (includes restore) |
-| `GET` | `/api/admin/resync/search` | Search local catalog for resync |
-| `POST` | `/api/admin/resync` | Trigger scoped re-ingest for a single item |
-| `POST` | `/api/admin/resync/bulk` | Bulk re-ingest up to 1,000 items of a type; optional `since` ISO timestamp to filter by `updated_at` |
+| `GET` | `/api/admin/stats/catalog` | Row counts for the user-data/activity tables (ratings, follows, watchlists, favourites, …); the content-table counts are gone with the mirror |
+| `*` | `/api/admin/announcements` | `GET /` (incl. archived) · `PATCH /:id/restore` · `DELETE /:id` (create/edit/archive live on the editor-level `/api/announcements`) |
 
 ---
 
@@ -227,6 +227,7 @@ Dropped vs the old Express API: `/api/inject`, `/api/resolve`, `/api/import/run`
 | `/complete-username` | Protected (setup) | `CompleteUsernamePage` | Required gate after first signup; redirects away if username exists |
 | `/` | Public | `AppHomePage` | |
 | `/search` | Public | `SearchPage` | |
+| `/adult` | Public (self-guards) | `AdultPage` | Hidden browse page — only reachable/linked when both `showAdult` and `showAdultTab` are on (else `<Navigate to="/">`); warning interstitial once per tab |
 | `/movies` | Public | `MoviesPage` | |
 | `/movies/:id` | Public | `MoviePage` | `:id` = TMDB id (everywhere now) |
 | `/shows` | Public | `ShowsPage` | |
@@ -244,10 +245,16 @@ Dropped vs the old Express API: `/api/inject`, `/api/resolve`, `/api/import/run`
 | `/subscription` | Public | `SubscriptionPage` | |
 | `/about`, `/help`, `/terms`, `/contact`, `/privacy`, `/certifications` | Public | `StaticInfoPages` | Footer pages, rewritten 2026-09-05 to match the current feature set (see Recent Fixes). Internal links use `<Link>`; `LAST_UPDATED` const at the top of the file is the Terms/Privacy "last updated" date — bump it whenever either changes.  `/certifications` (`CertificationsInfoPage`) explains movie/show certifications with a per-country lookup table off `/api/content/certifications`; linked from the badge on `MoviePage`/`ShowPage` and the footer |
 | `/settings` | Protected | `SettingsPage` | Requires session |
+| `/users` | Protected | `UserSearchPage` | Find People |
+| `/feed` | Protected | `ActivityFeedPage` | Activity feed of people you observe |
+| `/observe-requests` | Protected | `ObserveRequestsPage` | Pending observe requests |
+| `/notifications` | Protected | `NotificationsPage` | |
 | `/watchlists` | Protected | `WatchlistsPage` | Tabbed page: all lists as tabs, items + All/Watched/Unwatched filter shown inline |
 | `/follows` | Protected | `FollowsPage` | All followed shows + movies with unfollow buttons; tabs Shows/Movies; overage banner |
 | `/u/:username` | Protected | `ProfilePage` | Public profile: bio, tier badge, 5 favourites, stats (owner-tier-gated), ratings grid |
-| `/profile/edit` | Protected | `EditProfilePage` | Edit bio (200 chars) + 5 favourites (search picker) |
+| `/u/:username/observers` · `/observing` | Protected | `ObserveListPage` | |
+| `/u/:username/ratings` | Protected | `ProfileRatingsPage` | Full ratings grid |
+| `/profile/edit` | Protected | `EditProfilePage` | Bio (200 chars), 5 favourites, avatar, banner |
 | `/import` | Protected | `ImportPage` | Import from Letterboxd CSV or watchpapa CSV; parses client-side, then hands off to a background `import_job` (see "Import flow" below) and polls status — safe to close the tab once started |
 | `/admin` | AdminRoute (role=4) | `AdminPage` (nested) | |
 | `/admin` (index) | Admin | `StatsPage` | |
@@ -256,10 +263,10 @@ Dropped vs the old Express API: `/api/inject`, `/api/resolve`, `/api/import/run`
 | `/admin/early-adopters` | Admin | `EarlyAdoptersPage` | |
 | `/admin/users` | Admin | `UserLookupPage` | |
 | `/admin/referrals` | Admin | `ReferralLeaderboardPage` | |
-| `/admin/audit-log` | Admin | `AuditLogPage` | |
+| `/admin/audit-log` | Admin | `AuditLogPage` | App events / Auth events tabs |
 | `/admin/announcements` | Admin | `AnnouncementsPage` | |
 | `/admin/staff` | Admin | `StaffPage` | |
-| `/admin/catalog-stats` | Admin | `CatalogStatsPage` | Row counts for movies, shows, seasons, episodes, people, credits, ratings, follows, watchlists, favourites |
+| `/admin/catalog-stats` | Admin | `CatalogStatsPage` | Row counts for the user-data tables |
 | `*` | — | `NotFoundPage` | Catch-all (branded 404, `noindex`) — see "SEO & crawlability" below. `/admin/script-logs` and `/admin/resync` rows removed 2026-10 (routes/components don't exist). |
 
 Route guards defined in `App.jsx`: `PublicOnlyRoute`, `ProtectedRoute`, `PublicRoute`, `AdminRoute` (in `components/auth/AdminRoute.jsx`).
@@ -380,7 +387,7 @@ Each resolved chunk **commits its own `ratings`/`watchlistItems` immediately** v
 | 029 | `tmdb_ids` | **TMDB-live migration, Phase 2 (applied 2026-09-03, additive).** Adds `media_type`/`tmdb_id` (+ `tmdb_show_id`/`season_number`/`episode_number` for season+episode ratings) to `user_rating`, `watchlist_item`, `profile_favourite`, `user_followed_movies`, `user_followed_shows`; backfills all from the content tables (0 unmapped). New plain-unique indexes `*_media_uniq` / `*_profile_tmdb_uniq` for PostgREST onConflict. Adds `get_activity_feed_v2(int,int)` (content-join-free; distinct name to avoid overload ambiguity with the all-default-arg 3-arg version). Unschedules the stale `cleanup-analytics` pg_cron job. **Nothing dropped — old columns/CHECKs/indexes/functions all intact.** |
 | 030a | `drop_xor_checks` | **Applied 2026-09-03.** Drops `user_rating_one_media` / `watchlist_item_one_media` / `profile_favourite_one_media` CHECKs so the new frontend can write `(media_type, tmdb_id)`-only rows. Split from 030 for Phase 3 dev testing; old frontend unaffected. |
 | 030 | `swap_functions` | **Applied 2026-09-03 (cutover).** `CREATE OR REPLACE` `get_community_rating_stats` / `get_observed_ratings_for_entity` / `audit_user_follow_change` to key on `tmdb_id`. `030_swap_functions_down.sql` reverses it (rollback path until 031). |
-| 031 | `clear_content` (**pending — after soak**) | Re-backfill stragglers, NOT NULL + replacement CHECKs, **drop the old id columns** (`user_rating.movie_id`/`show_id`/`season_id`/`episode_id`, etc. — their FKs would block the truncate), drop `get_activity_feed(int,int,bool)` + `get_profile_genre_stats`, rename `get_activity_feed_v2` → `get_activity_feed`, then **`TRUNCATE … CASCADE` the 15 mirror tables** (`movie`/`show`/`season`/`episode`/`person`/`person_aka`/`genres`/`department`/`job`/`*_credits`/`*_genre`/`script_logs`) — schema/indexes/RLS/`tmdb_id` constraints kept as empty scaffolding, ~1.3 GB reclaimed. Irreversible for the row data (but it's all re-fetchable from TMDB). |
+| 031 | `clear_content` (**applied**) | Re-backfill stragglers, NOT NULL + replacement CHECKs, **drop the old id columns** (`user_rating.movie_id`/`show_id`/`season_id`/`episode_id`, etc. — their FKs would block the truncate), drop `get_activity_feed(int,int,bool)` + `get_profile_genre_stats`, rename `get_activity_feed_v2` → `get_activity_feed`, then **`TRUNCATE … CASCADE` the 15 mirror tables** (`movie`/`show`/`season`/`episode`/`person`/`person_aka`/`genres`/`department`/`job`/`*_credits`/`*_genre`/`script_logs`) — schema/indexes/RLS/`tmdb_id` constraints kept as empty scaffolding, ~1.3 GB reclaimed. Irreversible for the row data (but it's all re-fetchable from TMDB). |
 | 032 | `locale_and_watch_settings` | Adds `setting_language`, `setting_title_mode`, `setting_region`, `setting_watch_regions`, `setting_watch_providers` to `profile` (with format CHECKs). Purely additive; no RLS change needed — `profile_update_own` already covers the whole row and 010's REVOKE only touches `role`/`referral_code`. |
 | 033 | `profile_avatars` | Adds `avatar_type`/`avatar_poster_media_type`/`avatar_poster_tmdb_id`/`avatar_poster_path`/`avatar_upload_path` to `profile`. New `guard_profile_avatar_tier` BEFORE UPDATE trigger (same pattern as 010) blocking `avatar_type='upload'` below Pro. Creates the public `avatars` Storage bucket (5MB limit, image/jpeg\|png\|webp) with `storage.objects` RLS scoped to `bucket_id='avatars'` (insert/update require the caller's own `${uid}/` folder + Pro+ tier via `get_effective_tier`; delete needs only the own-folder check). Drops + recreates `search_profiles`/`get_observers`/`get_observing` (return-type change) to add `avatar_type`/`avatar_poster_path`/`avatar_upload_path` to their output. |
 | 034 | `watch_providers_tier_gate` | New `guard_profile_watch_providers_tier` BEFORE UPDATE trigger (same pattern as 033) blocking a non-empty `setting_watch_providers` below Pro. `setting_watch_regions` is unaffected — still open to every tier. |
@@ -392,13 +399,15 @@ Each resolved chunk **commits its own `ratings`/`watchlistItems` immediately** v
 | 040 | `backfill_watch_history` | **Applied 2026-09-05, one-time data backfill (idempotent, re-runnable).** Both 038 and 039 shipped after ratings already existed, so every pre-existing rating had zero rows in each — `INSERT … SELECT … WHERE NOT EXISTS` populates one `watch_log` row per existing movie/show rating (dated to that rating's own `created_at`, not "today") and one `user_rating_history` baseline row per existing rating of any media type (so a first post-migration change correctly produces 2 history rows, not 1). Season/episode ratings are skipped for the `watch_log` half — there's no single retroactive "the show is watched" moment to assign without knowing whether every season/episode was ever rated. 803 watch_log + 837 history rows backfilled. |
 | 041 | `rating_history_own_delete` | Adds a `FOR DELETE ... USING (profile_id = auth.uid())` policy to `user_rating_history` (migration 039 only granted clients SELECT — writes were trigger-only). Lets `RatingHistoryPanel.jsx` remove individual history entries; purely edits the historical record, the live `user_rating.value` is untouched. |
 
+| 042 | `rls_audit_fixes` | **Applied 2026-09-05.** RLS/access-control audit: `REVOKE EXECUTE … FROM anon, authenticated` on the trigger functions 033/034/039 left callable, plus `handle_new_user` and `clean_audit_events_on_profile_delete`; drops the `reward_codes` "active codes read" policy (009) that let any user list live promo codes. See the 2026-09-05 RLS audit entry in Recent Fixes. |
 | 043 | `profile_banner` | **Applied 2026-09-05.** Adds `banner_favourite_position` (SMALLINT 1–5, NULL = first favourite) and `banner_crop` (JSONB `{x,y,width,height}` in percent of the source image, NULL = centred) to `profile` — which favourite's artwork backs the profile banner and how it's cropped. Additive; covered by the existing `profile_update_own` policy. |
 | 044 | `audit_coverage` | **Applied 2026-09-05.** Widens `audit_events` with `status`/`target_user_id`/`source` (`worker`\|`db`\|`auth`) + 3 indexes. Adds one generic `SECURITY DEFINER` row trigger `audit_row_change()` attached to `user_rating`, `user_rating_history`, `watch_log`, `watchlist`, `watchlist_item`, `profile_favourite`, `user_observe`, `user_block`, `user_banner_dismissals` — one row per insert/update/delete with a real semantic action name (`rating_set`, `watchlist_item_added`, `observe_accepted`, …). Adds `audit_profile_change()` (`AFTER UPDATE ON profile`) emitting one row **per changed group**, never the whole row (username/dob/role/avatar/bio/banner/marketing/privacy/share/adult-content/adult-tab/nsfw-blur/locale/watch-settings/home-rows), plus `account_deleted` on soft-deletion (`delete_account()` sets `deleted_at`; the row is never hard-deleted, so 024's `AFTER DELETE` cleanup never fires in practice). Statement-level `audit_notifications_cleared()` logs one summary row per bulk notification clear instead of one per row. `audit_skip()`/`audit_write()` helpers; `SET LOCAL watchpapa.audit_skip = '1'` lets a caller suppress the row triggers for a bulk write (the Worker's import-commit route uses this and logs its own one-line summary via `auditLog()` instead). Pins `search_path` on 024's `clean_audit_events_on_profile_delete`. All new functions are `SECURITY DEFINER` with `EXECUTE` revoked from `anon`/`authenticated`. Companion Worker changes: `auditLog()` middleware now defaults to recording **no** body fields (an explicit allowlist is required) and also records `status`/`source='worker'`/`target_user_id`; applied to all 16 previously-unaudited routes (every admin route, `announcements.js`, `import.js`). New `auditActions.js` registry (~65 actions) backs `GET /api/admin/audit-log/actions`, the `/admin/audit-log` filters (400 on an unknown `action`/`source`), and a new read-only `GET /api/admin/audit-log/auth` tab over `auth.audit_log_entries` (Supabase's own sign-in/out/OAuth/recovery/deletion log). |
 | 045 | `fix_audit_notifications_cleared` | **Applied 2026-09-05, hotfix for 044.** `audit_notifications_cleared()` used `min(recipient_id)` as its actor fallback; Postgres has no `min()` aggregate for `uuid`, so every bulk notification-clear raised `function min(uuid) does not exist` and rolled back. Replaced with `(array_agg(recipient_id))[1]`. |
 | 046 | `bottom_tab_middle_preference` | **Applied 2026-09-05.** Adds `setting_bottom_tab_middle` (`'search'`\|`'services'`, default `'services'`) to `profile` — which control shows in the phone bottom tab bar's middle slot. Only takes effect for Pro+ accounts (My Services is a Pro feature); everyone else always sees Search regardless of the stored value. Extends migration 044's `audit_profile_change()` with a `bottom_tab_preference_changed` clause. |
 | 047 | `tier_rewards` | **Applied 2026-09-08.** New `public.tier_reward` table — the per-recipient ledger for admin bulk tier rewards (`POST /api/admin/tier-rewards`). Columns `profile_id`/`batch_id`/`tier`/`duration_days`/`expires_at`/`message`/`granted_by`/`acknowledged_at`; partial index on unacked rows. Own-read RLS (`profile_id = auth.uid()`), **no** client write policy — the Worker inserts via the pooler role; `acknowledge_tier_rewards(p_ids BIGINT[] DEFAULT NULL)` SECURITY DEFINER RPC (mirrors `mark_notifications_read`) is the only client write, `EXECUTE` to `authenticated` only. Widens `notification_type_check` to allow `'tier_reward'`. `tier_reward_notify()` SECURITY DEFINER `AFTER INSERT` trigger drops one actor-less `tier_reward` notification per reward row. The actual subscription write still goes through `apply_tier_upgrade` (migration 005) — upgrade-only, so recipients already on an equal/higher effective tier are skipped and get no ledger row. New audit action `admin_tier_reward` (`worker/src/auditActions.js`). |
+| 048 | `import_jobs` | New `public.import_job` table (see schema above) — the queue behind the background CSV import. Own-read RLS; the Worker writes via the pooler role and the Cron Trigger advances rows. |
 
-To add the next migration: create `Backend/src/db/migrations/048_<name>.sql`, apply via `mcp__claude_ai_Supabase__apply_migration`.
+To add the next migration: create `Backend/src/db/migrations/049_<name>.sql`, apply via `mcp__claude_ai_Supabase__apply_migration`.
 
 ---
 
@@ -477,7 +486,7 @@ Locked widgets show **fake seeded data** under a blur overlay + upgrade CTA (not
 - **Show status backfill.** TMDB's list/discover/recommendations responses never include a show's `status` (or `in_production`/`last_air_date`) — that only exists on the full `/tv/{id}` detail payload. Without it, `lib/followGate.js` `showFollowBlock()` on the frontend can't detect an ended/canceled show, so "Follow" stayed clickable even on something already finished. `tmdb/discover.js` `backfillShowStatus(env, cards, language, maxChecks)` fixes this with one extra `/tv/{id}` lookup per show card missing `status` (edge-cached at `TTL.show` — cheap after the first cold hit for a popular title), capped by the wrangler var `SHOW_STATUS_BACKFILL_MAX` (default 20). Called from `runDiscover()` (covers every discover-backed row) and the non-discover `/list/:kind` branch (`shows-on-the-air`/`shows-airing-today`) and `/api/content/recommendations` (capped to the 24 displayed results, reusing the already-fetched full detail for the provider-filtered list instead of a second lookup).
 - **Card hydration:** `POST /api/content/batch` `{items:[{type,id,showId?,seasonNumber?,episodeNumber?}]}` → `{cards, missing}` — used to attach title/poster/date/genres to user-data rows (`user_rating`, `watchlist_item`, favourites, follows) that store only `(media_type, tmdb_id)`. Frontend: `features/content/hooks/useContentBatch.js` + `lib/keys.js`.
 - **Calendar:** `POST /api/content/releases` `{showIds,year,month}` → episode air dates for followed shows (bounded ≤3 TMDB calls/show).
-- Free-plan caps (50 subrequests / 10 ms CPU per request) are `wrangler.jsonc` `vars` (`BATCH_MAX`, `BATCH_SUBREQ_BUDGET`, `RELEASES_MAX_SHOWS`, `SITEMAP_PAGES`, `IMPORT_CHUNK_MAX`).
+- Free-plan caps (50 subrequests / 10 ms CPU per request) are `wrangler.jsonc` `vars` (`BATCH_MAX`, `BATCH_SUBREQ_BUDGET`, `RELEASES_MAX_SHOWS`, `SITEMAP_PAGES`, `IMPORT_CHUNK_MAX`, `RECOMMENDATIONS_*`, `SHOW_STATUS_BACKFILL_MAX`).
 - **Sitemaps** (`worker/src/routes/publicContent.js`): built from TMDB popular + top-rated list pages, cached 24h. `Frontend/public/_redirects` 301s `/sitemap*.xml` → `api.watchpapa.tv`.
 
 The 15 mirror tables still exist as **empty scaffolding** (migration 031 `TRUNCATE`d them, kept schema/indexes/RLS/`tmdb_id` constraints). Nothing reads or writes them.
@@ -504,7 +513,7 @@ The 15 mirror tables still exist as **empty scaffolding** (migration 031 `TRUNCA
 
 No collaborative-filtering/ML infrastructure of our own — candidates come from TMDB's own per-title `/movie/{id}/recommendations` and `/tv/{id}/recommendations` (TMDB staff recommend these over `/similar`, which is just genre/keyword matching, not behaviour-based).
 
-- `POST /api/content/recommendations` (`worker/src/routes/content.js`): the client sends `items` (seed titles — up to `RECOMMENDATIONS_MAX_SEEDS`, default 8) and `exclude` (titles to never surface). For each seed the Worker fetches TMDB's `/recommendations`, tallies how often each candidate appears across seeds, ranks by `hits` then `popularity`, drops anything in `exclude` or (unless `include_adult`) NSFW, and returns the top 24 as cards. Optional `providers`/`watchRegion` additionally return `resultsOnMyServices`: the same ranked candidates, checked one at a time (bounded by `RECOMMENDATIONS_PROVIDER_CHECK_MAX`, default 15 — kept low enough that seeds + show-status backfill + this always stay under the Free-plan 50-subrequest ceiling in one request) via a `watch/providers`-appended detail fetch, kept only if one of `providers` appears in that region's `flatrate`/`free`/`ads` buckets. That detail fetch (not the list-shaped seed data) is also what backs each card in `resultsOnMyServices`, so it already carries an accurate `status`.
+- `POST /api/content/recommendations` (`worker/src/routes/content.js`): the client sends `items` (seed titles — up to `RECOMMENDATIONS_MAX_SEEDS`, default 6) and `exclude` (titles to never surface). For each seed the Worker fetches TMDB's `/recommendations`, tallies how often each candidate appears across seeds, ranks by `hits` then `popularity`, drops anything in `exclude` or (unless `include_adult`) NSFW, and returns the top 24 as cards. Optional `providers`/`watchRegion` additionally return `resultsOnMyServices`: the same ranked candidates, checked one at a time (bounded by `RECOMMENDATIONS_PROVIDER_CHECK_MAX`, default 15 — kept low enough that seeds + show-status backfill + this always stay under the Free-plan 50-subrequest ceiling in one request) via a `watch/providers`-appended detail fetch, kept only if one of `providers` appears in that region's `flatrate`/`free`/`ads` buckets. That detail fetch (not the list-shaped seed data) is also what backs each card in `resultsOnMyServices`, so it already carries an accurate `status`.
 - **Ranking blend (2026-10, `worker/src/tmdb/recommend.js`):** the client sends its whole seed pool (≤20, each with `weight` = rating, watched-unrated = 6); the Worker **weighted-random samples** `RECOMMENDATIONS_MAX_SEEDS` (now 6) per request, so rows rotate instead of freezing on the same top-N. Per type it builds a genre taste profile from the seeds' recommended candidates (`genre_ids`, scaled by seed weight), then adds one `/discover/{movie|tv}?with_genres=<top 3, OR>&sort_by=popularity.desc` call per type (≤2 extra subrequests) so currently-popular titles in the user's taste enter the pool. Score = Σ(seed weight/10 for seeds that recommended it) + 1.2·genre overlap + 0.8·log-popularity + ±0.15 jitter. Keywords aren't used (list-shaped TMDB items only carry genre ids; keyword ids would cost a detail fetch per candidate). Subrequest budget unchanged: 6 seeds + 2 discover + ≤24 status backfill + ≤15 provider checks ≈ 47.
 - **Response is per-user and never edge-cached** (`Cache-Control: private`) — but the underlying per-seed TMDB `/recommendations` calls ARE cached the normal way (keyed on id+language via `tmdbFetch`), so an overlapping seed pool across users/requests still hits a warm cache.
 - Seeds + exclusions come from the Frontend, which already has this data: `features/home/hooks/useSuggestionSeeds.js` — seeds are the user's own ratings ≥6/10 (best first, ≤10) plus watched-but-unrated watchlist items (≤10); exclude is every rated, watchlisted, or followed movie/show (so nothing already known is "suggested"). Movie/show ratings only feed seeds — season/episode ratings aren't used as seeds (v1 scope), but a show rated only via seasons/episodes (never the show itself) is still added to the exclude list once every real season is covered (all seasons rated, or every episode in each season rated) — checked via a capped (`MAX_COMPLETION_CHECKS`=15) per-show `/api/content/show/:id` lookup against the user's `user_rating` season/episode rows.
@@ -590,7 +599,7 @@ Three `profile.avatar_type` values, no Worker involvement — all pure Frontend 
 3. `requireAuth` / `requireAdmin` / `mutationRateLimit` / `auditLog(...)` middleware as needed
 
 **Schema change (new migration):**
-1. Create `Backend/src/db/migrations/032_<name>.sql`
+1. Create the next-numbered file in `Backend/src/db/migrations/` (currently `049_<name>.sql`)
 2. Apply via `mcp__claude_ai_Supabase__apply_migration`
 3. Update the Migration History table in this file
 
@@ -744,6 +753,15 @@ palette pushed vivid. Key recurring conventions introduced:
 
 ## Recent Fixes & Features
 
+**2026-10-13 documentation reality check:**
+
+Every doc was re-checked against the code and the live DB and the docs were consolidated into the single tracked `Documentation/` folder (`docs/` and `Documentation_temp/` are gone; the root `releases.md` was removed). Fixes in this file: the admin API table (non-existent `script-logs`/`resync*`/`stats` routes removed, real `stats/*`, `referrals/leaderboard` and reward-code sub-routes listed), `GET /api/meta`, the frontend route table (`/adult`, `/users`, `/feed`, `/observe-requests`, `/notifications`, `/u/:username/{observers,observing,ratings}`), migrations 042 and 048 (031 marked applied; next number is 049), worker file layout, wrangler var defaults. In `Documentation/`: `database/schema.md` is new (generated from the live DB, replaces the mirror-era model/index/query-audit docs), `security/security.md` is a full rewrite of the threat model and controls for the Worker architecture, `deployment.md` is the Cloudflare runbook (the droplet one is retired), and `compliance/` holds the corrected GDPR records of processing, breach plan and rights-request SOP. The root README was rewritten (feature tour with screenshots from `Frontend/scripts/readme-shots.mjs`, architecture diagrams, engineering highlights). While capturing it a copy bug surfaced and was fixed: `MoviePage.jsx` rendered "Part of the The Matrix Collection Collection" because TMDB collection names already end in "Collection" (`collectionLabel()` now strips a leading "The" and only appends "Collection" when missing). Pre-migration docs that described deleted code (ingestion, Express/Sequelize, MVP plans, exam notes) were moved out of the repo to the gitignored `***WORKING FILES/retired-docs/`.
+
+Findings from the check that are **not fixed** (code/data, not docs):
+- **Account deletion is a soft delete that keeps user data.** `public.delete_account()` (reference copy `Backend/src/db/migrations/reference/delete_account.sql`) removes follows and OAuth identities, sets `profile.deleted_at`, renames the username, bans the auth user and suffixes the e-mail — it does **not** delete `user_rating`, `user_rating_history`, `watch_log`, `watchlist*`, `profile_favourite`, notifications or `audit_events`, and no cron job purges them (the only `pg_cron` job is the 90-day audit cleanup). Live check 2026-10-13: 9 deleted profiles still own 195 ratings. The in-app Help/Privacy pages say deletion removes "all associated data" — that is not what happens. Needs either a purge in `delete_account()` or a copy change.
+- **JSON-LD injection isn't `<`-escaped.** `Frontend/functions/_middleware.js` appends `<script type="application/ld+json">${JSON.stringify(obj)}</script>` with `html: true`; `JSON.stringify` doesn't escape `<`, and the objects carry community-editable TMDB titles/overviews, so a `</script>` in one would break out of the tag. Escape `<` as `\u003c` before injecting.
+- Not verifiable from the repo: `Frontend/public/_redirects` still contains an `/api/* https://api.watchpapa.tv/api/:splat 200` rule, while CI/CD notes say that proxy doesn't forward (hence `VITE_API_BASE_URL`). Cloudflare dashboard settings (Pages root dir, Workers Builds, R2 bucket location/privacy) were taken from earlier notes, not re-checked.
+
 **2026-10-12 Supabase Pro → Free (breached-password check + encrypted nightly backups):**
 
 Usage audit (dashboard + live DB): 18 MB DB, ~1 MB storage, <1% of every Pro quota, no Edge Functions/Realtime/MFA/SSO/image transforms/custom domain. The only Pro-only things relied on were **leaked-password protection (HIBP)** and **daily backups**; both are replaced in-repo so the plan could drop to Free — **done 2026-10-12**, project stayed `ACTIVE_HEALTHY`. Built test-first. Not yet verified on real infra: the extension-inclusive backup (fix `6da6772`) — run `db-backup.yml` once and check the R2 object is present and slightly larger than the first one; the scratch-project restore drill was deliberately skipped after the downgrade.
@@ -874,7 +892,7 @@ Three long-standing bugs: (1) detail pages opened mid-scroll instead of at the t
 
 **2026-09 "Suggested for you" recommendations + streaming-provider Pro+ gate:**
 
-- New `POST /api/content/recommendations` — no ML of our own, aggregates TMDB's own `/movie|tv/{id}/recommendations` across the user's seed titles, ranked by cross-seed hit count. New `features/home/hooks/useSuggestionSeeds.js` (ratings ≥6/10 + watched watchlist items → seeds; every rated/watchlisted/followed title → exclude list) and two new home rows in `useHomeData.js`/`AppHomePage.jsx`: **"Suggested For You"** and **"Suggested For You · On Your Services"** (the same ranked list, filtered to titles on the user's chosen providers — Pro+ only by inheritance, see below). New wrangler vars `RECOMMENDATIONS_MAX_SEEDS` (8) / `RECOMMENDATIONS_PROVIDER_CHECK_MAX` (25) bound the Worker's subrequest cost. No DB migration — reads only existing `user_rating`/`watchlist_item`/`user_followed_*` tables.
+- New `POST /api/content/recommendations` — no ML of our own, aggregates TMDB's own `/movie|tv/{id}/recommendations` across the user's seed titles, ranked by cross-seed hit count. New `features/home/hooks/useSuggestionSeeds.js` (ratings ≥6/10 + watched watchlist items → seeds; every rated/watchlisted/followed title → exclude list) and two new home rows in `useHomeData.js`/`AppHomePage.jsx`: **"Suggested For You"** and **"Suggested For You · On Your Services"** (the same ranked list, filtered to titles on the user's chosen providers — Pro+ only by inheritance, see below). New wrangler vars `RECOMMENDATIONS_MAX_SEEDS` (8, later lowered to 6) / `RECOMMENDATIONS_PROVIDER_CHECK_MAX` (25, later lowered to 15) bound the Worker's subrequest cost. No DB migration — reads only existing `user_rating`/`watchlist_item`/`user_followed_*` tables.
 - **Choosing specific streaming services ("My streaming services" in Settings) is now Pro/Pro+/God only** — migration 034 `guard_profile_watch_providers_tier` trigger rejects the write server-side, not just a UI lock. Watch *regions* stay open to every tier. This is also why the new "…On Your Services" row and the earlier "Available on your services" / "Popular on my streamings" rows are all effectively Pro+-only: they only render once providers are set.
 
 **2026-09 user avatars:**

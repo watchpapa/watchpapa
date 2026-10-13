@@ -165,3 +165,44 @@ Site metadata now says **people** instead of talent. Import and subscription hel
 ---
 
 More coming soon. This page is always the first place to hear about it.
+
+---
+
+## v2.0
+
+### 🌍 Live catalogue, your services, and a redesign (September–October 2026)
+
+User-facing summary of what changed since v1.3. Technical detail for each item lives in [CONTEXT.md](../CONTEXT.md) under "Recent Fixes & Features".
+
+🎞️ Always-current catalogue
+
+Movies, shows, seasons, episodes and people are now read live from TMDB instead of from our own copy, so titles, dates and cast are never stale. The API moved from a self-hosted server to Cloudflare Workers.
+
+🌐 Your language, region and streaming services
+
+Pick a content language and region, choose whether titles show translated or in their original language, and see where a title streams ("Where to watch", JustWatch data). Pro and above can mark the services they use and get **My Services** (`/my-services`), plus "On Your Services" rows on the home page.
+
+✨ Suggested for you
+
+Recommendations built from your ratings and watched titles, blended with what is currently popular in your genres. Scrolls on indefinitely.
+
+🎨 A redesign, top to bottom
+
+New header and navigation (phone bottom tab bar, account menu), detail pages with a single "Your activity" panel, settings split into sections, profile banners, redesigned share cards, and a custom 404.
+
+📚 Collections, certifications, rewatch diary
+
+TMDB collections (`/collections`), age certifications with a per-country lookup (`/certifications`), a dated rewatch diary and rating history on every title, and profile avatars (a movie/show poster for everyone, an uploaded photo for Pro and above).
+
+📥 Background import
+
+Letterboxd and watchpapa CSV imports now run in the background — close the tab and it keeps going; progress shows in the header.
+
+🔒 Safer sign-up and backups
+
+New passwords are checked against known breaches (Have I Been Pwned, k-anonymity: only a 5-character hash prefix leaves your browser). The database is backed up nightly, encrypted, with 30-day retention.
+
+🔞 Adult content controls
+
+18+ content is opt-in, with NSFW filtering beyond TMDB's flag, poster blurring, and an optional hidden Adult tab.
+

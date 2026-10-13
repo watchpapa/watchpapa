@@ -1,0 +1,395 @@
+Data Breach Response Plan
+
+Organization: watchpapa
+Data Controller: Krzysztof Durski
+Contact: support@watchpapa.tv
+Effective Date: June 2026
+Last Review: June 2026
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1. PURPOSE
+
+This plan defines how watchpapa responds to a data breach — the unauthorized or accidental disclosure of personal data — to minimize harm and comply with GDPR Articles 33–34.
+
+Key deadlines:
+• Notify supervisory authority: within 72 hours of becoming aware of breach
+• Notify affected users (if high-risk): without undue delay, in plain language
+• Document incident: immediately, with timeline and scope
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+2. DEFINITIONS
+
+2.1 DATA BREACH
+
+Unauthorized or accidental access, loss, disclosure, or alteration of personal data. Examples:
+- Unauthorized login to watchpapa admin panel
+- Exposed database backup on public cloud storage
+- Stolen laptop with unencrypted user data
+- Malware exfiltrating user profiles from the database
+- Compromised OAuth token allowing access to user data
+- Application vulnerability exposing data to unauthenticated users
+
+2.2 PERSONAL DATA AT RISK
+
+watchpapa stores and could be breached:
+- User account info: username, email, date of birth
+- User content: ratings, reviews (if enabled), watchlists
+- Transactional data: subscription tier, payment history
+- Usage data: login IP addresses (audit_events table)
+- Optional: bio, profile photo
+
+2.3 BREACH RISK ASSESSMENT
+
+High-risk breach (mandatory user notification):
+- Large number of users affected (10+)
+- Sensitive categories: password hashes, payment cards, health/biometric data
+- Data that could enable identity theft or fraud (email + date of birth + IP)
+
+Low-risk breach (no user notification, but still report to authority):
+- Small number of users (1–3)
+- Non-sensitive data (public profile info already visible to followers)
+- Data already obfuscated or encrypted
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+3. INCIDENT RESPONSE STEPS
+
+3.1 DISCOVER & IMMEDIATE CONTAINMENT (Hour 0–1)
+
+If you discover a breach:
+
+1. Stop the leak:
+   - If database exposed: take the database offline or restore from clean backup
+   - If application vulnerability: disable the feature or take the app offline
+   - If OAuth token compromised: revoke all active sessions (Supabase → Authentication → JWT Secrets → rotate key)
+   - If the API or its credentials are compromised (there is no origin server any more — the API is a Cloudflare Worker): rotate TMDB_API_KEY_SECRET (wrangler secret put), reset the Supabase database password and update the Hyperdrive config, revoke the Cloudflare API token and the GitHub Actions secrets (CLOUDFLARE_API_TOKEN, SUPABASE_DB_POOLER_URL, R2 keys), and redeploy the Worker
+   - If the encrypted backups are exposed: they are age-encrypted and useless without the offline private key; rotate the R2 access keys, and if the private key itself may be exposed, generate a new age key pair, replace AGE_PUBLIC_KEY and treat every existing backup (up to 30 days) as exposed
+
+2. Preserve evidence:
+   - Don't delete logs — you'll need them for investigation
+   - Screenshot the breach evidence (e.g., exposed file, error message)
+   - Keep all communications about the incident
+
+3. Notify your incident response team (if applicable):
+   - For a solo operation (you), document that you became aware at [TIME] on [DATE]
+
+3.2 ASSESS SCOPE (Hour 1–6)
+
+Determine:
+- What data was exposed? (usernames, emails, ratings, IPs, etc.)
+- How many users affected? (count rows accessed/leaked)
+- How long was it exposed? (from when until now)
+- What is the cause? (misconfiguration, vulnerability, social engineering, etc.)
+- Who had access? (external attacker, internal admin, etc.)
+
+Tools:
+- Check Supabase logs: go to Logs tab, filter by error/auth/access patterns
+- Check audit_events table: query for suspicious IPs or timestamps around the incident
+- Review recent code deployments: did a new feature introduce a vulnerability?
+- Review access logs: which users / API keys accessed the data?
+
+Example queries:
+SELECT user_id, action, created_at, ip_address
+FROM audit_events
+WHERE created_at BETWEEN '2026-06-03 10:00' AND '2026-06-03 15:00'
+ORDER BY created_at;
+
+SELECT COUNT(DISTINCT user_id) FROM audit_events
+WHERE action = 'UNAUTHORIZED_ACCESS' AND created_at > '2026-06-03 10:00';
+
+Document:
+- Start a text file: /docs/Incident_2026-06-03.txt with timeline:
+   2026-06-03 10:00 UTC — Became aware of breach via [alert/report/discovery method]
+   2026-06-03 10:15 UTC — Confirmed: 45 user profiles exposed for 2 hours
+   2026-06-03 10:20 UTC — Contained: rotated JWT secrets, revoked sessions
+   2026-06-03 11:00 UTC — Assessment: usernames & emails exposed, no passwords/payment info
+   2026-06-03 12:00 UTC — Notified supervisory authority
+
+3.3 DETERMINE RISK LEVEL (Hour 6–8)
+
+Ask: Would this data enable harm to affected users?
+
+DATA | RISK | USER NOTIFICATION?
+Usernames only | Low | Email authority only
+Usernames + emails | Medium | Notify users
+Usernames + emails + DOB | Medium | Notify users
+Usernames + DOB + IP + hashed passwords | Medium | Notify users
+Plaintext passwords, payment cards, health data | High | Notify users immediately
+Public profile info (already visible in app) | Low | Email authority only
+
+watchpapa-specific: Email + DOB + IP = medium risk (enables targeted phishing, account takeover, identity fraud). Notify users if 10+ affected.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+4. NOTIFICATION TO SUPERVISORY AUTHORITY (GDPR Art. 33)
+
+4.1 WHEN TO NOTIFY
+
+Always notify if:
+- Any personal data was accessed or lost
+- The breach poses risk to user rights/freedoms
+- You cannot rule out unauthorized access
+
+Exception: Only skip notification if you can prove the data was encrypted or the attacker couldn't decrypt it.
+
+4.2 WHAT TO INCLUDE
+
+Email the competent supervisory authority in the user's location (or yours if EU-based). In Poland, that's the Polish Data Protection Authority (UODO).
+
+Required information (GDPR Art. 33(3)):
+1. Nature of the breach (what happened)
+2. Approximate number of users affected
+3. Likely consequences for user rights/freedoms
+4. Measures taken to contain it (what you did)
+5. Data controller contact (your name/email)
+6. Description of security measures in place
+
+Email template:
+
+To: [supervisory authority email]
+Subject: GDPR Article 33 Breach Notification — watchpapa
+
+Dear [Authority name],
+
+Pursuant to GDPR Article 33, I report a personal data breach affecting the watchpapa service:
+
+BREACH DETAILS:
+- Date discovered: [DATE] at [TIME] UTC
+- Nature: [Unauthorized access / data exposure / etc.]
+- Duration: exposed for approximately [X hours/days]
+- Data categories affected: usernames, email addresses, dates of birth, login IP addresses
+- Approximate users affected: [NUMBER]
+
+SCOPE:
+[E.g., "45 user profiles were accessed by an unauthorized party via a misconfigured API endpoint. The breach lasted approximately 3 hours before discovery."]
+
+CONTAINMENT:
+- Rotated all authentication tokens (JWT secrets) at [TIME]
+- Revoked active sessions at [TIME]
+- [Any other immediate action]
+
+INVESTIGATION:
+- Investigation ongoing to determine root cause
+- [Preliminary findings, if any]
+
+AFFECTED USERS:
+Users have been/will be notified at [their registered email address] without undue delay.
+
+CONTROLLER CONTACT:
+Name: Krzysztof Durski
+Email: support@watchpapa.tv
+
+Sincerely,
+[Your name]
+
+4.3 SUBSEQUENT UPDATES
+
+If you learn more details after the initial notification, send a follow-up email to the same authority with updated information (e.g., final user count, root cause determined).
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+5. NOTIFICATION TO AFFECTED USERS (GDPR Art. 34)
+
+5.1 WHEN TO NOTIFY
+
+Notify users if the breach poses high risk to their rights or freedoms. watchpapa threshold: 8+ users affected with email + DOB + IP exposed = notify.
+
+Do not notify if:
+- Data was encrypted and encryption key wasn't compromised
+- You've proven the attacker couldn't access the data
+- Only public profile info exposed (already visible in-app)
+
+5.2 CONTENT & TONE
+
+Email template (customize for actual breach details):
+
+From: support@watchpapa.tv
+Subject: Important Security Notice — watchpapa Account Security
+
+Dear [User Name],
+
+We're writing to inform you of a security incident affecting your watchpapa account.
+
+WHAT HAPPENED:
+On [DATE], we discovered that your account information was accessed by an unauthorized party. We do not have evidence that your password was compromised, but your email address, username, and date of birth were exposed.
+
+WHAT INFORMATION WAS AFFECTED:
+- Email address
+- Username
+- Date of birth
+- Watchlists and ratings (optional if applicable)
+
+WHAT WE'VE DONE:
+1. Immediately contained the breach by [specific action: rotating keys, etc.]
+2. Invalidated all active sessions to prevent further unauthorized access
+3. Launched a full investigation [status: ongoing / completed]
+
+WHAT YOU SHOULD DO:
+1. Change your watchpapa password immediately [link to settings]
+2. If you use the same password elsewhere, change it on those sites too
+3. Monitor your email for suspicious activity
+4. Contact us at support@watchpapa.tv if you notice unusual account activity
+
+YOUR RIGHTS:
+You have the right to request a copy of your data, ask us to correct it, or delete your account entirely. See our Privacy Policy at [privacy policy link] for details.
+
+QUESTIONS?
+Email support@watchpapa.tv with any concerns.
+
+We apologize for this incident and take your privacy seriously.
+
+Best regards,
+watchpapa Team
+
+5.3 DELIVERY
+
+- Send via email to the user's registered email address
+- Send within 3 business days of confirming the breach
+- Use plain, clear language (avoid technical jargon)
+- Include your contact info for follow-up questions
+- Keep a log of who was notified and when
+
+Record template:
+User Email | Notified Date | Method | Bounce? | Reply?
+user1@example.com | 2026-06-03 | Email | No | —
+user2@example.com | 2026-06-03 | Email | No | —
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+6. INVESTIGATION & ROOT CAUSE ANALYSIS
+
+Within 1 week of containment, complete:
+
+1. Root cause: What allowed the breach? (misconfiguration, unpatched software, weak password, etc.)
+2. Extent: How many data points were accessed? Confirm with database queries.
+3. Lessons learned: What process failed? (code review, access controls, monitoring, etc.)
+4. Preventive measures: What will you do differently?
+
+Investigation template:
+
+INCIDENT REPORT — [DATE]
+
+ROOT CAUSE:
+[Describe the technical failure or security lapse]
+
+EXTENT:
+- Users affected: [NUMBER]
+- Data types: [list what was exposed]
+- Duration: [how long before discovery]
+- Potential access: [what could the attacker see]
+
+IMMEDIATE ACTIONS TAKEN:
+1. [Containment step 1]
+2. [Containment step 2]
+...
+
+PREVENTIVE MEASURES:
+1. [Process change or control to prevent recurrence]
+2. [Monitoring or alerting to detect sooner]
+...
+
+SIGN-OFF:
+Completed by: [Your name]
+Date: [DATE]
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+7. DOCUMENTATION & RETENTION
+
+Keep all incident records for minimum 3 years:
+
+Store in:
+- /docs/Incident_[DATE].txt — incident timeline
+- /docs/Incident_[DATE]_Notification.txt — copy of authority notification email
+- /docs/Incident_[DATE]_UserList.csv — list of notified users
+- Email archive: Forward the authority notification to support@watchpapa.tv and save to folder "GDPR Incidents"
+
+Inspect after incident closes:
+- Did the authority respond? (Usually no response = compliant notification received)
+- Did any users respond with concerns? (Respond promptly)
+- Are there patterns in future incidents that point to systemic issues?
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+8. PREVENTION
+
+8.1 MONITORING & ALERTING
+
+Set up basic monitoring:
+- Login anomalies: Multiple failed logins from one IP → potential attack
+- Data access spikes: Unusual number of queries to profile table
+- File uploads: New code deployments or configuration changes
+
+In Supabase:
+- Enable Database Webhooks to alert on suspicious activity (if available)
+- Regularly review Logs for unauthorized errors
+- Backups: Supabase is on the Free plan (no provider backups). Nightly dumps are age-encrypted by .github/workflows/db-backup.yml and stored in a private Cloudflare R2 bucket (30-day lifecycle); check the R2 bucket is still private and the workflow's failure e-mails are being received
+
+8.2 PREVENTIVE CONTROLS
+
+Already in place at watchpapa:
+✓ HTTPS encryption in transit (Supabase enforces this)
+✓ Row-Level Security (RLS) policies (limit who can access what)
+✓ Audit logging (audit_events table tracks access)
+✓ Session management (tokens expire, can be revoked)
+
+Future improvements (consider):
+☐ Two-factor authentication for admin accounts
+☐ Rate limiting on API endpoints
+☐ Regular penetration testing
+☐ Intrusion detection/alerting
+☐ Encryption at rest for sensitive fields (database-level)
+
+8.3 REGULAR REVIEW
+
+- Monthly: Check Supabase logs for anomalies
+- Quarterly: Review access controls and RLS policies
+- Annually: Revisit this response plan, test procedures
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+9. INCIDENT RESPONSE TEAM (Roles)
+
+For a solo operation, you handle all roles. For a team:
+
+ROLE | RESPONSIBILITY
+Incident Lead | Coordinates response, approves notifications
+Technical | Investigates breach, contains it, analyzes logs
+Legal/Compliance | Determines legal obligations, drafts notifications
+Communications | Notifies users, updates status page
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+10. CONTACT INFORMATION
+
+Internal:
+- Data Controller: Krzysztof Durski (support@watchpapa.tv)
+
+External (if incident occurs):
+- Polish Supervisory Authority (UODO): https://uodo.gov.pl
+- Supabase Security: support@supabase.io (report any Supabase-side vulnerability)
+- Legal Counsel: [Add your legal contact if applicable]
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+11. APPROVAL & SIGN-OFF
+
+ROLE | NAME | DATE | SIGNATURE
+Data Controller | Krzysztof Durski | 2026-06-03 | —
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+QUICK CHECKLIST
+
+When a breach is suspected:
+
+☐ Hour 0: Stop the leak (take offline / rotate keys / revoke sessions)
+☐ Hour 0–6: Assess scope (what data, how many users, how long)
+☐ Hour 6–8: Determine risk level (notification needed?)
+☐ Day 1: Notify supervisory authority (email with Art. 33 info)
+☐ Day 1–3: Notify affected users (if high-risk)
+☐ Day 3–7: Complete investigation, document findings
+☐ Day 7+: Implement preventive measures
+☐ Ongoing: Monitor for related incidents, review lessons learned

@@ -1,0 +1,402 @@
+Records of Processing Activities (RoPA)
+
+Organization: watchpapa
+Data Controller: Krzysztof Durski
+Email: dursky.k@gmail.com
+Effective Date: June 2026
+Last reviewed: October 2026 (infrastructure and processor list updated for the Cloudflare Worker architecture, encrypted backups and the breached-password check — controller to review the changes marked ⚠ before relying on this record)
+GDPR Article 30 Compliance Document
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+OVERVIEW
+
+This document records all processing activities that watchpapa undertakes with personal data, as required by GDPR Article 30. It serves as the accountability record demonstrating that watchpapa processes data lawfully and transparently.
+
+Scope: All personal data processing by watchpapa, whether collected directly from users or indirectly through third-party services.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1. USER AUTHENTICATION & ACCOUNT MANAGEMENT
+
+PROCESSING ACTIVITY: User account creation, authentication, and profile management
+
+PURPOSE: Enable users to create accounts, log in, and manage their profile information
+
+LAWFUL BASIS: Art. 6(1)(b) — Performance of contract: users must have an account to use the service
+
+DATA CATEGORIES: Email address, username, date of birth, password hash, profile bio (optional), profile photo (optional), account creation timestamp, last login timestamp
+
+DATA SOURCE: User provides directly during registration
+
+RECIPIENTS / PROCESSORS: Supabase Auth (data processor via DPA signed June 2026)
+
+RETENTION PERIOD: Until account deletion. Audit logs of this activity: 90 days
+
+SECURITY MEASURES:
+• Passwords hashed via bcrypt (never stored plaintext)
+• HTTPS-only transmission
+• Authentication tokens expire after 24 hours
+• Row-Level Security (RLS) policies restrict access to user's own data
+• Audit logging of all auth events (IP, timestamp, action)
+
+DATA SUBJECT RIGHTS: Access (Art. 15), Rectification (Art. 16), Erasure (Art. 17), Portability (Art. 20)
+
+LOCATION / TRANSFERS: European Union: Ireland (Supabase data center location) — no transfer outside EU required
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+2. USER RATINGS & CONTENT MANAGEMENT
+
+PROCESSING ACTIVITY: Collecting and storing user ratings, ratings metadata (timestamp, country), and optionally user reviews
+
+PURPOSE: Enable users to rate movies/shows, build personalized watchlists, display aggregated ratings to the community
+
+LAWFUL BASIS: Art. 6(1)(b) — User explicitly requests this feature to use the service
+
+DATA CATEGORIES: Movie/show ID, rating score (1–10), rating timestamp, user ID, review text (optional), country of review submission
+
+DATA SOURCE: User provides directly when rating a title
+
+RECIPIENTS / PROCESSORS: Supabase Database (data processor via DPA); TMDB API (third-party service for movie/show metadata — user's rating data NOT sent to TMDB)
+
+RETENTION PERIOD: Until user deletion. Can be deleted individually via the app
+
+SECURITY MEASURES:
+• RLS policies: users can only view/edit their own ratings
+• HTTPS transmission
+• Audit logging of rating events
+
+DATA SUBJECT RIGHTS: Access, Rectification (re-rate), Erasure (delete rating)
+
+LOCATION / TRANSFERS: Ireland (Supabase) for storage; TMDB metadata retrieved from US servers but user ratings not transferred
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+3. WATCHLISTS & FOLLOWED CONTENT
+
+PROCESSING ACTIVITY: Creating and managing watchlists, tracking followed movies/shows, and storing watchlist items
+
+PURPOSE: Enable users to create custom lists and follow titles they're interested in; optionally share lists with others
+
+LAWFUL BASIS: Art. 6(1)(b) — Core feature of the service users explicitly request
+
+DATA CATEGORIES: Watchlist name, watchlist description, watchlist visibility setting (private/public), watchlist items (movie/show IDs), timestamps, creator user ID, followers of the watchlist (if shared)
+
+DATA SOURCE: User provides directly; third parties (other users) follow public watchlists
+
+RECIPIENTS / PROCESSORS: Supabase Database (data processor via DPA)
+
+RETENTION PERIOD: Until user deletion or watchlist deletion (user can delete anytime)
+
+SECURITY MEASURES:
+• RLS policies: users can only access their own watchlists (or public ones they follow)
+• Audit logging of list creation/deletion
+• Encryption via HTTPS
+
+DATA SUBJECT RIGHTS: Access, Erasure (delete watchlist or specific item), Portability (export via CSV)
+
+LOCATION / TRANSFERS: Ireland (Supabase)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+4. FOLLOW GRAPH (Following Users)
+
+PROCESSING ACTIVITY: Tracking which users follow other users, displaying follower relationships
+
+PURPOSE: Build social network, enable users to see ratings/activity of users they follow
+
+LAWFUL BASIS: Art. 6(1)(b) — User explicitly follows another user as part of the service
+
+DATA CATEGORIES: User ID (follower), User ID (followed), timestamp of follow
+
+DATA SOURCE: User provides directly when clicking "follow"
+
+RECIPIENTS / PROCESSORS: Supabase Database (data processor via DPA)
+
+RETENTION PERIOD: Until user deletion or unfollow
+
+SECURITY MEASURES:
+• RLS policies: user can only view/delete their own follows
+• HTTPS transmission
+• Audit logging
+
+DATA SUBJECT RIGHTS: Access (export follows), Erasure (unfollow)
+
+LOCATION / TRANSFERS: Ireland (Supabase)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+5. MARKETING EMAIL OPT-IN
+
+PROCESSING ACTIVITY: Collecting and storing user preferences for marketing communications; sending product update emails when user has opted in
+
+PURPOSE: Enable users to receive occasional product updates and announcements; for watchpapa to communicate about new features
+
+LAWFUL BASIS: Art. 6(1)(a) — Explicit consent obtained during registration via checkbox; user can withdraw at any time in Settings
+
+DATA CATEGORIES: Email address, email_marketing_opt_in preference (boolean), last email sent timestamp
+
+DATA SOURCE: User provides consent via checkbox during registration; stored in profile table
+
+RECIPIENTS / PROCESSORS: Resend (transactional email processor — DPA signed June 2026) for sending emails when user has opted in
+
+RETENTION PERIOD: Preference stored until user changes it or deletes account. Sent emails are archived in Resend for audit trail (30 days default).
+
+SECURITY MEASURES:
+• User consent documented via form submission timestamp
+• User can withdraw consent at any time in Settings
+• Email addresses transmitted via HTTPS to Resend
+• Resend is GDPR-compliant with DPA in place
+
+DATA SUBJECT RIGHTS: Access (see preference in Settings), Rectification (toggle in Settings), Erasure (delete account)
+
+LOCATION / TRANSFERS: EU and US: Email preference stored in Ireland (Supabase); emails sent via Resend (US-based but covered by EU-US Standard Contractual Clauses in their DPA)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+6. AUDIT LOGGING & SECURITY MONITORING
+
+PROCESSING ACTIVITY: Logging all user account actions (login, logout, password reset, rating changes, etc.) with timestamps and IP addresses for security and compliance auditing
+
+PURPOSE:
+• Detect unauthorized access or suspicious activity
+• Comply with GDPR Article 30 (records of processing)
+• Investigate user support issues
+• Meet retention and data integrity requirements
+
+LAWFUL BASIS: Art. 6(1)(f) — Legitimate interest in detecting fraud, maintaining security, and proving GDPR compliance
+
+DATA CATEGORIES: User ID, action type (login, logout, delete account, etc.), IP address, user agent (browser), timestamp, action status (success/failure)
+
+DATA SOURCE: System-generated from application activity; not provided by user
+
+RECIPIENTS / PROCESSORS: Supabase Database (data processor via DPA)
+
+RETENTION PERIOD: 90 days (per privacy policy) — audit logs older than 90 days are automatically deleted via pg_cron scheduled job running daily at 02:00 UTC
+
+SECURITY MEASURES:
+• RLS policy: REVOKE DELETE ON audit_events FROM PUBLIC (only superuser can delete)
+• Immediate cleanup on user deletion (trigger function ensures user's audit logs deleted within seconds)
+• Audit logs themselves logged and encrypted via HTTPS
+• IP addresses stored as identifiers (could enable tracking) but are only accessed for investigating suspicious activity
+
+DATA SUBJECT RIGHTS: Access (user can request their own audit logs via GDPR rights request), Erasure (logs deleted upon account deletion or after 90 days)
+
+LOCATION / TRANSFERS: Ireland (Supabase)
+
+RISK ASSESSMENT: Medium risk — IP addresses + timestamps could enable tracking of user behavior; mitigated by 90-day retention, strict RLS, and requiring GDPR rights request to access
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+7. SUBSCRIPTION & TIER MANAGEMENT
+
+PROCESSING ACTIVITY: Recording user subscription tier (free/pro), subscription start/expiry dates, early adopter status
+
+PURPOSE: Manage access to paid features, identify early adopters for special benefits
+
+LAWFUL BASIS: Art. 6(1)(b) — Performance of contract: user's subscription status is necessary to provide the service they paid for
+
+DATA CATEGORIES: User ID, subscription tier (free/pro), subscription start date, subscription expiry date, renewal status (active/cancelled), early adopter flag, payment method (NOT stored — handled by external processor)
+
+DATA SOURCE: System-generated from subscription service or user action in Settings
+
+RECIPIENTS / PROCESSORS: Supabase Database (data processor via DPA); [Payment processor if applicable] — currently no payment processor (e.g., Stripe) configured, subscriptions managed manually
+
+RETENTION PERIOD: Until user deletion or subscription cancellation; historical records kept for 90 days after cancellation for audit purposes
+
+SECURITY MEASURES:
+• RLS: user can only view/edit their own subscription status
+• HTTPS transmission
+• Audit logging of tier changes
+
+DATA SUBJECT RIGHTS: Access (visible in Settings), Rectification (contact support to correct), Erasure (deleted on account deletion)
+
+LOCATION / TRANSFERS: Ireland (Supabase)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+8. SESSION STORAGE & COOKIE CONSENT
+
+PROCESSING ACTIVITY: Storing user session tokens in browser storage (sessionStorage if user declines consent, localStorage if user accepts); tracking user's cookie consent preference
+
+PURPOSE: Maintain user login sessions across page navigation; respect user privacy preferences
+
+LAWFUL BASIS: Art. 6(1)(a) — User consent (via cookie consent banner); Art. 6(1)(b) — Functional necessity (session must be maintained to use the app)
+
+DATA CATEGORIES: Session token (JWT), consent preference (accept/decline/DNT flag), last consent update timestamp
+
+DATA SOURCE: System-generated; user consent provided via banner interaction
+
+RECIPIENTS / PROCESSORS: Browser local storage (no external processor); Supabase Auth validates session tokens
+
+RETENTION PERIOD: Session token: 24 hours (auto-expires); consent preference: until user clears browser storage or changes preference
+
+SECURITY MEASURES:
+• Tokens stored in browser memory only (sessionStorage) if user declines, cleared on tab close
+• Tokens stored in persistent storage (localStorage) only if user explicitly consents
+• Tokens expire after 24 hours regardless of storage location
+• HTTPOnly flag NOT used (tokens are needed in JavaScript) but transmitted only via HTTPS
+• Browser's Do-Not-Track (DNT) signal respected (auto-decline if set)
+
+DATA SUBJECT RIGHTS: Access (inspect browser console), Erasure (clear browser storage / logout)
+
+LOCATION / TRANSFERS: Browser-local storage only — no data transferred to server beyond the session token (which is already stored in Supabase)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+9. ANALYTICS & MONITORING (IF ENABLED IN FUTURE)
+
+PROCESSING ACTIVITY: [CURRENTLY NOT ACTIVE] Collecting anonymized usage statistics (page views, feature usage, etc.)
+
+PURPOSE: [If enabled in future:] Understand user behavior, improve product, detect bugs
+
+LAWFUL BASIS: [If enabled:] Art. 6(1)(a) — Consent via cookie banner; Art. 6(1)(f) — Legitimate interest if anonymized
+
+DATA CATEGORIES: [If enabled:] Page URL, feature accessed, user ID (optional, for session correlation), timestamp, device type, browser type
+
+DATA SOURCE: System-generated from application activity
+
+RECIPIENTS / PROCESSORS: [If enabled:] Analytics service (e.g., Plausible, Fathom — to be determined)
+
+RETENTION PERIOD: [If enabled:] Typically 30–90 days per analytics provider
+
+SECURITY MEASURES: [If enabled:] No personally identifiable info stored; Anonymization of IP addresses; User opt-out available
+
+DATA SUBJECT RIGHTS: [If enabled:] Typically no individual access (data is anonymized)
+
+LOCATION / TRANSFERS: [If enabled:] EU-based provider preferred to avoid extra-EU transfers
+
+STATUS: Not currently active. Analytics has not been implemented. If planned in future, add explicit consent flow and GDPR article to privacy policy.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+10. THIRD-PARTY DATA PROCESSORS & SUB-PROCESSORS
+
+watchpapa uses the following data processors (sub-processors):
+
+PROCESSOR | PURPOSE | LOCATION | DATA PROCESSED | DPA STATUS | ART. 28 COMPLIANCE
+Supabase | Database hosting, authentication | Ireland (EU) | All user data (accounts, ratings, watchlists, etc.) | ✓ DPA signed June 2026 | ✓ Article 28 compliant
+Resend | Transactional email & marketing email | US | Email addresses, user IDs (for opt-in status) | ✓ DPA signed June 2026 | ✓ Standard Contractual Clauses (SCCs) included
+Cloudflare | Hosts the site (Pages) and the API (Workers, incl. Hyperdrive DB connection pooling and rate limiting); CDN, DDoS protection, DNS; R2 storage for encrypted nightly database backups | Global (R2 bucket location ⚠ to be confirmed) | Request logs and IP addresses; every API request including the user's auth token; all user-data queries in transit between the Worker and Supabase; encrypted backup files (ciphertext only) | ✓ DPA auto-included in ToS | ✓ Compliant
+GitHub (Actions) | Source repository; GitHub Actions runner executes the nightly database backup | US | The backup job connects to the database and streams a full dump (all user data) through the runner's memory/pipe into age encryption; only the encrypted file leaves the runner (to R2). The plaintext is never written to disk or kept. | ✓ DPA in ToS | ✓ Compliant ⚠ (previously listed as "no user personal data")
+TMDB | Movie/show/person metadata and images | US | Titles/IDs and search text typed by users, sent by the Worker (TMDB sees Cloudflare's IP, not the user's). Posters and images are loaded by the user's browser directly from TMDB's image CDN (image.tmdb.org), so TMDB's CDN sees the user's IP address and user-agent. User ratings, lists and profile data are NOT sent to TMDB. | ⚠ No DPA (no user account data shared) | Limited — third-party service, not processor
+Have I Been Pwned (Troy Hunt) | Breached-password check at sign-up / password change | Global (Cloudflare-fronted) | Called from the user's browser: the first 5 hex characters of the password's SHA-1 hash (k-anonymity range query; the password and full hash never leave the browser) plus the user's IP address. Nothing is stored by watchpapa. | ⚠ No DPA (no personal data beyond IP) | Limited — third-party service, not processor
+Google | Domain hosting / services (if any) | US/EU (configurable) | Logs, emails (if Gmail used for support) | ✓ DPA in ToS | ✓ Compliant
+
+Removed: DigitalOcean (backend droplet) — decommissioned September 2026 when the API moved to a Cloudflare Worker; no personal data remains there ⚠ (confirm the droplet and its snapshots were destroyed).
+
+Sub-Processor Changes:
+• New sub-processors added require prior written notice to users (via privacy policy / /updates page)
+• Users have 30-day right to object before new processor is added
+• Currently: no user objections anticipated (all processors are major cloud providers with strong GDPR compliance)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+11. INTERNATIONAL DATA TRANSFERS (Art. 46)
+
+EU TO US TRANSFERS
+
+Supabase: Data stored in Ireland (EU) — no transfer
+
+Resend: Email service is US-based
+• Safeguard: Resend's DPA includes EU-US Standard Contractual Clauses (SCCs)
+• Status: ✓ Compliant with GDPR Art. 46
+
+Other US processors (Cloudflare, GitHub, TMDB, Have I Been Pwned):
+• Safeguard: All include SCCs in their agreements
+• Status: ✓ Compliant
+
+NON-EU TRANSFERS
+
+Currently none beyond US
+
+If future expansion includes other countries: SCCs will be reviewed/negotiated per Art. 46
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+12. DATA RETENTION & DELETION POLICY
+
+DATA TYPE | RETENTION PERIOD | DELETION TRIGGER | JUSTIFICATION
+User accounts | Until user deletion | User requests deletion or account inactive 2+ years | No business requirement for indefinite storage
+Ratings & watchlists | Until user deletion | User deletion or individual item deletion | User's own content; deleted on request
+Follow relationships | Until user deletion | User unfollow or deletion | Transient relationship data
+Subscription data | Until user deletion + 90 days | Account deletion + 90d archive period | 90d for audit/refund disputes
+Database backups | 30 days (R2 lifecycle rule), age-encrypted | Automatic expiry of each nightly file | Disaster recovery now that the database runs on Supabase's Free plan (no provider backups). ⚠ A deleted account's data remains in backups for up to 30 days; backups are never restored selectively, so a restore must re-apply pending erasure requests.
+Audit logs | 90 days | Automatic daily cleanup (pg_cron) | Privacy policy promise: 30d for personal data, audit logs retained for 90d per regulatory need
+Session tokens | 24 hours | Token expiration | Security best practice; user can manually logout
+Marketing email preference | Until user deletion | Account deletion or user toggles preference | GDPR Art. 21 — user can withdraw consent
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+13. DATA SUBJECT RIGHTS & FULFILLMENT
+
+watchpapa ensures the following GDPR rights are implemented:
+
+RIGHT | GDPR ARTICLE | HOW IMPLEMENTED | TIMELINE
+Right to Access | Art. 15 | Export data via Settings or GDPR rights request → CSV file | 30 days
+Right to Rectification | Art. 16 | Edit profile info in Settings; contact support for historical data | 30 days
+Right to Erasure | Art. 17 | Delete Account in Settings (immediate soft delete) + manual purge of remaining rows per the SOP | 30 days
+Right to Restrict Processing | Art. 18 | Contact support; will disable non-essential processing (if any) | 30 days
+Right to Data Portability | Art. 20 | Export to CSV via Settings or data rights request | 30 days
+Right to Object | Art. 21 | Opt-out via Settings (marketing); contact support for other processing | 30 days
+Right Against Automated Decisions | Art. 22 | Not applicable — watchpapa does not use automated profiling/decisions | N/A
+Right to Lodge Complaint | Art. 77 | Users can contact supervisory authority directly | N/A
+
+Corrected 2026-10-13: the app's delete is immediate and a soft delete (delete_account()): follows and OAuth identities are removed and the account is banned/renamed, but ratings, watch log, watchlists, favourites and notifications are not deleted and no job purges them; backups keep the data up to 30 days. A manual purge is part of the erasure SOP.
+
+Contact for rights requests: support@watchpapa.tv
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+14. DATA PROTECTION IMPACT ASSESSMENT (DPIA)
+
+Current status: A full DPIA is recommended but not required for watchpapa because:
+• Low risk profile: no automated decision-making, no large-scale profiling, no data sales
+• Lawful basis: Mostly Art. 6(1)(b) (contract), not reliant on legitimate interest
+• Data categories: No sensitive data (no health, biometrics, financial, genetic)
+
+DPIA triggered if:
+• Automated decision-making is added (Art. 35(3)(a))
+• Systematic profiling for behavioral tracking (Art. 35(3)(b))
+• Large-scale processing of special category data (Art. 35(3)(c))
+
+Recommendation: Document this decision. If features change, reassess.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+15. DATA BREACH HISTORY
+
+DATE | NATURE | USERS AFFECTED | ACTION TAKEN | NOTIFICATION SENT
+None recorded | — | — | — | —
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+16. APPROVAL & SIGN-OFF
+
+ROLE | NAME | DATE | SIGNATURE
+Data Controller | Krzysztof Durski | 2026-06-03 | —
+Last Reviewed | Krzysztof Durski | 2026-06-03 | —
+Next Review Date | — | 2026-12-03 | —
+
+Review Frequency: Annually (or immediately if new processing activity added, data processor changes, or security incident occurs)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+17. APPENDIX: LEGAL BASES REFERENCE
+
+• Art. 6(1)(b) — Necessary for contract performance (user account, ratings, watchlists)
+• Art. 6(1)(a) — Explicit user consent (marketing email opt-in, cookie consent)
+• Art. 6(1)(f) — Legitimate interest in security/fraud prevention (audit logs)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+18. VERSION HISTORY
+
+VERSION | DATE | CHANGES
+1.0 | 2026-06-03 | Initial RoPA created for GDPR compliance
+— | — | —
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+This Records of Processing Activities document is confidential and intended for regulatory review and internal compliance purposes. Retain indefinitely.

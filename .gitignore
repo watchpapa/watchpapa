@@ -52,7 +52,6 @@ htmlcov/
 sql/
 
 # Other
-docs/
 .docs
 temp/
 # Worker local state
