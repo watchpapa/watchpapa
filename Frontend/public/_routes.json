@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "include": ["/*"],
+  "exclude": [
+    "/assets/*",
+    "/api/*",
+    "/sitemap*",
+    "/favicon*",
+    "/icon-*",
+    "/apple-touch-icon.png",
+    "/og-default.png",
+    "/logo_v3.1.svg",
+    "/icons.svg",
+    "/site.webmanifest",
+    "/robots.txt",
+    "/llms.txt"
+  ]
+}

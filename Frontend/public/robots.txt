@@ -1,3 +1,8 @@
+# Crawls the whole TMDB person/movie graph with a headless browser and burns
+# Workers/Pages request quota (Oct 2026). Also blocked by a WAF rule.
+User-agent: ShapBot
+Disallow: /
+
 User-agent: *
 Allow: /
 Disallow: /admin
