@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { isValidDateStr } from "../src/time/dates.js";
+import { isValidDateStr, addDays } from "../src/time/dates.js";
 
 // Contract decided format: 2026-10-18: a valid date string is
 // - exactly `YYYY-MM-DD`,
@@ -151,5 +151,202 @@ describe("isValidDateStr", () => {
       // then
       expect(result).toBe(true);
     });
+  });
+});
+
+
+// Contract for addDays(dateStr, daysToAdd) — decided 2026-10-18:
+// - returns a NEW date string `YYYY-MM-DD`; works on calendar dates only, so the result never depends on the machine's timezone or daylight saving
+// - daysToAdd may be positive, zero or negative, but must be an integer
+// - an invalid dateStr (per isValidDateStr) or a non-integer daysToAdd throws a RangeError — a transformation must not silently pass bad data along
+
+describe("addDays", () => {
+  describe("moving forward", () => {
+    it("adds one day within a month", () => {
+      // given
+      const dateStr = "2026-10-17";
+      const daysToAdd = 1;
+      // when
+      const result = addDays(dateStr, daysToAdd);
+      // then
+      expect(result).toBe("2026-10-18");
+    });
+
+    it("returns the same date when adding zero days", () => {
+      // given
+      const dateStr = "2026-10-17";
+      const daysToAdd = 0;
+      // when
+      const result = addDays(dateStr, daysToAdd);
+      // then
+      expect(result).toBe("2026-10-17");
+    });
+
+    it("rolls over to the next month at the end of a month", () => {
+      // given
+      const dateStr = "2026-10-31";
+      const daysToAdd = 1;
+      // when
+      const result = addDays(dateStr, daysToAdd);
+      // then
+      expect(result).toBe("2026-11-01");
+    });
+
+    it("rolls over to the next year on December 31", () => {
+      // given
+      const dateStr = "2026-12-31";
+      const daysToAdd = 1;
+      // when
+      const result = addDays(dateStr, daysToAdd);
+      // then
+      expect(result).toBe("2027-01-01");
+    });
+
+    it("adds a larger number of days across a month boundary", () => {
+      // given
+      const dateStr = "2026-10-17";
+      const daysToAdd = 30;
+      // when
+      const result = addDays(dateStr, daysToAdd);
+      // then
+      expect(result).toBe("2026-11-16");
+    });
+
+    it("lands on the same day next year after 365 days in a non-leap span", () => {
+      // given
+      const dateStr = "2026-10-17";
+      const daysToAdd = 365;
+      // when
+      const result = addDays(dateStr, daysToAdd);
+      // then
+      expect(result).toBe("2027-10-17");
+    });
+
+    it("needs 366 days for a full year when the span contains a leap day", () => {
+      // given
+      const dateStr = "2027-10-17";
+      const daysToAdd = 366;
+      // when
+      const result = addDays(dateStr, daysToAdd);
+      // then
+      expect(result).toBe("2028-10-17");
+    });
+  });
+
+  describe("leap years", () => {
+    it("goes from February 28 to February 29 in a leap year", () => {
+      // given
+      const dateStr = "2028-02-28";
+      const daysToAdd = 1;
+      // when
+      const result = addDays(dateStr, daysToAdd);
+      // then
+      expect(result).toBe("2028-02-29");
+    });
+
+    it("goes from February 29 to March 1 in a leap year", () => {
+      // given
+      const dateStr = "2028-02-29";
+      const daysToAdd = 1;
+      // when
+      const result = addDays(dateStr, daysToAdd);
+      // then
+      expect(result).toBe("2028-03-01");
+    });
+
+    it("skips straight from February 28 to March 1 in a non-leap year", () => {
+      // given
+      const dateStr = "2026-02-28";
+      const daysToAdd = 1;
+      // when
+      const result = addDays(dateStr, daysToAdd);
+      // then
+      expect(result).toBe("2026-03-01");
+    });
+  });
+
+  describe("moving backward", () => {
+    it("goes back to the last day of the previous month", () => {
+      // given
+      const dateStr = "2026-03-01";
+      const daysToAdd = -1;
+      // when
+      const result = addDays(dateStr, daysToAdd);
+      // then
+      expect(result).toBe("2026-02-28");
+    });
+
+    it("goes back to December 31 of the previous year", () => {
+      // given
+      const dateStr = "2027-01-01";
+      const daysToAdd = -1;
+      // when
+      const result = addDays(dateStr, daysToAdd);
+      // then
+      expect(result).toBe("2026-12-31");
+    });
+  });
+
+  describe("independence from timezone and daylight saving", () => {
+    // These only prove something when the suite is run under different TZ
+    // values (e.g. TZ=Europe/Berlin, TZ=America/Los_Angeles): a local-time
+    // implementation can land on the wrong day around a clock change.
+    it("adds one day across the European spring clock change", () => {
+      // given
+      const dateStr = "2026-03-29";
+      const daysToAdd = 1;
+      // when
+      const result = addDays(dateStr, daysToAdd);
+      // then
+      expect(result).toBe("2026-03-30");
+    });
+
+    it("adds one day across the European autumn clock change", () => {
+      // given
+      const dateStr = "2026-10-25";
+      const daysToAdd = 1;
+      // when
+      const result = addDays(dateStr, daysToAdd);
+      // then
+      expect(result).toBe("2026-10-26");
+    });
+  });
+
+  describe("very early years", () => {
+    it("keeps year 0050 as 0050 instead of treating it as 1950", () => {
+      // given: JavaScript's Date constructor maps years 0-99 to 1900-1999
+      const dateStr = "0050-12-31";
+      const daysToAdd = 1;
+      // when
+      const result = addDays(dateStr, daysToAdd);
+      // then
+      expect(result).toBe("0051-01-01");
+    });
+  });
+
+  describe("invalid input", () => {
+    it.each([["2026-02-30"], ["not-a-date"], [""], [null], [20261017]])(
+      "throws a RangeError for the invalid date %p",
+      (dateStr) => {
+        // given: an input that isValidDateStr would reject
+        const daysToAdd = 1;
+        // when
+        const call = () => addDays(dateStr, daysToAdd);
+        // then
+        expect(call).toThrow(RangeError);
+      },
+    );
+
+    it.each([[1.5], [NaN], [Infinity], ["3"], [null], [undefined]])(
+      "throws a RangeError when daysToAdd is %p",
+      (daysToAdd) => {
+        // given: a valid date but a daysToAdd that is not an integer
+        const dateStr = "2026-10-17";
+        // when
+        const call = () => addDays(dateStr, daysToAdd);
+        // then
+        expect(call).toThrow(RangeError);
+      },
+    );
   });
 });
