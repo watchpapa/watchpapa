@@ -60,3 +60,6 @@ worker/.dev.vars
 
 # Pages Functions local state
 Frontend/.wrangler/
+
+# University module planning (private)
+uni-plan/
