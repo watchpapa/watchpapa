@@ -27,3 +27,27 @@ export function isValidDateStr(dateStr) {
 
   return true;
 }
+
+export function addDays(dateStr, daysToAdd) {
+
+    if (!isValidDateStr(dateStr)) {
+    throw new RangeError("Invalid date string");
+    }
+
+    if (!Number.isInteger(daysToAdd)) {
+    throw new RangeError("daysToAdd must be an integer");
+    }
+
+    const [year, month, day] = dateStr.split("-").map(Number);
+    const utcTime = Date.UTC(year, month - 1, day+daysToAdd);
+
+    const resultDate = new Date(utcTime);
+    const resultYear = resultDate.getUTCFullYear();
+    const resultMonth = String(resultDate.getUTCMonth() + 1);
+    const resultDay = resultDate.getUTCDate();
+
+    const paddedMonth = resultMonth.padStart(2, "0");
+    const paddedDay = String(resultDay).padStart(2, "0");
+
+    return `${resultYear}-${paddedMonth}-${paddedDay}`;
+}
