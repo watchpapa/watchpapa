@@ -76,7 +76,7 @@ describe("isValidDateStr", () => {
 
   describe("non-string input", () => {
     it.each([[null], [undefined], [20261017], [{}]])(
-      "returns false for %p",
+      "returns false for %o",
       (input) => {
         // given: the non-string input from the table above
         // when
@@ -340,7 +340,7 @@ describe("addDays", () => {
 
   describe("invalid input", () => {
     it.each([["2026-02-30"], ["not-a-date"], [""], [null], [20261017]])(
-      "throws a RangeError for the invalid date %p",
+      "throws a RangeError for the invalid date %o",
       (dateStr) => {
         // given: an input that isValidDateStr would reject
         const daysToAdd = 1;
@@ -352,7 +352,7 @@ describe("addDays", () => {
     );
 
     it.each([[1.5], [NaN], [Infinity], ["3"], [null], [undefined]])(
-      "throws a RangeError when daysToAdd is %p",
+      "throws a RangeError when daysToAdd is %o",
       (daysToAdd) => {
         // given: a valid date but a daysToAdd that is not an integer
         const dateStr = "2026-10-17";
@@ -518,7 +518,7 @@ describe("isValidTimeZone", () => {
 
   describe("non-string input", () => {
     it.each([[null], [undefined], [42], [{}]])(
-      "returns false for %s without throwing",
+      "returns false for %o without throwing",
       (name) => {
         // given: a value that is not a string
         // when
@@ -642,7 +642,7 @@ describe("todayInZone", () => {
 
   describe("invalid input", () => {
     it.each([["Mars/Phobos"], [""], [null], [undefined], [42]])(
-      "throws a RangeError for the invalid timezone %s",
+      "throws a RangeError for the invalid timezone %o",
       (timeZone) => {
         // given: a valid instant but a timezone that isValidTimeZone rejects
         const now = new Date("2026-10-17T12:00:00Z");
@@ -654,7 +654,7 @@ describe("todayInZone", () => {
     );
 
     it.each([[null], [undefined], ["2026-10-17"], [1760702400000], [new Date("garbage")]])(
-      "throws a RangeError when now is %s",
+      "throws a RangeError when now is %o",
       (now) => {
         // given: a valid timezone but a `now` that is not a valid Date
         const timeZone = "UTC";
