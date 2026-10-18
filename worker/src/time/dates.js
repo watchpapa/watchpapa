@@ -82,4 +82,20 @@ export function isValidTimeZone(name) {
 }
 
 export function todayInZone(now, timeZone) {
+    if (!(now instanceof Date) || isNaN(now)) {
+        throw new RangeError("Invalid date");
+    }
+    if (!isValidTimeZone(timeZone)) {
+        throw new RangeError("Invalid time zone");
+    }
+
+    const options = { timeZone, year: "numeric", month: "2-digit", day: "2-digit" };
+    const formatter = new Intl.DateTimeFormat("en-CA", options);
+    const parts = formatter.formatToParts(now);
+
+    const year = parts.find(part => part.type === "year").value;
+    const month = parts.find(part => part.type === "month").value;
+    const day = parts.find(part => part.type === "day").value;
+
+    return `${year}-${month}-${day}`;
 }
