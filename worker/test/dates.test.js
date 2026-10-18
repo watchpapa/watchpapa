@@ -4,6 +4,7 @@ import {
   addDays,
   daysBetween,
   isValidTimeZone,
+  todayInZone,
 } from "../src/time/dates.js";
 
 
@@ -525,6 +526,142 @@ describe("isValidTimeZone", () => {
         // then
         expect(call).not.toThrow();
         expect(call()).toBe(false);
+      },
+    );
+  });
+});
+
+// Contract for todayInZone(now, timeZone) — decided 2026-10-18:
+// - `now` is a Date passed in; the function never reads the clock itself
+// - returns the calendar date `YYYY-MM-DD` of that instant in the given timezone
+// - an invalid timeZone (per isValidTimeZone) or a `now` that is not a valid Date throws a RangeError
+// - it does NOT fall back to UTC: callers that want a fallback do it themselves (service layer)
+
+describe("todayInZone", () => {
+  it("returns the correct date in a timezone that is in UTC", () => {
+    // given
+    const now = new Date("2026-10-17T12:00:00Z"); // UTC noon
+    const timeZone = "UTC";
+    // when
+    const result = todayInZone(now, timeZone);
+    // then
+    expect(result).toBe("2026-10-17");
+  });
+
+  it("returns the correct date in a timezone that is ahead of UTC", () => {
+    // given
+    const now = new Date("2026-10-17T12:00:00Z"); // UTC noon
+    const timeZone = "Europe/Berlin"; // UTC+2 in October (CEST)
+    // when
+    const result = todayInZone(now, timeZone);
+    // then
+    expect(result).toBe("2026-10-17");
+  });
+
+  describe("same instant, different timezones", () => {
+    it.each([
+      ["UTC", "2026-10-17"],
+      ["Pacific/Pago_Pago", "2026-10-17"],
+      ["Pacific/Auckland", "2026-10-18"],
+      ["Pacific/Kiritimati", "2026-10-18"],
+    ])("at 2026-10-17T23:30Z the date in %s is %s", (timeZone, expected) => {
+      // given: one instant, seen from zones UTC-11 up to UTC+14
+      const now = new Date("2026-10-17T23:30:00Z");
+      // when
+      const result = todayInZone(now, timeZone);
+      // then
+      expect(result).toBe(expected);
+    });
+
+    it("returns the previous day in a timezone behind UTC", () => {
+      // given: 03:00 UTC is still the evening before in Los Angeles
+      const now = new Date("2026-10-18T03:00:00Z");
+      const timeZone = "America/Los_Angeles";
+      // when
+      const result = todayInZone(now, timeZone);
+      // then
+      expect(result).toBe("2026-10-17");
+    });
+  });
+
+  describe("local midnight", () => {
+    it("returns the new day exactly at local midnight", () => {
+      // given: 22:00 UTC is 00:00 in Berlin (UTC+2) on the 18th
+      const now = new Date("2026-10-17T22:00:00Z");
+      const timeZone = "Europe/Berlin";
+      // when
+      const result = todayInZone(now, timeZone);
+      // then
+      expect(result).toBe("2026-10-18");
+    });
+
+    it("returns the old day one second before local midnight", () => {
+      // given
+      const now = new Date("2026-10-17T21:59:59Z");
+      const timeZone = "Europe/Berlin";
+      // when
+      const result = todayInZone(now, timeZone);
+      // then
+      expect(result).toBe("2026-10-17");
+    });
+  });
+
+  describe("daylight saving change", () => {
+    it("still returns the 25th shortly after midnight on the autumn clock change", () => {
+      // given: 2026-10-25 is the 25-hour day in Berlin; 00:30Z is 02:30 CEST
+      const now = new Date("2026-10-25T00:30:00Z");
+      const timeZone = "Europe/Berlin";
+      // when
+      const result = todayInZone(now, timeZone);
+      // then
+      expect(result).toBe("2026-10-25");
+    });
+
+    it("returns the 26th once the 25-hour day has ended", () => {
+      // given: 23:30Z is 00:30 CET on the 26th (the offset is now UTC+1)
+      const now = new Date("2026-10-25T23:30:00Z");
+      const timeZone = "Europe/Berlin";
+      // when
+      const result = todayInZone(now, timeZone);
+      // then
+      expect(result).toBe("2026-10-26");
+    });
+  });
+
+  describe("result format", () => {
+    it("always returns a valid date string", () => {
+      // given
+      const now = new Date("2026-01-05T08:00:00Z");
+      const timeZone = "Asia/Tokyo";
+      // when
+      const result = todayInZone(now, timeZone);
+      // then
+      expect(isValidDateStr(result)).toBe(true);
+    });
+  });
+
+  describe("invalid input", () => {
+    it.each([["Mars/Phobos"], [""], [null], [undefined], [42]])(
+      "throws a RangeError for the invalid timezone %s",
+      (timeZone) => {
+        // given: a valid instant but a timezone that isValidTimeZone rejects
+        const now = new Date("2026-10-17T12:00:00Z");
+        // when
+        const call = () => todayInZone(now, timeZone);
+        // then
+        expect(call).toThrow(RangeError);
+      },
+    );
+
+    it.each([[null], [undefined], ["2026-10-17"], [1760702400000], [new Date("garbage")]])(
+      "throws a RangeError when now is %s",
+      (now) => {
+        // given: a valid timezone but a `now` that is not a valid Date
+        const timeZone = "UTC";
+        // when
+        const call = () => todayInZone(now, timeZone);
+        // then
+        expect(call).toThrow(RangeError);
       },
     );
   });

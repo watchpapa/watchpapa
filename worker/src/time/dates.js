@@ -79,5 +79,7 @@ export function isValidTimeZone(name) {
     } catch (error) {
         return false;
     }
+}
 
+export function todayInZone(now, timeZone) {
 }
