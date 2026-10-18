@@ -68,3 +68,4 @@ export function daysBetween(dateStr1, dateStr2) {
 
     return differenceInMilliseconds / millisecondsPerDay;
 }
+export function isValidTimeZone(name) {}

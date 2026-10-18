@@ -1,5 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { isValidDateStr, addDays, daysBetween } from "../src/time/dates.js";
+import {
+  isValidDateStr,
+  addDays,
+  daysBetween,
+  isValidTimeZone,
+} from "../src/time/dates.js";
 
 
 
@@ -466,3 +471,61 @@ describe("daysBetween", () => {
 
 });
 
+
+// Contract for isValidTimeZone(name) — decided 2026-10-18:
+// - returns true only for a real IANA timezone name (e.g. "Europe/Berlin", "UTC")
+// - returns false for anything else: unknown names, empty string, non-strings
+// - never throws, whatever the input — callers use it as a yes/no question
+
+describe("isValidTimeZone", () => {
+  describe("real timezone names", () => {
+    it.each([
+      ["UTC"],
+      ["Europe/Berlin"],
+      ["Pacific/Auckland"],
+      ["America/Los_Angeles"],
+    ])("returns true for %s", (name) => {
+      // given: a real IANA timezone name from the table above
+      // when
+      const result = isValidTimeZone(name);
+      // then
+      expect(result).toBe(true);
+    });
+  });
+
+  describe("names that are not timezones", () => {
+    it.each([["Mars/Phobos"], ["Europe/Atlantis"], ["not a timezone"]])(
+      "returns false for the unknown name %s",
+      (name) => {
+        // given: a string that looks plausible but is not an IANA timezone
+        // when
+        const result = isValidTimeZone(name);
+        // then
+        expect(result).toBe(false);
+      },
+    );
+
+    it("returns false for an empty string", () => {
+      // given
+      const name = "";
+      // when
+      const result = isValidTimeZone(name);
+      // then
+      expect(result).toBe(false);
+    });
+  });
+
+  describe("non-string input", () => {
+    it.each([[null], [undefined], [42], [{}]])(
+      "returns false for %s without throwing",
+      (name) => {
+        // given: a value that is not a string
+        // when
+        const call = () => isValidTimeZone(name);
+        // then
+        expect(call).not.toThrow();
+        expect(call()).toBe(false);
+      },
+    );
+  });
+});
