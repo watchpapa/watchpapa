@@ -68,4 +68,16 @@ export function daysBetween(dateStr1, dateStr2) {
 
     return differenceInMilliseconds / millisecondsPerDay;
 }
-export function isValidTimeZone(name) {}
+
+export function isValidTimeZone(name) {
+    if (typeof name !== "string") {
+        return false;
+    }
+    try {
+        Intl.DateTimeFormat(undefined, { timeZone: name });
+        return true;
+    } catch (error) {
+        return false;
+    }
+
+}
