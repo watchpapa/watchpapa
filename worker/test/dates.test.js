@@ -424,8 +424,8 @@ describe("daysBetween", () => {
     expect(result).toBe(367);
   });
 
-  it("returns integer across DST change", () => {
-    // given
+  it("counts whole days across the European spring clock change", () => {
+    // given: the day the European clocks go forward (23-hour day)
     const dateStr1 = "2026-03-28";
     const dateStr2 = "2026-03-30";
     // when
@@ -434,7 +434,27 @@ describe("daysBetween", () => {
     expect(result).toBe(2);
   });
 
-  it("throws a RangeError for an invalid date string", () => {
+  it("counts whole days across the European autumn clock change", () => {
+    // given: the day the European clocks go back (25-hour day)
+    const dateStr1 = "2026-10-24";
+    const dateStr2 = "2026-10-26";
+    // when
+    const result = daysBetween(dateStr1, dateStr2);
+    // then
+    expect(result).toBe(2);
+  });
+
+  it("throws a RangeError for an invalid first date string", () => {
+    // given
+    const dateStr1 = "not-a-date";
+    const dateStr2 = "2026-10-17";
+    // when
+    const call = () => daysBetween(dateStr1, dateStr2);
+    // then
+    expect(call).toThrow(RangeError);
+  });
+
+  it("throws a RangeError for an invalid second date string", () => {
     // given
     const dateStr1 = "2026-10-17";
     const dateStr2 = "not-a-date";
@@ -443,4 +463,6 @@ describe("daysBetween", () => {
     // then
     expect(call).toThrow(RangeError);
   });
+
 });
+
