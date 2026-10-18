@@ -51,3 +51,20 @@ export function addDays(dateStr, daysToAdd) {
 
     return `${resultYear}-${paddedMonth}-${paddedDay}`;
 }
+
+export function daysBetween(dateStr1, dateStr2) {
+    if (!isValidDateStr(dateStr1) || !isValidDateStr(dateStr2)) {
+    throw new RangeError("Invalid date string");
+    }
+
+    const [year1, month1, day1] = dateStr1.split("-").map(Number);
+    const [year2, month2, day2] = dateStr2.split("-").map(Number);
+
+    const utcTime1 = Date.UTC(year1, month1 - 1, day1);
+    const utcTime2 = Date.UTC(year2, month2 - 1, day2);
+
+    const millisecondsPerDay = 24 * 60 * 60 * 1000;
+    const differenceInMilliseconds = utcTime2 - utcTime1;
+
+    return differenceInMilliseconds / millisecondsPerDay;
+}
