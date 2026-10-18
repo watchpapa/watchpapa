@@ -1,9 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { isValidDateStr, addDays } from "../src/time/dates.js";
+import { isValidDateStr, addDays, daysBetween } from "../src/time/dates.js";
 
 
 
-// Contract decided format: 2026-10-18: a valid date string is
+// Contract for isValidDateStr(dateStr): decided 2026-10-18:
 // - exactly `YYYY-MM-DD`,
 // - zero-padded,
 // - no surrounding whitespace,
@@ -311,9 +311,6 @@ describe("addDays", () => {
   });
 
   describe("independence from timezone and daylight saving", () => {
-    // These only prove something when the suite is run under different TZ
-    // values (e.g. TZ=Europe/Berlin, TZ=America/Los_Angeles): a local-time
-    // implementation can land on the wrong day around a clock change.
     it("adds one day across the European spring clock change", () => {
       // given
       const dateStr = "2026-03-29";
@@ -359,5 +356,91 @@ describe("addDays", () => {
         expect(call).toThrow(RangeError);
       },
     );
+  });
+});
+
+// Contract for daysBetween(dateStr1, dateStr2) — decided 2026-10-18:
+// - returns an integer number of days between the two dates, positive if dateStr2 is later than dateStr1, negative if earlier, and zero if they are the same date
+// - an invalid dateStr (per isValidDateStr) throws a RangeError — a transformation must not silently pass bad data along
+
+describe("daysBetween", () => {
+  it("returns 0 for the same date", () => {
+    // given
+    const dateStr1 = "2026-10-17";
+    const dateStr2 = "2026-10-17";
+    // when
+    const result = daysBetween(dateStr1, dateStr2);
+    // then
+    expect(result).toBe(0);
+  });
+
+  it("returns a positive number of days when the second date is later", () => {
+    // given
+    const dateStr1 = "2026-10-17";
+    const dateStr2 = "2026-10-20";
+    // when
+    const result = daysBetween(dateStr1, dateStr2);
+    // then
+    expect(result).toBe(3);
+  });
+
+  it("returns a negative number of days when the second date is earlier", () => {
+    // given
+    const dateStr1 = "2026-10-20";
+    const dateStr2 = "2026-10-17";
+    // when
+    const result = daysBetween(dateStr1, dateStr2);
+    // then
+    expect(result).toBe(-3);
+  });
+
+  it("returns the correct number of days across a month boundary", () => {
+    // given
+    const dateStr1 = "2026-10-31";
+    const dateStr2 = "2026-11-02";
+    // when
+    const result = daysBetween(dateStr1, dateStr2);
+    // then
+    expect(result).toBe(2);
+  });
+
+  it("returns the correct number of days across a year boundary", () => {
+    // given
+    const dateStr1 = "2026-12-31";
+    const dateStr2 = "2027-01-02";
+    // when
+    const result = daysBetween(dateStr1, dateStr2);
+    // then
+    expect(result).toBe(2);
+  });
+
+  it("returns the correct number of days across a leap year boundary", () => {
+    // given
+    const dateStr1 = "2027-02-28";
+    const dateStr2 = "2028-03-01";
+    // when
+    const result = daysBetween(dateStr1, dateStr2);
+    // then
+    expect(result).toBe(367);
+  });
+
+  it("returns integer across DST change", () => {
+    // given
+    const dateStr1 = "2026-03-28";
+    const dateStr2 = "2026-03-30";
+    // when
+    const result = daysBetween(dateStr1, dateStr2);
+    // then
+    expect(result).toBe(2);
+  });
+
+  it("throws a RangeError for an invalid date string", () => {
+    // given
+    const dateStr1 = "2026-10-17";
+    const dateStr2 = "not-a-date";
+    // when
+    const call = () => daysBetween(dateStr1, dateStr2);
+    // then
+    expect(call).toThrow(RangeError);
   });
 });
