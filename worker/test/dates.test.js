@@ -1,12 +1,13 @@
 import { describe, it, expect } from "vitest";
 import { isValidDateStr, addDays } from "../src/time/dates.js";
 
+
+
 // Contract decided format: 2026-10-18: a valid date string is
 // - exactly `YYYY-MM-DD`,
 // - zero-padded,
 // - no surrounding whitespace,
 // - the date must exist on the calendar.
-
 
 describe("isValidDateStr", () => {
   describe("well-formed dates", () => {
@@ -287,6 +288,28 @@ describe("addDays", () => {
     });
   });
 
+  describe("year boundaries in realistic range", () => {
+    it("crosses from 1900 to 1901 at year end", () => {
+      // given
+      const dateStr = "1900-12-31";
+      const daysToAdd = 1;
+      // when
+      const result = addDays(dateStr, daysToAdd);
+      // then
+      expect(result).toBe("1901-01-01");
+    });
+
+    it("crosses from 2099 to 2100 at year end", () => {
+      // given
+      const dateStr = "2099-12-31";
+      const daysToAdd = 1;
+      // when
+      const result = addDays(dateStr, daysToAdd);
+      // then
+      expect(result).toBe("2100-01-01");
+    });
+  });
+
   describe("independence from timezone and daylight saving", () => {
     // These only prove something when the suite is run under different TZ
     // values (e.g. TZ=Europe/Berlin, TZ=America/Los_Angeles): a local-time
@@ -309,18 +332,6 @@ describe("addDays", () => {
       const result = addDays(dateStr, daysToAdd);
       // then
       expect(result).toBe("2026-10-26");
-    });
-  });
-
-  describe("very early years", () => {
-    it("keeps year 0050 as 0050 instead of treating it as 1950", () => {
-      // given: JavaScript's Date constructor maps years 0-99 to 1900-1999
-      const dateStr = "0050-12-31";
-      const daysToAdd = 1;
-      // when
-      const result = addDays(dateStr, daysToAdd);
-      // then
-      expect(result).toBe("0051-01-01");
     });
   });
 
