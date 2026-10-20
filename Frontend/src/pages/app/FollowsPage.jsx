@@ -100,7 +100,7 @@ function FollowsPage({ session }) {
         )}
 
         {loading ? (
-          <div className="space-y-2">{[1, 2, 3].map((i) => <Skeleton key={i} className="h-[5.5rem] rounded-xl" />)}</div>
+          <div className="grid grid-cols-1 gap-2 lg:grid-cols-2">{[1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-[90px] rounded-xl" />)}</div>
         ) : list.length === 0 ? (
           <EmptyState
             icon={HeartIcon}

@@ -8,7 +8,7 @@ import Button from "../../components/ui/Button.jsx";
 import PageContainer from "../../components/ui/PageContainer.jsx";
 import SectionTitle from "../../components/ui/SectionTitle.jsx";
 import EmptyState from "../../components/ui/EmptyState.jsx";
-import { Skeleton } from "../../components/ui/Skeleton.jsx";
+import { Skeleton, SkeletonRatingCard } from "../../components/ui/Skeleton.jsx";
 import { useProfileData } from "../../features/profile/hooks/useProfileData.js";
 import { useProfileRatings } from "../../features/profile/hooks/useProfileRatings.js";
 import { useProfileStats } from "../../features/profile/hooks/useProfileStats.js";
@@ -72,10 +72,31 @@ function ProfilePage({ session }) {
   if (loading) {
     return (
       <AppLayout session={session} breadcrumbs={breadcrumbs}>
-        <PageContainer width="standard" className="space-y-4">
-          <Skeleton className="h-36 rounded-3xl sm:h-44" />
-          <Skeleton className="h-24 rounded-2xl" />
-          <Skeleton className="h-48 rounded-2xl" />
+        <PageContainer width="standard" className="space-y-6" aria-busy="true">
+          <div className="rounded-3xl border border-border/50 bg-surface">
+            <Skeleton className="h-32 rounded-b-none rounded-t-3xl sm:h-44 lg:h-52" />
+            <div className="px-4 pb-5 sm:px-6">
+              <div className="-mt-12 flex items-end gap-4 sm:-mt-16">
+                <Skeleton className="h-24 w-24 shrink-0 rounded-full border-4 border-surface sm:h-32 sm:w-32" />
+                <div className="min-w-0 flex-1 space-y-2 pb-1">
+                  <Skeleton className="h-7 w-40 sm:h-8" />
+                  <Skeleton className="h-3 w-32" />
+                </div>
+              </div>
+              <div className="mt-4 flex gap-5">
+                <Skeleton className="h-4 w-20" />
+                <Skeleton className="h-4 w-20" />
+                <Skeleton className="h-4 w-16" />
+              </div>
+            </div>
+          </div>
+          <Skeleton className="h-40 rounded-2xl" />
+          <section>
+            <Skeleton className="mb-3 h-6 w-40" />
+            <div className="grid grid-cols-3 gap-3 xs:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-8">
+              {Array.from({ length: 8 }).map((_, i) => <SkeletonRatingCard key={i} />)}
+            </div>
+          </section>
         </PageContainer>
       </AppLayout>
     );
@@ -176,7 +197,9 @@ function ProfilePage({ session }) {
                 <EmptyState compact title="No ratings in the last 2 weeks." />
               ) : (
                 <div className="grid grid-cols-3 gap-3 xs:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-8">
-                  {ratings.map((r) => <ProfileRatingCard key={r.id} rating={r} />)}
+                  {ratingsLoading && ratings.length === 0
+                    ? Array.from({ length: 8 }).map((_, i) => <SkeletonRatingCard key={i} />)
+                    : ratings.map((r) => <ProfileRatingCard key={r.id} rating={r} />)}
                 </div>
               )}
             </section>

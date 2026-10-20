@@ -28,7 +28,7 @@ function MyServicesPage({ session, showAdult }) {
   } = useMyServicesPageData(session, showAdult, tier);
 
   if (tierLoading) {
-    return <AppLayout session={session}>{HEAD}<PageContainer width="wide"><SkeletonPosterRow /></PageContainer></AppLayout>;
+    return <AppLayout session={session}>{HEAD}<PageContainer width="wide" className="space-y-8"><SkeletonPosterRow /><SkeletonPosterRow /><SkeletonPosterRow /></PageContainer></AppLayout>;
   }
 
   if (!isProTier(tier)) {

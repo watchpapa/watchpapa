@@ -66,7 +66,7 @@ function ActivityFeedPage({ session, showAdult }) {
       <PageHead title="Activity" description="Recent ratings from people you observe." path="/feed" noindex />
       <PageContainer width="reading" className="space-y-4">
         <PageHeader title="Activity" subtitle="Recent ratings from people you observe." />
-        {loading && items.length === 0 && <div className="space-y-3"><Skeleton className="h-[108px] rounded-xl" /><Skeleton className="h-[108px] rounded-xl" /></div>}
+        {loading && items.length === 0 && <div className="grid grid-cols-1 gap-2 lg:grid-cols-2">{[1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-[110px] rounded-xl" />)}</div>}
         {!loading && items.length === 0 && (
           <EmptyState icon={ActivityIcon} title="Nothing here yet" description="Observe people to see their ratings here." action={<Button to="/users" variant="secondary" size="sm">Find people</Button>} className="rounded-2xl border border-border/50 bg-surface" />
         )}

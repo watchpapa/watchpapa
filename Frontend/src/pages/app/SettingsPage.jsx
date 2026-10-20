@@ -57,9 +57,7 @@ function SettingsPage({ session }) {
           <div className="min-w-0 flex-1 space-y-5">
             {loading ? (
               <>
-                <Skeleton className="h-40 rounded-2xl" />
-                <Skeleton className="h-56 rounded-2xl" />
-                <Skeleton className="h-40 rounded-2xl" />
+                {[40, 56, 40, 48, 56, 40, 64, 32, 40].map((h, i) => <Skeleton key={i} className="rounded-2xl" style={{ height: `${h * 4}px` }} />)}
               </>
             ) : (
               <>

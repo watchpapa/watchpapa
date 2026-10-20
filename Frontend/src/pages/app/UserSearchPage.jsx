@@ -35,7 +35,7 @@ function UserSearchPage({ session }) {
             <Input value={value} onChange={handleChange} autoFocus placeholder="Search usernames…" className="rounded-2xl pl-11" aria-label="Search usernames" />
           </div>
         </PageHeader>
-        {loading && results.length === 0 && <div className="space-y-2"><Skeleton className="h-14 rounded-xl" /><Skeleton className="h-14 rounded-xl" /></div>}
+        {loading && results.length === 0 && <div className="space-y-2">{[1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-[62px] rounded-xl" />)}</div>}
         {status === "done" && results.length === 0 && <EmptyState compact icon={UsersIcon} title="No users found" />}
         {results.length > 0 && <div className="space-y-2">{results.map((u) => <UserResultRow key={u.id} user={u} session={session} />)}</div>}
       </PageContainer>
