@@ -14,6 +14,7 @@
 | DB access from the Worker | Cloudflare Hyperdrive binding `HYPERDRIVE` → Supabase session pooler, caching disabled |
 | Content | TMDB API v3, read live by the Worker and edge-cached (nothing stored) |
 | Background import | Worker Cron Trigger, every minute (`worker/wrangler.jsonc` `triggers.crons`) |
+| Alerts | Discord (or Slack) webhook. Worker monitors every 10 min (`worker/src/monitors.js`): traffic spike per user agent, estimated daily request quota (50k/80k of the Free 100k), API 5xx rate, new registrations. Plus GitHub Actions `uptime.yml` (hourly) and a failure step in `db-backup.yml` |
 | Backups | GitHub Actions `db-backup.yml` → `age`-encrypted dump → private Cloudflare R2 bucket `watchpapa-db-backups` (30-day lifecycle) |
 
 ## How a deploy happens
@@ -31,11 +32,12 @@ Do **not** add a `wrangler.toml` to `Frontend/`. With `pages_build_output_dir` s
 
 **Pages → Settings → Environment variables (Production):** `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY`, `VITE_API_BASE_URL=https://api.watchpapa.tv`. The frontend calls the Worker cross-origin; it must be set.
 
-**Worker:** non-secret `vars` live in `worker/wrangler.jsonc` (`ALLOWED_ORIGINS`, `SUPABASE_URL`, the `BATCH_*` / `IMPORT_*` / `RECOMMENDATIONS_*` / `SHOW_STATUS_BACKFILL_MAX` caps, `RELEASES_MAX_SHOWS`, `SITEMAP_PAGES`). Secret: `TMDB_API_KEY_SECRET` (`cd worker && npx wrangler secret put TMDB_API_KEY_SECRET`). Rate limits are the `RL_GLOBAL` (240/min) and `RL_MUTATION` (30/min) bindings in the same file.
+**Worker:** non-secret `vars` live in `worker/wrangler.jsonc` (`ALLOWED_ORIGINS`, `SUPABASE_URL`, the `BATCH_*` / `IMPORT_*` / `RECOMMENDATIONS_*` / `SHOW_STATUS_BACKFILL_MAX` caps, `RELEASES_MAX_SHOWS`, `SITEMAP_PAGES`). Secret: `TMDB_API_KEY_SECRET` (`cd worker && npx wrangler secret put TMDB_API_KEY_SECRET`). Alert monitors: vars `CF_ZONE_ID`, `TRAFFIC_ALERT_THRESHOLD`, `QUOTA_ALERT_LEVELS`, `ERROR_ALERT_THRESHOLD` (in `wrangler.jsonc`); secrets `ALERT_WEBHOOK_URL` (Discord/Slack webhook) and `CF_ANALYTICS_TOKEN` (API token, **Zone → Analytics → Read** on watchpapa.tv) — both via `npx wrangler secret put`; the monitors do nothing until both exist. Rate limits are the `RL_GLOBAL` (240/min) and `RL_MUTATION` (30/min) bindings in the same file.
 
 **GitHub Actions secrets**
 - `deploy-worker.yml`: `CLOUDFLARE_API_TOKEN` (Workers Scripts:Edit + Account Hyperdrive:Read + Zone Workers Routes:Edit), `CLOUDFLARE_ACCOUNT_ID`.
 - `db-backup.yml`: `SUPABASE_DB_POOLER_URL` (session pooler string — the direct host is IPv6-only and GitHub runners have no IPv6), `AGE_PUBLIC_KEY`, `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`. The matching **age private key is kept offline**; without it backups cannot be read.
+- `db-backup.yml` and `uptime.yml`: `DISCORD_WEBHOOK_URL` (same webhook as the Worker's `ALERT_WEBHOOK_URL`; if you rotate the webhook, update both places). Optional — without it the workflows still run, they just don't post.
 
 ## Everyday commands
 
@@ -66,7 +68,7 @@ npm run test:smoke   # live Supabase + Worker, creates and deletes one throwaway
 
 ## Backups and restore
 
-Nightly at 03:17 UTC (`db-backup.yml`, also runnable via `workflow_dispatch`). A failed run emails the repo owner — that is the alert. Contents: the full `public` schema (DDL, data, RLS, functions, triggers, grants), data-only `auth.users` / `auth.identities` / `auth.audit_log_entries` / `storage.buckets` / `storage.objects`, and `CREATE EXTENSION` for extensions installed in `public`. **Not** included: sessions/refresh tokens, avatar files (only their metadata), the trigger on `auth.users` (re-apply `026_handle_new_user_trigger.sql`).
+Nightly at 03:17 UTC (`db-backup.yml`, also runnable via `workflow_dispatch`). A failed run emails the repo owner and posts to Discord (last step, needs the `DISCORD_WEBHOOK_URL` repo secret). Contents: the full `public` schema (DDL, data, RLS, functions, triggers, grants), data-only `auth.users` / `auth.identities` / `auth.audit_log_entries` / `storage.buckets` / `storage.objects`, and `CREATE EXTENSION` for extensions installed in `public`. **Not** included: sessions/refresh tokens, avatar files (only their metadata), the trigger on `auth.users` (re-apply `026_handle_new_user_trigger.sql`).
 
 Restore into a fresh Supabase project, using a `psql` at least as new as the dump's `pg_dump` (17):
 
@@ -85,4 +87,6 @@ age -d -i key.txt watchpapa-YYYY-MM-DD.sql.gz.age | gunzip | psql "<url>" -v ON_
 | Worker 500s on user-data routes | `npx wrangler tail`; Hyperdrive binding id in `wrangler.jsonc`; remember `fetch_types:false` breaks array bind params (see CONTEXT.md) |
 | Background import stuck | Cron Trigger running? (`wrangler tail` shows `[IMPORT]` lines each minute); a step that throws is retried on the next tick |
 | Unknown URLs return 200 instead of 404 | `Frontend/functions/_middleware.js` not deployed — Pages Root directory must be `Frontend/` |
+| Discord "watchpapa is down" but the site works | `uptime.yml` probes the `workers.dev` / `pages.dev` origins on purpose: Cloudflare Bot Fight Mode managed-challenges GitHub's datacenter IPs on the custom domains (a 403). Check the run log for which URL failed |
+| Traffic or quota alert in Discord | Cloudflare → watchpapa.tv → Security → Analytics, group by user agent. Block a bad crawler with a custom rule `(http.user_agent contains "Name")` → Block, and add it to `Frontend/public/robots.txt` (past cases: ShapBot, ExaSearchBot) |
 | Supabase project paused | Free plan auto-pauses after inactivity; the Worker's 1/min cron query normally prevents it |
