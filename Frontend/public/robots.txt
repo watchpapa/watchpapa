@@ -3,6 +3,12 @@
 User-agent: ShapBot
 Disallow: /
 
+User-agent: ExaSearchBot
+Disallow: /
+
+User-agent: Exabot
+Disallow: /
+
 User-agent: *
 Allow: /
 Disallow: /admin
