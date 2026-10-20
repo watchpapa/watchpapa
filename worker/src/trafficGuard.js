@@ -15,20 +15,21 @@ export function shouldRunGuard(scheduledTime) {
 
 export function findNoisyAgents(groups, threshold) {
   return (groups ?? [])
-    .map((g) => ({ ua: g.dimensions?.userAgent || "(empty user agent)", count: g.count ?? 0 }))
+    .map((g) => ({ ua: g.dimensions?.userAgent ?? "", count: g.count ?? 0 }))
     .filter((g) => g.count >= threshold)
     .sort((a, b) => b.count - a.count);
 }
 
 export function buildAlertText(agents, { threshold }) {
-  const lines = agents.map((a) => `• ${a.count} requests in ${WINDOW_MIN} min — ${a.ua.slice(0, 120)}`);
-  const first = agents[0].ua.match(/[A-Za-z][A-Za-z0-9_-]*Bot[A-Za-z0-9_-]*|Googlebot|crawler[\w.-]*/i)?.[0];
-  const token = first ?? agents[0].ua.slice(0, 40);
+  const lines = agents.map((a) => `• ${a.count} requests in ${WINDOW_MIN} min — ${a.ua.slice(0, 120) || "(empty user agent)"}`);
+  const ua = agents[0].ua;
+  const botName = ua.match(/[A-Za-z][A-Za-z0-9_-]*Bot[A-Za-z0-9_-]*|crawler[\w.-]*/i)?.[0];
+  const expr = !ua ? '(http.user_agent eq "")' : `(http.user_agent contains "${botName ?? ua.slice(0, 40)}")`;
   return [
     `⚠️ watchpapa traffic spike (≥${threshold} unblocked requests / ${WINDOW_MIN} min from one user agent):`,
     ...lines,
     `If it isn't a crawler you want (Googlebot/Bing are fine), add it in Cloudflare → watchpapa.tv → Security → Security rules, e.g.:`,
-    `(http.user_agent contains "${token}")`,
+    expr,
   ].join("\n");
 }
 

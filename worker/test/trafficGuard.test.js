@@ -17,7 +17,7 @@ describe("findNoisyAgents", () => {
   it("keeps agents at or above the threshold, busiest first, naming empty UAs", () => {
     const r = findNoisyAgents(groups, 1500);
     expect(r.map((a) => a.count)).toEqual([4000, 1500]);
-    expect(r[1].ua).toBe("(empty user agent)");
+    expect(r[1].ua).toBe("");
   });
   it("returns nothing for quiet traffic or missing data", () => {
     expect(findNoisyAgents(groups, 5000)).toEqual([]);
@@ -30,5 +30,10 @@ describe("buildAlertText", () => {
     const t = buildAlertText([{ ua: "Mozilla/5.0 (compatible; ExaSearchBot/1.0; +https://crawler.exa.ai/)", count: 4000 }], { threshold: 1500 });
     expect(t).toContain('(http.user_agent contains "ExaSearchBot")');
     expect(t).toContain("4000 requests");
+  });
+  it("suggests an eq rule for an empty user agent", () => {
+    const t = buildAlertText([{ ua: "", count: 28 }], { threshold: 5 });
+    expect(t).toContain('(http.user_agent eq "")');
+    expect(t).toContain("(empty user agent)");
   });
 });
