@@ -13,6 +13,7 @@ import { announcements } from "./routes/announcements.js";
 import { importRoutes } from "./routes/import.js";
 import { admin } from "./routes/admin/index.js";
 import { runImportTick } from "./cron.js";
+import { runTrafficGuard, shouldRunGuard } from "./trafficGuard.js";
 
 const app = new Hono();
 
@@ -62,5 +63,9 @@ export default {
   fetch: app.fetch,
   // Advances background import jobs (worker/src/cron.js), several chunks per
   // job per tick.
-  scheduled: (event, env, ctx) => ctx.waitUntil(runImportTick(env)),
+  scheduled: (event, env, ctx) => {
+    ctx.waitUntil(runImportTick(env));
+    // Crawler-flood alert, every 10th minute (src/trafficGuard.js).
+    if (shouldRunGuard(event.scheduledTime)) ctx.waitUntil(runTrafficGuard(env));
+  },
 };
