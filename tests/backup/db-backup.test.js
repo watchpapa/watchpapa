@@ -57,7 +57,7 @@ describe("db-backup.yml (static)", () => {
       assert.match(yml, new RegExp(`secrets\\.${s}\\b`), `missing secrets.${s}`);
     }
     const used = [...yml.matchAll(/secrets\.([A-Z0-9_]+)/g)].map((m) => m[1]);
-    const allowed = new Set(["SUPABASE_DB_POOLER_URL", "AGE_PUBLIC_KEY", "R2_ACCOUNT_ID", "R2_ACCESS_KEY_ID", "R2_SECRET_ACCESS_KEY", "R2_BUCKET"]);
+    const allowed = new Set(["SUPABASE_DB_POOLER_URL", "AGE_PUBLIC_KEY", "R2_ACCOUNT_ID", "R2_ACCESS_KEY_ID", "R2_SECRET_ACCESS_KEY", "R2_BUCKET", "DISCORD_WEBHOOK_URL"]);
     for (const u of used) assert.ok(allowed.has(u), `unexpected secret ${u}`);
   });
   test("uploads to R2 through its S3 endpoint", () => {

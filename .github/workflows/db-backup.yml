@@ -7,7 +7,8 @@ name: DB backup (Supabase → R2)
 #
 # Repo secrets: SUPABASE_DB_POOLER_URL (session pooler string), AGE_PUBLIC_KEY,
 #               R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY
-# A failed run emails the repo owner — that is the alert, don't swallow errors here.
+# A failed run emails the repo owner AND posts to Discord (last step, `if: failure()`) — don't swallow errors above it.
+#               + DISCORD_WEBHOOK_URL (optional; failure alert)
 
 on:
   schedule:
@@ -65,3 +66,13 @@ jobs:
           local_size="$(wc -c < "$file" | tr -d ' ')"
           test "$remote" = "$local_size"
           echo "Uploaded ${key} (${local_size} bytes)"
+
+      - name: Alert Discord on failure
+        if: failure()
+        env:
+          WEBHOOK: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          [ -n "$WEBHOOK" ] || exit 0
+          msg="🚨 watchpapa nightly DB backup FAILED — no new backup was stored. ${RUN_URL}"
+          curl -s -m 20 -H 'content-type: application/json' -d "{\"content\":\"${msg}\",\"text\":\"${msg}\"}" "$WEBHOOK" >/dev/null

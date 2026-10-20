@@ -13,7 +13,7 @@ import { announcements } from "./routes/announcements.js";
 import { importRoutes } from "./routes/import.js";
 import { admin } from "./routes/admin/index.js";
 import { runImportTick } from "./cron.js";
-import { runTrafficGuard, shouldRunGuard } from "./trafficGuard.js";
+import { runMonitors, shouldRunMonitors } from "./monitors.js";
 
 const app = new Hono();
 
@@ -65,7 +65,7 @@ export default {
   // job per tick.
   scheduled: (event, env, ctx) => {
     ctx.waitUntil(runImportTick(env));
-    // Crawler-flood alert, every 10th minute (src/trafficGuard.js).
-    if (shouldRunGuard(event.scheduledTime)) ctx.waitUntil(runTrafficGuard(env));
+    // Discord alert monitors, every 10th minute (src/monitors.js).
+    if (shouldRunMonitors(event.scheduledTime)) ctx.waitUntil(runMonitors(env, event.scheduledTime));
   },
 };

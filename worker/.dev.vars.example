@@ -7,6 +7,6 @@ TMDB_API_KEY_SECRET=
 #   export CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE="postgres://USER:PASS@HOST:5432/postgres?sslmode=require"
 # Use the Supabase session pooler URL (the same DATABASE_URL the droplet uses).
 
-# Traffic guard (optional; no-ops if unset). In production: `wrangler secret put CF_ANALYTICS_TOKEN` / `ALERT_WEBHOOK_URL`.
+# Discord alert monitors (optional; no-op if unset). In production: `wrangler secret put CF_ANALYTICS_TOKEN` / `ALERT_WEBHOOK_URL`.
 CF_ANALYTICS_TOKEN=
 ALERT_WEBHOOK_URL=

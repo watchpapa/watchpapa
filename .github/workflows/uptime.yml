@@ -1,0 +1,38 @@
+name: Uptime check
+
+# Pings the public site and API; posts to Discord if either is down. Runs outside
+# Cloudflare on purpose — in-Worker alerts (worker/src/monitors.js) can't fire when
+# the Worker itself is out of quota or broken.
+# Repo secret: DISCORD_WEBHOOK_URL (same Discord/Slack webhook as the Worker's ALERT_WEBHOOK_URL)
+# NB: GitHub's scheduler is best-effort (often 5-15 min late). The repo is public, so Actions minutes are free.
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Check site and API
+        env:
+          WEBHOOK: ${{ secrets.DISCORD_WEBHOOK_URL }}
+        run: |
+          failed=""
+          for url in https://api.watchpapa.tv/health https://watchpapa.tv/; do
+            code="$(curl -s -o /dev/null -m 20 -w '%{http_code}' --retry 2 --retry-delay 5 "$url" || true)"
+            [ "$code" = "200" ] || failed="${failed}${url} → ${code}\n"
+          done
+          if [ -n "$failed" ]; then
+            msg="🚨 watchpapa is down:\n${failed}"
+            echo -e "$msg"
+            [ -z "$WEBHOOK" ] || curl -s -m 20 -H 'content-type: application/json' \
+              -d "{\"content\":\"${msg}\",\"text\":\"${msg}\"}" "$WEBHOOK" >/dev/null
+            exit 1
+          fi
+          echo "ok"

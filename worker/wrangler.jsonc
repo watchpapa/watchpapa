@@ -46,7 +46,9 @@
 		"RECOMMENDATIONS_PROVIDER_CHECK_MAX": "15",
 		"SHOW_STATUS_BACKFILL_MAX": "20",
 		"CF_ZONE_ID": "a8463cb40c2d169f2e544db3f0cd06eb",
-		"TRAFFIC_ALERT_THRESHOLD": "1500"
+		"TRAFFIC_ALERT_THRESHOLD": "1500",
+		"QUOTA_ALERT_LEVELS": "50000,80000",
+		"ERROR_ALERT_THRESHOLD": "15"
 	},
 	// `env.RL_*.limit({ key })` → { success }. period must be 10 or 60.
 	// If unavailable on the Free plan, delete this block (src/ratelimit.js no-ops gracefully)
