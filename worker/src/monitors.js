@@ -103,6 +103,8 @@ async function runAnalyticsMonitors(env, now) {
   }
 }
 
+// Accounts are soft-deleted (profile.deleted_at) while the auth.users row stays, so
+// both the window and the total count only profiles with deleted_at IS NULL.
 // Deterministic, non-overlapping 10-minute windows keyed to the cron's scheduled
 // time → no cursor to store; a skipped tick just skips that window's alert.
 async function runSignupMonitor(env, now) {
@@ -114,11 +116,12 @@ async function runSignupMonitor(env, now) {
     const rows = await sql`
       SELECT u.created_at, p.username, u.raw_app_meta_data->>'provider' AS provider,
              count(*) OVER () AS window_count,
-             (SELECT count(*) FROM auth.users) AS total
+             (SELECT count(*) FROM public.profile WHERE deleted_at IS NULL) AS total
       FROM auth.users u
       LEFT JOIN public.profile p ON p.id = u.id
       WHERE u.created_at >= ${since.toISOString()}::timestamptz
         AND u.created_at <  ${until.toISOString()}::timestamptz
+        AND p.deleted_at IS NULL
       ORDER BY u.created_at
       LIMIT 10`;
     if (rows.length) await sendAlert(env, buildSignupText(rows));
