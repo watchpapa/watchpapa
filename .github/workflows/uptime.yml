@@ -1,8 +1,11 @@
 name: Uptime check
 
-# Pings the public site and API; posts to Discord if either is down. Runs outside
+# Pings the Worker (workers.dev) and Pages (pages.dev) origins directly; posts to Discord if either is down. Runs outside
 # Cloudflare on purpose — in-Worker alerts (worker/src/monitors.js) can't fire when
 # the Worker itself is out of quota or broken.
+# Why not api.watchpapa.tv / watchpapa.tv: Cloudflare Bot Fight Mode (zone setting, can't be
+# skipped on Free) managed-challenges GitHub's datacenter IPs → a permanent false "down".
+# So this proves the Worker and Pages deployments are up, not the custom-domain routing/DNS.
 # Repo secret: DISCORD_WEBHOOK_URL (same Discord/Slack webhook as the Worker's ALERT_WEBHOOK_URL)
 # NB: GitHub's scheduler is best-effort (often 5-15 min late). The repo is public, so Actions minutes are free.
 
@@ -24,7 +27,7 @@ jobs:
           WEBHOOK: ${{ secrets.DISCORD_WEBHOOK_URL }}
         run: |
           failed=""
-          for url in https://api.watchpapa.tv/health https://watchpapa.tv/; do
+          for url in https://watchpapa-api.dursky-k.workers.dev/health https://watchpapa.pages.dev/; do
             code="$(curl -s -o /dev/null -m 20 -w '%{http_code}' --retry 2 --retry-delay 5 "$url" || true)"
             [ "$code" = "200" ] || failed="${failed}${url} → ${code}\n"
           done
