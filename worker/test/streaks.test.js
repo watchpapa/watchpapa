@@ -27,3 +27,14 @@ describe("computeStreaks with no logs", () => {
     expect(result).toEqual({ current: 0, longest: 0, lastWatchedOn: null });
   });
 });
+
+describe("computeStreaks with a single log", () => {
+  it("counts one log today as a streak of one", () => {
+    // given
+    const dates = [today];
+    // when
+    const result = computeStreaks(dates, today);
+    // then
+    expect(result).toEqual({ current: 1, longest: 1, lastWatchedOn: today });
+  });
+});
