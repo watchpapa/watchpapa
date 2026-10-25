@@ -58,3 +58,32 @@ describe("computeStreaks with consecutive days ending today", () => {
     expect(result).toEqual({ current: 3, longest: 3, lastWatchedOn: today });
   });
 });
+
+describe("computeStreaks with gaps and the end-of-today grace period", () => {
+  it("starts a new streak of one after a gap", () => {
+    // given: a log today and one three days ago
+    const dates = [daysAgo(3), today];
+    // when
+    const result = computeStreaks(dates, today);
+    // then
+    expect(result).toEqual({ current: 1, longest: 1, lastWatchedOn: today });
+  });
+
+  it("keeps the streak alive when the last log was yesterday", () => {
+    // given: nothing logged yet today, the day is not over
+    const dates = [daysAgo(2), daysAgo(1)];
+    // when
+    const result = computeStreaks(dates, today);
+    // then
+    expect(result).toEqual({ current: 2, longest: 2, lastWatchedOn: daysAgo(1) });
+  });
+
+  it("breaks the current streak when the last log was two days ago", () => {
+    // given: a run that ended before yesterday
+    const dates = [daysAgo(3), daysAgo(2)];
+    // when
+    const result = computeStreaks(dates, today);
+    // then
+    expect(result).toEqual({ current: 0, longest: 2, lastWatchedOn: daysAgo(2) });
+  });
+});
