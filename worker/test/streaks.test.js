@@ -223,3 +223,43 @@ describe("computeStreaks invalid input", () => {
     },
   );
 });
+
+describe("computeStreaks invariants", () => {
+  const fixtures = [
+    [],
+    [today],
+    [daysAgo(1), today],
+    [daysAgo(9), daysAgo(8), daysAgo(1), today],
+    [daysAgo(20), daysAgo(19), daysAgo(18), daysAgo(3)],
+  ];
+
+  it.each(fixtures)("gives the same result for reversed input %o", (...dates) => {
+    // given: the same logs in the opposite order
+    const reversed = [...dates].reverse();
+    // when / then
+    expect(computeStreaks(reversed, today)).toEqual(computeStreaks(dates, today));
+  });
+
+  it.each(fixtures)("is unchanged by a duplicated log in %o", (...dates) => {
+    // given: one extra copy of every day
+    const doubled = [...dates, ...dates];
+    // when / then
+    expect(computeStreaks(doubled, today)).toEqual(computeStreaks(dates, today));
+  });
+
+  it.each(fixtures)("never reports a current streak above the longest in %o", (...dates) => {
+    // when
+    const { current, longest } = computeStreaks(dates, today);
+    // then
+    expect(longest).toBeGreaterThanOrEqual(current);
+  });
+
+  it("handles several thousand days of logs", () => {
+    // given: 5000 consecutive days ending today
+    const dates = Array.from({ length: 5000 }, (_, days) => daysAgo(days));
+    // when
+    const result = computeStreaks(dates, today);
+    // then
+    expect(result).toEqual({ current: 5000, longest: 5000, lastWatchedOn: today });
+  });
+});
