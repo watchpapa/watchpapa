@@ -185,3 +185,41 @@ describe("computeStreaks lastWatchedOn", () => {
     expect(result.lastWatchedOn).toBe(daysAgo(2));
   });
 });
+
+describe("computeStreaks invalid input", () => {
+  it.each([
+    [["2026-10-24", "not-a-date"]],
+    [["2026-02-30"]],
+    [[null]],
+    [[20261025]],
+  ])("throws a RangeError for the invalid log list %o", (dates) => {
+    // given: a list containing something isValidDateStr rejects
+    // when
+    const call = () => computeStreaks(dates, today);
+    // then
+    expect(call).toThrow(RangeError);
+  });
+
+  it.each([[null], [undefined], ["2026-10-24"], [{}]])(
+    "throws a RangeError when dates is %o instead of an array",
+    (dates) => {
+      // given: a value that is not an array
+      // when
+      const call = () => computeStreaks(dates, today);
+      // then
+      expect(call).toThrow(RangeError);
+    },
+  );
+
+  it.each([["not-a-date"], ["2026-02-30"], [""], [null], [undefined]])(
+    "throws a RangeError when today is %o",
+    (invalidToday) => {
+      // given: a valid log list but a today that is not a real date
+      const dates = ["2026-10-24"];
+      // when
+      const call = () => computeStreaks(dates, invalidToday);
+      // then
+      expect(call).toThrow(RangeError);
+    },
+  );
+});
