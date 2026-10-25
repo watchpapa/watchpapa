@@ -139,3 +139,49 @@ describe("computeStreaks with messy input", () => {
     expect(result).toEqual({ current: 0, longest: 0, lastWatchedOn: null });
   });
 });
+
+describe("computeStreaks across calendar boundaries", () => {
+  it("treats the last day of a year and the first of the next as consecutive", () => {
+    // given
+    const dates = ["2026-12-31", "2027-01-01"];
+    // when
+    const result = computeStreaks(dates, "2027-01-01");
+    // then
+    expect(result).toEqual({ current: 2, longest: 2, lastWatchedOn: "2027-01-01" });
+  });
+
+  it("treats February 29 as a day between February 28 and March 1", () => {
+    // given
+    const dates = ["2028-02-28", "2028-02-29", "2028-03-01"];
+    // when
+    const result = computeStreaks(dates, "2028-03-01");
+    // then
+    expect(result).toEqual({ current: 3, longest: 3, lastWatchedOn: "2028-03-01" });
+  });
+});
+
+describe("computeStreaks depends on the user's today", () => {
+  it.each([
+    ["2026-10-25", 2],
+    ["2026-10-26", 2],
+    ["2026-10-27", 0],
+  ])("with today %s the current streak is %i", (userToday, expectedCurrent) => {
+    // given: the same two logs, seen from users whose local day differs
+    const dates = ["2026-10-24", "2026-10-25"];
+    // when
+    const result = computeStreaks(dates, userToday);
+    // then
+    expect(result.current).toBe(expectedCurrent);
+  });
+});
+
+describe("computeStreaks lastWatchedOn", () => {
+  it("is the latest day that is not in the future", () => {
+    // given
+    const dates = [daysAgo(5), daysAgo(2), addDays(today, 3)];
+    // when
+    const result = computeStreaks(dates, today);
+    // then
+    expect(result.lastWatchedOn).toBe(daysAgo(2));
+  });
+});
