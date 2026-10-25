@@ -101,3 +101,41 @@ describe("computeStreaks longest streak", () => {
     expect(result).toEqual({ current: 2, longest: 5, lastWatchedOn: today });
   });
 });
+
+describe("computeStreaks with messy input", () => {
+  it("counts several logs on the same day once", () => {
+    // given
+    const dates = [today, today, today];
+    // when
+    const result = computeStreaks(dates, today);
+    // then
+    expect(result).toEqual({ current: 1, longest: 1, lastWatchedOn: today });
+  });
+
+  it("gives the same result for unsorted input", () => {
+    // given: the three consecutive days in scrambled order
+    const dates = [today, daysAgo(2), daysAgo(1)];
+    // when
+    const result = computeStreaks(dates, today);
+    // then
+    expect(result).toEqual({ current: 3, longest: 3, lastWatchedOn: today });
+  });
+
+  it("ignores logs dated after today", () => {
+    // given: two real days plus two days in the future
+    const dates = [daysAgo(1), today, addDays(today, 1), addDays(today, 2)];
+    // when
+    const result = computeStreaks(dates, today);
+    // then
+    expect(result).toEqual({ current: 2, longest: 2, lastWatchedOn: today });
+  });
+
+  it("returns no streaks when every log is in the future", () => {
+    // given
+    const dates = [addDays(today, 1)];
+    // when
+    const result = computeStreaks(dates, today);
+    // then
+    expect(result).toEqual({ current: 0, longest: 0, lastWatchedOn: null });
+  });
+});
