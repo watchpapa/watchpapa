@@ -1,6 +1,13 @@
-import { daysBetween } from "../time/dates.js";
+import { daysBetween, isValidDateStr } from "../time/dates.js";
 
 export function computeStreaks(dates, today) {
+  if (!Array.isArray(dates) || !dates.every(isValidDateStr)) {
+    throw new RangeError("dates must be an array of YYYY-MM-DD strings");
+  }
+  if (!isValidDateStr(today)) {
+    throw new RangeError("today must be a YYYY-MM-DD string");
+  }
+
   const streakDays = [...new Set(dates)].filter((date) => date <= today).sort();
 
   if (streakDays.length === 0) {
