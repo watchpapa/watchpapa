@@ -87,3 +87,17 @@ describe("computeStreaks with gaps and the end-of-today grace period", () => {
     expect(result).toEqual({ current: 0, longest: 2, lastWatchedOn: daysAgo(2) });
   });
 });
+
+describe("computeStreaks longest streak", () => {
+  it("keeps an older, longer run as the longest streak", () => {
+    // given: a run of five, a gap, then a run of two ending today
+    const dates = [
+      daysAgo(9), daysAgo(8), daysAgo(7), daysAgo(6), daysAgo(5),
+      daysAgo(1), today,
+    ];
+    // when
+    const result = computeStreaks(dates, today);
+    // then
+    expect(result).toEqual({ current: 2, longest: 5, lastWatchedOn: today });
+  });
+});
