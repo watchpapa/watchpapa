@@ -14,5 +14,8 @@ export function computeStreaks(dates, today) {
     runLength++;
   }
 
-  return { current: runLength, longest: runLength, lastWatchedOn };
+  const isStillAlive = daysBetween(lastWatchedOn, today) <= 1;
+  const current = isStillAlive ? runLength : 0;
+
+  return { current, longest: runLength, lastWatchedOn };
 }
