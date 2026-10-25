@@ -5,17 +5,20 @@ export function computeStreaks(dates, today) {
     return { current: 0, longest: 0, lastWatchedOn: null };
   }
 
-  const lastWatchedOn = dates[dates.length - 1];
+  let longest = 1;
   let runLength = 1;
-  for (let i = dates.length - 1; i > 0; i--) {
-    if (daysBetween(dates[i - 1], dates[i]) !== 1) {
-      break;
+  for (let i = 1; i < dates.length; i++) {
+    if (daysBetween(dates[i - 1], dates[i]) === 1) {
+      runLength++;
+    } else {
+      runLength = 1;
     }
-    runLength++;
+    longest = Math.max(longest, runLength);
   }
 
+  const lastWatchedOn = dates[dates.length - 1];
   const isStillAlive = daysBetween(lastWatchedOn, today) <= 1;
   const current = isStillAlive ? runLength : 0;
 
-  return { current, longest: runLength, lastWatchedOn };
+  return { current, longest, lastWatchedOn };
 }
