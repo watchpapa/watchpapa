@@ -242,8 +242,10 @@ function GridView({ days, calendarEntries, isLoading }) {
 
       {isLoading ? (
         <div className="grid grid-cols-7 gap-1">
-          {Array.from({ length: 35 }).map((_, i) => (
-            <div key={i} className="min-h-[90px] animate-pulse rounded-xl bg-[#1e2240] md:min-h-[100px] md:rounded-2xl" />
+          {days.map((date, i) => (
+            date
+              ? <div key={i} className="min-h-[90px] animate-pulse rounded-xl bg-[#1e2240] md:min-h-[100px] md:rounded-2xl" aria-hidden />
+              : <div key={i} aria-hidden />
           ))}
         </div>
       ) : (

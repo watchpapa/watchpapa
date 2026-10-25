@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useParams } from "react-router-dom";
 import AppLayout from "../../layouts/AppLayout.jsx";
 import { PageHead } from "../../components/ui/PageHead.jsx";
+import { Skeleton, SkeletonRatingCard } from "../../components/ui/Skeleton.jsx";
 import { useProfileData } from "../../features/profile/hooks/useProfileData.js";
 import { useProfileRatings } from "../../features/profile/hooks/useProfileRatings.js";
 import { ProfileRatingCard } from "../../components/profile/ProfileRatingCard.jsx";
@@ -20,9 +21,15 @@ function ProfileRatingsPage({ session }) {
   if (loading) {
     return (
       <AppLayout session={session} breadcrumbs={breadcrumbs}>
-        <div className="mx-auto max-w-3xl animate-pulse space-y-4 pt-6">
-          <div className="h-16 rounded-2xl bg-[#1a1f3a]" />
-          <div className="h-32 rounded-2xl bg-[#1a1f3a]" />
+        <div className="mx-auto max-w-3xl space-y-6 px-4 py-6 sm:px-0" aria-busy="true">
+          <div className="space-y-2">
+            <Skeleton className="h-7 w-44" />
+            <Skeleton className="h-4 w-20" />
+          </div>
+          <Skeleton className="h-10 w-64 rounded-lg" />
+          <div className="grid grid-cols-4 gap-2 sm:grid-cols-5 md:grid-cols-6">
+            {Array.from({ length: 12 }).map((_, i) => <SkeletonRatingCard key={i} />)}
+          </div>
         </div>
       </AppLayout>
     );
@@ -93,6 +100,12 @@ function ProfileRatingsPage({ session }) {
             {/* Ratings grid */}
             {ratings.length === 0 && !ratingsLoading && (
               <p className="text-sm text-[#4a4a7a]">No ratings yet.</p>
+            )}
+
+            {ratings.length === 0 && ratingsLoading && (
+              <div className="grid grid-cols-4 gap-2 sm:grid-cols-5 md:grid-cols-6">
+                {Array.from({ length: 12 }).map((_, i) => <SkeletonRatingCard key={i} />)}
+              </div>
             )}
 
             {ratings.length > 0 && (

@@ -10,7 +10,7 @@ import PageHeader from "../../components/ui/PageHeader.jsx";
 import Button from "../../components/ui/Button.jsx";
 import EmptyState from "../../components/ui/EmptyState.jsx";
 import ErrorNote from "../../components/ui/ErrorNote.jsx";
-import { Skeleton } from "../../components/ui/Skeleton.jsx";
+import { Skeleton, SkeletonLines } from "../../components/ui/Skeleton.jsx";
 import { PlusIcon } from "../../components/icons/index.jsx";
 
 function formatDate(iso) {
@@ -230,7 +230,15 @@ function UpdatesPage({ session }) {
       <PageContainer width="reading">
         <PageHeader title="Updates" subtitle="News and new features from watchpapa." actions={canPost && <Button size="sm" icon={PlusIcon} onClick={openCreate}>New post</Button>} />
 
-        {isLoading && <div className="space-y-5"><Skeleton className="h-48 rounded-2xl" /><Skeleton className="h-48 rounded-2xl" /></div>}
+        {isLoading && <div className="space-y-5">
+          {[1, 2].map((i) => (
+            <div key={i} className="space-y-3 rounded-2xl border border-[#1e2240] bg-[#0e1028] p-5 sm:p-6" aria-hidden>
+              <Skeleton className="h-3 w-40" />
+              <Skeleton className="h-6 w-2/3" />
+              <SkeletonLines lines={4} />
+            </div>
+          ))}
+        </div>}
         {error && <ErrorNote>{error}</ErrorNote>}
         {!isLoading && !error && announcements.length === 0 && <EmptyState title="No updates yet" description="Check back soon." />}
 

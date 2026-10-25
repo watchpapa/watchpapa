@@ -41,8 +41,10 @@ function EditProfilePage({ session }) {
 
         {!loaded ? (
           <>
-            <Skeleton className="h-44 rounded-2xl" />
-            <Skeleton className="h-40 rounded-2xl" />
+            <Skeleton className="h-64 rounded-2xl" />
+            <Skeleton className="h-80 rounded-2xl" />
+            <Skeleton className="h-48 rounded-2xl" />
+            <Skeleton className="h-56 rounded-2xl" />
           </>
         ) : (
           <>

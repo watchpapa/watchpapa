@@ -59,7 +59,7 @@ function NotificationsPage({ session }) {
       <PageHead title="Notifications" path="/notifications" noindex />
       <PageContainer width="narrow" className="space-y-4">
         <PageHeader title="Notifications" actions={items.length > 0 && <Button variant="ghost" size="sm" icon={TrashIcon} onClick={handleClearAll} loading={clearing}>Clear all</Button>} />
-        {loading && items.length === 0 && <div className="space-y-2"><Skeleton className="h-16 rounded-xl" /><Skeleton className="h-16 rounded-xl" /></div>}
+        {loading && items.length === 0 && <div className="space-y-2">{[1, 2, 3, 4, 5].map((i) => <Skeleton key={i} className="h-16 rounded-xl" />)}</div>}
         {!loading && items.length === 0 && <EmptyState icon={BellIcon} title="No notifications yet" description="Observe requests, accepted requests and mentions show up here." className="rounded-2xl border border-border/50 bg-surface" />}
         {items.length > 0 && <div className="space-y-2">{items.map((n) => <NotificationRow key={n.id} n={n} />)}</div>}
         {items.length > 0 && <LoadMoreButton onClick={loadMore} loading={loading} hasMore={hasMore} />}

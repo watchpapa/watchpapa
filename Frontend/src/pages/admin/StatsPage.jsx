@@ -42,7 +42,10 @@ function StatsPage() {
       <PageHeader size="sm" title="Overview" subtitle="User distribution across subscription tiers" actions={<Button variant="secondary" size="sm" icon={RefreshIcon} onClick={refresh} loading={loading}>Refresh</Button>} />
       {error && <ErrorNote className="mb-4" onRetry={refresh}>{error}</ErrorNote>}
       {loading && !stats ? (
-        <StatGrid>{[0, 1, 2, 3].map((i) => <Skeleton key={i} className="h-20 rounded-xl" />)}</StatGrid>
+        <div className="space-y-4">
+          <StatGrid>{[0, 1, 2, 3].map((i) => <Skeleton key={i} className="h-20 rounded-xl" />)}</StatGrid>
+          <Skeleton className="h-72 rounded-2xl" />
+        </div>
       ) : stats ? (
         <div className="space-y-4">
           <StatGrid>

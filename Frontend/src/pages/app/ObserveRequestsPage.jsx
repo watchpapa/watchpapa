@@ -40,7 +40,7 @@ function ObserveRequestsPage({ session }) {
       <PageContainer width="narrow" className="space-y-4">
         <PageHeader title="Observe Requests" subtitle="People asking to observe your private account." />
         {loading ? (
-          <div className="space-y-2"><Skeleton className="h-16 rounded-xl" /><Skeleton className="h-16 rounded-xl" /></div>
+          <div className="space-y-2">{[1, 2, 3].map((i) => <Skeleton key={i} className="h-[110px] rounded-xl sm:h-[66px]" />)}</div>
         ) : requests.length === 0 ? (
           <EmptyState icon={UserPlusIcon} title="No pending requests" className="rounded-2xl border border-border/50 bg-surface" />
         ) : (

@@ -47,10 +47,12 @@ function PersonCard({ person, rank }) {
 
 function SkeletonCards({ count = 12 }) {
   return Array.from({ length: count }).map((_, i) => (
-    <div key={i} className="rounded-2xl border border-border/50 bg-surface/70 p-2 sm:p-3" aria-hidden>
+    <div key={i} className="flex flex-col gap-2 rounded-2xl border border-border/50 bg-surface/70 p-2 sm:p-3" aria-hidden>
       <Skeleton className="aspect-[3/4] rounded-xl" />
-      <Skeleton className="mt-2 h-3.5 w-3/4" />
-      <Skeleton className="mt-1.5 h-3 w-1/2" />
+      <div className="space-y-1.5 px-0.5">
+        <Skeleton className="h-3.5 w-3/4" />
+        <Skeleton className="h-3 w-1/2" />
+      </div>
     </div>
   ));
 }

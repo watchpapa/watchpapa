@@ -19,7 +19,7 @@ function ObserveListPage({ session, kind }) {
   const breadcrumbs = [{ label: username, to: `/u/${username}` }, { label: heading }];
 
   if (loading) {
-    return <AppLayout session={session} breadcrumbs={breadcrumbs}><PageContainer width="narrow" className="space-y-3"><Skeleton className="h-8 w-40" /><Skeleton className="h-14 rounded-xl" /><Skeleton className="h-14 rounded-xl" /></PageContainer></AppLayout>;
+    return <AppLayout session={session} breadcrumbs={breadcrumbs}><PageContainer width="narrow" className="space-y-4"><div className="space-y-2"><Skeleton className="h-7 w-40" /><Skeleton className="h-4 w-28" /></div><div className="space-y-2">{[1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-[62px] rounded-xl" />)}</div></PageContainer></AppLayout>;
   }
   if (notFound || !profile) {
     return <AppLayout session={session}><EmptyState icon={UserIcon} title="Profile not found" description={`@${username} doesn't exist.`} /></AppLayout>;
@@ -33,7 +33,7 @@ function ObserveListPage({ session, kind }) {
         {!canViewRatings ? (
           <EmptyState icon={LockIcon} title="This account is private" className="rounded-2xl border border-border/50 bg-surface" />
         ) : listLoading ? (
-          <div className="space-y-2"><Skeleton className="h-14 rounded-xl" /><Skeleton className="h-14 rounded-xl" /></div>
+          <div className="space-y-2">{[1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-[62px] rounded-xl" />)}</div>
         ) : list.length === 0 ? (
           <EmptyState compact icon={UsersIcon} title={kind === "observers" ? "No observers yet." : "Not observing anyone yet."} />
         ) : (
