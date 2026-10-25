@@ -38,3 +38,23 @@ describe("computeStreaks with a single log", () => {
     expect(result).toEqual({ current: 1, longest: 1, lastWatchedOn: today });
   });
 });
+
+describe("computeStreaks with consecutive days ending today", () => {
+  it("counts two consecutive days", () => {
+    // given
+    const dates = [daysAgo(1), today];
+    // when
+    const result = computeStreaks(dates, today);
+    // then
+    expect(result).toEqual({ current: 2, longest: 2, lastWatchedOn: today });
+  });
+
+  it("counts three consecutive days", () => {
+    // given
+    const dates = [daysAgo(2), daysAgo(1), today];
+    // when
+    const result = computeStreaks(dates, today);
+    // then
+    expect(result).toEqual({ current: 3, longest: 3, lastWatchedOn: today });
+  });
+});
