@@ -1,0 +1,14 @@
+# Prettier is enforced only on the code written under the new workflow
+# (src/time, src/insights, src/calendar and their tests).
+# The older worker code uses a different style; reformatting those 43 files
+# would bury the git history in noise, so it stays out until a separate decision.
+src/*.js
+src/routes
+src/tmdb
+src/lib
+src/import
+test/*.test.js
+!test/dates.test.js
+!test/streaks.test.js
+!test/ics.test.js
+coverage
