@@ -1,5 +1,12 @@
 import { describe, it, expect } from "vitest";
-import { escapeText, formatDate, formatTimestampUtc, foldLine, serializeEvent, serializeCalendar } from "../src/calendar/ics.js";
+import {
+  escapeText,
+  formatDate,
+  formatTimestampUtc,
+  foldLine,
+  serializeEvent,
+  serializeCalendar,
+} from "../src/calendar/ics.js";
 
 // Contract for the ICS serializer (RFC 5545) — decided 2026-10-25:
 // - every line ends with CRLF
@@ -130,16 +137,18 @@ describe("formatTimestampUtc", () => {
     expect(result).toBe("20261025T123456Z");
   });
 
-  it.each([[new Date("garbage")], [null], ["2026-10-25T12:34:56Z"], [1761395696000]])(
-    "throws a RangeError when now is %o",
-    (now) => {
-      // given: not a valid Date object
-      // when
-      const call = () => formatTimestampUtc(now);
-      // then
-      expect(call).toThrow(RangeError);
-    },
-  );
+  it.each([
+    [new Date("garbage")],
+    [null],
+    ["2026-10-25T12:34:56Z"],
+    [1761395696000],
+  ])("throws a RangeError when now is %o", (now) => {
+    // given: not a valid Date object
+    // when
+    const call = () => formatTimestampUtc(now);
+    // then
+    expect(call).toThrow(RangeError);
+  });
 });
 
 describe("foldLine with lines that fit", () => {
@@ -187,7 +196,9 @@ describe("foldLine with long ASCII lines", () => {
     // when
     const result = foldLine(line);
     // then
-    expect(result).toBe("a".repeat(75) + "\r\n " + "a".repeat(74) + "\r\n " + "a");
+    expect(result).toBe(
+      "a".repeat(75) + "\r\n " + "a".repeat(74) + "\r\n " + "a",
+    );
   });
 
   it("keeps every physical line within 75 octets", () => {
@@ -426,7 +437,11 @@ describe("serializeCalendar output quality", () => {
   const events = [
     episode,
     movie,
-    { uid: "movie-1@watchpapa", summary: "Zażółć, gęślą; jaźń 😀\n".repeat(8), date: "2026-12-24" },
+    {
+      uid: "movie-1@watchpapa",
+      summary: "Zażółć, gęślą; jaźń 😀\n".repeat(8),
+      date: "2026-12-24",
+    },
   ];
 
   it("uses CRLF for every line break and never a bare newline", () => {
@@ -459,7 +474,9 @@ describe("serializeCalendar output quality", () => {
   it("can be read back by an independent parser", () => {
     // given: a small reader written for this test, separate from the code under test
     const unescape = (value) =>
-      value.replace(/\\([\\;,nN])/g, (_m, c) => (c === "n" || c === "N" ? "\n" : c));
+      value.replace(/\\([\\;,nN])/g, (_m, c) =>
+        c === "n" || c === "N" ? "\n" : c,
+      );
     const readSummaries = (text) =>
       unfold(text)
         .split("\r\n")

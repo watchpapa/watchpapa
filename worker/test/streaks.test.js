@@ -72,7 +72,11 @@ describe("computeStreaks with gaps and the end-of-today grace period", () => {
     // when
     const result = computeStreaks(dates, today);
     // then
-    expect(result).toEqual({ current: 2, longest: 2, lastWatchedOn: daysAgo(1) });
+    expect(result).toEqual({
+      current: 2,
+      longest: 2,
+      lastWatchedOn: daysAgo(1),
+    });
   });
 
   it("breaks the current streak when the last log was two days ago", () => {
@@ -81,7 +85,11 @@ describe("computeStreaks with gaps and the end-of-today grace period", () => {
     // when
     const result = computeStreaks(dates, today);
     // then
-    expect(result).toEqual({ current: 0, longest: 2, lastWatchedOn: daysAgo(2) });
+    expect(result).toEqual({
+      current: 0,
+      longest: 2,
+      lastWatchedOn: daysAgo(2),
+    });
   });
 });
 
@@ -89,8 +97,13 @@ describe("computeStreaks longest streak", () => {
   it("keeps an older, longer run as the longest streak", () => {
     // given: a run of five, a gap, then a run of two ending today
     const dates = [
-      daysAgo(9), daysAgo(8), daysAgo(7), daysAgo(6), daysAgo(5),
-      daysAgo(1), today,
+      daysAgo(9),
+      daysAgo(8),
+      daysAgo(7),
+      daysAgo(6),
+      daysAgo(5),
+      daysAgo(1),
+      today,
     ];
     // when
     const result = computeStreaks(dates, today);
@@ -144,7 +157,11 @@ describe("computeStreaks across calendar boundaries", () => {
     // when
     const result = computeStreaks(dates, "2027-01-01");
     // then
-    expect(result).toEqual({ current: 2, longest: 2, lastWatchedOn: "2027-01-01" });
+    expect(result).toEqual({
+      current: 2,
+      longest: 2,
+      lastWatchedOn: "2027-01-01",
+    });
   });
 
   it("treats February 29 as a day between February 28 and March 1", () => {
@@ -153,7 +170,11 @@ describe("computeStreaks across calendar boundaries", () => {
     // when
     const result = computeStreaks(dates, "2028-03-01");
     // then
-    expect(result).toEqual({ current: 3, longest: 3, lastWatchedOn: "2028-03-01" });
+    expect(result).toEqual({
+      current: 3,
+      longest: 3,
+      lastWatchedOn: "2028-03-01",
+    });
   });
 });
 
@@ -230,26 +251,36 @@ describe("computeStreaks invariants", () => {
     [daysAgo(20), daysAgo(19), daysAgo(18), daysAgo(3)],
   ];
 
-  it.each(fixtures)("gives the same result for reversed input %o", (...dates) => {
-    // given: the same logs in the opposite order
-    const reversed = [...dates].reverse();
-    // when / then
-    expect(computeStreaks(reversed, today)).toEqual(computeStreaks(dates, today));
-  });
+  it.each(fixtures)(
+    "gives the same result for reversed input %o",
+    (...dates) => {
+      // given: the same logs in the opposite order
+      const reversed = [...dates].reverse();
+      // when / then
+      expect(computeStreaks(reversed, today)).toEqual(
+        computeStreaks(dates, today),
+      );
+    },
+  );
 
   it.each(fixtures)("is unchanged by a duplicated log in %o", (...dates) => {
     // given: one extra copy of every day
     const doubled = [...dates, ...dates];
     // when / then
-    expect(computeStreaks(doubled, today)).toEqual(computeStreaks(dates, today));
+    expect(computeStreaks(doubled, today)).toEqual(
+      computeStreaks(dates, today),
+    );
   });
 
-  it.each(fixtures)("never reports a current streak above the longest in %o", (...dates) => {
-    // when
-    const { current, longest } = computeStreaks(dates, today);
-    // then
-    expect(longest).toBeGreaterThanOrEqual(current);
-  });
+  it.each(fixtures)(
+    "never reports a current streak above the longest in %o",
+    (...dates) => {
+      // when
+      const { current, longest } = computeStreaks(dates, today);
+      // then
+      expect(longest).toBeGreaterThanOrEqual(current);
+    },
+  );
 
   it("handles several thousand days of logs", () => {
     // given: 5000 consecutive days ending today
@@ -257,6 +288,10 @@ describe("computeStreaks invariants", () => {
     // when
     const result = computeStreaks(dates, today);
     // then
-    expect(result).toEqual({ current: 5000, longest: 5000, lastWatchedOn: today });
+    expect(result).toEqual({
+      current: 5000,
+      longest: 5000,
+      lastWatchedOn: today,
+    });
   });
 });

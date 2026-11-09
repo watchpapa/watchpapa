@@ -7,8 +7,6 @@ import {
   todayInZone,
 } from "../src/time/dates.js";
 
-
-
 // Contract for isValidDateStr(dateStr): decided 2026-10-18:
 // - exactly `YYYY-MM-DD`,
 // - zero-padded,
@@ -160,7 +158,6 @@ describe("isValidDateStr", () => {
     });
   });
 });
-
 
 // Contract for addDays(dateStr, daysToAdd) — decided 2026-10-18:
 // - returns a NEW date string `YYYY-MM-DD`; works on calendar dates only, so the result never depends on the machine's timezone or daylight saving
@@ -469,9 +466,7 @@ describe("daysBetween", () => {
     // then
     expect(call).toThrow(RangeError);
   });
-
 });
-
 
 // Contract for isValidTimeZone(name) — decided 2026-10-18:
 // - returns true only for a real IANA timezone name (e.g. "Europe/Berlin", "UTC")
@@ -653,16 +648,19 @@ describe("todayInZone", () => {
       },
     );
 
-    it.each([[null], [undefined], ["2026-10-17"], [1760702400000], [new Date("garbage")]])(
-      "throws a RangeError when now is %o",
-      (now) => {
-        // given: a valid timezone but a `now` that is not a valid Date
-        const timeZone = "UTC";
-        // when
-        const call = () => todayInZone(now, timeZone);
-        // then
-        expect(call).toThrow(RangeError);
-      },
-    );
+    it.each([
+      [null],
+      [undefined],
+      ["2026-10-17"],
+      [1760702400000],
+      [new Date("garbage")],
+    ])("throws a RangeError when now is %o", (now) => {
+      // given: a valid timezone but a `now` that is not a valid Date
+      const timeZone = "UTC";
+      // when
+      const call = () => todayInZone(now, timeZone);
+      // then
+      expect(call).toThrow(RangeError);
+    });
   });
 });

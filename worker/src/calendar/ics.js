@@ -27,7 +27,10 @@ export function formatTimestampUtc(now) {
   if (!(now instanceof Date) || Number.isNaN(now.getTime())) {
     throw new RangeError("now must be a valid Date");
   }
-  return now.toISOString().replace(/[-:]/g, "").replace(/\.\d{3}/, "");
+  return now
+    .toISOString()
+    .replace(/[-:]/g, "")
+    .replace(/\.\d{3}/, "");
 }
 
 const MAX_LINE_OCTETS = 75;
@@ -89,5 +92,7 @@ export function serializeCalendar(events, now) {
   ];
   const body = events.map((event) => serializeEvent(event, now)).join("");
 
-  return header.map(foldLine).join("\r\n") + "\r\n" + body + "END:VCALENDAR\r\n";
+  return (
+    header.map(foldLine).join("\r\n") + "\r\n" + body + "END:VCALENDAR\r\n"
+  );
 }
