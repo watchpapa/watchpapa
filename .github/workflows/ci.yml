@@ -1,0 +1,49 @@
+name: CI (worker tests)
+
+# Runs the worker's tests automatically on every push and pull request that
+# touches the worker, so nobody has to remember to run them.
+# The same suite runs in four timezones: the date code must give the same
+# result everywhere (see worker/test/dates.test.js).
+
+on:
+  push:
+    paths:
+      - "worker/**"
+      - ".github/workflows/ci.yml"
+  pull_request:
+    paths:
+      - "worker/**"
+      - ".github/workflows/ci.yml"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false # one failing timezone must not hide the results of the others
+      matrix:
+        timezone:
+          - UTC
+          - Europe/Berlin
+          - Pacific/Auckland
+          - America/Los_Angeles
+    env:
+      TZ: ${{ matrix.timezone }}
+    defaults:
+      run:
+        working-directory: worker
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: worker/package-lock.json
+
+      - run: npm ci
+
+      # Formatting does not depend on the timezone, so one copy of the job checks it.
+      - run: npm run format:check
+        if: matrix.timezone == 'UTC'
+
+      - run: npm test
