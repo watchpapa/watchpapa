@@ -1,3 +1,9 @@
+// Splits a `YYYY-MM-DD` string into [year, month, day] as numbers.
+// Only call it with a string that is known to match that shape.
+function parseDateStr(dateStr) {
+  return dateStr.split("-").map(Number);
+}
+
 export function isValidDateStr(dateStr) {
   // Check if the input is a string
   if (typeof dateStr !== "string") {
@@ -9,8 +15,7 @@ export function isValidDateStr(dateStr) {
     return false;
   }
 
-  // Split the date string into its components
-  const [year, month, day] = dateStr.split("-").map(Number);
+  const [year, month, day] = parseDateStr(dateStr);
 
   // Check if the month is valid (1-12)
   if (month < 1 || month > 12) {
@@ -35,7 +40,7 @@ export function addDays(dateStr, daysToAdd) {
     throw new RangeError("daysToAdd must be an integer");
   }
 
-  const [year, month, day] = dateStr.split("-").map(Number);
+  const [year, month, day] = parseDateStr(dateStr);
   const utcTime = Date.UTC(year, month - 1, day + daysToAdd);
 
   const resultDate = new Date(utcTime);
@@ -54,8 +59,8 @@ export function daysBetween(dateStr1, dateStr2) {
     throw new RangeError("Invalid date string");
   }
 
-  const [year1, month1, day1] = dateStr1.split("-").map(Number);
-  const [year2, month2, day2] = dateStr2.split("-").map(Number);
+  const [year1, month1, day1] = parseDateStr(dateStr1);
+  const [year2, month2, day2] = parseDateStr(dateStr2);
 
   const utcTime1 = Date.UTC(year1, month1 - 1, day1);
   const utcTime2 = Date.UTC(year2, month2 - 1, day2);
