@@ -47,7 +47,8 @@
   "lint-staged": {
     "*.js": [
       "eslint --no-warn-ignored",
-      "prettier --check --ignore-unknown"
+      "prettier --check --ignore-unknown",
+      "vitest related --run --passWithNoTests"
     ]
   }
 }

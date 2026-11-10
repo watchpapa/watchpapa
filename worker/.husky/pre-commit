@@ -1,3 +1,2 @@
 cd worker
 npx lint-staged
-npm test
