@@ -55,15 +55,9 @@ export function addDays(dateStr, daysToAdd) {
   const [year, month, day] = parseDateStr(dateStr);
   const utcTime = Date.UTC(year, month - 1, day + daysToAdd);
 
-  const resultDate = new Date(utcTime);
-  const resultYear = resultDate.getUTCFullYear();
-  const resultMonth = String(resultDate.getUTCMonth() + 1);
-  const resultDay = resultDate.getUTCDate();
-
-  const paddedMonth = resultMonth.padStart(2, "0");
-  const paddedDay = String(resultDay).padStart(2, "0");
-
-  return `${resultYear}-${paddedMonth}-${paddedDay}`;
+  // toISOString() gives "2026-11-05T00:00:00.000Z"; the first 10 characters are the date.
+  const dateStrLength = "YYYY-MM-DD".length;
+  return new Date(utcTime).toISOString().slice(0, dateStrLength);
 }
 
 export function daysBetween(dateStr1, dateStr2) {
