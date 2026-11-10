@@ -4,6 +4,19 @@ function parseDateStr(dateStr) {
   return dateStr.split("-").map(Number);
 }
 
+// Number of days in a month; `month` is 1-12.
+// Example: daysInMonth(2028, 2) returns 29.
+// How it works:
+// - the Date constructor counts months from 0 (0 = January, 11 = December)
+// - so passing `month` as it is (2 for February) makes JavaScript read it as the NEXT month (March)
+// - day 0 of a month is the day before its 1st, so it is the last day of the month before it
+// - that is the month we asked for: day 0 of March 2028 is 29 February 2028, so the answer is 29
+// - for December, 12 rolls over to January of the next year, and its day 0 is 31 December
+function daysInMonth(year, month) {
+  const dayBeforeTheFirst = 0;
+  return new Date(year, month, dayBeforeTheFirst).getDate();
+}
+
 export function isValidDateStr(dateStr) {
   // Check if the input is a string
   if (typeof dateStr !== "string") {
@@ -23,8 +36,7 @@ export function isValidDateStr(dateStr) {
   }
 
   // Check if the day is valid for the given month and year
-  const daysInMonth = new Date(year, month, 0).getDate();
-  if (day < 1 || day > daysInMonth) {
+  if (day < 1 || day > daysInMonth(year, month)) {
     return false;
   }
 
