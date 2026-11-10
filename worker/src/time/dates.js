@@ -78,7 +78,7 @@ export function isValidTimeZone(name) {
   try {
     Intl.DateTimeFormat(undefined, { timeZone: name });
     return true;
-  } catch (error) {
+  } catch {
     return false;
   }
 }
