@@ -38,6 +38,8 @@ export default [
         { ignore: [-1, 0, 1, 2], ignoreArrayIndexes: true },
       ],
       "no-shadow": "warn",
+      // Naming: camelCase, but ALL_CAPS constants (MAX_LINE_OCTETS) are allowed.
+      camelcase: "error",
       eqeqeq: "error",
       "prefer-const": "error",
       "no-var": "error",
