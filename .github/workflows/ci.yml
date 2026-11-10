@@ -42,8 +42,14 @@ jobs:
 
       - run: npm ci
 
-      # Formatting does not depend on the timezone, so one copy of the job checks it.
+      # Formatting, lint and duplication do not depend on the timezone, so one copy of the job checks them.
       - run: npm run format:check
+        if: matrix.timezone == 'UTC'
+
+      - run: npm run lint
+        if: matrix.timezone == 'UTC'
+
+      - run: npm run dup
         if: matrix.timezone == 'UTC'
 
       - run: npm test
