@@ -17,25 +17,23 @@ function daysInMonth(year, month) {
   return new Date(year, month, dayBeforeTheFirst).getDate();
 }
 
+// A valid date string is `YYYY-MM-DD`: a 4-digit year, a 2-digit month and a 2-digit day,
+// and the day must exist in the calendar (2026-02-28 yes, 2026-02-30 no).
 export function isValidDateStr(dateStr) {
-  // Check if the input is a string
   if (typeof dateStr !== "string") {
     return false;
   }
-  // Check if the input matches the YYYY-MM-DD format
-  const regex = /^\d{4}-\d{2}-\d{2}$/;
-  if (!regex.test(dateStr)) {
+  const dateFormat = /^\d{4}-\d{2}-\d{2}$/;
+  if (!dateFormat.test(dateStr)) {
     return false;
   }
 
   const [year, month, day] = parseDateStr(dateStr);
 
-  // Check if the month is valid (1-12)
   if (month < 1 || month > 12) {
     return false;
   }
 
-  // Check if the day is valid for the given month and year
   if (day < 1 || day > daysInMonth(year, month)) {
     return false;
   }
