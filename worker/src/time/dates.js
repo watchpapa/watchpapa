@@ -60,19 +60,19 @@ export function addDays(dateStr, daysToAdd) {
   return new Date(utcTime).toISOString().slice(0, dateStrLength);
 }
 
-export function daysBetween(dateStr1, dateStr2) {
-  if (!isValidDateStr(dateStr1) || !isValidDateStr(dateStr2)) {
+export function daysBetween(startDateStr, endDateStr) {
+  if (!isValidDateStr(startDateStr) || !isValidDateStr(endDateStr)) {
     throw new RangeError("Invalid date string");
   }
 
-  const [year1, month1, day1] = parseDateStr(dateStr1);
-  const [year2, month2, day2] = parseDateStr(dateStr2);
+  const [startYear, startMonth, startDay] = parseDateStr(startDateStr);
+  const [endYear, endMonth, endDay] = parseDateStr(endDateStr);
 
-  const utcTime1 = Date.UTC(year1, month1 - 1, day1);
-  const utcTime2 = Date.UTC(year2, month2 - 1, day2);
+  const startUtcTime = Date.UTC(startYear, startMonth - 1, startDay);
+  const endUtcTime = Date.UTC(endYear, endMonth - 1, endDay);
 
   const millisecondsPerDay = 24 * 60 * 60 * 1000;
-  const differenceInMilliseconds = utcTime2 - utcTime1;
+  const differenceInMilliseconds = endUtcTime - startUtcTime;
 
   return differenceInMilliseconds / millisecondsPerDay;
 }

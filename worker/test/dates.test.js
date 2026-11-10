@@ -362,8 +362,8 @@ describe("addDays", () => {
   });
 });
 
-// Contract for daysBetween(dateStr1, dateStr2) — decided 2026-10-18:
-// - returns an integer number of days between the two dates, positive if dateStr2 is later than dateStr1, negative if earlier, and zero if they are the same date
+// Contract for daysBetween(startDateStr, endDateStr) — decided 2026-10-18:
+// - returns an integer number of days between the two dates, positive if endDateStr is later than startDateStr, negative if earlier, and zero if they are the same date
 // - an invalid dateStr (per isValidDateStr) throws a RangeError — a transformation must not silently pass bad data along
 
 describe("daysBetween", () => {
