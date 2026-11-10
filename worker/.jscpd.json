@@ -1,0 +1,14 @@
+{
+  "path": [
+    "src/time",
+    "src/insights",
+    "src/calendar"
+  ],
+  "minLines": 3,
+  "minTokens": 20,
+  "threshold": 3,
+  "reporters": [
+    "console"
+  ],
+  "gitignore": true
+}
