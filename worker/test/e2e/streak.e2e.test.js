@@ -21,21 +21,17 @@
 
 import { after, before, describe, test } from "node:test";
 import assert from "node:assert/strict";
-import { spawn } from "node:child_process";
-import { dirname, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
-import { chromium } from "../../../Frontend/node_modules/playwright/index.mjs";
+import {
+  SUPABASE_URL,
+  appUrlFor,
+  startE2eEnvironment,
+} from "./helpers/environment.js";
 
-const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
-const FRONTEND = resolve(ROOT, "Frontend");
 const PORT = 5198;
-const APP = `http://127.0.0.1:${PORT}`;
-const SUPABASE = "https://e2e.supabase.test";
+const APP = appUrlFor(PORT);
 const STORAGE_KEY = "sb-e2e-auth-token"; // supabase-js: sb-<first host label>-auth-token
 
 // How long the test waits for things, in milliseconds.
-const SERVER_START_TIMEOUT_MS = 60_000;
-const SERVER_POLL_INTERVAL_MS = 250;
 const PROFILE_LOAD_TIMEOUT_MS = 15_000;
 const STREAK_TIMEOUT_MS = 3_000;
 const TOKEN_LIFETIME_SECONDS = 3600;
@@ -98,53 +94,14 @@ function replyWithJson(route, status, body) {
   });
 }
 
-let server;
-let browser;
-
-async function waitForServer(url, timeoutMs = SERVER_START_TIMEOUT_MS) {
-  const startedAt = Date.now();
-  while (Date.now() - startedAt < timeoutMs) {
-    try {
-      if ((await fetch(url)).ok) return;
-    } catch {
-      /* not up yet */
-    }
-    await new Promise((resolveDelay) =>
-      setTimeout(resolveDelay, SERVER_POLL_INTERVAL_MS),
-    );
-  }
-  throw new Error(`Vite dev server did not start on ${url}`);
-}
+let environment;
 
 before(async () => {
-  server = spawn(
-    process.execPath,
-    [
-      resolve(FRONTEND, "node_modules/vite/bin/vite.js"),
-      "--port",
-      String(PORT),
-      "--strictPort",
-      "--host",
-      "127.0.0.1",
-    ],
-    {
-      cwd: FRONTEND,
-      env: {
-        ...process.env,
-        VITE_SUPABASE_URL: SUPABASE,
-        VITE_SUPABASE_PUBLISHABLE_KEY: "e2e-publishable-key",
-        VITE_API_BASE_URL: "",
-      },
-      stdio: "ignore",
-    },
-  );
-  await waitForServer(APP);
-  browser = await chromium.launch();
+  environment = await startE2eEnvironment({ port: PORT });
 });
 
 after(async () => {
-  await browser?.close();
-  server?.kill("SIGTERM");
+  await environment?.stop();
 });
 
 // The browser starts already logged in as the made-up user.
@@ -194,11 +151,11 @@ function answerSupabase(route) {
 
 /** Fresh page, logged in as the made-up user, all network mocked. */
 async function newProfilePage() {
-  const context = await browser.newContext();
+  const context = await environment.browser.newContext();
   await loginAsFakeUser(context);
   const page = await context.newPage();
   await fakeWorkerApi(page);
-  await page.route(`${SUPABASE}/**`, answerSupabase);
+  await page.route(`${SUPABASE_URL}/**`, answerSupabase);
   return { page, context };
 }
 
