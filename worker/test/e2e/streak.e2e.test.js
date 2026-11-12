@@ -76,6 +76,21 @@ const PROFILE = {
   banner_crop: null,
 };
 
+// Replies to a faked request with a JSON body. The CORS headers let the browser accept
+// answers that come from another address (the faked Supabase).
+function replyWithJson(route, status, body) {
+  return route.fulfill({
+    status,
+    contentType: "application/json",
+    headers: {
+      "access-control-allow-origin": "*",
+      "access-control-allow-headers": "*",
+      "access-control-allow-methods": "*",
+    },
+    body: JSON.stringify(body),
+  });
+}
+
 let server;
 let browser;
 
@@ -144,40 +159,25 @@ async function newProfilePage() {
   const page = await context.newPage();
 
   // Routes registered later win, so the generic stub goes first and the specific ones after it.
-  await page.route(`${APP}/api/**`, (route) =>
-    route.fulfill({ status: 200, contentType: "application/json", body: "{}" }),
-  );
+  await page.route(`${APP}/api/**`, (route) => replyWithJson(route, 200, {}));
   await page.route(`${APP}/api/insights/streaks/*`, (route) =>
-    route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify(STREAKS),
-    }),
+    replyWithJson(route, 200, STREAKS),
   );
 
   await page.route(`${SUPABASE}/**`, async (route) => {
     const request = route.request();
     const { pathname } = new URL(request.url());
-    const json = (status, body) =>
-      route.fulfill({
-        status,
-        contentType: "application/json",
-        headers: {
-          "access-control-allow-origin": "*",
-          "access-control-allow-headers": "*",
-          "access-control-allow-methods": "*",
-        },
-        body: JSON.stringify(body),
-      });
-    if (request.method() === "OPTIONS") return json(204, {});
-    if (pathname.endsWith("/auth/v1/user")) return json(200, FAKE_USER);
+    if (request.method() === "OPTIONS") return replyWithJson(route, 204, {});
+    if (pathname.endsWith("/auth/v1/user"))
+      return replyWithJson(route, 200, FAKE_USER);
     if (pathname.includes("/auth/v1/token"))
-      return json(200, { ...FAKE_TOKENS, user: FAKE_USER });
-    if (pathname.endsWith("/rest/v1/profile")) return json(200, PROFILE); // .maybeSingle() expects one object
+      return replyWithJson(route, 200, { ...FAKE_TOKENS, user: FAKE_USER });
+    if (pathname.endsWith("/rest/v1/profile"))
+      return replyWithJson(route, 200, PROFILE); // .maybeSingle() expects one object
     if (pathname.endsWith("/rest/v1/rpc/get_effective_tier"))
-      return json(200, "free");
-    if (pathname.includes("/rest/v1/")) return json(200, []);
-    return json(200, {});
+      return replyWithJson(route, 200, "free");
+    if (pathname.includes("/rest/v1/")) return replyWithJson(route, 200, []);
+    return replyWithJson(route, 200, {});
   });
 
   return { page, context };
