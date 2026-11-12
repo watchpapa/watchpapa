@@ -61,15 +61,15 @@ const PROFILE = {
 let server;
 let browser;
 
-async function waitForServer(url, ms = 60_000) {
-  const t0 = Date.now();
-  while (Date.now() - t0 < ms) {
+async function waitForServer(url, timeoutMs = 60_000) {
+  const startedAt = Date.now();
+  while (Date.now() - startedAt < timeoutMs) {
     try {
       if ((await fetch(url)).ok) return;
     } catch {
       /* not up yet */
     }
-    await new Promise((r) => setTimeout(r, 250));
+    await new Promise((resolveDelay) => setTimeout(resolveDelay, 250));
   }
   throw new Error(`Vite dev server did not start on ${url}`);
 }
@@ -114,7 +114,7 @@ async function newProfilePage() {
   ]);
   await context.addInitScript(
     ({ key, userId }) => {
-      const exp = Math.floor(Date.now() / 1000) + 3600;
+      const oneHourFromNowInSeconds = Math.floor(Date.now() / 1000) + 3600;
       const user = {
         id: userId,
         aud: "authenticated",
@@ -131,7 +131,7 @@ async function newProfilePage() {
           refresh_token: "e2e-refresh",
           token_type: "bearer",
           expires_in: 3600,
-          expires_at: exp,
+          expires_at: oneHourFromNowInSeconds,
           user,
         }),
       );
@@ -141,11 +141,11 @@ async function newProfilePage() {
   const page = await context.newPage();
 
   // Routes registered later win, so the generic stub goes first and the specific ones after it.
-  await page.route(`${APP}/api/**`, (r) =>
-    r.fulfill({ status: 200, contentType: "application/json", body: "{}" }),
+  await page.route(`${APP}/api/**`, (route) =>
+    route.fulfill({ status: 200, contentType: "application/json", body: "{}" }),
   );
-  await page.route(`${APP}/api/insights/streaks/*`, (r) =>
-    r.fulfill({
+  await page.route(`${APP}/api/insights/streaks/*`, (route) =>
+    route.fulfill({
       status: 200,
       contentType: "application/json",
       body: JSON.stringify(STREAKS),
@@ -153,8 +153,8 @@ async function newProfilePage() {
   );
 
   await page.route(`${SUPABASE}/**`, async (route) => {
-    const req = route.request();
-    const { pathname } = new URL(req.url());
+    const request = route.request();
+    const { pathname } = new URL(request.url());
     const json = (status, body) =>
       route.fulfill({
         status,
@@ -166,7 +166,7 @@ async function newProfilePage() {
         },
         body: JSON.stringify(body),
       });
-    if (req.method() === "OPTIONS") return json(204, {});
+    if (request.method() === "OPTIONS") return json(204, {});
     const user = {
       id: USER_ID,
       aud: "authenticated",
