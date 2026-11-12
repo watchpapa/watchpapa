@@ -55,5 +55,11 @@ export default [
       complexity: "off",
     },
   },
+  {
+    // E2E tests fake Supabase replies, whose keys are snake_case by contract
+    // (access_token, created_at, ...). Variables must still be camelCase.
+    files: ["test/e2e/**/*.js"],
+    rules: { camelcase: ["error", { properties: "never" }] },
+  },
   prettier,
 ];
