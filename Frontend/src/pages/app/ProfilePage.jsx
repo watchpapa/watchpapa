@@ -14,6 +14,7 @@ import { useProfileRatings } from "../../features/profile/hooks/useProfileRating
 import { useProfileStats } from "../../features/profile/hooks/useProfileStats.js";
 import { useObserve } from "../../features/observe/hooks/useObserve.js";
 import { useObserveCounts } from "../../features/observe/hooks/useObserveCounts.js";
+import { useProfileStreak } from "../../features/profile/hooks/useProfileStreak.js";
 import { ProfileFavourites } from "../../components/profile/ProfileFavourites.jsx";
 import { ProfileStats } from "../../components/profile/ProfileStats.jsx";
 import { ProfileRatingCard } from "../../components/profile/ProfileRatingCard.jsx";
@@ -65,6 +66,7 @@ function ProfilePage({ session }) {
   const { ratings, loading: ratingsLoading } = useProfileRatings(canViewRatings ? profile?.id : null, { since: twoWeeksAgo });
   const { basic, genreStats, decadeStats, monthlyStats } = useProfileStats(canViewRatings ? profile?.id : null, tier);
   const { counts, reload: reloadCounts } = useObserveCounts(profile?.id);
+  const { streak } = useProfileStreak(profile?.id, session);
   const [shareOpen, setShareOpen] = useState(false);
 
   const breadcrumbs = [{ label: username }];
@@ -176,6 +178,12 @@ function ProfilePage({ session }) {
                 <Link to={`/u/${profile.username}/ratings`} className="text-text-muted transition hover:text-white">
                   <span className="font-bold text-white">{basic.total}</span> Ratings
                 </Link>
+              )}
+              {streak && (
+                <span className="text-text-muted">
+                  <span data-testid="streak-current" className="font-bold text-white">{streak.current}</span> Day streak{" "}
+                  <span data-testid="streak-longest" className="text-text-faint">(best {streak.longest})</span>
+                </span>
               )}
             </div>
           </div>
