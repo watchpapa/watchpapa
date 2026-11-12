@@ -47,6 +47,7 @@ describe("escapeText with special characters", () => {
     ["a comma", "a,b", "a\\,b"],
     ["a newline", "a\nb", "a\\nb"],
     ["a Windows newline", "a\r\nb", "a\\nb"],
+    ["a lone carriage return", "a\rb", "a\\nb"],
   ])("escapes %s", (_name, text, expected) => {
     // given: text containing one special character
     // when
