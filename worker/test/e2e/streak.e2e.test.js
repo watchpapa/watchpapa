@@ -44,6 +44,24 @@ const STREAKS = {
   timeZone: "Europe/Berlin",
 };
 
+// The made-up logged-in user and its tokens, used both for the session stored in the
+// browser and for the replies of the faked Supabase auth endpoints.
+const FAKE_USER = {
+  id: USER_ID,
+  aud: "authenticated",
+  role: "authenticated",
+  email: "e2e@example.com",
+  app_metadata: {},
+  user_metadata: {},
+  created_at: "2026-01-01T00:00:00Z",
+};
+const FAKE_TOKENS = {
+  access_token: "e2e.access.token",
+  refresh_token: "e2e-refresh",
+  token_type: "bearer",
+  expires_in: 3600,
+};
+
 const PROFILE = {
   id: USER_ID,
   username: USERNAME,
@@ -113,30 +131,15 @@ async function newProfilePage() {
     { name: "cookie_consent", value: "declined", url: APP },
   ]);
   await context.addInitScript(
-    ({ key, userId }) => {
-      const oneHourFromNowInSeconds = Math.floor(Date.now() / 1000) + 3600;
-      const user = {
-        id: userId,
-        aud: "authenticated",
-        role: "authenticated",
-        email: "e2e@example.com",
-        app_metadata: {},
-        user_metadata: {},
-        created_at: new Date().toISOString(),
-      };
+    ({ key, user, tokens }) => {
+      const expiresAtInSeconds =
+        Math.floor(Date.now() / 1000) + tokens.expires_in;
       sessionStorage.setItem(
         key,
-        JSON.stringify({
-          access_token: "e2e.access.token",
-          refresh_token: "e2e-refresh",
-          token_type: "bearer",
-          expires_in: 3600,
-          expires_at: oneHourFromNowInSeconds,
-          user,
-        }),
+        JSON.stringify({ ...tokens, expires_at: expiresAtInSeconds, user }),
       );
     },
-    { key: STORAGE_KEY, userId: USER_ID },
+    { key: STORAGE_KEY, user: FAKE_USER, tokens: FAKE_TOKENS },
   );
   const page = await context.newPage();
 
@@ -167,24 +170,9 @@ async function newProfilePage() {
         body: JSON.stringify(body),
       });
     if (request.method() === "OPTIONS") return json(204, {});
-    const user = {
-      id: USER_ID,
-      aud: "authenticated",
-      role: "authenticated",
-      email: "e2e@example.com",
-      app_metadata: {},
-      user_metadata: {},
-      created_at: new Date().toISOString(),
-    };
-    if (pathname.endsWith("/auth/v1/user")) return json(200, user);
+    if (pathname.endsWith("/auth/v1/user")) return json(200, FAKE_USER);
     if (pathname.includes("/auth/v1/token"))
-      return json(200, {
-        access_token: "e2e.access.token",
-        refresh_token: "e2e-refresh",
-        token_type: "bearer",
-        expires_in: 3600,
-        user,
-      });
+      return json(200, { ...FAKE_TOKENS, user: FAKE_USER });
     if (pathname.endsWith("/rest/v1/profile")) return json(200, PROFILE); // .maybeSingle() expects one object
     if (pathname.endsWith("/rest/v1/rpc/get_effective_tier"))
       return json(200, "free");
