@@ -33,6 +33,13 @@ const APP = `http://127.0.0.1:${PORT}`;
 const SUPABASE = "https://e2e.supabase.test";
 const STORAGE_KEY = "sb-e2e-auth-token"; // supabase-js: sb-<first host label>-auth-token
 
+// How long the test waits for things, in milliseconds.
+const SERVER_START_TIMEOUT_MS = 60_000;
+const SERVER_POLL_INTERVAL_MS = 250;
+const PROFILE_LOAD_TIMEOUT_MS = 15_000;
+const STREAK_TIMEOUT_MS = 3_000;
+const TOKEN_LIFETIME_SECONDS = 3600;
+
 const USER_ID = "00000000-0000-0000-0000-000000000001";
 const USERNAME = "e2e_user";
 
@@ -59,7 +66,7 @@ const FAKE_TOKENS = {
   access_token: "e2e.access.token",
   refresh_token: "e2e-refresh",
   token_type: "bearer",
-  expires_in: 3600,
+  expires_in: TOKEN_LIFETIME_SECONDS,
 };
 
 const PROFILE = {
@@ -94,7 +101,7 @@ function replyWithJson(route, status, body) {
 let server;
 let browser;
 
-async function waitForServer(url, timeoutMs = 60_000) {
+async function waitForServer(url, timeoutMs = SERVER_START_TIMEOUT_MS) {
   const startedAt = Date.now();
   while (Date.now() - startedAt < timeoutMs) {
     try {
@@ -102,7 +109,9 @@ async function waitForServer(url, timeoutMs = 60_000) {
     } catch {
       /* not up yet */
     }
-    await new Promise((resolveDelay) => setTimeout(resolveDelay, 250));
+    await new Promise((resolveDelay) =>
+      setTimeout(resolveDelay, SERVER_POLL_INTERVAL_MS),
+    );
   }
   throw new Error(`Vite dev server did not start on ${url}`);
 }
@@ -204,11 +213,11 @@ describe("profile page", () => {
       // If this fails, the setup is broken, not the streak.
       await page
         .getByRole("link", { name: "Edit profile" })
-        .waitFor({ timeout: 15_000 });
+        .waitFor({ timeout: PROFILE_LOAD_TIMEOUT_MS });
 
       // The streak: a "3" in an element with data-testid="streak-current".
       const streak = page.getByTestId("streak-current");
-      await streak.waitFor({ timeout: 3_000 });
+      await streak.waitFor({ timeout: STREAK_TIMEOUT_MS });
       assert.equal(
         (await streak.textContent()).trim(),
         String(STREAKS.current),
