@@ -11,17 +11,15 @@
 
 import { after, before, describe, test } from "node:test";
 import assert from "node:assert/strict";
-import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
-import { dirname, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
-import { chromium } from "../../../Frontend/node_modules/playwright/index.mjs";
+import {
+  SUPABASE_URL,
+  appUrlFor,
+  startE2eEnvironment,
+} from "./helpers/environment.js";
 
-const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
-const FRONTEND = resolve(ROOT, "Frontend");
 const PORT = 5199;
-const APP = `http://127.0.0.1:${PORT}`;
-const SUPABASE = "https://e2e.supabase.test";
+const APP = appUrlFor(PORT);
 const STORAGE_KEY = "sb-e2e-auth-token"; // supabase-js: sb-<first host label>-auth-token
 
 const BREACHED = "Password123!"; // satisfies the client policy, but is in HIBP
@@ -29,51 +27,14 @@ const CLEAN = "Zq7!correct-horse-battery-staple";
 
 const sha1 = (s) => createHash("sha1").update(s).digest("hex").toUpperCase();
 
-let server;
-let browser;
-
-async function waitForServer(url, ms = 60_000) {
-  const t0 = Date.now();
-  while (Date.now() - t0 < ms) {
-    try {
-      if ((await fetch(url)).ok) return;
-    } catch {
-      /* not up yet */
-    }
-    await new Promise((r) => setTimeout(r, 250));
-  }
-  throw new Error(`Vite dev server did not start on ${url}`);
-}
+let environment;
 
 before(async () => {
-  server = spawn(
-    process.execPath,
-    [
-      resolve(FRONTEND, "node_modules/vite/bin/vite.js"),
-      "--port",
-      String(PORT),
-      "--strictPort",
-      "--host",
-      "127.0.0.1",
-    ],
-    {
-      cwd: FRONTEND,
-      env: {
-        ...process.env,
-        VITE_SUPABASE_URL: SUPABASE,
-        VITE_SUPABASE_PUBLISHABLE_KEY: "e2e-publishable-key",
-        VITE_API_BASE_URL: "",
-      },
-      stdio: "ignore",
-    },
-  );
-  await waitForServer(APP);
-  browser = await chromium.launch();
+  environment = await startE2eEnvironment({ port: PORT });
 });
 
 after(async () => {
-  await browser?.close();
-  server?.kill("SIGTERM");
+  await environment?.stop();
 });
 
 /**
@@ -81,7 +42,7 @@ after(async () => {
  * hibp: "clean" | "breached" | "down" | (fn) — how the range API answers.
  */
 async function newPage({ hibp = "clean", session = false } = {}) {
-  const context = await browser.newContext();
+  const context = await environment.browser.newContext();
   // Pretend the cookie banner was answered (it would cover the form otherwise);
   // "declined" ⇒ the Supabase session lives in sessionStorage.
   await context.addCookies([
@@ -143,7 +104,7 @@ async function newPage({ hibp = "clean", session = false } = {}) {
     });
   });
 
-  await page.route(`${SUPABASE}/**`, async (route) => {
+  await page.route(`${SUPABASE_URL}/**`, async (route) => {
     const req = route.request();
     const { pathname } = new URL(req.url());
     const json = (status, body) =>
