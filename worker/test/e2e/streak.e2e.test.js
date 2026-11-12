@@ -138,9 +138,8 @@ after(async () => {
   server?.kill("SIGTERM");
 });
 
-/** Fresh page, logged in as the made-up user, all network mocked. */
-async function newProfilePage() {
-  const context = await browser.newContext();
+// The browser starts already logged in as the made-up user.
+async function loginAsFakeUser(context) {
   // Pretend the cookie banner was answered; "declined" => the Supabase session lives in sessionStorage.
   await context.addCookies([
     { name: "cookie_consent", value: "declined", url: APP },
@@ -156,30 +155,41 @@ async function newProfilePage() {
     },
     { key: STORAGE_KEY, user: FAKE_USER, tokens: FAKE_TOKENS },
   );
-  const page = await context.newPage();
+}
 
-  // Routes registered later win, so the generic stub goes first and the specific ones after it.
+// The Worker API: everything answers an empty object, except the streaks endpoint.
+async function fakeWorkerApi(page) {
+  // Routes registered later win, so the generic stub goes first and the specific one after it.
   await page.route(`${APP}/api/**`, (route) => replyWithJson(route, 200, {}));
   await page.route(`${APP}/api/insights/streaks/*`, (route) =>
     replyWithJson(route, 200, STREAKS),
   );
+}
 
-  await page.route(`${SUPABASE}/**`, async (route) => {
-    const request = route.request();
-    const { pathname } = new URL(request.url());
-    if (request.method() === "OPTIONS") return replyWithJson(route, 204, {});
-    if (pathname.endsWith("/auth/v1/user"))
-      return replyWithJson(route, 200, FAKE_USER);
-    if (pathname.includes("/auth/v1/token"))
-      return replyWithJson(route, 200, { ...FAKE_TOKENS, user: FAKE_USER });
-    if (pathname.endsWith("/rest/v1/profile"))
-      return replyWithJson(route, 200, PROFILE); // .maybeSingle() expects one object
-    if (pathname.endsWith("/rest/v1/rpc/get_effective_tier"))
-      return replyWithJson(route, 200, "free");
-    if (pathname.includes("/rest/v1/")) return replyWithJson(route, 200, []);
-    return replyWithJson(route, 200, {});
-  });
+// Supabase: the login checks, the profile row, the tier and empty lists for everything else.
+function answerSupabase(route) {
+  const request = route.request();
+  const { pathname } = new URL(request.url());
+  if (request.method() === "OPTIONS") return replyWithJson(route, 204, {});
+  if (pathname.endsWith("/auth/v1/user"))
+    return replyWithJson(route, 200, FAKE_USER);
+  if (pathname.includes("/auth/v1/token"))
+    return replyWithJson(route, 200, { ...FAKE_TOKENS, user: FAKE_USER });
+  if (pathname.endsWith("/rest/v1/profile"))
+    return replyWithJson(route, 200, PROFILE); // .maybeSingle() expects one object
+  if (pathname.endsWith("/rest/v1/rpc/get_effective_tier"))
+    return replyWithJson(route, 200, "free");
+  if (pathname.includes("/rest/v1/")) return replyWithJson(route, 200, []);
+  return replyWithJson(route, 200, {});
+}
 
+/** Fresh page, logged in as the made-up user, all network mocked. */
+async function newProfilePage() {
+  const context = await browser.newContext();
+  await loginAsFakeUser(context);
+  const page = await context.newPage();
+  await fakeWorkerApi(page);
+  await page.route(`${SUPABASE}/**`, answerSupabase);
   return { page, context };
 }
 
